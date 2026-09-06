@@ -136,7 +136,7 @@ private fun Taskbar(desktop: DesktopController, modifier: Modifier = Modifier) {
                 )
             }
             Spacer(Modifier.weight(1f))
-            Text("PocketPC 0.1", fontSize = 12.sp)
+            Text("PocketPC 0.1-B", fontSize = 12.sp)
         }
     }
 }
@@ -218,7 +218,7 @@ private fun DesktopWindowView(
             Box(Modifier.fillMaxSize().padding(16.dp)) {
                 when (window.app) {
                     DesktopApp.FILES -> FilesApp(storageRoot, onChooseStorage)
-                    DesktopApp.TERMINAL -> TerminalPrototype()
+                    DesktopApp.TERMINAL -> TerminalPane()
                     DesktopApp.SYSTEM -> SystemPrototype(storageRoot)
                     DesktopApp.PERFORMANCE -> PerformancePrototype(sample)
                 }
@@ -319,7 +319,7 @@ private fun SystemPrototype(storageRoot: String?) {
         Text("Shell: IMPLEMENTED")
         Text("Janelas: IMPLEMENTED")
         Text("Arquivos SAF: ${if (storageRoot != null) "CONFIGURED" else "IMPLEMENTED / aguardando pasta"}")
-        Text("Telemetry: IMPLEMENTED, app-level")
+        Text("Arquivos SAF: IMPLEMENTED")\n        Text("Terminal sandbox: IMPLEMENTED (não-PTY)")\n        Text("Telemetry: IMPLEMENTED, app-level")
         Text("Linux: PLANNED")
         Text("Windows compatibility: PLANNED")
         Text("vGPU: PLANNED")
