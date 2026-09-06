@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $lockPath = Join-Path $repoRoot "toolchains\android-build-lock.json"
 
-$checks = New-Object System.Collections.Generic.List[object]
+$checks = [System.Collections.Generic.List[object]]::new()
 $context = [ordered]@{}
 
 function Add-Check {
@@ -25,7 +25,7 @@ function Add-Check {
         [string]$Detail
     )
 
-    $checks.Add(
+    [void]$checks.Add(
         [pscustomobject]@{
             id = $Id
             status = $Status
@@ -568,7 +568,7 @@ $record = [ordered]@{
     warnCount = $warnCount
     failCount = $failCount
     context = $context
-    checks = @($checks)
+    checks = $checks.ToArray()
 }
 
 $record |

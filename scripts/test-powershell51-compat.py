@@ -19,6 +19,17 @@ def main() -> int:
 
     for path in ps1_files:
         text = path.read_text(encoding="utf-8")
+
+        if "New-Object System.Collections.Generic.List[object]" in text:
+            failures.append(
+                f"{path.relative_to(ROOT)}: avoid New-Object List[object]; "
+                "PowerShell binder can wrap it incompatibly"
+            )
+        if "@($checks)" in text:
+            failures.append(
+                f"{path.relative_to(ROOT)}: avoid @($checks) over generic List[object]; "
+                "use ToArray()"
+            )
         for number, line in enumerate(text.splitlines(), start=1):
             if LEADING_LOGICAL.search(line):
                 failures.append(
