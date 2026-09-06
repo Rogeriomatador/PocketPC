@@ -1,41 +1,49 @@
-# PocketPC architecture — draft 0.1
+# PocketPC architecture — draft 0.3
 
 ## Layer 0 — Android host
-Provides lifecycle, input, display, storage permissions, power/thermal APIs and Vulkan access.
 
-## Layer 1 — Desktop Shell [IMPLEMENTED baseline]
-Owns desktop composition, taskbar, start menu, window model and adaptive layout.
+Lifecycle, input, displays, SAF, power/thermal APIs, package capabilities and future Vulkan access.
 
-## Layer 2 — Runtime Manager [PLANNED]
-Starts and supervises isolated runtimes. First target: Linux ARM userspace. Later: x86/x64 translation and Wine.
+## Layer 1 — Desktop shell [IMPLEMENTED]
 
-## Layer 3 — Graphics Bridge [PLANNED]
-A backend abstraction, not a fake high-end GPU. Intended responsibilities:
+Compose desktop, taskbar, start menu, windows and app surfaces.
+
+## Layer 2 — Host services [IMPLEMENTED baseline]
+
+- StorageRepository — explicit SAF roots and file launching.
+- LocalShellEngine — /system/bin/sh under the ordinary app UID.
+- TelemetryMonitor — app-scoped UI/process/memory/thermal signals.
+- SystemSnapshot — hardware/OS capabilities visible through Android.
+- PerformanceGovernor — advisory policy only.
+
+## Layer 3 — Runtime manager [DESIGN]
+
+Own versioned runtime manifests, rootfs lifecycle, process supervision, environment variables, mounts exposed by the user, logs and crash cleanup.
+
+First target: Linux ARM userspace. Windows compatibility only comes after the Linux/process substrate is measurable and stable.
+
+## Layer 4 — Graphics bridge [DESIGN]
+
+Responsibilities:
+
 - Vulkan capability discovery;
 - renderer/backend selection;
 - graphics buffer lifecycle;
-- frame pacing telemetry;
+- presentation;
+- timing telemetry;
 - shader/pipeline cache policy;
-- optional scaling pipeline;
-- future DXVK/VKD3D interop where licensing/technical constraints permit.
+- optional scaling;
+- future DXVK/VKD3D interop where technically and legally appropriate.
 
-## Layer 4 — Performance Governor [PLANNED]
-Inputs:
-- frame time/FPS;
-- process CPU time;
-- memory pressure;
-- thermal headroom/status;
-- future GPU timing/counters when exposed by the backend.
+It is not a fake high-end GPU.
 
-Outputs:
-- target FPS;
-- runtime quality hints;
-- resolution scale;
-- background work budget;
-- cache/prewarming policy.
+## Layer 5 — Performance engine [PARTIAL]
+
+The advisory governor exists. Future controlled outputs may include target FPS, resolution scale, background-work budget and cache/prewarm policy, but only for workloads PocketPC actually owns.
 
 ## Non-goals
-- Claiming virtual VRAM creates physical memory.
-- Claiming a virtual GPU creates RTX-class compute power.
-- Injecting into arbitrary third-party Android games.
-- Depending on root for the first app release.
+
+- Inject into arbitrary third-party Android games.
+- Claim system-wide GPU counters unavailable to the app.
+- Depend on root for Alpha releases.
+- Emulate x86 when native ARM software can do the same job more efficiently.

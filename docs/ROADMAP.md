@@ -1,38 +1,63 @@
 # Roadmap
 
-## V0.1-A — Desktop proof
-Compile/device-test the current shell.
+## 0.1.0-alpha3 — current source
 
-## V0.1-B — Real files + terminal
-- Storage Access Framework file browser.
-- PTY-backed local shell.
-- keyboard shortcuts and pointer polish.
+- modular desktop shell;
+- navigable SAF explorer;
+- local Android shell;
+- capability view;
+- richer app-scoped telemetry;
+- advisory thermal/memory governor;
+- unit-test sources;
+- stronger CI and device scripts.
 
-## V0.2 — Linux ARM runtime
-- rootfs manager;
-- isolated userspace process supervisor;
-- package bootstrap;
-- terminal integration;
+Gate: CI build + physical device smoke test.
+
+## 0.1.x — desktop hardening
+
+- responsive window geometry;
+- keyboard shortcuts;
+- pointer polish;
+- window state persistence;
+- better file actions;
+- PTY research;
+- connected-display behavior;
+- crash/log export.
+
+## 0.2 — Linux ARM runtime
+
+- signed/versioned rootfs manifest;
+- runtime installer/validator;
+- process supervisor;
+- shell environment;
+- controlled user storage bridge;
 - benchmark harness.
 
-## V0.3 — Accelerated Linux graphics
+## 0.3 — accelerated Linux graphics
+
 - Vulkan capability probe;
-- graphics bridge prototype;
-- window presentation path;
-- frame-time telemetry.
+- renderer/backend abstraction;
+- buffer/presentation prototype;
+- frame-time telemetry;
+- first accelerated graphical Linux application gate.
 
-## V0.4 — Windows compatibility research
-- Box64/x86-64 translation feasibility;
+## 0.4 — Windows compatibility research
+
+- x86/x64 translation feasibility;
 - Wine bootstrap;
-- DXVK/VKD3D compatibility matrix;
-- legal/license audit for redistribution.
+- DXVK/VKD3D matrix;
+- licensing/redistribution audit;
+- compatibility database.
 
-## V0.5 — Performance engine
-- per-app profiles;
-- frame pacing controller;
+## 0.5 — performance engine
+
+- per-runtime profiles;
+- frame pacing;
 - shader/pipeline cache policy;
-- thermal governor;
-- dynamic resolution experiments.
+- thermal governor connected to controlled workloads;
+- dynamic-resolution experiments;
+- sustained-performance benchmark suite.
 
-## V1.0 gate
-A reproducible benchmark suite must prove the project improves at least one meaningful metric (compatibility, frame-time stability, sustained performance, power, usability) versus an established baseline, without fabricated results.
+## 1.0 gate
+
+PocketPC must prove at least one meaningful advantage — compatibility, usability, frame-time stability, sustained performance or power — through reproducible evidence, not marketing labels.
