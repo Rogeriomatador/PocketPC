@@ -1,25 +1,13 @@
-# CI status — Alpha 12
+# CI status — Alpha 13
 
-Latest observed hosted Android CI still fails before checkout with steps=null and logs_url=null. This is infrastructure/account evidence, not source compilation evidence.
+Hosted Android CI remains blocked before step execution in the latest observed runs.
 
-## Android CI intended checks
+Alpha 13 CI definitions add:
 
-- Android build-lock verification;
-- PRoot policy validation;
-- ELF policy self-test;
-- PRoot approval policy;
-- evidence-bundle verifier self-test;
-- local-build-record verifier self-test;
-- PowerShell parse check for the Windows builder;
-- unit tests;
-- lint;
-- assemble;
-- APK SHA-256/build record;
-- native host inspection;
-- unapproved substrate rejection.
+- Device install record verifier self-test;
+- PowerShell parse check for both Windows build and device-install harnesses;
+- Windows workflow parse/self-test coverage for the device installer.
 
-## Windows Local Build Harness
+A hosted runner cannot perform the real physical-device gate unless an actual authorized Android device is attached.
 
-A separate Windows workflow is defined to exercise the same local builder with JDK 17, SDK components from the lock, Python strict policy mode, record verification against GITHUB_SHA and artifact upload.
-
-The local PowerShell route can also run on a user's own Windows machine without relying on hosted Actions.
+The intended real path is therefore local Windows build -> local ADB physical install -> in-app evidence bundle -> host full-chain verification.

@@ -1,15 +1,13 @@
-# PocketPC architecture — draft 0.12
+# PocketPC architecture — draft 0.13
 
-## Runtime path
+## Build and physical-evidence chain
 
-Android host -> desktop shell -> runtime package pipeline -> guest filesystem -> execution policy -> PRoot supply-chain quarantine -> runtime attestation -> physical device evidence -> evidence bundle.
+android-build-lock -> clean Git commit -> Windows/CI build -> local-build-record -> exact APK -> ADB Device Install Gate -> device-install-record -> installed PocketPC -> Device Evidence Harness -> Evidence Bundle -> full device-chain verifier.
 
-## Build-evidence path — Alpha 12
+Each transition has a distinct evidence label and does not imply the next.
 
-android-build-lock.json -> clean Git commit -> local Windows builder or CI -> policy checks -> unit tests/lint/assemble -> APK structure/signing inspection -> APK SHA-256 -> local-build-record.json -> installed Build Identity -> Device Evidence Bundle.
+## Runtime chain
 
-The local builder and hosted CI are independent producers targeting the same declared toolchain.
+Rootfs staging -> safe extraction -> guest links -> launch policy -> PRoot supply-chain quarantine -> artifact attestation -> future executor.
 
-Neither path can approve PRoot or enable Linux execution.
-
-The reviewed PRoot executor, PTY/Linux graphics and vGPU remain later layers.
+PRoot approval and Linux execution remain independent from the build/device-install chain.

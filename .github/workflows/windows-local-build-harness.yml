@@ -47,6 +47,17 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Parse Device Install harness
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path "scripts/install-device-windows.ps1"), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -ne 0) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+
+      - name: Device install verifier self-test
+        run: python scripts/test-device-install-record-verifier.py
+
       - name: Run PocketPC Windows builder
         shell: pwsh
         run: ./scripts/build-local-windows.ps1 -AndroidSdkRoot "$env:ANDROID_SDK_ROOT" -JavaHome "$env:JAVA_HOME" -RequirePythonPolicyChecks -OutputRoot "$env:RUNNER_TEMP/PocketPC-local-build"
@@ -61,6 +72,6 @@ jobs:
       - name: Upload local build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha12-Windows-local-build
+          name: PocketPC-alpha13-Windows-local-build
           path: ${{ runner.temp }}/PocketPC-local-build/**
           if-no-files-found: error

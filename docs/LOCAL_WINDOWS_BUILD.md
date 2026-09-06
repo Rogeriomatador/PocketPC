@@ -1,61 +1,13 @@
-# Local Windows Build Harness — Alpha 12
+# Local Windows Build Harness — Alpha 13
 
-Status: IMPLEMENTED SOURCE / NOT EXECUTED IN THIS SESSION
+Status: IMPLEMENTED SOURCE / WINDOWS EXECUTION PENDING
 
-## Purpose
+The Alpha 12 builder remains the source-to-APK producer and now emits the Alpha 13 app identity from android-build-lock.json.
 
-GitHub-hosted jobs currently fail before checkout. Alpha 12 defines a local Windows build path with the same declared toolchain and evidence gates.
+Clean trees embed the exact commit. Dirty builds are refused by default and can only proceed as LOCAL_UNPINNED when explicitly allowed.
 
-## Toolchain source of truth
+The builder continues to run policy checks, unit tests, lint, assembleDebug, APK structure checks, PRoot payload rejection, apksigner verification and APK SHA-256 recording.
 
-scripts/build-local-windows.ps1 reads toolchains/android-build-lock.json.
+Alpha 13 adds test-device-install-record-verifier.py to the strict Python policy set so the downstream ADB install record format is checked before local compilation.
 
-It does not auto-select newer Gradle, SDK, NDK or CMake versions.
-
-## Clean-tree rule
-
-Default behavior: a dirty Git tree aborts the build.
-
-With -AllowDirtyTree, the current HEAD is still recorded but the APK embeds LOCAL_UNPINNED and the result is classified LOCAL_BUILD_DIRTY_UNPINNED.
-
-## Java and Android SDK
-
-Java lookup order: explicit -JavaHome, JAVA_HOME, Android Studio JBR in Program Files, Android Studio JBR in LocalAppData.
-
-Android SDK lookup order: explicit -AndroidSdkRoot, ANDROID_SDK_ROOT, ANDROID_HOME, %LOCALAPPDATA%\Android\Sdk.
-
-Missing SDK components fail closed unless -InstallMissingSdkComponents is supplied.
-
-## Gradle bootstrap
-
-The builder downloads the pinned Gradle binary distribution and verifies the lock SHA-256 before extracting it.
-
-## Policy checks
-
-If functional Python 3 is available, the builder runs:
-
-- verify-android-build-lock.py
-- test-proot-artifact-policy.py
-- verify-proot-approval.py
-- test-device-evidence-bundle-verifier.py
-- test-local-build-record-verifier.py
-
-Without Python, the build is classified as LOCAL_BUILD_PYTHON_POLICY_SKIPPED unless -RequirePythonPolicyChecks is used, in which case the build aborts.
-
-## Android build gates
-
-The builder runs :app:testDebugUnitTest, :app:lintDebug and :app:assembleDebug sequentially.
-
-## APK inspection
-
-Required APK entries include the PocketPC native runtime host and policy assets. Unapproved PRoot/talloc/shmem payload is rejected.
-
-apksigner verifies the APK and supplies signing-certificate SHA-256 values.
-
-## Output
-
-The output directory contains the APK, APK SHA-256 sidecar, apk-signing.txt and local-build-record.json.
-
-verify-local-build-record.py independently recomputes and checks those relationships.
-
-A successful run is local/software build evidence, not DEVICE TESTED evidence.
+After a successful build, scripts/install-device-windows.ps1 is the next gate.

@@ -1,17 +1,23 @@
-# Security model — Alpha 12
+# Security model — Alpha 13
 
-Archive validation, guest-link safety, NOFOLLOW cleanup, artifact quarantine, runtime attestation and evidence-bundle integrity remain active.
+Existing archive, guest-filesystem, supply-chain, attestation, build and evidence-bundle boundaries remain active.
 
-## Local build supply chain
+## ADB device boundary
 
-Gradle is accepted only after the pinned distribution SHA-256 matches.
+The device installer refuses emulators by default and requires exactly one authorized device unless an explicit serial is supplied.
 
-Dirty source is refused by default. Explicit dirty builds embed LOCAL_UNPINNED.
+Only SHA-256 of the device serial is persisted.
 
-verify-android-build-lock.py detects configuration drift.
+## APK boundary
 
-The local builder rejects unapproved PRoot/talloc/shmem payload, verifies APK structure and captures signing-certificate hashes.
+The local build record is reverified before adb installation.
 
-The APK receives a SHA-256 sidecar and structured build record; verify-local-build-record.py recomputes and checks them.
+The script validates the local APK hash/bytes, installed package path, installed version and MainActivity launch.
 
-Python policy checks may be skipped only with an explicit lower-confidence classification; strict mode requires them.
+Installed APK byte equality is attempted through adb pull and can be made mandatory.
+
+## Classification boundary
+
+Metadata-only installation and installed-APK-hash verification are different classifications.
+
+Neither classification is DEVICE TESTED application behavior and neither can approve PRoot or enable Linux.

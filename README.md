@@ -1,75 +1,53 @@
-# PocketPC — 0.1.0-alpha12
+# PocketPC — 0.1.0-alpha13
 
 PocketPC is an experimental Android desktop/runtime project with strict evidence labels.
 
-## Alpha 12 — reproducible local Windows build
+## Alpha 13 — Device Install & Evidence Chain
 
-GitHub-hosted Actions is still failing before step 1, so Alpha 12 adds an independent Windows build path without weakening the verification gates.
+Alpha 13 extends the Alpha 12 reproducible Windows build path with a physical-device ADB installation gate.
 
-The local builder:
+The Windows device installer:
 
-- reads toolchains/android-build-lock.json;
-- refuses a dirty Git tree by default;
-- embeds the exact clean Git commit, or LOCAL_UNPINNED only when dirty builds are explicitly allowed;
-- requires the pinned JDK major;
-- discovers the Android SDK and validates required components;
-- can install missing SDK components through sdkmanager;
-- downloads the pinned Gradle binary distribution;
-- verifies its SHA-256 before extraction;
-- runs Python policy checks when Python 3 is available, with an optional strict requirement;
-- runs JVM unit tests, Android lint and assembleDebug;
-- inspects the APK structure;
-- rejects unapproved PRoot/talloc/shmem payload;
-- verifies APK signing through apksigner;
-- records APK SHA-256 and a structured local-build-record.json.
+- re-verifies local-build-record.json before installation;
+- requires functional Python 3 for that verification;
+- selects one authorized ADB device or requires an explicit serial;
+- refuses emulators by default;
+- hashes the device serial instead of storing it raw;
+- requires arm64-v8a for the first physical gate;
+- installs with adb install -r -t --no-incremental;
+- confirms the installed package path;
+- verifies installed versionName/versionCode;
+- launches dev.pocketpc.core/.MainActivity with am start -W -S;
+- records launch output;
+- attempts to pull the installed base APK and compare SHA-256;
+- can require the installed APK hash check;
+- writes device-install-record.json plus SHA-256 sidecar.
 
-## Current build lock
+Two install classifications exist:
 
-- app: dev.pocketpc.core 0.1.0-alpha12 / code 12
-- AGP: 9.4.0
-- Kotlin Compose plugin: 2.3.21
-- Gradle: 9.6.0
-- JDK: 17
-- compileSdk: 37
-- Build Tools: 36.0.0
-- NDK: 29.0.14206865
-- CMake: 3.22.1
+- DEVICE_INSTALL_APK_HASH_VERIFIED
+- DEVICE_INSTALL_METADATA_VERIFIED
 
-Gradle 9.6.0 binary ZIP SHA-256:
+The second classification is used only when package/version/launch passed but Android would not allow the installed APK to be pulled for byte-hash comparison.
 
-bbaeb2fef8710818cf0e261201dab964c572f92b942812df0c3620d62a529a01
+## Full device chain
 
-## Windows build
+scripts/verify-device-chain.py cross-checks:
 
-Basic:
+local build record -> device install record -> exported evidence bundle
 
-powershell -ExecutionPolicy Bypass -File .\scripts\build-local-windows.ps1
+It requires the same clean source commit, app identity, APK SHA-256, signing-certificate identity and device manufacturer/model/API/ABI set.
 
-Strict policy mode:
+## Windows usage
+
+Build first:
 
 powershell -ExecutionPolicy Bypass -File .\scripts\build-local-windows.ps1 -RequirePythonPolicyChecks
 
-Install missing Android SDK components:
+Then install the produced build directory:
 
-powershell -ExecutionPolicy Bypass -File .\scripts\build-local-windows.ps1 -InstallMissingSdkComponents -AcceptAndroidLicenses
+powershell -ExecutionPolicy Bypass -File .\scripts\install-device-windows.ps1 -BuildDir .\local-build\<build-dir>
 
-## Output
+For the strongest install evidence add -RequireInstalledApkHash.
 
-Default output is under ignored local-build/ and contains:
-
-- PocketPC APK;
-- APK SHA-256 sidecar;
-- apk-signing.txt;
-- local-build-record.json.
-
-Verify the result with:
-
-python scripts/verify-local-build-record.py local-build/<build-dir>
-
-An exact source revision can be required with --expected-commit <40-char-sha>.
-
-## Evidence chain
-
-Git commit -> local build record -> APK SHA-256/signing identity -> installed Build Identity -> Device Evidence -> exported Evidence Bundle.
-
-PRoot remains unbundled and unapproved. Linux execution remains disabled.
+PRoot remains unbundled, approval remains false and Linux execution remains disabled.

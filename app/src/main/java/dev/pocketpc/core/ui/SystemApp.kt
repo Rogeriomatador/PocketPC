@@ -68,7 +68,7 @@ fun SystemApp(
         Text("Sistema", style = MaterialTheme.typography.titleMedium)
 
         Section("PocketPC") {
-            ValueRow("Versão", "0.1.0-alpha12")
+            ValueRow("Versão", "0.1.0-alpha13")
             ValueRow("Desktop shell", "IMPLEMENTED")
             ValueRow(
                 "Arquivos SAF",
@@ -81,7 +81,8 @@ fun SystemApp(
             ValueRow("NOFOLLOW cleanup", "IMPLEMENTED")
             ValueRow("Device evidence harness", "IMPLEMENTED / USER-RUN TEST")
             ValueRow("Evidence bundle", "IMPLEMENTED / EXPORTABLE")
-            ValueRow("Local Windows builder", "IMPLEMENTED / NOT EXECUTED HERE")
+            ValueRow("Local Windows builder", "IMPLEMENTED / EXECUTION PENDING")
+            ValueRow("Device install gate", "IMPLEMENTED / ADB EXECUTION PENDING")
             ValueRow(
                 "Native Runtime Host",
                 if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED",

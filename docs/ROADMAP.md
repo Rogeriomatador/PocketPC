@@ -1,29 +1,23 @@
 # Roadmap
 
-## 0.1.0-alpha12 — reproducible local Windows build
+## 0.1.0-alpha13 — Device Install & Evidence Chain
 
-- Alpha 11 evidence bundle and build identity;
-- Android toolchain lock;
-- Gradle distribution SHA-256 pin;
-- clean-tree gate;
-- dirty-tree LOCAL_UNPINNED behavior;
-- JDK/Android SDK discovery;
-- optional sdkmanager installation;
-- Python policy gate;
-- unit test/lint/assemble pipeline;
-- APK structure gate;
-- APK signing identity capture;
-- APK SHA-256;
-- local build record;
-- independent build-record verifier/self-test;
-- Windows Actions harness definition.
+- Alpha 12 reproducible Windows builder;
+- local build re-verification before install;
+- ADB physical-device selection;
+- emulator refusal by default;
+- device serial hashing;
+- arm64-v8a gate;
+- non-incremental APK installation;
+- installed package/version validation;
+- synchronized MainActivity launch;
+- installed APK pull/hash attempt;
+- structured install record + sidecar;
+- install record verifier/self-test;
+- full build/install/evidence cross-verifier.
 
-## Highest-value next step
+## Next real evidence step
 
-Run the Alpha 12 builder on a real Windows development machine.
+Run Alpha 12/13 scripts on the Windows development PC, install the exact APK on a physical ARM64 phone, run the in-app Device Evidence Harness, export the evidence bundle and verify the full chain.
 
-If it succeeds: preserve the build record, APK hash/signing evidence, install that exact APK, run Device Evidence Harness, export the evidence bundle and verify it against the same commit.
-
-If it fails: the first real toolchain/compiler/test error becomes actionable evidence and should be fixed directly.
-
-PRoot integration and Linux execution remain separate later gates.
+PRoot supply-chain work remains separate and Linux execution remains disabled.
