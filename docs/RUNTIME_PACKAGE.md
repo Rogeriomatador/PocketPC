@@ -1,104 +1,106 @@
-# Runtime package format — schemas v1 and v2
+# Runtime package format — Alpha 7
 
-## State
+## Package schemas
 
-- schema v1 staging: **IMPLEMENTED**
-- schema v2 staging: **IMPLEMENTED**
-- schema v2 safe data extraction: **IMPLEMENTED source**
-- Linux execution: **NOT IMPLEMENTED**
+Schema v1 remains staging-only/opaque.
 
-## Schema v1
+Schema v2 declares:
 
-Schema v1 is preserved for compatibility and remains opaque/non-extractable.
+- ARM64 architecture;
+- archive SHA-256 and bytes;
+- tar or tar.gz;
+- extracted byte limit;
+- entry limit;
+- Linux entrypoint;
+- license metadata.
 
-## Schema v2
+## State machine
 
-~~~json
-{
-  "schemaVersion": 2,
-  "id": "debian.bookworm",
-  "name": "Debian Bookworm",
-  "version": "12.9-1",
-  "architecture": "aarch64",
-  "rootfsSha256": "<64 hex characters>",
-  "rootfsBytes": 123456789,
-  "entrypoint": "/bin/sh",
-  "license": "Upstream license/redistribution metadata",
-  "archiveFormat": "tar.gz",
-  "extractedBytesLimit": 2000000000,
-  "entryLimit": 500000
-}
+~~~text
+SOURCE ARCHIVE
+   ↓
+STAGED_VERIFIED
+   ↓
+INSTALLED_DATA
+   ↓
+LINKS_PREPARED
 ~~~
 
-Supported archive formats in v2:
+None of those states means Linux execution is enabled.
 
-- tar
-- tar.gz
+## STAGED_VERIFIED
 
-The manifest must declare both a maximum extracted byte budget and entry-count budget.
+PocketPC:
 
-## Staging
+1. validates manifest;
+2. checks ARM64 support;
+3. reserves free space;
+4. streams archive;
+5. enforces declared archive bytes;
+6. verifies SHA-256;
+7. promotes staging transactionally.
 
-1. select manifest;
-2. select rootfs archive;
-3. validate schema/ABI/path fields;
-4. check free-space reserve;
-5. stream-copy archive;
-6. enforce declared archive bytes;
-7. verify SHA-256;
-8. write VERIFIED metadata;
-9. transactionally promote to STAGED_VERIFIED.
+## INSTALLED_DATA
 
-## Installation as data
+SafeTarExtractor:
 
-For schema v2 only:
+- validates TAR checksum;
+- supports bounded PAX/GNU long-name headers;
+- rejects absolute/dot-dot paths;
+- rejects duplicate/special entries;
+- enforces byte/entry/path/header limits;
+- writes regular files/directories only;
+- stores symlink/hardlink information in rootfs.metadata.tsv.
 
-1. re-audit archive SHA-256;
-2. reserve space according to extractedBytesLimit;
-3. create temporary install transaction;
-4. stream TAR or TAR.GZ through SafeTarExtractor;
-5. validate every TAR header checksum;
-6. reject absolute/dot-dot paths;
-7. reject duplicate entries;
-8. reject device/FIFO/special types;
-9. enforce byte/entry/path/header limits;
-10. write regular files/directories under rootfs-data;
-11. record symlink/hardlink semantics in rootfs.metadata.tsv;
-12. **do not create Android filesystem links**;
-13. write INSTALL_VERIFIED;
-14. transactionally promote to INSTALLED_DATA.
+INSTALL_VERIFIED records that links were not materialized during extraction.
 
-## Why links are metadata
+## LINKS_PREPARED
 
-Creating guest symlinks directly inside Android app storage creates cleanup/traversal hazards, especially for absolute symlink targets. Alpha 5 therefore records guest link semantics without materializing them.
+Alpha 7 adds a separate link transaction.
 
-Before Linux execution, a substrate-aware link strategy must be designed and tested.
+RootfsLinkManager:
 
-## Metadata line format
+- validates metadata and link count;
+- recovers an interrupted previous link attempt;
+- resolves hardlink chains and rejects cycles;
+- validates guest symlink resolution;
+- hashes metadata;
+- creates hardlinks;
+- creates symlinks;
+- writes LINKS_PREPARED;
+- verifies target text/inode identity.
 
-Each rootfs.metadata.tsv line contains:
+The split is intentional: no archive write occurs after guest links exist.
+
+## Metadata format
+
+Each line:
 
 ~~~text
 TYPE MODE UID GID SIZE MTIME BASE64URL_PATH BASE64URL_TARGET
 ~~~
 
-TYPE:
+Types:
 
 - F regular file
 - D directory
-- S symlink metadata
-- H hardlink metadata
+- S symlink
+- H hardlink
 
-This metadata is guest information. Alpha 5 does not claim Android applies guest ownership/modes.
+## Cleanup
 
-## Limits
+Installed rootfs trees may contain links after LINKS_PREPARED.
 
-Current hard ceilings include:
+They must be removed with SafeTreeOps.deleteNoFollow, not generic recursive traversal.
 
-- rootfs archive: 16 GiB;
-- extracted data budget: 64 GiB;
-- entry count: 2,000,000;
-- path bytes: 4096 in the extractor default;
-- extended TAR header: 1 MiB default.
+## Launch boundary
 
-A package can set lower limits in its v2 manifest.
+RuntimeLaunchPlanner requires:
+
+- valid metadata;
+- LINKS_PREPARED when links exist;
+- link verification;
+- guest-aware entrypoint resolution;
+- resolved regular file.
+
+It still adds EXECUTOR_NOT_IMPLEMENTED.

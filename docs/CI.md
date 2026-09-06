@@ -1,51 +1,39 @@
-# CI status and recovery — Alpha 6
+# CI status — Alpha 7
 
-## Android CI status
+## Current evidence
 
-GitHub-hosted Android runs continue to fail before the first declared workflow step. Jobs report steps=null and logs_url=null.
+At commit 35b814f45818b75d7a16651da3f21d7dc468eb9a:
 
-Classification: CI RUNNER/ACCOUNT/INFRA UNRESOLVED.
+- Android CI run #16: failure before steps;
+- PRoot Source Audit run #1: failure before steps;
+- both jobs expose steps=null;
+- both jobs expose logs_url=null.
 
-Tracked in Issue #3.
+No checkout, Python, Gradle, NDK or tests ran.
 
-## Android CI intends to test
+Classification: **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**.
 
-1. checkout;
-2. JDK 17;
-3. Android SDK API 37 / Build Tools 36.0.0;
-4. Android NDK r29;
-5. CMake 3.22.1;
-6. Gradle 9.6.0;
-7. unit tests;
-8. Android lint;
-9. debug APK;
-10. packaged PocketPC native runtime host;
-11. rejection of unreviewed PRoot libraries;
-12. report/APK upload.
+## Alpha 7 Android test scope
 
-## PRoot Source Audit workflow
+When the runner starts, the existing unit-test task will include:
 
-A separate workflow is defined at .github/workflows/proot-source-audit.yml.
+- TAR security tests;
+- manifest v2 tests;
+- bind/environment tests;
+- process supervisor tests;
+- guest path resolver tests;
+- symlink/hardlink preparation tests;
+- interrupted link preparation recovery;
+- NOFOLLOW deletion external-target preservation.
 
-It triggers when the supply-chain lock/auditor changes and is designed to:
+## Separate PRoot source audit
 
-1. checkout;
-2. use Python 3.13;
-3. read third_party/proot/LOCK.json;
-4. fetch recipes at the exact pinned termux-packages commit;
-5. check recipe assertions;
-6. independently download each pinned source archive;
-7. recalculate SHA-256;
-8. fail on any mismatch.
+The PRoot Source Audit workflow independently downloads pinned source archives and recalculates SHA-256. It still has no execution evidence because its first run also failed before step 1.
 
-It does not build or bundle binaries.
+## Evidence rules
 
-Until it passes, the archive hashes retain SOURCE_METADATA_LOCKED rather than independently verified evidence.
-
-## Evidence classification
-
-- failure before checkout -> infrastructure/account;
-- source-audit passes -> pinned source archives independently hash-verified;
-- compiler/Gradle reached -> source/build evidence exists;
-- APK assembled -> CI VALIDATED build only;
-- physical install/run -> DEVICE TEST required.
+- failure before checkout -> infrastructure only;
+- unit tests pass -> CI validation for pure/JVM logic;
+- APK assembles -> CI VALIDATED build;
+- links work on phone -> DEVICE TESTED guest filesystem;
+- PRoot command works on phone -> DEVICE TESTED Linux execution.

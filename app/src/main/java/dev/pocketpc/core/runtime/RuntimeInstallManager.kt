@@ -13,6 +13,7 @@ data class InstalledRuntime(
     val rootfsData: File,
     val metadataFile: File,
     val stats: ExtractionStats,
+    val linksPrepared: Boolean = false,
 )
 
 class RuntimeInstallManager(
@@ -90,7 +91,7 @@ class RuntimeInstallManager(
                     loadInstalled(targetDir)
                         ?: error("Instalação promovida, mas metadados não puderam ser recarregados.")
                 } catch (error: Throwable) {
-                    tempDir.deleteRecursively()
+                    SafeTreeOps.deleteNoFollow(tempDir)
                     throw error
                 }
             }
@@ -110,7 +111,7 @@ class RuntimeInstallManager(
         val root = installRoot.canonicalFile
         val target = runtime.directory.canonicalFile
         if (!target.path.startsWith(root.path + File.separator)) return@withContext false
-        target.deleteRecursively()
+        SafeTreeOps.deleteNoFollow(target)
     }
 
     private fun loadInstalled(directory: File): InstalledRuntime? = runCatching {
@@ -154,7 +155,14 @@ class RuntimeInstallManager(
             extractedBytes = values["extractedBytes"]?.toLongOrNull() ?: return@runCatching null,
         )
 
-        InstalledRuntime(manifest, directory, rootfsData, metadata, stats)
+        InstalledRuntime(
+            manifest = manifest,
+            directory = directory,
+            rootfsData = rootfsData,
+            metadataFile = metadata,
+            stats = stats,
+            linksPrepared = File(directory, RootfsLinkManager.MARKER_NAME).isFile,
+        )
     }.getOrNull()
 
     private fun requireInstallSpace(manifest: RuntimeManifest) {
@@ -184,7 +192,7 @@ class RuntimeInstallManager(
             require(tempDir.renameTo(targetDir)) {
                 "Não foi possível promover instalação."
             }
-            if (oldMoved) backup.deleteRecursively()
+            if (oldMoved) SafeTreeOps.deleteNoFollow(backup)
         } catch (error: Throwable) {
             if (!targetDir.exists() && oldMoved) backup.renameTo(targetDir)
             throw error
@@ -195,7 +203,7 @@ class RuntimeInstallManager(
         for (idDir in installRoot.listFiles().orEmpty().filter(File::isDirectory)) {
             for (child in idDir.listFiles().orEmpty()) {
                 if (child.isDirectory && child.name.startsWith(".tmp-install-")) {
-                    child.deleteRecursively()
+                    SafeTreeOps.deleteNoFollow(child)
                 }
             }
 
@@ -206,12 +214,12 @@ class RuntimeInstallManager(
                 }.getOrNull()
 
                 if (manifest == null || manifest.id != idDir.name) {
-                    backup.deleteRecursively()
+                    SafeTreeOps.deleteNoFollow(backup)
                     continue
                 }
                 val target = File(idDir, manifest.version)
                 if (target.exists()) {
-                    backup.deleteRecursively()
+                    SafeTreeOps.deleteNoFollow(backup)
                 } else {
                     backup.renameTo(target)
                 }

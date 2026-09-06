@@ -1,62 +1,52 @@
 # Roadmap
 
-## 0.1.0-alpha6 — execution foundation
+## 0.1.0-alpha7 — guest filesystem semantics
 
-Implemented source:
+- Alpha 6 execution foundation;
+- metadata parser;
+- guest path resolver;
+- symlink/hardlink planning;
+- transactional link preparation/recovery;
+- hardlink inode verification;
+- metadata hash-bound link marker;
+- NOFOLLOW cleanup;
+- guest-aware entrypoint resolution;
+- Runtimes UI link preparation/verification.
 
-- Alpha 5 safe rootfs data installation;
-- structured bind policy;
-- minimal environment;
-- PRoot argv planner;
-- PROOT_LOADER packaging alias contract;
-- read-only bind fail-closed blocker;
-- one-shot process supervisor;
-- executor explicitly disabled;
-- PRoot/libandroid-shmem/libtalloc source metadata lock;
-- independent source archive audit script/workflow definition.
+## Alpha 7 device gate
 
-## Supply-chain gate
+- build APK;
+- install on ARM64 Android;
+- prepare a controlled rootfs with relative and absolute symlinks;
+- verify hardlinks;
+- remove runtime and prove external symlink target survives;
+- export logs.
 
-Pinned recipe authority:
-termux/termux-packages@32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
+## Next — PRoot artifact build gate
 
-Pinned baseline:
+- independently audit source archives;
+- document ARM64 build adaptation;
+- produce quarantined artifacts;
+- audit ELF type/machine/dependencies/RPATH;
+- record SHA-256;
+- license/notice/source-distribution package;
+- do not enable executor yet.
 
-- PRoot 5.1.107.92
-- libandroid-shmem 0.7
-- libtalloc 2.4.3
+## 0.2 — first one-shot Linux command
 
-Next evidence step: independently download/recalculate all three archive hashes with scripts/audit-proot-sources.py.
-
-## Next — substrate build audit
-
-- document exact ARM64 PRoot build adaptation;
-- package proot as libproot.so;
-- package upstream loader as libproot_loader.so;
-- record produced artifact SHA-256;
-- dynamic dependency/linker test;
-- full GPL/BSD redistribution compliance;
-- keep executor disabled.
-
-## 0.2 — first Linux ARM smoke
-
-Only after all preceding gates:
-
-- resolve guest link semantics;
-- enable an allowlisted non-interactive command path;
-- invoke guest /bin/sh through reviewed PRoot;
-- capture exit/logs;
-- deterministic stop/cleanup;
+- reviewed substrate packaged;
+- explicit executor feature gate;
+- /bin/sh non-interactive smoke;
+- bounded logs/timeout;
+- process cleanup;
 - physical-device evidence.
 
 ## 0.2.x — interactive Linux
 
 - PTY;
-- terminal resize;
-- signals;
-- process-tree handling;
-- package/bootstrap;
-- user storage bridge.
+- resize/signals;
+- process-tree lifecycle;
+- package/bootstrap.
 
 ## 0.3 — graphics
 
@@ -68,9 +58,4 @@ Only after all preceding gates:
 
 - x86/x64 translation;
 - Wine;
-- DXVK/VKD3D;
-- compatibility database.
-
-## 0.5 — measured performance engine
-
-No optimization claim without reproducible A/B evidence.
+- DXVK/VKD3D.

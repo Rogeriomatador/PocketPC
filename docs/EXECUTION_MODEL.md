@@ -1,62 +1,56 @@
-# Execution model — Alpha 6
+# Execution model — Alpha 7
 
-Status: **IMPLEMENTED foundation / execution disabled**
+Status: **execution foundation implemented / executor disabled**
 
-## Bind model
+## Pre-execution filesystem gates
 
-PocketPC represents mounts as structured RuntimeBindSpec values:
+Before PRoot can be considered:
 
-- hostPath
-- guestPath
-- readOnly
-- purpose
-- authority
+1. archive must be STAGED_VERIFIED;
+2. rootfs must be INSTALLED_DATA;
+3. guest links must be LINKS_PREPARED when required;
+4. link marker/hash must verify;
+5. manifest entrypoint must resolve through guest symlink semantics to a regular file.
 
-Validation includes:
+## Guest-aware entrypoint resolution
 
-- host canonical path under an allowed app-owned root;
-- normalized absolute guest path;
-- dot-dot rejection;
-- duplicate guest mount rejection;
-- reserved guest paths;
-- PRoot syntax character rejection.
+PocketPC does not use Android host canonical symlink resolution for Linux entrypoints.
 
-Base system binds:
+Example:
 
-- app-private runtime home -> /home/pocket
-- app cache runtime tmp -> /tmp
+~~~text
+bin -> usr/bin
+/bin/sh -> /usr/bin/sh
+~~~
 
-User SAF storage is not directly bind-mounted yet.
+RootfsGuestResolver resolves the guest path logically from rootfs metadata.
 
-### Read-only behavior
+This prevents an absolute guest link from accidentally being interpreted as an Android host path during launch checks.
 
-Alpha 6 does not claim a proven read-only PRoot bind mode. If readOnly=true is requested, ProotInvocationPlanner adds READ_ONLY_BIND_UNIMPLEMENTED and does not emit a candidate argv.
+## Bind policy
+
+Structured RuntimeBindSpec values are validated against app-owned host roots.
+
+Current base binds:
+
+- runtime home -> /home/pocket
+- runtime tmp -> /tmp
+
+User binds cannot override reserved system paths.
+
+readOnly=true remains fail-closed with READ_ONLY_BIND_UNIMPLEMENTED.
 
 ## Environment
 
-RuntimeEnvironment creates the guest baseline:
+Whitelisted baseline plus:
 
-- HOME
-- USER
-- LOGNAME
-- SHELL
-- PATH
-- TMPDIR
-- LANG
-- LC_ALL
-- TERM
+~~~text
+PROOT_LOADER=<nativeLibraryDir>/libproot_loader.so
+~~~
 
-For the proposed PRoot substrate it additionally pins:
+## PRoot candidate argv
 
-- PROOT_LOADER=<nativeLibraryDir>/libproot_loader.so
-
-The loader alias is a PocketPC packaging adaptation of upstream PRoot's unbundled ARM64 loader.
-
-## PRoot argv planning
-
-ProotInvocationPlanner builds a List<String>, not a shell string.
-
-Candidate shape:
+Built as List<String>, never a host shell string.
 
 ~~~text
 <nativeLibraryDir>/libproot.so
@@ -65,40 +59,37 @@ Candidate shape:
 -w /home/pocket
 -b <host-home>:/home/pocket!
 -b <host-tmp>:/tmp!
-/bin/sh
+<guest-entrypoint>
 ~~~
 
-The exclamation suffix is PRoot's no-dereference form for the guest bind destination. It is not being treated as a read-only flag.
+Even a valid candidate remains blocked by EXECUTOR_NOT_ENABLED / EXECUTOR_NOT_IMPLEMENTED.
 
-Even a valid candidate plan receives EXECUTOR_NOT_ENABLED and reports ready=false.
+## Supervisor
 
-## Process supervisor
-
-RuntimeProcessSupervisor provides bounded one-shot process execution:
+RuntimeProcessSupervisor provides the bounded one-shot host-process primitive:
 
 - one active process;
-- explicit argv;
-- cleared then explicitly populated environment;
-- merged stdout/stderr;
-- continuous pipe drain;
-- retained-output cap;
+- explicit environment;
+- merged/drained output;
+- output cap;
 - timeout;
-- destroy/force-destroy fallback.
+- destroy/force destroy.
 
-It is not yet wired to PRoot and is not a PTY.
+It is not wired to PRoot yet.
 
-## Supply-chain boundary
+## Supply chain
 
-third_party/proot/LOCK.json pins source metadata. scripts/audit-proot-sources.py independently downloads and hashes those sources when network access exists.
+PRoot source metadata is pinned but binaries are not bundled.
 
-No PRoot binary is bundled yet.
+Android CI rejects unreviewed PRoot artifacts in both app/src and the built APK.
 
-## Remaining blockers
+## Next executor gate
 
-- source archive independent audit not yet run in CI;
-- PRoot build/artifact audit incomplete;
-- guest links are metadata only;
-- executor intentionally disabled;
-- no physical-device proof;
-- no PTY;
-- process-tree kill semantics not device validated.
+Executor enablement requires:
+
+- source audit;
+- artifact build/audit;
+- licensing package;
+- Android link behavior device test;
+- PRoot loader/device test;
+- process cleanup test.

@@ -34,7 +34,12 @@ jobs:
 
       - name: Install Android SDK + NDK
         run: |
-          sdkmanager             "platform-tools"             "platforms;android-37"             "build-tools;36.0.0"             "ndk;29.0.14206865"             "cmake;3.22.1"
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-37" \
+            "build-tools;36.0.0" \
+            "ndk;29.0.14206865" \
+            "cmake;3.22.1"
 
       - name: Set up Gradle 9.6.0
         uses: gradle/actions/setup-gradle@v4
@@ -47,6 +52,19 @@ jobs:
           gradle --version
           sdkmanager --list_installed | head -120
 
+      - name: Reject unreviewed PRoot source binaries
+        run: |
+          matches="$(find app/src -type f \( \
+            -name 'libproot*.so' -o \
+            -name 'libtalloc.so' -o \
+            -name 'libandroid-shmem.so' \
+          \) -print)"
+          if [ -n "$matches" ]; then
+            echo "Unreviewed PRoot substrate files are not allowed yet:" >&2
+            echo "$matches" >&2
+            exit 1
+          fi
+
       - name: Unit tests
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
 
@@ -58,13 +76,22 @@ jobs:
 
       - name: Inspect packaged native runtime host
         run: |
-          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E 'lib/(arm64-v8a|x86_64)/libpocketpc_runtime\.so'
+          unzip -l app/build/outputs/apk/debug/app-debug.apk |
+            grep -E 'lib/(arm64-v8a|x86_64)/libpocketpc_runtime\.so'
+
+      - name: Reject unreviewed PRoot APK payload
+        run: |
+          if unzip -l app/build/outputs/apk/debug/app-debug.apk |
+            grep -E 'libproot(_loader)?\.so|libtalloc\.so|libandroid-shmem\.so'; then
+            echo "PRoot substrate binaries are not approved for APK bundling yet." >&2
+            exit 1
+          fi
 
       - name: Upload test and lint reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha6-reports
+          name: PocketPC-alpha7-reports
           path: |
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.*
@@ -74,6 +101,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha6-debug
+          name: PocketPC-v0.1-alpha7-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

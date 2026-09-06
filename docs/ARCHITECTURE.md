@@ -1,44 +1,73 @@
-# PocketPC architecture — draft 0.6
+# PocketPC architecture — draft 0.7
 
-## Android host
+## Layer 0 — Android host
 
-Lifecycle, input, SAF, storage, thermal/memory APIs, NDK and Vulkan.
+Lifecycle, SAF, storage, input, thermal/memory APIs, NDK and Vulkan.
 
-## Desktop shell
+## Layer 1 — desktop shell
 
 Files, Terminal, Runtimes, System, Performance.
 
-## Runtime package pipeline
+## Layer 2 — runtime package pipeline
 
-manifest -> STAGED_VERIFIED -> safe extraction -> INSTALLED_DATA
+~~~text
+manifest/archive
+   ↓
+STAGED_VERIFIED
+   ↓
+safe extraction
+   ↓
+INSTALLED_DATA
+~~~
 
-## Execution policy layer [IMPLEMENTED foundation]
+## Layer 3 — guest filesystem [Alpha 7]
+
+- RootfsMetadata
+- GuestPath
+- RootfsGuestResolver
+- RootfsLinkManager
+- SafeTreeOps
+
+State transition:
+
+~~~text
+INSTALLED_DATA
+   ↓
+LINKS_PREPARED
+~~~
+
+Extraction and link materialization are intentionally separate transactions.
+
+## Layer 4 — execution policy foundation
 
 - RuntimeBindPolicy
-- RuntimeBindPlanner
 - RuntimeEnvironment
 - ProotInvocationPlanner
 - RuntimeProcessSupervisor
+- RuntimeLaunchPlanner
 
-The layer can validate and construct a candidate execution request, but EXECUTOR_NOT_ENABLED keeps it non-runnable.
+Executor remains disabled.
 
-## Execution substrate [DESIGN]
+## Layer 5 — execution substrate
 
-Future reviewed PRoot components in nativeLibraryDir.
+DESIGN / not bundled:
 
-## Linux services [DESIGN]
+- libproot.so alias
+- libproot_loader.so alias
+- libandroid-shmem.so
+- libtalloc.so
 
-- link semantics
-- process-tree behavior
-- PTY
-- signals
-- package/bootstrap
-- user-storage bridge
+## Layer 6 — Linux runtime services
 
-## Graphics [G0 source implemented]
+Future:
 
-Native Vulkan capability probe exists. Controlled renderer is next.
+- reviewed PRoot executor;
+- proc/dev/sys policy;
+- PTY/signals;
+- process tree lifecycle;
+- package/bootstrap;
+- user-storage bridge.
 
-## Performance [PARTIAL]
+## Layer 7 — graphics
 
-Advisory governor only until PocketPC owns a measured runtime/renderer workload.
+Native Vulkan capability probe exists. Controlled renderer remains next after the runtime execution gates.

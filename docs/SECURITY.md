@@ -1,50 +1,54 @@
-# Security model — Alpha 6
+# Security model — Alpha 7
 
-## Existing archive protections
+## Archive boundary
 
-- SHA-256 staging verification;
+- SHA-256 verified archive staging;
 - bounded TAR/TAR.GZ extraction;
-- path traversal rejection;
-- no guest symlink/hardlink materialization;
-- transactional install;
+- absolute/dot-dot path rejection;
+- duplicate/special entry rejection;
+- no links during extraction;
 - size/entry/path/header limits.
 
-## Execution preparation protections
+## Guest link boundary
 
-- no shell-string PRoot invocation;
-- host binds limited to canonical app-owned roots;
-- normalized absolute guest paths;
-- duplicate guest mounts rejected;
-- user binds cannot override reserved system locations;
-- colon/exclamation guest syntax rejected;
-- read-only binds fail closed until their semantics are implemented;
-- minimal whitelisted environment;
-- explicit PROOT_LOADER alias path;
-- inherited process environment cleared;
-- bounded captured output;
-- command timeout and force-kill fallback;
-- only one supervised process at a time;
-- executor remains disabled.
+- links are metadata during extraction;
+- link paths are validated before creation;
+- symlink targets are resolved with guest semantics for validation;
+- hardlink chains are cycle checked;
+- hardlinks require a regular-file base target;
+- metadata SHA-256 is bound to LINKS_PREPARED;
+- interrupted link preparation is recovered before retry;
+- verification checks symlink target text and hardlink identity;
+- launch gate refuses invalid/missing prepared links.
 
-## Supply-chain protections
+## Cleanup boundary
 
-- PRoot/libandroid-shmem/libtalloc source metadata locked to an exact Termux recipe commit;
-- exact upstream PRoot and libandroid-shmem Git tag commits recorded;
-- source archive SHA-256 values pinned;
-- independent source-audit script defined;
-- separate source-audit workflow defined;
-- Android CI rejects unreviewed PRoot-named binaries.
+Installed rootfs cleanup and rollback use SafeTreeOps.deleteNoFollow.
 
-Pinned metadata is not labelled independently verified until the source-audit script successfully recalculates the archive hashes.
+No recursive cleanup is allowed to follow a guest symlink.
 
-## Known open risks
+## Execution boundary
 
-- PRoot child/process-tree termination on Android is not device validated;
-- PTY is not implemented;
-- guest links are metadata only;
-- /proc, /sys and /dev policy is not finalized;
-- user SAF storage has no direct bind bridge;
-- PRoot produced binaries do not yet have PocketPC build hashes;
-- host dynamic-linker behavior for the proposed aliases is not device validated.
+- executor remains disabled;
+- no shell-string command construction;
+- host bind allowlist;
+- read-only binds fail closed;
+- minimal environment;
+- explicit PROOT_LOADER alias;
+- bounded process output and timeout.
 
-No runtime may be labelled EXECUTABLE_LINUX until those gates are addressed with evidence.
+## Supply chain
+
+- PRoot source metadata lock is pinned;
+- independent source audit workflow is defined;
+- no PRoot binaries are bundled;
+- artifact/build/license audit remains Issue #4.
+
+## Remaining high-priority risks
+
+- physical Android link behavior is untested;
+- PRoot execution is untested;
+- process-tree termination is untested;
+- PTY is absent;
+- proc/dev/sys policy is unresolved;
+- absolute guest symlink behavior under the final PRoot build needs device evidence.

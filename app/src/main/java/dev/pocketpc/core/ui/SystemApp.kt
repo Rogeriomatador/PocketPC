@@ -24,12 +24,14 @@ fun SystemApp(
     ) {
         Text("Sistema", style = MaterialTheme.typography.titleMedium)
         Section("PocketPC") {
-            ValueRow("Versão", "0.1.0-alpha6")
+            ValueRow("Versão", "0.1.0-alpha7")
             ValueRow("Desktop shell", "IMPLEMENTED")
             ValueRow("Arquivos SAF", if (storageConfigured) "IMPLEMENTED / CONFIGURED" else "IMPLEMENTED")
             ValueRow("Local Android shell", "IMPLEMENTED")
             ValueRow("Runtime staging", "IMPLEMENTED")
-            ValueRow("Safe rootfs install", "IMPLEMENTED / DATA ONLY")
+            ValueRow("Safe rootfs install", "IMPLEMENTED")
+            ValueRow("Guest link semantics", "IMPLEMENTED / NOT DEVICE VALIDATED")
+            ValueRow("NOFOLLOW cleanup", "IMPLEMENTED")
             ValueRow("Native Runtime Host", if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED")
             ValueRow("Execution substrate", substrate.state)
             ValueRow("Native Vulkan probe", "IMPLEMENTED / NOT DEVICE VALIDATED")

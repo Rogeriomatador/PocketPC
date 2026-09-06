@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.InstalledRuntime
 import dev.pocketpc.core.runtime.NativeHostStatus
+import dev.pocketpc.core.runtime.RootfsLinkManager
 import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimeManifestValidator
 import dev.pocketpc.core.runtime.RuntimePackageManager
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 fun RuntimeApp(
     manager: RuntimePackageManager,
     installer: RuntimeInstallManager,
+    linkManager: RootfsLinkManager,
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
     manifestUri: String?,
@@ -52,13 +54,16 @@ fun RuntimeApp(
                 Text("Execution substrate", style = MaterialTheme.typography.titleSmall)
                 ValueRow("Native host", if (nativeHost.loaded) "LOADED" else "FAILED")
                 ValueRow("Substrate", substrate.state)
-                ValueRow("PRoot components", if (substrate.prootReady) "PRESENT / UNVALIDATED" else "NOT BUNDLED")
+                ValueRow(
+                    "PRoot components",
+                    if (substrate.prootReady) "PRESENT / UNVALIDATED" else "NOT BUNDLED",
+                )
                 Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
                 Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
 
                 if (!substrate.prootReady) {
                     Text(
-                        "Nenhum Linux é marcado como executável: os componentes PRoot/loader ainda não estão empacotados.",
+                        "Nenhum Linux é marcado como executável: PRoot/loader continuam fora do APK.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -128,9 +133,7 @@ fun RuntimeApp(
             }
 
             if (staged.isEmpty()) {
-                item {
-                    Text("Nenhum rootfs em staging.", style = MaterialTheme.typography.bodySmall)
-                }
+                item { Text("Nenhum rootfs em staging.", style = MaterialTheme.typography.bodySmall) }
             }
 
             items(
@@ -147,9 +150,7 @@ fun RuntimeApp(
                             val audit = manager.audit(runtime)
                             status = if (audit.valid) {
                                 "AUDIT_OK: ${runtime.manifest.name} ${runtime.manifest.version}"
-                            } else {
-                                audit.message
-                            }
+                            } else audit.message
                             busy = false
                         }
                     },
@@ -174,7 +175,8 @@ fun RuntimeApp(
                         busy = true
                         scope.launch {
                             val removed = manager.remove(runtime)
-                            status = if (removed) "Staging removido." else "Não foi possível remover staging."
+                            status = if (removed) "Staging removido."
+                            else "Não foi possível remover staging."
                             reload()
                             busy = false
                         }
@@ -184,7 +186,7 @@ fun RuntimeApp(
 
             item {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                Text("INSTALLED_DATA", style = MaterialTheme.typography.titleSmall)
+                Text("INSTALLED_DATA / LINKS_PREPARED", style = MaterialTheme.typography.titleSmall)
             }
 
             if (installed.isEmpty()) {
@@ -204,11 +206,34 @@ fun RuntimeApp(
                     runtime = runtime,
                     enabled = !busy,
                     executionReady = substrate.prootReady,
+                    onPrepareLinks = if (runtime.stats.linksRecorded > 0 && !runtime.linksPrepared) {
+                        {
+                            busy = true
+                            status = "Validando e preparando links Linux…"
+                            scope.launch {
+                                val result = linkManager.prepare(runtime)
+                                status = result.message
+                                reload()
+                                busy = false
+                            }
+                        }
+                    } else null,
+                    onVerifyLinks = if (runtime.linksPrepared) {
+                        {
+                            busy = true
+                            scope.launch {
+                                val result = linkManager.verify(runtime)
+                                status = result.message
+                                reload()
+                                busy = false
+                            }
+                        }
+                    } else null,
                     onRemove = {
                         busy = true
                         scope.launch {
                             val removed = installer.remove(runtime)
-                            status = if (removed) "Instalação de dados removida."
+                            status = if (removed) "Instalação removida com NOFOLLOW."
                             else "Não foi possível remover instalação."
                             reload()
                             busy = false
@@ -257,6 +282,8 @@ private fun InstalledRuntimeCard(
     runtime: InstalledRuntime,
     enabled: Boolean,
     executionReady: Boolean,
+    onPrepareLinks: (() -> Unit)?,
+    onVerifyLinks: (() -> Unit)?,
     onRemove: () -> Unit,
 ) {
     Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
@@ -267,22 +294,32 @@ private fun InstalledRuntimeCard(
             Text("${runtime.manifest.name} ${runtime.manifest.version}")
             Text(
                 "${runtime.stats.entries} entradas • ${runtime.stats.regularFiles} arquivos • " +
-                    "${runtime.stats.linksRecorded} links em metadata",
+                    "${runtime.stats.linksRecorded} links",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text("Extraído: ${formatBytes(runtime.stats.extractedBytes)}", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Links: ${when {
+                    runtime.stats.linksRecorded == 0 -> "NÃO NECESSÁRIOS"
+                    runtime.linksPrepared -> "LINKS_PREPARED"
+                    else -> "METADATA_ONLY"
+                }}",
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                "Extraído: ${formatBytes(runtime.stats.extractedBytes)}",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(
-                "Links materializados: NÃO",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(
-                "Execução Linux: ${if (executionReady) "SUBSTRATE PRESENT / AINDA NÃO INTEGRADO" else "BLOQUEADA"}",
+                "Execução Linux: ${if (executionReady) "SUBSTRATE PRESENT / EXECUTOR DESLIGADO" else "BLOQUEADA"}",
                 style = MaterialTheme.typography.labelSmall,
             )
-            TextButton(onClick = onRemove, enabled = enabled) { Text("Remover dados") }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (onPrepareLinks != null) {
+                    TextButton(onClick = onPrepareLinks, enabled = enabled) { Text("Preparar links") }
+                }
+                if (onVerifyLinks != null) {
+                    TextButton(onClick = onVerifyLinks, enabled = enabled) { Text("Verificar links") }
+                }
+                TextButton(onClick = onRemove, enabled = enabled) { Text("Remover") }
+            }
         }
     }
 }
