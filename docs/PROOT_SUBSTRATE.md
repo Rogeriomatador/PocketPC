@@ -1,89 +1,80 @@
-# PRoot execution substrate — Alpha 8
+# PRoot execution substrate — Alpha 9
 
-Status: **SOURCE LOCKED / ARTIFACT QUARANTINE DEFINED / NOT BUNDLED / EXECUTOR DISABLED**
+Status: **SOURCE LOCKED / QUARANTINE DEFINED / RUNTIME APPROVAL DENIED / EXECUTOR DISABLED**
 
-## Source baseline
+## Supply-chain layers
 
-- termux/termux-packages commit: 32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
-- PRoot 5.1.107.92
-- PRoot tag commit: 7266fb3e8516535682f5a9c8f3a7e70f6506eddb
-- libandroid-shmem 0.7
-- libandroid-shmem tag commit: 7f0bd7e25dbdd146265aff7c6a890029e374622d
-- libtalloc 2.4.3
+PocketPC deliberately separates:
 
-## Loader contract
+1. source metadata lock;
+2. independent source archive audit;
+3. quarantine build;
+4. ELF/dependency audit;
+5. Android packaging resolution;
+6. license review;
+7. final artifact lock;
+8. physical-device review;
+9. runtime artifact attestation;
+10. Linux executor enablement.
 
-Upstream PRoot supports PROOT_LOADER.
+Passing one layer never implies the next.
 
-PocketPC's proposed ARM64 alias remains:
+## Raw substrate candidates
+
+Expected raw roles:
+
+- proot executable;
+- ARM64 loader;
+- libandroid-shmem;
+- libtalloc.
+
+## Proposed APK aliases
+
+Fixed candidates:
+
+- libproot.so
+- libproot_loader.so
+- libandroid-shmem.so
+
+talloc alias remains unresolved until the real build/link contract is audited.
+
+All eventual APK aliases must end in .so.
+
+## PROOT_LOADER
+
+The planned environment remains:
 
 ~~~text
 PROOT_LOADER=<nativeLibraryDir>/libproot_loader.so
 ~~~
 
-That alias is not approved yet.
+This remains untested on a physical PocketPC build.
 
-## Artifact quarantine
+## Runtime attestation
 
-Alpha 8 introduces:
+Alpha 9 removes file-presence trust.
 
-- ARTIFACT_CONTRACT.json
-- audit-proot-artifacts.py
-- build-proot-aarch64-quarantine.sh
-- test-proot-artifact-policy.py
-- make-proot-artifact-candidate.py
-- PRoot Quarantine Build workflow
+prootReady requires:
 
-The quarantine build cannot promote files into app/src.
+- PocketPC native host present;
+- approval manifest approved;
+- source lock asset hash match;
+- artifact contract asset hash match;
+- final artifact lock asset hash match;
+- exact native file bytes/SHA-256;
+- execute permission where required;
+- no unexpected sensitive substrate file.
 
-## ELF policy
+Current approval=false, so prootReady remains false.
 
-Required target:
+## Android packaging
 
-- ELF64
-- little endian
-- AArch64
+The artifact audit now reports a dedicated blocker when talloc's filename/SONAME/DT_NEEDED is versioned in a way that cannot simply map to lib/<abi>/lib<name>.so.
 
-Forbidden:
+This blocker must be resolved in the actual build rather than hidden through renaming.
 
-- RPATH
-- RUNPATH
-- glibc-specific DT_NEEDED names
+## Executor
 
-Unknown/non-system dependencies remain review-required.
+Even SUBSTRATE_ARTIFACTS_ATTESTED would not start Linux automatically.
 
-## talloc
-
-The runtime SONAME/filename is not assumed.
-
-The exact build must reveal it through ELF SONAME/DT_NEEDED.
-
-The license is also marked unresolved until the pinned source's own licensing files are audited.
-
-## Runtime readiness
-
-ExecutionSubstrateProbe now separates:
-
-- files present;
-- artifact contract approved.
-
-prootReady requires both.
-
-Artifact approval is hardcoded false in Alpha 8.
-
-## Before approval
-
-Required evidence:
-
-1. source archive independent hash audit;
-2. exact build reproduction;
-3. ELF report;
-4. dependency closure;
-5. artifact SHA-256 lock;
-6. final license/notice/source-distribution plan;
-7. Android packaging test;
-8. physical-device loader test;
-9. guest filesystem device test;
-10. deterministic process cleanup.
-
-Executor enablement remains a later independent gate.
+The separate executor path remains disabled and will require its own reviewed transition.

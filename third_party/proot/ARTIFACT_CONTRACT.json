@@ -25,7 +25,7 @@
       "id": "libandroid-shmem",
       "sourceBasename": "libandroid-shmem.so",
       "role": "dependency",
-      "futurePackagingAlias": null
+      "futurePackagingAlias": "libandroid-shmem.so"
     }
   ],
   "discoveredRoles": [
@@ -56,12 +56,23 @@
       "libandroid.so"
     ]
   },
+  "androidPackagingPolicy": {
+    "nativeLibraryPattern": "lib/<abi>/lib<name>.so",
+    "allApprovedAliasesMustEndWithDotSo": true,
+    "versionedTallocSonameRequiresResolution": true,
+    "versionedTallocDtNeededRequiresResolution": true,
+    "allowedResolutionMethods": [
+      "rebuild with Android-packagable SONAME and matching DT_NEEDED",
+      "remove dynamic talloc dependency through an audited static-link build"
+    ]
+  },
   "promotion": {
     "automatic": false,
     "requiresHumanReview": true,
     "requiresSourceAuditPass": true,
     "requiresLicenseAuditPass": true,
     "requiresArtifactSha256Lock": true,
+    "requiresAndroidPackagingResolution": true,
     "requiresDeviceTest": true
   }
 }

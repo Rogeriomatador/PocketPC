@@ -12,8 +12,8 @@ android {
         applicationId = "dev.pocketpc.core"
         minSdk = 26
         targetSdk = 37
-        versionCode = 8
-        versionName = "0.1.0-alpha8"
+        versionCode = 9
+        versionName = "0.1.0-alpha9"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
@@ -29,6 +29,10 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets.getByName("main").assets.srcDir(
+        rootProject.file("third_party")
+    )
 
     packaging {
         jniLibs {

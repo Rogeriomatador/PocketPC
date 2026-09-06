@@ -1,69 +1,58 @@
 # Roadmap
 
-## 0.1.0-alpha8 — artifact quarantine & ELF gate
+## 0.1.0-alpha9 — runtime artifact attestation
 
-- Alpha 7 guest filesystem semantics;
-- exact PRoot source baseline;
-- talloc license conflict made explicit;
-- AArch64 ELF artifact contract;
-- quarantined build script;
-- ELF/DT_NEEDED/SONAME auditor;
-- deterministic ELF-policy self-test;
-- review-only artifact candidate generator;
-- manual quarantine workflow;
-- prootReady requires explicit artifact approval;
-- artifact approval remains false.
+- Alpha 8 artifact quarantine;
+- Android packaging blocker detection;
+- embedded approval manifest;
+- source/contract/final-lock digest binding;
+- native artifact bytes/SHA-256 verification;
+- approved alias validation;
+- unexpected sensitive artifact rejection;
+- approval policy CI script;
+- policy files packaged as assets;
+- current approval locked false.
 
-## Supply-chain evidence gate
+## Immediate evidence gates
 
-Need:
+1. fix/restore GitHub runner execution;
+2. PRoot Source Audit PASS;
+3. real PRoot Quarantine Build;
+4. inspect real DT_NEEDED/SONAME;
+5. resolve Android talloc packaging if blocked;
+6. finish source-license audit;
+7. create final reviewed ARTIFACTS.lock.json;
+8. physical device package/link test.
 
-- PRoot Source Audit PASS;
-- real quarantine build PASS;
-- ELF report;
-- exact artifact hashes;
-- talloc source-license determination;
-- dependency review.
+## Approval transition
 
-## Physical-device substrate gate
+Only after all evidence exists:
 
-Only after supply-chain review:
+- create APPROVED artifact lock;
+- set approval manifest true;
+- bind all three policy hashes;
+- include exact final artifact aliases/hashes/bytes;
+- update CI from binary rejection to exact-hash allowlist;
+- device-test runtime attestation.
 
-- package reviewed aliases;
-- inspect nativeLibraryDir;
-- test loader path;
-- test symlink/hardlink behavior;
-- test NOFOLLOW cleanup;
-- no Linux executor yet.
+## 0.2 — one-shot Linux executor
 
-## 0.2 — first one-shot Linux command
+Only after Alpha 9 attestation passes on a device:
 
-Only after an explicit reviewed artifact approval commit:
-
-- separate executor feature gate;
-- non-interactive /bin/sh;
-- bounded output;
+- separate executor enable switch;
+- /bin/sh one-shot smoke;
+- bounded logs;
 - timeout;
-- deterministic stop;
-- physical-device evidence.
+- deterministic process cleanup.
 
 ## 0.2.x — interactive Linux
 
-- PTY;
-- resize;
-- signals;
-- process tree;
-- package/bootstrap;
-- user storage bridge.
+PTY, signals, resize, process tree and bootstrap.
 
 ## 0.3 — graphics
 
-- controlled Vulkan renderer;
-- frame timing;
-- Linux graphics bridge.
+Controlled Vulkan renderer and Linux graphics bridge.
 
 ## 0.4 — Windows compatibility
 
-- x86/x64 translation;
-- Wine;
-- DXVK/VKD3D.
+Translation, Wine, DXVK/VKD3D.

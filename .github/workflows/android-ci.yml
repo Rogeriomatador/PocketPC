@@ -54,7 +54,7 @@ jobs:
 
       - name: Reject unreviewed PRoot source binaries
         run: |
-          matches="$(find app/src -type f \( \
+          matches="$(find app/src third_party -type f \( \
             -name 'libproot*.so' -o \
             -name 'libtalloc.so*' -o \
             -name 'libandroid-shmem.so' \
@@ -72,6 +72,9 @@ jobs:
 
       - name: PRoot ELF policy self-test
         run: python3 scripts/test-proot-artifact-policy.py
+
+      - name: Verify PRoot approval policy
+        run: python3 scripts/verify-proot-approval.py
 
       - name: Unit tests
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
@@ -99,7 +102,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha8-reports
+          name: PocketPC-alpha9-reports
           path: |
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.*
@@ -109,6 +112,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha8-debug
+          name: PocketPC-v0.1-alpha9-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

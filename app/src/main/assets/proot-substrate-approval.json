@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "status": "NOT_APPROVED",
+  "approved": false,
+  "sourceLockSha256": "",
+  "artifactContractSha256": "",
+  "artifactLockSha256": "",
+  "artifacts": [],
+  "review": {
+    "sourceAudit": false,
+    "elfAudit": false,
+    "licenseAudit": false,
+    "deviceAudit": false
+  }
+}

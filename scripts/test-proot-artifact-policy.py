@@ -17,22 +17,22 @@ AUDITOR = ROOT / "scripts" / "audit-proot-artifacts.py"
 def minimal_elf(path: pathlib.Path, machine: int = 183) -> None:
     ident = bytearray(16)
     ident[0:4] = b"\x7fELF"
-    ident[4] = 2  # ELFCLASS64
-    ident[5] = 1  # little endian
-    ident[6] = 1  # version
+    ident[4] = 2
+    ident[5] = 1
+    ident[6] = 1
 
     header = bytes(ident) + struct.pack(
         "<HHIQQQIHHHHHH",
-        2,       # ET_EXEC
+        2,
         machine,
-        1,       # EV_CURRENT
-        0,       # entry
-        0,       # phoff
-        0,       # shoff
-        0,       # flags
-        64,      # ehsize
-        0, 0,    # phentsize/phnum
-        0, 0, 0, # shentsize/shnum/shstrndx
+        1,
+        0,
+        0,
+        0,
+        0,
+        64,
+        0, 0,
+        0, 0, 0,
     )
     path.write_bytes(header)
 
@@ -69,16 +69,14 @@ def main() -> int:
         if good.returncode != 0:
             print(good.stdout, file=sys.stderr)
             print(good.stderr, file=sys.stderr)
-            raise SystemExit("valid synthetic AArch64 artifacts did not pass")
+            raise SystemExit("structurally valid AArch64 artifacts did not pass ELF checks")
 
         parsed = json.loads(good_report.read_text(encoding="utf-8"))
-        if parsed["status"] not in {
-            "ELF_VALID_REVIEW_REQUIRED",
-            "ELF_VALID_DEPENDENCIES_REVIEW_REQUIRED",
-        }:
-            raise SystemExit(f"unexpected good status: {parsed['status']}")
+        if parsed["status"] != "ELF_VALID_ANDROID_PACKAGING_BLOCKED":
+            raise SystemExit(f"expected Android packaging blocker, got: {parsed['status']}")
+        if not parsed.get("androidPackagingBlockers"):
+            raise SystemExit("versioned talloc filename did not produce packaging blocker")
 
-        # Replace loader with an x86_64 ELF and require fail-closed behavior.
         minimal_elf(artifacts / "loader", machine=62)
         bad_report = root / "bad.json"
         bad = run_audit(artifacts, bad_report)

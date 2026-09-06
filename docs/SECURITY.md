@@ -1,55 +1,59 @@
-# Security model — Alpha 8
+# Security model — Alpha 9
 
-## Archive and guest-filesystem boundary
+## Archive boundary
 
-Alpha 7 protections remain:
+Strict staged archive integrity, bounded extraction and path validation remain in force.
 
-- strict archive validation;
-- link-free extraction;
-- transactional link preparation;
-- hardlink cycle/inode checks;
-- guest-aware symlink resolution;
-- NOFOLLOW cleanup.
+## Guest filesystem boundary
+
+Links are created only after extraction and validation. Hardlinks are inode verified. Cleanup uses NOFOLLOW traversal.
 
 ## Supply-chain boundary
 
-Alpha 8 adds:
+- exact source pin;
+- archive hash audit;
+- artifact quarantine;
+- ELF architecture/dependency audit;
+- Android packaging blocker detection;
+- no automatic artifact promotion.
 
-- exact source recipe pin;
-- source archive audit script;
-- explicit ELF artifact contract;
-- build quarantine outside app/src;
-- SHA-256 capture;
-- AArch64/ELF checks;
-- DT_NEEDED/SONAME capture;
-- RPATH/RUNPATH rejection;
-- glibc dependency rejection;
-- unresolved dependency review;
-- unresolved talloc-license gate;
-- review-only candidate lock;
-- no automatic promotion.
+## Approval boundary
 
-## Runtime boundary
+Alpha 9 adds a separate approval manifest.
 
-File presence is insufficient.
+A denied approval must contain no stale hashes, artifacts or completed review flags.
 
-ExecutionSubstrateProbe requires an artifact approval flag in addition to component presence.
+A future approved manifest must be cryptographically tied by SHA-256 to:
 
-Alpha 8 keeps that approval false.
+- source lock;
+- artifact contract;
+- final artifact lock.
 
-The Linux executor also remains disabled independently.
+## Native runtime boundary
 
-## CI boundary
+Even an approved manifest is insufficient by itself.
 
-Android CI rejects PRoot/talloc/shmem binaries from source directories and from the final APK until approval.
+PocketPC verifies the actual files in nativeLibraryDir:
 
-A separate manual quarantine workflow may build third-party artifacts only outside the repository tree and uploads reports only.
+- exact names;
+- exact size;
+- exact SHA-256;
+- required execute permission;
+- canonical containment;
+- absence of extra sensitive substrate artifacts.
 
-## Remaining risks
+## Android packaging boundary
 
-- no real PRoot artifact audit has passed;
-- no source audit has run due hosted runner failure;
-- no license package has been reviewed;
-- no device test exists;
-- process tree behavior remains unknown;
-- executor is not enabled.
+Approved aliases must conform to lib*.so packaging names.
+
+Versioned talloc SONAME/DT_NEEDED is treated as a blocker until the build/link contract is resolved.
+
+## Execution boundary
+
+prootReady still does not enable the Linux executor.
+
+The executor remains a separate future control after supply-chain and device evidence.
+
+## CI
+
+CI checks the denied/approved manifest policy and rejects PRoot-related binaries under both app/src and third_party while the current project remains unapproved.

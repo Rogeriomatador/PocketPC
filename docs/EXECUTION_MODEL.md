@@ -1,95 +1,69 @@
-# Execution model — Alpha 7
+# Execution model — Alpha 9
 
-Status: **execution foundation implemented / executor disabled**
+Status: **execution foundation implemented / runtime attestation added / executor disabled**
 
-## Pre-execution filesystem gates
+## Filesystem gates
 
-Before PRoot can be considered:
+1. STAGED_VERIFIED
+2. INSTALLED_DATA
+3. LINKS_PREPARED
+4. guest entrypoint resolved
 
-1. archive must be STAGED_VERIFIED;
-2. rootfs must be INSTALLED_DATA;
-3. guest links must be LINKS_PREPARED when required;
-4. link marker/hash must verify;
-5. manifest entrypoint must resolve through guest symlink semantics to a regular file.
+## Supply-chain gates
 
-## Guest-aware entrypoint resolution
+5. source archive verified
+6. real artifact ELF audit
+7. Android packaging contract resolved
+8. license review
+9. final ARTIFACTS.lock.json
+10. device review
 
-PocketPC does not use Android host canonical symlink resolution for Linux entrypoints.
+## Runtime attestation gates
 
-Example:
+11. embedded approval=true
+12. policy asset digests match
+13. native artifact bytes/hashes match
+14. no unexpected substrate artifact
 
-~~~text
-bin -> usr/bin
-/bin/sh -> /usr/bin/sh
-~~~
-
-RootfsGuestResolver resolves the guest path logically from rootfs metadata.
-
-This prevents an absolute guest link from accidentally being interpreted as an Android host path during launch checks.
-
-## Bind policy
-
-Structured RuntimeBindSpec values are validated against app-owned host roots.
-
-Current base binds:
-
-- runtime home -> /home/pocket
-- runtime tmp -> /tmp
-
-User binds cannot override reserved system paths.
-
-readOnly=true remains fail-closed with READ_ONLY_BIND_UNIMPLEMENTED.
-
-## Environment
-
-Whitelisted baseline plus:
+Only then can:
 
 ~~~text
-PROOT_LOADER=<nativeLibraryDir>/libproot_loader.so
+prootReady=true
 ~~~
 
-## PRoot candidate argv
+## Important separation
 
-Built as List<String>, never a host shell string.
+prootReady means the reviewed substrate is present and attested.
 
-~~~text
-<nativeLibraryDir>/libproot.so
--0
--r <rootfs-data>
--w /home/pocket
--b <host-home>:/home/pocket!
--b <host-tmp>:/tmp!
-<guest-entrypoint>
-~~~
+It does **not** mean Linux execution is enabled.
 
-Even a valid candidate remains blocked by EXECUTOR_NOT_ENABLED / EXECUTOR_NOT_IMPLEMENTED.
+The executor remains blocked separately.
+
+## Bind and environment policy
+
+Existing Alpha 6 rules remain:
+
+- structured argv;
+- host bind allowlist;
+- reserved guest paths;
+- read-only bind fail-closed;
+- minimal environment;
+- explicit PROOT_LOADER.
 
 ## Supervisor
 
-RuntimeProcessSupervisor provides the bounded one-shot host-process primitive:
+The one-shot process supervisor remains foundation only.
 
-- one active process;
-- explicit environment;
-- merged/drained output;
-- output cap;
+No PRoot command is wired to it in Alpha 9.
+
+## Future first executor gate
+
+Requires:
+
+- prootReady on physical device;
+- explicit executor approval;
+- one allowlisted non-interactive guest command;
+- bounded logs;
 - timeout;
-- destroy/force destroy.
-
-It is not wired to PRoot yet.
-
-## Supply chain
-
-PRoot source metadata is pinned but binaries are not bundled.
-
-Android CI rejects unreviewed PRoot artifacts in both app/src and the built APK.
-
-## Next executor gate
-
-Executor enablement requires:
-
-- source audit;
-- artifact build/audit;
-- licensing package;
-- Android link behavior device test;
-- PRoot loader/device test;
-- process cleanup test.
+- deterministic cleanup;
+- evidence attached to an exact commit/APK.

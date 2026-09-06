@@ -1,118 +1,74 @@
-# PRoot artifact quarantine — Alpha 8
+# PRoot artifact quarantine — Alpha 9
 
-Status: **IMPLEMENTED policy / REAL ARTIFACT BUILD NOT YET VALIDATED**
+Status: **IMPLEMENTED POLICY / REAL ARTIFACT BUILD NOT YET VALIDATED**
 
-## Purpose
+## Quarantine principle
 
-A successful build is not sufficient evidence for APK inclusion.
+Produced third-party binaries remain outside app/src and third_party.
 
-Every produced PRoot component must first enter a quarantine directory outside app/src. Nothing in quarantine is treated as approved.
+The manual build pipeline may produce raw artifacts such as:
 
-## Source authority
+- proot
+- loader
+- libandroid-shmem.so
+- libtalloc.so*
 
-The build script refuses a termux-packages checkout unless HEAD is exactly:
+Those are audit inputs only.
 
-~~~text
-32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
-~~~
+## ELF audit
 
-The source archive audit runs before the build.
+The auditor records:
 
-## Quarantine output
-
-The planned ARM64 build extracts raw produced artifacts into:
-
-~~~text
-quarantine/arm64-v8a/
-  proot
-  loader
-  libandroid-shmem.so
-  libtalloc.so*
-~~~
-
-No packaging alias is applied yet.
-
-## ELF contract
-
-ARTIFACT_CONTRACT.json requires:
-
-- ELF64;
-- little endian;
-- EM_AARCH64 / machine 183;
-- ET_EXEC or ET_DYN;
-- no RPATH;
-- no RUNPATH.
-
-It explicitly rejects common glibc dependencies:
-
-- libc.so.6
-- libpthread.so.0
-- librt.so.1
-- libdl.so.2
-- libm.so.6
-- ld-linux-aarch64.so.1
-
-## Dynamic dependency discovery
-
-The auditor records all DT_NEEDED entries and SONAME.
-
-Dependencies not in the Android system allowlist are reported as review-required rather than silently accepted.
-
-This is particularly important for talloc because the final Android SONAME/filename must come from the exact produced ELF.
-
-## Reports
-
-audit-proot-artifacts.py emits a JSON report with:
-
-- file name;
-- file bytes;
 - SHA-256;
 - ELF class/endian/type/machine;
 - DT_NEEDED;
 - SONAME;
-- RPATH;
-- RUNPATH;
-- policy failures;
-- unreviewed dependencies.
+- RPATH/RUNPATH.
 
-make-proot-artifact-candidate.py converts a successful structural report into a review-only candidate.
+It rejects:
 
-The candidate always contains:
+- wrong architecture;
+- invalid ELF type;
+- RPATH/RUNPATH;
+- glibc-style dependencies.
 
-~~~text
-promotion.approved = false
-~~~
+## Android packaging blockers
 
-It cannot enable the runtime.
+A structurally valid ELF may still be blocked for Android packaging.
 
-## Workflow
+Alpha 9 explicitly reports androidPackagingBlockers when, for example:
 
-PRoot Quarantine Build is workflow_dispatch only.
+- raw talloc runtime file is libtalloc.so.2;
+- talloc SONAME is versioned;
+- PRoot or another artifact DT_NEEDED references libtalloc.so.N.
 
-It:
+Android packaging expects native libraries under lib/<abi>/lib<name>.so.
 
-1. checks out PocketPC;
-2. checks out the exact pinned termux-packages commit;
-3. verifies tools;
-4. runs source audit;
-5. builds aarch64 packages inside Termux's Docker flow;
-6. extracts relevant artifacts;
-7. runs ELF audit;
-8. creates a review-only candidate;
-9. uploads JSON reports only;
-10. proves no PRoot binary entered the repository tree.
+Allowed resolution approaches are intentionally narrow:
 
-## Approval boundary
+1. audited rebuild with Android-packagable SONAME and matching DT_NEEDED;
+2. audited build eliminating the dynamic talloc dependency, e.g. an acceptable static-link design.
 
-ExecutionSubstrateProbe contains a separate fail-closed artifact approval flag.
+Renaming a versioned library file without resolving DT_NEEDED is not considered a solution.
 
-File presence plus a good ELF report still does not imply approval.
+## Candidate lock
 
-A future approval commit must cite:
+make-proot-artifact-candidate.py emits schema v2 evidence with:
 
-- source audit evidence;
-- artifact hashes;
-- dependency review;
-- license review;
-- packaging contract;
-- physical-device evidence.
+- source lock hash;
+- artifact contract hash;
+- ELF status;
+- unreviewed dependencies;
+- Android packaging blockers;
+- artifact metadata;
+- unresolved license review;
+- unresolved device review;
+- promotion.approved=false.
+
+Candidate evidence cannot enable runtime execution.
+
+## Final artifact lock
+
+A future reviewed ARTIFACTS.lock.json must be a separate explicit artifact.
+
+Alpha 9 does not generate or approve that final lock automatically.

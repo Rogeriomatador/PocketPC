@@ -1,4 +1,4 @@
-# PocketPC architecture — draft 0.7
+# PocketPC architecture — draft 0.9
 
 ## Layer 0 — Android host
 
@@ -10,64 +10,44 @@ Files, Terminal, Runtimes, System, Performance.
 
 ## Layer 2 — runtime package pipeline
 
-~~~text
-manifest/archive
-   ↓
-STAGED_VERIFIED
-   ↓
-safe extraction
-   ↓
-INSTALLED_DATA
-~~~
+STAGED_VERIFIED -> INSTALLED_DATA.
 
-## Layer 3 — guest filesystem [Alpha 7]
+## Layer 3 — guest filesystem
 
-- RootfsMetadata
-- GuestPath
-- RootfsGuestResolver
-- RootfsLinkManager
-- SafeTreeOps
+INSTALLED_DATA -> LINKS_PREPARED.
 
-State transition:
+Includes metadata parser, guest link resolver, hardlink verification and NOFOLLOW cleanup.
 
-~~~text
-INSTALLED_DATA
-   ↓
-LINKS_PREPARED
-~~~
+## Layer 4 — execution policy
 
-Extraction and link materialization are intentionally separate transactions.
-
-## Layer 4 — execution policy foundation
-
-- RuntimeBindPolicy
-- RuntimeEnvironment
-- ProotInvocationPlanner
-- RuntimeProcessSupervisor
-- RuntimeLaunchPlanner
+Bind policy, environment, PRoot argv planner, process supervisor and launch planner.
 
 Executor remains disabled.
 
-## Layer 5 — execution substrate
+## Layer 5 — substrate supply chain
 
-DESIGN / not bundled:
+- source lock;
+- source archive auditor;
+- ELF artifact contract;
+- quarantine build;
+- ELF/DT_NEEDED/SONAME auditor;
+- Android packaging blocker detection;
+- candidate evidence.
 
-- libproot.so alias
-- libproot_loader.so alias
-- libandroid-shmem.so
-- libtalloc.so
+## Layer 6 — runtime artifact attestation [Alpha 9]
 
-## Layer 6 — Linux runtime services
+- embedded approval manifest;
+- policy asset digest binding;
+- final artifact-lock requirement;
+- nativeLibraryDir byte/hash verification;
+- extra sensitive artifact rejection.
 
-Future:
+prootReady is derived from attestation, not file names.
 
-- reviewed PRoot executor;
-- proc/dev/sys policy;
-- PTY/signals;
-- process tree lifecycle;
-- package/bootstrap;
-- user-storage bridge.
+## Layer 7 — future reviewed PRoot executor
 
-## Layer 7 — graphics
+Not implemented/enabled.
 
-Native Vulkan capability probe exists. Controlled renderer remains next after the runtime execution gates.
+## Layer 8 — graphics
+
+Native Vulkan capability probe exists. Controlled renderer remains future work.

@@ -19,88 +19,135 @@ data class ExecutionSubstrateStatus(
     val components: List<SubstrateComponent>,
     val state: String,
     val artifactContractApproved: Boolean = false,
+    val policyDigestsVerified: Boolean = false,
+    val artifactIntegrityVerified: Boolean = false,
+    val approvalErrors: List<String> = emptyList(),
 )
 
 object ExecutionSubstrateProbe {
-    // This must remain false until an audited artifact lock is committed after
-    // source, ELF, license and physical-device review.
-    private const val ARTIFACT_CONTRACT_APPROVED = false
-
-    private data class RequiredComponent(
-        val fileName: String,
-        val role: String,
-        val executableRequired: Boolean,
-    )
-
-    private val fixedRequired = listOf(
-        RequiredComponent("libproot.so", "proot-executable-alias", true),
-        RequiredComponent("libproot_loader.so", "arm64-loader-alias", true),
-        RequiredComponent("libandroid-shmem.so", "dynamic-dependency", false),
-    )
-
-    private val tallocCandidates = listOf(
-        "libtalloc.so.2",
-        "libtalloc.so",
-    )
-
     fun inspect(context: Context): ExecutionSubstrateStatus {
         val directory = File(context.applicationInfo.nativeLibraryDir ?: "")
         val host = File(directory, "libpocketpc_runtime.so")
-
-        val fixed = fixedRequired.map { required ->
-            inspectFile(directory, required)
-        }
-
-        val tallocFile = tallocCandidates
-            .map { File(directory, it) }
-            .firstOrNull(File::isFile)
-
-        val talloc = SubstrateComponent(
-            fileName = tallocFile?.name ?: "libtalloc.so{SONAME unresolved}",
-            role = "dynamic-dependency-awaiting-ELF-audit",
-            exists = tallocFile?.isFile == true,
-            readable = tallocFile?.canRead() == true,
-            executable = tallocFile?.canExecute() == true,
-            executableRequired = false,
-        )
-
-        val components = fixed + talloc
-        val filesPresent = components.all { component ->
-            component.exists &&
-                component.readable &&
-                (!component.executableRequired || component.executable)
-        }
         val hostReady = host.isFile && host.canRead()
-        val prootReady = filesPresent && ARTIFACT_CONTRACT_APPROVED
+
+        val approvalResult = SubstrateApprovalCodec.read(context)
+        val approval = approvalResult.getOrNull()
+
+        val verification = if (approval != null) {
+            val (policyVerified, policyErrors) =
+                SubstrateApprovalCodec.verifyPolicyDigests(context, approval)
+
+            SubstrateArtifactVerifier.verify(
+                nativeLibraryDir = directory,
+                approval = approval,
+                policyDigestsVerified = policyVerified,
+                policyErrors = policyErrors,
+            )
+        } else {
+            SubstrateApprovalVerification(
+                approvedByManifest = false,
+                policyDigestsVerified = false,
+                integrityVerified = false,
+                state = "APPROVAL_MANIFEST_LOAD_FAILED",
+                errors = listOf(
+                    approvalResult.exceptionOrNull()?.message
+                        ?: "Não foi possível carregar approval manifest."
+                ),
+                artifacts = emptyList(),
+            )
+        }
+
+        val components = if (approval?.approved == true) {
+            approval.artifacts.map { artifact ->
+                inspectFile(
+                    directory = directory,
+                    fileName = artifact.fileName,
+                    role = artifact.role,
+                    executableRequired = artifact.executableRequired,
+                )
+            }
+        } else {
+            inspectUnapprovedCandidates(directory)
+        }
+
+        val prootReady =
+            hostReady &&
+                verification.approvedByManifest &&
+                verification.policyDigestsVerified &&
+                verification.integrityVerified
 
         return ExecutionSubstrateStatus(
             nativeLibraryDir = directory.path,
             packagedHostReady = hostReady,
             prootReady = prootReady,
             components = components,
-            artifactContractApproved = ARTIFACT_CONTRACT_APPROVED,
+            artifactContractApproved = verification.approvedByManifest,
+            policyDigestsVerified = verification.policyDigestsVerified,
+            artifactIntegrityVerified = verification.integrityVerified,
+            approvalErrors = verification.errors,
             state = when {
                 !hostReady -> "HOST_NOT_PACKAGED_OR_NOT_EXTRACTED"
-                !filesPresent -> "PROOT_COMPONENTS_NOT_BUNDLED"
-                !ARTIFACT_CONTRACT_APPROVED ->
-                    "PROOT_COMPONENTS_PRESENT_ARTIFACT_AUDIT_REQUIRED"
-                else -> "PROOT_SUBSTRATE_APPROVED"
+                else -> verification.state
             },
+        )
+    }
+
+    private fun inspectUnapprovedCandidates(
+        directory: File,
+    ): List<SubstrateComponent> {
+        val fixed = listOf(
+            inspectFile(
+                directory,
+                "libproot.so",
+                "proot-candidate",
+                executableRequired = true,
+            ),
+            inspectFile(
+                directory,
+                "libproot_loader.so",
+                "loader64-candidate",
+                executableRequired = true,
+            ),
+            inspectFile(
+                directory,
+                "libandroid-shmem.so",
+                "dependency-candidate",
+                executableRequired = false,
+            ),
+        )
+
+        val talloc = directory.listFiles()
+            .orEmpty()
+            .filter(File::isFile)
+            .sortedBy(File::getName)
+            .firstOrNull { file ->
+                file.name.startsWith("libtalloc") && file.name.contains(".so")
+            }
+
+        return fixed + SubstrateComponent(
+            fileName = talloc?.name ?: "libtalloc{artifact-unresolved}.so",
+            role = "talloc-candidate",
+            exists = talloc != null,
+            readable = talloc?.canRead() == true,
+            executable = talloc?.canExecute() == true,
+            executableRequired = false,
         )
     }
 
     private fun inspectFile(
         directory: File,
-        required: RequiredComponent,
+        fileName: String,
+        role: String,
+        executableRequired: Boolean,
     ): SubstrateComponent {
-        val file = File(directory, required.fileName)
+        val file = File(directory, fileName)
         return SubstrateComponent(
-            fileName = required.fileName,
-            role = required.role,
+            fileName = fileName,
+            role = role,
             exists = file.isFile,
             readable = file.canRead(),
             executable = file.canExecute(),
-            executableRequired = required.executableRequired,
+            executableRequired = executableRequired,
         )
     }
 }

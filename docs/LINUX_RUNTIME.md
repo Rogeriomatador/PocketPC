@@ -1,24 +1,24 @@
-# Linux ARM runtime — Alpha 7
+# Linux ARM runtime — Alpha 9
 
 ## Implemented foundations
 
 - Runtime Manifest v2;
 - ARM64 ABI gate;
-- archive SHA-256 staging;
+- SHA-256 rootfs staging;
 - safe TAR/TAR.GZ extraction;
-- rootfs metadata;
-- transactional INSTALLED_DATA;
-- guest symlink/hardlink semantics source;
+- guest filesystem metadata;
 - transactional LINKS_PREPARED;
+- guest-aware entrypoint resolution;
 - NOFOLLOW cleanup;
-- guest entrypoint resolver;
 - bind/environment policy;
 - PRoot argv planner;
-- one-shot process supervisor foundation;
-- substrate presence probe;
-- PRoot source provenance lock.
+- bounded one-shot process supervisor foundation;
+- source provenance lock;
+- artifact quarantine/ELF policy;
+- Android packaging blocker detection;
+- runtime artifact approval/attestation model.
 
-## Runtime gates
+## Full gate chain
 
 ~~~text
 STAGED_VERIFIED
@@ -29,33 +29,45 @@ LINKS_PREPARED
    ↓
 ENTRYPOINT_RESOLVED
    ↓
-SUBSTRATE_REVIEWED
+SOURCE_VERIFIED
    ↓
-EXECUTOR_ENABLED
+ARTIFACT_ELF_REVIEWED
    ↓
-EXECUTABLE_LINUX
+ANDROID_PACKAGING_RESOLVED
+   ↓
+LICENSE_REVIEWED
+   ↓
+ARTIFACTS_LOCKED
+   ↓
+DEVICE_REVIEWED
+   ↓
+POLICY_DIGESTS_VERIFIED
+   ↓
+NATIVE_ARTIFACTS_ATTESTED
+   ↓
+prootReady
+   ↓
+[EXECUTOR STILL DISABLED]
 ~~~
 
-Current project stops before SUBSTRATE_REVIEWED/EXECUTOR_ENABLED.
+## Current state
 
-## Link behavior
+The project has source/policy implementations for the chain, but does not have real evidence for the later substrate gates.
 
-The rootfs is extracted link-free. Links are materialized later from validated metadata.
+Current embedded approval is false.
 
-This allows common Linux layouts such as bin -> usr/bin while preventing extraction from following that link.
+Therefore prootReady remains false by design.
 
-## First Linux shell gate
+## First shell claim
 
-A /bin/sh claim requires:
+PocketPC may only claim a Linux /bin/sh execution after:
 
-1. exact APK commit;
-2. rootfs archive integrity;
-3. LINKS_PREPARED verification;
-4. guest entrypoint resolution;
-5. independently audited PRoot sources;
-6. reviewed produced PRoot artifacts;
-7. packaged loader contract verified;
-8. process supervisor wired to PRoot;
-9. physical Android command log;
-10. deterministic stop/cleanup;
-11. no root or unrestricted storage permission.
+- an exact APK commit is known;
+- prootReady is true on that exact device/APK;
+- a separate executor gate is explicitly enabled;
+- /bin/sh is launched through the reviewed substrate;
+- output/exit code are captured;
+- timeout/cleanup behavior is demonstrated;
+- no root privilege is used.
+
+Until then Linux execution remains **NOT IMPLEMENTED/NOT DEVICE TESTED**.

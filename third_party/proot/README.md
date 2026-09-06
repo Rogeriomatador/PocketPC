@@ -1,67 +1,75 @@
-# PocketPC PRoot supply-chain lock
+# PocketPC PRoot supply-chain and approval policy
 
-Status: **SOURCE_METADATA_LOCKED / ARTIFACT_AUDIT_REQUIRED / NO BINARIES BUNDLED**
+Status: **SOURCE_METADATA_LOCKED / ARTIFACT_AUDIT_REQUIRED / RUNTIME_APPROVAL=false**
 
-## Authority
+## Source authority
 
 Pinned Termux recipe:
 
-- repository: termux/termux-packages
-- commit: 32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
-- timestamp: 2026-09-06T09:56:57Z
+- termux/termux-packages
+- commit 32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
 
-## Components
+Pinned component baseline:
 
 - PRoot 5.1.107.92
 - libandroid-shmem 0.7
 - libtalloc 2.4.3
 
-The source archive hashes in LOCK.json come from the exact pinned Termux recipes. Independent re-hashing remains a separate gate.
+## License boundary
 
-## License evidence
+talloc remains UNRESOLVED_SOURCE_AUDIT_REQUIRED because recipe/distribution metadata conflict. The pinned source's licensing files are the required authority before redistribution.
 
-PRoot and libandroid-shmem retain their pinned recipe metadata.
+## Artifact quarantine
 
-For talloc, PocketPC now records a conflict rather than claiming a final redistribution license:
+ARTIFACT_CONTRACT.json defines:
 
-- Termux recipe metadata says GPL-3.0.
-- other current distribution/library metadata commonly identifies the talloc library as LGPL-3.0-or-later.
+- AArch64 ELF policy;
+- dependency audit;
+- RPATH/RUNPATH rejection;
+- Android packaging constraints.
 
-Therefore LOCK.json marks talloc as:
+Raw build outputs never become approved merely by passing ELF checks.
+
+## Android packaging boundary
+
+Android's native library path convention requires lib<name>.so aliases.
+
+A raw versioned talloc artifact such as libtalloc.so.2 is not treated as an approved packaging name.
+
+The exact build must either:
+
+- be rebuilt with an audited Android-compatible dynamic-link contract; or
+- remove the dynamic talloc dependency through an audited alternative.
+
+Renaming without resolving DT_NEEDED is not sufficient.
+
+## Final artifact lock
+
+A future approved substrate requires:
 
 ~~~text
-UNRESOLVED_SOURCE_AUDIT_REQUIRED
+third_party/proot/ARTIFACTS.lock.json
 ~~~
 
-The pinned source archive's own licensing files must be inspected before redistribution.
+That file does not exist yet.
 
-## Artifact contract
+It must contain reviewed artifact/dependency/packaging evidence and promotion.approved=true before the embedded runtime approval may change.
 
-ARTIFACT_CONTRACT.json defines the ARM64 quarantine policy.
+## Runtime policy assets
 
-PocketPC must discover from the exact build:
+Gradle packages third_party/ as APK assets for attestation policy binding.
 
-- talloc SONAME;
-- talloc runtime filename;
-- PRoot DT_NEEDED;
-- dependency closure;
-- all produced artifact SHA-256 values.
+A future approval manifest must contain the SHA-256 of:
 
-No packaging filename guess is treated as authoritative.
+- proot/LOCK.json
+- proot/ARTIFACT_CONTRACT.json
+- proot/ARTIFACTS.lock.json
 
-## Proposed aliases
+## Current runtime approval
 
-Only after artifact review may PocketPC consider:
+~~~text
+approved=false
+status=NOT_APPROVED
+~~~
 
-- proot -> libproot.so
-- loader -> libproot_loader.so
-
-PROOT_LOADER would then point to the packaged loader alias.
-
-The talloc filename is deliberately unresolved until ELF audit.
-
-## Fail-closed rule
-
-No third-party PRoot binary is currently committed.
-
-Presence of files in nativeLibraryDir will not make prootReady true unless a separate artifact approval gate is explicitly changed after review.
+No PRoot binary is committed or approved.

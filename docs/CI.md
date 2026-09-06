@@ -1,58 +1,43 @@
-# CI status — Alpha 8
+# CI status — Alpha 9
 
-## Hosted runner status
+## Current hosted-runner evidence
 
-Android CI run #17 for Alpha 7 failed before step 1:
+Android CI #18 and PRoot Source Audit #2:
 
-- steps=null
-- logs_url=null
+- conclusion=failure;
+- steps=null;
+- logs_url=null.
 
-PRoot Source Audit run #1 showed the same behavior.
+No declared workflow step ran.
 
-Classification remains **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**.
+Classification: **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**.
 
-## Android CI Alpha 8 scope
+## Alpha 9 Android CI intended checks
 
-When the runner starts, Android CI is intended to:
-
-1. checkout;
-2. validate PRoot JSON policy files;
-3. run the deterministic ELF-policy self-test;
-4. reject unreviewed PRoot binaries from source;
-5. run JVM unit tests;
-6. lint;
-7. assemble APK;
-8. inspect PocketPC native host;
-9. reject unreviewed PRoot payload in APK;
-10. upload reports/APK.
+- policy JSON syntax;
+- ELF-policy self-test;
+- approval policy validation;
+- no PRoot binaries in app/src or third_party;
+- JVM unit tests including attestation model tests;
+- Android lint;
+- APK assembly;
+- native host packaging;
+- no unapproved PRoot payload in APK.
 
 ## PRoot Source Audit
 
-Still responsible for independent source archive SHA-256 verification.
-
-It does not build binaries.
+Independently re-hashes pinned source archives.
 
 ## PRoot Quarantine Build
 
-Manual workflow only.
+Manual only. Builds raw ARM64 artifacts outside the repository and uploads JSON reports only.
 
-It is intended to:
+## Evidence labels
 
-- checkout exact termux-packages commit;
-- run source audit;
-- build aarch64 PRoot/dependencies;
-- extract artifacts outside repository tree;
-- audit ELF metadata;
-- generate a review-only candidate;
-- upload JSON reports only.
-
-A successful quarantine build is not APK approval.
-
-## Evidence classification
-
-- runner failure before checkout -> infrastructure only;
-- ELF self-test pass -> STATICALLY VALIDATED policy;
-- source audit pass -> source archives independently verified;
-- quarantine artifact audit pass -> ARTIFACT STRUCTURE VALIDATED;
-- Android APK build pass -> CI VALIDATED app build;
-- physical phone tests -> DEVICE TESTED.
+- ELF policy self-test -> STATICALLY VALIDATED policy;
+- approval script pass with approved=false -> locked-policy validation;
+- source audit PASS -> SOURCE VERIFIED;
+- real ELF audit PASS -> ARTIFACT STRUCTURE VALIDATED;
+- packaging blockers resolved -> ANDROID PACKAGING CONTRACT REVIEWED;
+- artifact lock + device hash match -> DEVICE ATTESTED;
+- executor command works -> separate DEVICE TESTED Linux execution.

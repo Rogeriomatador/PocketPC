@@ -10,6 +10,7 @@ import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SOURCE_LOCK = ROOT / "third_party" / "proot" / "LOCK.json"
+ARTIFACT_CONTRACT = ROOT / "third_party" / "proot" / "ARTIFACT_CONTRACT.json"
 
 
 def file_sha256(path: pathlib.Path) -> str:
@@ -39,13 +40,15 @@ def main() -> int:
     )
 
     candidate = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "status": "REVIEW_REQUIRED_NOT_APPROVED",
         "sourceLockSha256": file_sha256(SOURCE_LOCK),
+        "artifactContractSha256": file_sha256(ARTIFACT_CONTRACT),
         "sourceRecipeCommit": source_lock["recipeAuthority"]["commit"],
         "target": source_lock["target"],
         "elfAuditStatus": report["status"],
         "unreviewedNeeded": report.get("unreviewedNeeded", []),
+        "androidPackagingBlockers": report.get("androidPackagingBlockers", []),
         "artifacts": report["artifacts"],
         "licenseReview": {
             "status": "REQUIRED",
@@ -55,8 +58,8 @@ def main() -> int:
         "promotion": {
             "approved": False,
             "note": (
-                "Evidence capture only. This file must never enable "
-                "ExecutionSubstrateProbe approval by itself."
+                "Evidence capture only. Packaging blockers, license review, "
+                "artifact lock and device review must be resolved separately."
             ),
         },
     }

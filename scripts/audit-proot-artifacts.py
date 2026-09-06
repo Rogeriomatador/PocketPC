@@ -14,7 +14,6 @@ import re
 import shutil
 import struct
 import subprocess
-import sys
 from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -134,6 +133,36 @@ def resolve_roles(
     return roles, failures
 
 
+def android_packaging_blockers(report: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    artifacts = report.get("artifacts", {})
+
+    talloc = artifacts.get("libtalloc")
+    if talloc:
+        raw_name = talloc["fileName"]
+        soname = talloc["dynamic"].get("soname")
+
+        if not raw_name.endswith(".so"):
+            blockers.append(
+                "libtalloc raw runtime filename is not Android JNI-packagable "
+                f"lib<name>.so: {raw_name}"
+            )
+        if soname and not soname.endswith(".so"):
+            blockers.append(
+                f"libtalloc SONAME requires resolution before APK packaging: {soname}"
+            )
+
+    for role_id, artifact in artifacts.items():
+        for needed in artifact["dynamic"].get("needed", []):
+            if re.fullmatch(r"libtalloc[.]so[.][0-9.]+", needed):
+                blockers.append(
+                    f"{role_id}: DT_NEEDED {needed} cannot be assumed to map "
+                    "to Android nativeLibraryDir packaging."
+                )
+
+    return sorted(set(blockers))
+
+
 def audit(args: argparse.Namespace) -> int:
     contract = json.loads(args.contract.read_text(encoding="utf-8"))
     artifact_dir = args.artifact_dir.resolve()
@@ -156,6 +185,7 @@ def audit(args: argparse.Namespace) -> int:
         "artifacts": {},
         "failures": failures,
         "unreviewedNeeded": [],
+        "androidPackagingBlockers": [],
     }
 
     system_needed = set(policy.get("androidSystemNeeded", []))
@@ -211,11 +241,15 @@ def audit(args: argparse.Namespace) -> int:
             "dynamic": dynamic,
         }
 
+    packaging_blockers = android_packaging_blockers(report)
+    report["androidPackagingBlockers"] = packaging_blockers
     report["unreviewedNeeded"] = sorted(unreviewed_needed)
     report["failures"] = failures
 
     if failures:
         report["status"] = "FAILED"
+    elif packaging_blockers:
+        report["status"] = "ELF_VALID_ANDROID_PACKAGING_BLOCKED"
     elif unreviewed_needed:
         report["status"] = "ELF_VALID_DEPENDENCIES_REVIEW_REQUIRED"
     else:
@@ -230,7 +264,7 @@ def audit(args: argparse.Namespace) -> int:
 
     print(
         "\nELF structural audit passed. Packaging is still NOT approved; "
-        "human dependency/license/device review is required."
+        "dependency/license/device and Android packaging review are required."
     )
     return 0
 
