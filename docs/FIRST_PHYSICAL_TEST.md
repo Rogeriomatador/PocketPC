@@ -1,11 +1,11 @@
-# First Physical Test — Alpha 16
+# First Physical Test — Alpha 17
 
-The Alpha 15 one-command chain remains unchanged in evidence requirements.
+Public entry point remains scripts/first-physical-test-windows.ps1.
 
-Alpha 16 adds two preflight doctor passes around the strict build step.
+Alpha 17 splits orchestration into a wrapper and first-physical-test-core-windows.ps1.
 
-Sequence:
+The core performs the full Alpha 16 preflight/build/install/evidence/final-verification chain.
 
-preflight-before -> strict build -> preflight-after -> install -> debug evidence runner -> bundle verification -> full device chain -> physical record -> final record.
+The wrapper adds automatic failure triage and then rethrows the original error.
 
-Only the complete sequence may print POCKETPC_FIRST_PHYSICAL_TEST_OK.
+Success still requires POCKETPC_FIRST_PHYSICAL_TEST_OK.

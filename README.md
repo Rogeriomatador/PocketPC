@@ -1,44 +1,51 @@
-# PocketPC — 0.1.0-alpha16
+# PocketPC — 0.1.0-alpha17
 
 PocketPC is an experimental Android desktop/runtime project with strict evidence labels.
 
-## Alpha 16 — Windows Preflight Doctor
+## Alpha 17 — Automatic Failure Triage
 
-Alpha 16 adds a non-destructive preflight stage before the one-command physical test.
+Alpha 17 keeps the Alpha 16 one-command physical test but wraps it with automatic failure diagnostics.
 
-The doctor checks:
+scripts/first-physical-test-windows.ps1 is now the public wrapper.
 
-- toolchain lock;
-- Git availability and clean tree;
-- Python 3;
-- required JDK major;
-- Android SDK;
-- every locked Android SDK component;
-- adb availability;
-- Gradle cache hash when present;
-- free disk space;
-- ADB authorization state;
-- exactly one physical device or an explicit DeviceSerial;
-- arm64-v8a;
-- Android API >= minSdk;
-- basic /data free space;
-- optional HTTPS connectivity to Gradle/Google hosts.
+The previous Alpha 16 pipeline is preserved as:
 
-The raw ADB serial is never written to the report; only SHA-256(serial) is persisted.
+scripts/first-physical-test-core-windows.ps1
 
-## Two-pass preflight
+If any stage throws, the wrapper preserves the original failure and invokes:
 
-first-physical-test-windows.ps1 now runs the doctor twice:
+scripts/collect-failure-triage-windows.ps1
 
-1. before build, optionally allowing missing SDK components as repairable WARN when -InstallMissingSdkComponents is requested;
-2. after build, requiring the environment/device to be fully ready before physical validation.
+The triage pack can capture, when available:
 
-Each preflight produces JSON + SHA-256 sidecar.
+- failure stage/message;
+- exact Git commit and dirty state;
+- preflight records;
+- local build record;
+- APK signing report;
+- device-install record;
+- Activity launch output;
+- automation result;
+- device evidence JSON;
+- bundle/device-chain verification outputs;
+- physical/final validation records;
+- ADB device state;
+- package dumpsys;
+- PocketPC-only logcat when a PID exists;
+- AndroidRuntime crash-only logcat fallback;
+- activity state filtered for dev.pocketpc.core;
+- manufacturer/model/API/ABI/fingerprint;
+- SHA-256 of the ADB serial instead of the raw serial;
+- SHA-256 for every captured file.
 
-## Verification
+triage-record.json and its sidecar make the diagnostic pack independently verifiable.
 
-verify-preflight-record.py checks PASS/WARN/FAIL counts, classification, required checks, device identity hash and sidecar.
+## Normal command
 
-test-preflight-record-verifier.py provides deterministic good/bad fixtures.
+powershell -ExecutionPolicy Bypass -File .\scripts\first-physical-test-windows.ps1
 
-The final physical success token remains POCKETPC_FIRST_PHYSICAL_TEST_OK and still requires all Alpha 15 gates.
+If it succeeds, the final token remains POCKETPC_FIRST_PHYSICAL_TEST_OK.
+
+If it fails, a failure-triage directory is created automatically when possible.
+
+PRoot remains unbundled/unapproved and Linux execution remains disabled.

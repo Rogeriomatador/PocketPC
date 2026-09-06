@@ -1,20 +1,23 @@
 # Roadmap
 
-## 0.1.0-alpha16 — Windows preflight doctor
+## 0.1.0-alpha17 — automatic failure triage
 
-- non-destructive environment doctor;
-- locked SDK component checks;
-- JDK/Python/Git/ADB checks;
-- physical-device authorization/ABI/API checks;
-- device serial hashing;
-- disk-space checks;
-- optional network checks;
-- preflight JSON + SHA-256;
-- preflight verifier/self-test;
-- two-pass integration into the one-command physical test.
+- preserve Alpha 16 physical-test core;
+- public wrapper around the core;
+- automatic triage on any failure;
+- local evidence/record harvesting;
+- PocketPC package/process diagnostics;
+- restricted logcat capture;
+- serial hashing;
+- per-file SHA-256 map;
+- triage verifier and tamper self-test.
 
-## Immediate real step
+## Immediate real milestone
 
-Run first-physical-test-windows.ps1 on Windows with one authorized physical ARM64 Android device.
+Run the public first-physical-test-windows.ps1 on Windows with a physical ARM64 Android phone authorized over ADB.
 
-If preflight fails, fix the explicit FAIL item. If the complete chain succeeds, preserve the entire local-build output and physical-validation evidence.
+If the run succeeds, preserve the physical-validation directory.
+
+If it fails, preserve the generated failure-triage directory; that failure becomes the next engineering task.
+
+After the first physical host-app chain passes, advance to the separate PRoot artifact/source/license/device gate.

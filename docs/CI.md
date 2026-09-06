@@ -1,7 +1,11 @@
-# CI status — Alpha 16
+# CI status — Alpha 17
 
 Hosted Android CI remains blocked before declared steps in the latest observed runs.
 
-Alpha 16 CI definitions add deterministic preflight-record self-test and PowerShell parse coverage for doctor-windows.ps1.
+Alpha 17 CI definitions add:
 
-The real doctor/device checks are inherently local because hosted runners do not have the user's authorized physical Android device.
+- failure-triage verifier self-test;
+- PowerShell parse coverage for the physical-test core and triage collector;
+- local strict-builder execution of the triage verifier self-test.
+
+Real triage capture still requires a real Windows/device failure or success path.

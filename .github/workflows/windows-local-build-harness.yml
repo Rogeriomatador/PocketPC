@@ -70,6 +70,22 @@ jobs:
       - name: Windows preflight record self-test
         run: python scripts/test-preflight-record-verifier.py
 
+      - name: Failure triage record self-test
+        run: python scripts/test-failure-triage-verifier.py
+
+      - name: Parse failure triage and physical-test core
+        shell: pwsh
+        run: |
+          foreach ($script in @(
+            "scripts/first-physical-test-core-windows.ps1",
+            "scripts/collect-failure-triage-windows.ps1"
+          )) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -ne 0) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+          }
+
       - name: Parse Windows Preflight Doctor
         shell: pwsh
         run: |
@@ -108,6 +124,6 @@ jobs:
       - name: Upload local build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha16-Windows-local-build
+          name: PocketPC-alpha17-Windows-local-build
           path: ${{ runner.temp }}/PocketPC-local-build/**
           if-no-files-found: error

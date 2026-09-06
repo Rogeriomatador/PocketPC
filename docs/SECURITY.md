@@ -1,11 +1,13 @@
-# Security model — Alpha 16
+# Security model — Alpha 17
 
-Alpha 16 adds an environment/device readiness boundary before build/install.
+Alpha 17 adds diagnostics without weakening any previous evidence gate.
 
-The doctor is non-destructive by default. It records only SHA-256 of the ADB serial, not the raw serial.
+The first-physical-test wrapper always rethrows the original failure after attempting triage.
 
-Missing SDK components are FAIL unless explicitly treated as repairable warnings by the one-command harness when installation was requested.
+The triage collector stores SHA-256 of the device serial rather than the raw serial.
 
-The second doctor pass requires the repaired environment to be ready before ADB physical validation continues.
+Logcat is process-scoped when possible and crash-error-only as fallback.
 
-All earlier build, install, evidence, filesystem, native-host and PRoot separation gates remain unchanged.
+Every captured diagnostic file is hash-bound by triage-record.json and its sidecar.
+
+PRoot approval and Linux execution remain independent and disabled.

@@ -1,9 +1,15 @@
-# PocketPC architecture — draft 0.16
+# PocketPC architecture — draft 0.17
 
 ## First physical path
 
-preflight doctor -> strict build -> second preflight -> device install -> debug evidence runner -> evidence bundle -> full-chain verifier -> physical record -> final first-physical-test record.
+public wrapper -> Alpha 16 physical-test core -> success evidence OR automatic failure triage.
 
-The preflight layer prevents known local environment/device readiness failures from entering the evidence-producing stages.
+Successful path:
+
+preflight -> strict build -> preflight -> install -> debug evidence -> bundle -> cross-verification -> physical record -> final record.
+
+Failure path:
+
+original exception -> triage collector -> hash-bound diagnostic pack -> original exception rethrown.
 
 PRoot/Linux remains a separate later branch.

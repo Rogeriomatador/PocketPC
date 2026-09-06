@@ -100,6 +100,9 @@ jobs:
       - name: Windows preflight record self-test
         run: python3 scripts/test-preflight-record-verifier.py
 
+      - name: Failure triage record self-test
+        run: python3 scripts/test-failure-triage-verifier.py
+
       - name: Parse Windows PowerShell harnesses
         shell: pwsh
         run: |
@@ -108,7 +111,9 @@ jobs:
             "scripts/install-device-windows.ps1",
             "scripts/validate-device-windows.ps1",
             "scripts/first-physical-test-windows.ps1",
-            "scripts/doctor-windows.ps1"
+            "scripts/doctor-windows.ps1",
+            "scripts/first-physical-test-core-windows.ps1",
+            "scripts/collect-failure-triage-windows.ps1"
           )) {
             $tokens = $null
             $errors = $null
@@ -138,8 +143,8 @@ jobs:
           sha256sum "$APK" | tee app/build/outputs/apk/debug/app-debug.apk.sha256
           {
             echo "sourceRevision=$GITHUB_SHA"
-            echo "versionName=0.1.0-alpha16"
-            echo "versionCode=16"
+            echo "versionName=0.1.0-alpha17"
+            echo "versionCode=17"
             echo "workflowRunId=$GITHUB_RUN_ID"
             echo "workflowRunAttempt=$GITHUB_RUN_ATTEMPT"
           } > app/build/outputs/apk/debug/app-debug.build.txt
@@ -161,7 +166,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha16-reports
+          name: PocketPC-alpha17-reports
           path: |
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.*
@@ -171,7 +176,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha16-debug
+          name: PocketPC-v0.1-alpha17-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256

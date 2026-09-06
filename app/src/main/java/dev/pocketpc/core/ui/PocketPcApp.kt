@@ -232,7 +232,7 @@ private fun Taskbar(desktop: DesktopController, modifier: Modifier = Modifier) {
                 }
             }
 
-            Text("α16", fontSize = 12.sp)
+            Text("α17", fontSize = 12.sp)
         }
     }
 }
@@ -246,7 +246,7 @@ private fun StartMenu(desktop: DesktopController, modifier: Modifier = Modifier)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("PocketPC", style = MaterialTheme.typography.titleLarge)
-            Text("0.1.0-alpha16 • Windows preflight doctor", style = MaterialTheme.typography.bodySmall)
+            Text("0.1.0-alpha17 • automatic failure triage", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
             DesktopApp.entries.forEach { app ->
                 TextButton(
