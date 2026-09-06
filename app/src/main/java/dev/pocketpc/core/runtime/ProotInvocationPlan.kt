@@ -28,12 +28,23 @@ object ProotInvocationPlanner {
         val bindValidation = RuntimeBindPolicy.validate(binds, allowedHostRoots)
         blockers += bindValidation.errors
 
-        val environment = RuntimeEnvironment.minimal()
+        binds
+            .filter { it.readOnly }
+            .forEach { bind ->
+                blockers += "READ_ONLY_BIND_UNIMPLEMENTED:${bind.guestPath}"
+            }
+
+        val environment = RuntimeEnvironment.forProot(substrate.nativeLibraryDir)
         blockers += RuntimeEnvironment.validate(environment)
 
         val proot = File(substrate.nativeLibraryDir, "libproot.so")
+        val loader = File(substrate.nativeLibraryDir, "libproot_loader.so")
+
         if (!proot.isFile || !proot.canRead() || !proot.canExecute()) {
             blockers += "PROOT_EXECUTABLE_UNAVAILABLE"
+        }
+        if (!loader.isFile || !loader.canRead() || !loader.canExecute()) {
+            blockers += "PROOT_LOADER_UNAVAILABLE"
         }
 
         val candidateArgv = if (blockers.isEmpty()) {

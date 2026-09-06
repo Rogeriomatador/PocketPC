@@ -11,11 +11,14 @@ class ProotInvocationPlannerTest {
         val base = Files.createTempDirectory("pocketpc-proot-plan-").toFile()
         try {
             val nativeDir = base.resolve("native").apply { mkdirs() }
-            val proot = nativeDir.resolve("libproot.so").apply {
+            nativeDir.resolve("libproot.so").apply {
                 writeText("placeholder")
                 setExecutable(true)
             }
-            assertTrue(proot.isFile)
+            nativeDir.resolve("libproot_loader.so").apply {
+                writeText("placeholder")
+                setExecutable(true)
+            }
 
             val rootfs = base.resolve("rootfs").apply { mkdirs() }
             rootfs.resolve("bin").mkdirs()
@@ -71,6 +74,82 @@ class ProotInvocationPlannerTest {
             assertTrue(plan.argv.contains("-r"))
             assertTrue(plan.argv.contains("-b"))
             assertTrue(plan.argv.last() == "/bin/sh")
+            assertTrue(
+                plan.environment["PROOT_LOADER"] ==
+                    nativeDir.resolve("libproot_loader.so").path
+            )
+        } finally {
+            base.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun blocksReadOnlyBindUntilSemanticsAreImplemented() {
+        val base = Files.createTempDirectory("pocketpc-proot-ro-").toFile()
+        try {
+            val nativeDir = base.resolve("native").apply { mkdirs() }
+            nativeDir.resolve("libproot.so").apply {
+                writeText("placeholder")
+                setExecutable(true)
+            }
+            nativeDir.resolve("libproot_loader.so").apply {
+                writeText("placeholder")
+                setExecutable(true)
+            }
+
+            val rootfs = base.resolve("rootfs").apply { mkdirs() }
+            rootfs.resolve("bin").mkdirs()
+            rootfs.resolve("bin/sh").writeText("guest-data")
+            val readonly = base.resolve("readonly").apply { mkdirs() }
+
+            val runtime = InstalledRuntime(
+                manifest = RuntimeManifest(
+                    schemaVersion = 2,
+                    id = "test.runtime",
+                    name = "Test Runtime",
+                    version = "1",
+                    architecture = "aarch64",
+                    rootfsSha256 = "a".repeat(64),
+                    rootfsBytes = 1,
+                    entrypoint = "/bin/sh",
+                    license = "test",
+                    archiveFormat = "tar",
+                    extractedBytesLimit = 1024,
+                    entryLimit = 10,
+                ),
+                directory = base,
+                rootfsData = rootfs,
+                metadataFile = base.resolve("metadata"),
+                stats = ExtractionStats(1, 1, 0, 0, 10),
+            )
+            val substrate = ExecutionSubstrateStatus(
+                nativeLibraryDir = nativeDir.path,
+                packagedHostReady = true,
+                prootReady = true,
+                components = emptyList(),
+                state = "PROOT_COMPONENTS_PRESENT_UNVALIDATED",
+            )
+
+            val plan = ProotInvocationPlanner.build(
+                runtime = runtime,
+                substrate = substrate,
+                binds = listOf(
+                    RuntimeBindSpec(
+                        hostPath = readonly,
+                        guestPath = "/mnt/readonly",
+                        readOnly = true,
+                        purpose = "test",
+                        authority = BindAuthority.SYSTEM,
+                    )
+                ),
+                allowedHostRoots = listOf(base),
+            )
+
+            assertFalse(plan.ready)
+            assertTrue(
+                plan.blockers.any { it.startsWith("READ_ONLY_BIND_UNIMPLEMENTED:") }
+            )
+            assertTrue(plan.argv.isEmpty())
         } finally {
             base.deleteRecursively()
         }

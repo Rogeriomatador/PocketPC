@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "status": "SOURCE_METADATA_LOCKED",
+  "lockedAtUtc": "2026-09-06T10:20:00Z",
+  "recipeAuthority": {
+    "repository": "termux/termux-packages",
+    "commit": "32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68",
+    "commitTimestampUtc": "2026-09-06T09:56:57Z"
+  },
+  "target": {
+    "androidAbi": "arm64-v8a",
+    "guestArchitecture": "aarch64",
+    "loader32": false
+  },
+  "components": [
+    {
+      "id": "proot",
+      "version": "5.1.107.92",
+      "license": "GPL-2.0",
+      "homepage": "https://proot-me.github.io/",
+      "recipePath": "packages/proot/build.sh",
+      "sourceUrl": "https://github.com/termux/proot/archive/v5.1.107.92.zip",
+      "sourceSha256": "29385d1ddb619a9c4449ab512bfd55032034b22f724ddf98fc95ff300ea32135",
+      "sourceRepository": "termux/proot",
+      "sourceTag": "v5.1.107.92",
+      "sourceCommit": "7266fb3e8516535682f5a9c8f3a7e70f6506eddb",
+      "dependencies": ["libandroid-shmem", "libtalloc"],
+      "recipeAssertions": [
+        "TERMUX_PKG_VERSION=\"5.1.107.92\"",
+        "TERMUX_PKG_LICENSE=\"GPL-2.0\"",
+        "TERMUX_PKG_SHA256=29385d1ddb619a9c4449ab512bfd55032034b22f724ddf98fc95ff300ea32135",
+        "TERMUX_PKG_DEPENDS=\"libandroid-shmem, libtalloc\"",
+        "PROOT_UNBUNDLE_LOADER=$TERMUX_PREFIX/libexec/proot"
+      ]
+    },
+    {
+      "id": "libandroid-shmem",
+      "version": "0.7",
+      "license": "BSD 3-Clause",
+      "homepage": "https://github.com/termux/libandroid-shmem",
+      "recipePath": "packages/libandroid-shmem/build.sh",
+      "sourceUrl": "https://github.com/termux/libandroid-shmem/archive/refs/tags/v0.7.tar.gz",
+      "sourceSha256": "1e5ff8459bc0a8c229dd8a94b27d119987e09ef3414331c2b5ebfff20b98e867",
+      "sourceRepository": "termux/libandroid-shmem",
+      "sourceTag": "v0.7",
+      "sourceCommit": "7f0bd7e25dbdd146265aff7c6a890029e374622d",
+      "dependencies": [],
+      "recipeAssertions": [
+        "TERMUX_PKG_VERSION=0.7",
+        "TERMUX_PKG_LICENSE=\"BSD 3-Clause\"",
+        "TERMUX_PKG_SHA256=1e5ff8459bc0a8c229dd8a94b27d119987e09ef3414331c2b5ebfff20b98e867"
+      ]
+    },
+    {
+      "id": "libtalloc",
+      "version": "2.4.3",
+      "license": "GPL-3.0",
+      "homepage": "https://talloc.samba.org/talloc/doc/html/index.html",
+      "recipePath": "packages/libtalloc/build.sh",
+      "sourceUrl": "https://www.samba.org/ftp/talloc/talloc-2.4.3.tar.gz",
+      "sourceSha256": "dc46c40b9f46bb34dd97fe41f548b0e8b247b77a918576733c528e83abd854dd",
+      "sourceRepository": null,
+      "sourceTag": null,
+      "sourceCommit": null,
+      "dependencies": [],
+      "recipeAssertions": [
+        "TERMUX_PKG_VERSION=2.4.3",
+        "TERMUX_PKG_LICENSE=\"GPL-3.0\"",
+        "TERMUX_PKG_SHA256=dc46c40b9f46bb34dd97fe41f548b0e8b247b77a918576733c528e83abd854dd"
+      ]
+    }
+  ],
+  "pocketPcPackagingContract": {
+    "status": "DESIGN_NOT_BUILT",
+    "prootExecutableAlias": "libproot.so",
+    "loader64Alias": "libproot_loader.so",
+    "loader32Alias": null,
+    "loaderEnvironmentVariable": "PROOT_LOADER",
+    "nativeLibraryDirRequired": true,
+    "legacyJniExtractionRequired": true,
+    "notes": [
+      "Upstream installs the unbundled 64-bit loader as loader.",
+      "PocketPC plans to rename/package it as libproot_loader.so for Android JNI extraction.",
+      "PROOT_LOADER will point to the packaged alias.",
+      "No third-party binaries are currently present in the PocketPC repository."
+    ]
+  }
+}

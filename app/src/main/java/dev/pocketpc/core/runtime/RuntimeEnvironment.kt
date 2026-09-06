@@ -1,5 +1,7 @@
 package dev.pocketpc.core.runtime
 
+import java.io.File
+
 object RuntimeEnvironment {
     fun minimal(
         home: String = "/home/pocket",
@@ -15,6 +17,14 @@ object RuntimeEnvironment {
         "LC_ALL" to "C.UTF-8",
         "TERM" to term,
     )
+
+    fun forProot(nativeLibraryDir: String): Map<String, String> =
+        LinkedHashMap(minimal()).apply {
+            put(
+                "PROOT_LOADER",
+                File(nativeLibraryDir, "libproot_loader.so").path,
+            )
+        }
 
     fun validate(environment: Map<String, String>): List<String> {
         val errors = mutableListOf<String>()

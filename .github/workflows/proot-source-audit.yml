@@ -1,0 +1,33 @@
+name: PRoot Source Audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "third_party/proot/**"
+      - "scripts/audit-proot-sources.py"
+      - ".github/workflows/proot-source-audit.yml"
+  push:
+    branches: [ main ]
+    paths:
+      - "third_party/proot/**"
+      - "scripts/audit-proot-sources.py"
+      - ".github/workflows/proot-source-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Independently hash pinned source archives
+        run: python3 scripts/audit-proot-sources.py

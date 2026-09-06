@@ -2,10 +2,6 @@
 
 Status: **IMPLEMENTED foundation / execution disabled**
 
-## Goal
-
-Prepare the Linux execution path so no runtime command is assembled through a shell string and no host path can be mounted outside an explicit allowlist.
-
 ## Bind model
 
 PocketPC represents mounts as structured RuntimeBindSpec values:
@@ -16,25 +12,29 @@ PocketPC represents mounts as structured RuntimeBindSpec values:
 - purpose
 - authority
 
-Validation rules include:
+Validation includes:
 
-- host canonical path must remain under an allowed app-owned root;
-- guest path must be absolute and normalized;
-- dot-dot traversal is rejected;
-- duplicate guest mount points are rejected;
-- PRoot syntax characters such as colon/exclamation are rejected in guest paths;
-- user binds cannot override reserved locations such as /proc, /sys, /dev, /tmp or /home/pocket.
+- host canonical path under an allowed app-owned root;
+- normalized absolute guest path;
+- dot-dot rejection;
+- duplicate guest mount rejection;
+- reserved guest paths;
+- PRoot syntax character rejection.
 
-Alpha 6 creates only two system-owned base binds:
+Base system binds:
 
 - app-private runtime home -> /home/pocket
 - app cache runtime tmp -> /tmp
 
-User SAF storage is **not** directly bind-mounted yet.
+User SAF storage is not directly bind-mounted yet.
+
+### Read-only behavior
+
+Alpha 6 does not claim a proven read-only PRoot bind mode. If readOnly=true is requested, ProotInvocationPlanner adds READ_ONLY_BIND_UNIMPLEMENTED and does not emit a candidate argv.
 
 ## Environment
 
-RuntimeEnvironment builds a minimal whitelist:
+RuntimeEnvironment creates the guest baseline:
 
 - HOME
 - USER
@@ -46,16 +46,20 @@ RuntimeEnvironment builds a minimal whitelist:
 - LC_ALL
 - TERM
 
-The process environment is cleared before the explicit map is applied.
+For the proposed PRoot substrate it additionally pins:
+
+- PROOT_LOADER=<nativeLibraryDir>/libproot_loader.so
+
+The loader alias is a PocketPC packaging adaptation of upstream PRoot's unbundled ARM64 loader.
 
 ## PRoot argv planning
 
-ProotInvocationPlanner builds a List<String>, not a shell command string.
+ProotInvocationPlanner builds a List<String>, not a shell string.
 
 Candidate shape:
 
 ~~~text
-/native/libproot.so
+<nativeLibraryDir>/libproot.so
 -0
 -r <rootfs-data>
 -w /home/pocket
@@ -64,30 +68,37 @@ Candidate shape:
 /bin/sh
 ~~~
 
-The exclamation suffix requests non-dereferencing of the guest bind location in PRoot syntax.
+The exclamation suffix is PRoot's no-dereference form for the guest bind destination. It is not being treated as a read-only flag.
 
-Even when a syntactically valid argv can be produced, Alpha 6 appends EXECUTOR_NOT_ENABLED and reports ready=false.
+Even a valid candidate plan receives EXECUTOR_NOT_ENABLED and reports ready=false.
 
 ## Process supervisor
 
 RuntimeProcessSupervisor provides bounded one-shot process execution:
 
-- one active supervised process;
+- one active process;
 - explicit argv;
-- cleared/whitelisted environment;
+- cleared then explicitly populated environment;
 - merged stdout/stderr;
-- continuous drain to avoid pipe deadlock;
-- output retention cap;
+- continuous pipe drain;
+- retained-output cap;
 - timeout;
-- graceful destroy followed by destroyForcibly fallback.
+- destroy/force-destroy fallback.
 
-This is infrastructure for the first non-interactive Linux smoke command. It is **not a PTY** and is not yet wired to PRoot.
+It is not yet wired to PRoot and is not a PTY.
 
-## Remaining execution blockers
+## Supply-chain boundary
 
-- reviewed PRoot binaries not bundled;
-- guest link semantics not implemented;
+third_party/proot/LOCK.json pins source metadata. scripts/audit-proot-sources.py independently downloads and hashes those sources when network access exists.
+
+No PRoot binary is bundled yet.
+
+## Remaining blockers
+
+- source archive independent audit not yet run in CI;
+- PRoot build/artifact audit incomplete;
+- guest links are metadata only;
 - executor intentionally disabled;
 - no physical-device proof;
 - no PTY;
-- no process-tree kill validation on Android.
+- process-tree kill semantics not device validated.

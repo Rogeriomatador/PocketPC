@@ -5,9 +5,11 @@ import java.io.File
 
 data class SubstrateComponent(
     val fileName: String,
+    val role: String,
     val exists: Boolean,
     val readable: Boolean,
     val executable: Boolean,
+    val executableRequired: Boolean,
 )
 
 data class ExecutionSubstrateStatus(
@@ -19,26 +21,39 @@ data class ExecutionSubstrateStatus(
 )
 
 object ExecutionSubstrateProbe {
+    private data class RequiredComponent(
+        val fileName: String,
+        val role: String,
+        val executableRequired: Boolean,
+    )
+
     private val prootRequired = listOf(
-        "libproot.so",
-        "libproot_loader.so",
-        "libtalloc.so",
-        "libandroid-shmem.so",
+        RequiredComponent("libproot.so", "proot-executable-alias", true),
+        RequiredComponent("libproot_loader.so", "arm64-loader-alias", true),
+        RequiredComponent("libtalloc.so", "dynamic-dependency", false),
+        RequiredComponent("libandroid-shmem.so", "dynamic-dependency", false),
     )
 
     fun inspect(context: Context): ExecutionSubstrateStatus {
         val directory = File(context.applicationInfo.nativeLibraryDir ?: "")
         val host = File(directory, "libpocketpc_runtime.so")
-        val components = prootRequired.map { name ->
-            val file = File(directory, name)
+        val components = prootRequired.map { required ->
+            val file = File(directory, required.fileName)
             SubstrateComponent(
-                fileName = name,
+                fileName = required.fileName,
+                role = required.role,
                 exists = file.isFile,
                 readable = file.canRead(),
                 executable = file.canExecute(),
+                executableRequired = required.executableRequired,
             )
         }
-        val prootReady = components.all { it.exists && it.readable && it.executable }
+
+        val prootReady = components.all { component ->
+            component.exists &&
+                component.readable &&
+                (!component.executableRequired || component.executable)
+        }
         val hostReady = host.isFile && host.canRead()
 
         return ExecutionSubstrateStatus(

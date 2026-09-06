@@ -21,7 +21,9 @@ Alpha 6 includes all Alpha 5 runtime-package and safe-rootfs work, plus:
 - host-path allowlist validation;
 - reserved guest mount protection;
 - normalized guest path validation;
+- read-only binds fail closed until real semantics are implemented;
 - minimal Linux environment whitelist;
+- explicit PROOT_LOADER path for the proposed packaged ARM64 loader alias;
 - PRoot argv planner using List<String> instead of shell-string concatenation;
 - app-private runtime home and tmp bind planning;
 - one-shot process supervisor with timeout and bounded logs;
@@ -60,11 +62,32 @@ The pure Kotlin schema-v2 + safe TAR smoke passed locally:
 
 That does not validate Android, Gradle, JNI, PRoot or a device.
 
-## PRoot research baseline
+## PRoot supply-chain baseline
 
-Current research baseline remains the Termux-maintained PRoot package 5.1.107.89, GPL-2.0, with libandroid-shmem and libtalloc dependencies.
+PocketPC now pins upstream source metadata in third_party/proot/LOCK.json.
 
-No PRoot binary is bundled. CI intentionally rejects unreviewed PRoot-named libraries.
+Recipe authority:
+
+- termux/termux-packages
+- commit 32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
+- commit timestamp 2026-09-06T09:56:57Z
+
+Pinned components:
+
+- PRoot 5.1.107.92 — GPL-2.0
+- libandroid-shmem 0.7 — BSD 3-Clause
+- libtalloc 2.4.3 — GPL-3.0
+
+No PRoot binary is bundled. The pinned archive hashes currently have SOURCE_METADATA_LOCKED evidence from the upstream recipes; scripts/audit-proot-sources.py is intended to independently download and recalculate them when a runner/network environment is available.
+
+## Proposed ARM64 packaging contract — DESIGN
+
+- proot executable alias: libproot.so
+- upstream 64-bit loader alias: libproot_loader.so
+- env: PROOT_LOADER=<nativeLibraryDir>/libproot_loader.so
+- no loader32 in the first gate
+
+Upstream PRoot explicitly supports PROOT_LOADER for overriding its unbundled loader path.
 
 ## Graphics
 
@@ -86,10 +109,11 @@ Still **not CI validated**. GitHub-hosted runs have been failing before the firs
 ## Next gate
 
 1. CI runner allocation.
-2. Android build/lint/tests.
-3. device-test native host and Vulkan probe.
-4. device-test schema-v2 rootfs install.
-5. complete PRoot provenance/license/build audit.
-6. implement guest link semantics.
-7. enable a tightly gated non-interactive PRoot smoke command.
-8. PTY and interactive shell only after the one-shot path is proven.
+2. independent source archive audit from the supply-chain lock.
+3. Android build/lint/tests.
+4. device-test native host and Vulkan probe.
+5. device-test schema-v2 rootfs install.
+6. complete PRoot build/license/artifact audit in Issue #4.
+7. implement guest link semantics.
+8. enable a tightly gated non-interactive PRoot smoke command.
+9. PTY and interactive shell only after the one-shot path is proven.
