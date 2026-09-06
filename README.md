@@ -49,3 +49,15 @@ If it succeeds, the final token remains POCKETPC_FIRST_PHYSICAL_TEST_OK.
 If it fails, a failure-triage directory is created automatically when possible.
 
 PRoot remains unbundled/unapproved and Linux execution remains disabled.
+
+
+## PocketPC Windows Setup
+
+For a minimal Windows host setup without Android Studio, download:
+
+- `dist/PocketPC-Windows-Setup.zip` and run `INSTALL.bat`; or
+- `PocketPC-Setup-Windows.bat` as the one-file downloader.
+
+The setup downloads Eclipse Temurin JDK 17 through the official Adoptium API, validates its API-provided SHA-256, downloads the pinned Android Command-line Tools package directly from Google, validates the official SHA-256, installs the Android components listed in `toolchains/android-build-lock.json`, configures user environment variables, and runs the PocketPC Doctor.
+
+Android SDK licenses still require explicit user acceptance.

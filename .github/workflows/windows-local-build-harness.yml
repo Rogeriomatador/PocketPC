@@ -78,7 +78,8 @@ jobs:
         run: |
           foreach ($script in @(
             "scripts/first-physical-test-core-windows.ps1",
-            "scripts/collect-failure-triage-windows.ps1"
+            "scripts/collect-failure-triage-windows.ps1",
+            "scripts/bootstrap-windows.ps1"
           )) {
             $tokens = $null
             $errors = $null
