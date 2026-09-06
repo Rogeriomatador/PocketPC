@@ -100,7 +100,7 @@ class SafFileRepository(private val context: Context) {
 
         return entries.sortedWith(
             compareByDescending<SafEntry> { it.isDirectory }
-                .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name },
+                .thenBy { it.name.lowercase() },
         )
     }
 
