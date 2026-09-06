@@ -1,39 +1,58 @@
-# CI status — Alpha 7
+# CI status — Alpha 8
 
-## Current evidence
+## Hosted runner status
 
-At commit 35b814f45818b75d7a16651da3f21d7dc468eb9a:
+Android CI run #17 for Alpha 7 failed before step 1:
 
-- Android CI run #16: failure before steps;
-- PRoot Source Audit run #1: failure before steps;
-- both jobs expose steps=null;
-- both jobs expose logs_url=null.
+- steps=null
+- logs_url=null
 
-No checkout, Python, Gradle, NDK or tests ran.
+PRoot Source Audit run #1 showed the same behavior.
 
-Classification: **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**.
+Classification remains **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**.
 
-## Alpha 7 Android test scope
+## Android CI Alpha 8 scope
 
-When the runner starts, the existing unit-test task will include:
+When the runner starts, Android CI is intended to:
 
-- TAR security tests;
-- manifest v2 tests;
-- bind/environment tests;
-- process supervisor tests;
-- guest path resolver tests;
-- symlink/hardlink preparation tests;
-- interrupted link preparation recovery;
-- NOFOLLOW deletion external-target preservation.
+1. checkout;
+2. validate PRoot JSON policy files;
+3. run the deterministic ELF-policy self-test;
+4. reject unreviewed PRoot binaries from source;
+5. run JVM unit tests;
+6. lint;
+7. assemble APK;
+8. inspect PocketPC native host;
+9. reject unreviewed PRoot payload in APK;
+10. upload reports/APK.
 
-## Separate PRoot source audit
+## PRoot Source Audit
 
-The PRoot Source Audit workflow independently downloads pinned source archives and recalculates SHA-256. It still has no execution evidence because its first run also failed before step 1.
+Still responsible for independent source archive SHA-256 verification.
 
-## Evidence rules
+It does not build binaries.
 
-- failure before checkout -> infrastructure only;
-- unit tests pass -> CI validation for pure/JVM logic;
-- APK assembles -> CI VALIDATED build;
-- links work on phone -> DEVICE TESTED guest filesystem;
-- PRoot command works on phone -> DEVICE TESTED Linux execution.
+## PRoot Quarantine Build
+
+Manual workflow only.
+
+It is intended to:
+
+- checkout exact termux-packages commit;
+- run source audit;
+- build aarch64 PRoot/dependencies;
+- extract artifacts outside repository tree;
+- audit ELF metadata;
+- generate a review-only candidate;
+- upload JSON reports only.
+
+A successful quarantine build is not APK approval.
+
+## Evidence classification
+
+- runner failure before checkout -> infrastructure only;
+- ELF self-test pass -> STATICALLY VALIDATED policy;
+- source audit pass -> source archives independently verified;
+- quarantine artifact audit pass -> ARTIFACT STRUCTURE VALIDATED;
+- Android APK build pass -> CI VALIDATED app build;
+- physical phone tests -> DEVICE TESTED.

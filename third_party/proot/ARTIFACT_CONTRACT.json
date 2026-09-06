@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "status": "QUARANTINE_AUDIT_CONTRACT",
+  "target": {
+    "elfClass": 2,
+    "endianness": 1,
+    "machine": 183,
+    "machineName": "AArch64",
+    "androidAbi": "arm64-v8a"
+  },
+  "requiredRoles": [
+    {
+      "id": "proot",
+      "sourceBasename": "proot",
+      "role": "executable",
+      "futurePackagingAlias": "libproot.so"
+    },
+    {
+      "id": "loader64",
+      "sourceBasename": "loader",
+      "role": "guest-loader",
+      "futurePackagingAlias": "libproot_loader.so"
+    },
+    {
+      "id": "libandroid-shmem",
+      "sourceBasename": "libandroid-shmem.so",
+      "role": "dependency",
+      "futurePackagingAlias": null
+    }
+  ],
+  "discoveredRoles": [
+    {
+      "id": "libtalloc",
+      "glob": "libtalloc.so*",
+      "role": "dependency",
+      "reason": "Exact Android SONAME/DT_NEEDED must be discovered from the pinned build."
+    }
+  ],
+  "elfPolicy": {
+    "allowTypes": [2, 3],
+    "forbidRpath": true,
+    "forbidRunpath": true,
+    "forbiddenNeeded": [
+      "libc.so.6",
+      "libpthread.so.0",
+      "librt.so.1",
+      "libdl.so.2",
+      "libm.so.6",
+      "ld-linux-aarch64.so.1"
+    ],
+    "androidSystemNeeded": [
+      "libc.so",
+      "libdl.so",
+      "libm.so",
+      "liblog.so",
+      "libandroid.so"
+    ]
+  },
+  "promotion": {
+    "automatic": false,
+    "requiresHumanReview": true,
+    "requiresSourceAuditPass": true,
+    "requiresLicenseAuditPass": true,
+    "requiresArtifactSha256Lock": true,
+    "requiresDeviceTest": true
+  }
+}

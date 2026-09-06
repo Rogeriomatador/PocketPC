@@ -1,49 +1,67 @@
 # PocketPC PRoot supply-chain lock
 
-Status: SOURCE_METADATA_LOCKED / NO BINARIES BUNDLED
-
-This directory pins the upstream metadata PocketPC intends to audit before any PRoot execution substrate is allowed into an APK.
+Status: **SOURCE_METADATA_LOCKED / ARTIFACT_AUDIT_REQUIRED / NO BINARIES BUNDLED**
 
 ## Authority
 
-The lock is based on Termux package recipes at:
+Pinned Termux recipe:
 
 - repository: termux/termux-packages
 - commit: 32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
 - timestamp: 2026-09-06T09:56:57Z
 
-Pinned components:
+## Components
 
-| Component | Version | License | Source SHA-256 |
-|---|---|---|---|
-| PRoot | 5.1.107.92 | GPL-2.0 | 29385d1ddb619a9c4449ab512bfd55032034b22f724ddf98fc95ff300ea32135 |
-| libandroid-shmem | 0.7 | BSD 3-Clause | 1e5ff8459bc0a8c229dd8a94b27d119987e09ef3414331c2b5ebfff20b98e867 |
-| libtalloc | 2.4.3 | GPL-3.0 | dc46c40b9f46bb34dd97fe41f548b0e8b247b77a918576733c528e83abd854dd |
+- PRoot 5.1.107.92
+- libandroid-shmem 0.7
+- libtalloc 2.4.3
 
-PRoot tag v5.1.107.92 resolves to commit 7266fb3e8516535682f5a9c8f3a7e70f6506eddb.
-libandroid-shmem tag v0.7 resolves to commit 7f0bd7e25dbdd146265aff7c6a890029e374622d.
+The source archive hashes in LOCK.json come from the exact pinned Termux recipes. Independent re-hashing remains a separate gate.
 
-## Evidence boundary
+## License evidence
 
-The hashes above are upstream recipe metadata. This session inspected the recipes and Git tags, but did not independently download the source archives and recalculate those archive hashes.
+PRoot and libandroid-shmem retain their pinned recipe metadata.
 
-scripts/audit-proot-sources.py performs that independent download/hash check in an environment with network access.
+For talloc, PocketPC now records a conflict rather than claiming a final redistribution license:
 
-Do not label the supply chain VERIFIED until that audit passes.
+- Termux recipe metadata says GPL-3.0.
+- other current distribution/library metadata commonly identifies the talloc library as LGPL-3.0-or-later.
 
-## PocketPC packaging adaptation — DESIGN
+Therefore LOCK.json marks talloc as:
 
-Upstream PRoot installs its unbundled 64-bit loader as loader. PRoot supports overriding that location with PROOT_LOADER.
+~~~text
+UNRESOLVED_SOURCE_AUDIT_REQUIRED
+~~~
 
-PocketPC proposes:
+The pinned source archive's own licensing files must be inspected before redistribution.
 
-- PRoot executable packaged as libproot.so
-- ARM64 loader packaged as libproot_loader.so
-- PROOT_LOADER points to nativeLibraryDir/libproot_loader.so
-- no loader32 in the first ARM64-only gate
+## Artifact contract
 
-No third-party binary is currently bundled.
+ARTIFACT_CONTRACT.json defines the ARM64 quarantine policy.
 
-## License gate
+PocketPC must discover from the exact build:
 
-Issue #4 must record source/build provenance, artifact hashes, GPL/BSD obligations and device evidence before bundling is permitted.
+- talloc SONAME;
+- talloc runtime filename;
+- PRoot DT_NEEDED;
+- dependency closure;
+- all produced artifact SHA-256 values.
+
+No packaging filename guess is treated as authoritative.
+
+## Proposed aliases
+
+Only after artifact review may PocketPC consider:
+
+- proot -> libproot.so
+- loader -> libproot_loader.so
+
+PROOT_LOADER would then point to the packaged loader alias.
+
+The talloc filename is deliberately unresolved until ELF audit.
+
+## Fail-closed rule
+
+No third-party PRoot binary is currently committed.
+
+Presence of files in nativeLibraryDir will not make prootReady true unless a separate artifact approval gate is explicitly changed after review.

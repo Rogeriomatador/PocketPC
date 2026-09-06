@@ -1,102 +1,89 @@
-# PRoot execution substrate research
+# PRoot execution substrate — Alpha 8
 
-Status: **SOURCE METADATA LOCKED / NOT BUNDLED / EXECUTOR DISABLED**
+Status: **SOURCE LOCKED / ARTIFACT QUARANTINE DEFINED / NOT BUNDLED / EXECUTOR DISABLED**
 
-## Locked baseline
+## Source baseline
 
-The authoritative pin is third_party/proot/LOCK.json.
+- termux/termux-packages commit: 32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
+- PRoot 5.1.107.92
+- PRoot tag commit: 7266fb3e8516535682f5a9c8f3a7e70f6506eddb
+- libandroid-shmem 0.7
+- libandroid-shmem tag commit: 7f0bd7e25dbdd146265aff7c6a890029e374622d
+- libtalloc 2.4.3
 
-Termux recipe authority:
+## Loader contract
 
-- repository: termux/termux-packages
-- commit: 32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
-- timestamp: 2026-09-06T09:56:57Z
+Upstream PRoot supports PROOT_LOADER.
 
-Components:
+PocketPC's proposed ARM64 alias remains:
 
-- PRoot 5.1.107.92, GPL-2.0
-- libandroid-shmem 0.7, BSD 3-Clause
-- libtalloc 2.4.3, GPL-3.0
-
-PRoot tag v5.1.107.92 resolves to commit 7266fb3e8516535682f5a9c8f3a7e70f6506eddb.
-libandroid-shmem v0.7 resolves to commit 7f0bd7e25dbdd146265aff7c6a890029e374622d.
-
-The source archive hashes are locked from Termux recipes but have not yet been independently recalculated by PocketPC CI because the hosted runner is blocked.
-
-## Upstream loader behavior
-
-The Termux PRoot recipe sets PROOT_UNBUNDLE_LOADER and upstream installs:
-
-- loader
-- loader32 when the build has 32-bit loader support
-
-PRoot source also supports runtime overrides:
-
-- PROOT_LOADER
-- PROOT_LOADER_32
-
-## PocketPC ARM64 packaging contract — DESIGN
-
-ExecutionSubstrateProbe expects PocketPC packaging aliases:
-
-- libproot.so — PRoot executable alias
-- libproot_loader.so — ARM64 upstream loader alias
-- libtalloc.so
-- libandroid-shmem.so
-
-PocketPC plans to set:
-
+~~~text
 PROOT_LOADER=<nativeLibraryDir>/libproot_loader.so
+~~~
 
-The first gate is aarch64-only, so loader32 is excluded.
+That alias is not approved yet.
 
-Presence of these files never implies validation.
+## Artifact quarantine
 
-## Alpha 6 preparation
+Alpha 8 introduces:
 
-PocketPC has:
+- ARTIFACT_CONTRACT.json
+- audit-proot-artifacts.py
+- build-proot-aarch64-quarantine.sh
+- test-proot-artifact-policy.py
+- make-proot-artifact-candidate.py
+- PRoot Quarantine Build workflow
 
-- legacy JNI extraction for real nativeLibraryDir files;
-- host-path allowlist;
-- structured binds;
-- explicit read-only bind blocker;
-- minimal environment whitelist;
-- PROOT_LOADER planning;
-- PRoot argv planner;
-- one-shot bounded process supervisor;
-- explicit EXECUTOR_NOT_ENABLED blocker;
-- third-party source lock and source-audit workflow definition.
+The quarantine build cannot promote files into app/src.
 
-## CLI basis
+## ELF policy
 
-The planner uses structured PRoot options:
+Required target:
 
-- -r / --rootfs
-- -b / --bind
-- -w / --cwd
-- -0 / --root-id
+- ELF64
+- little endian
+- AArch64
 
-No user input is concatenated into a host shell command.
+Forbidden:
 
-## Read-only binds
+- RPATH
+- RUNPATH
+- glibc-specific DT_NEEDED names
 
-RuntimeBindSpec has a readOnly field, but Alpha 6 has not implemented proven read-only PRoot bind semantics. Any readOnly=true bind therefore adds READ_ONLY_BIND_UNIMPLEMENTED and prevents candidate argv generation.
+Unknown/non-system dependencies remain review-required.
 
-This avoids silently treating a requested read-only bind as writable.
+## talloc
 
-## Before enabling executor
+The runtime SONAME/filename is not assumed.
 
-Required:
+The exact build must reveal it through ELF SONAME/DT_NEEDED.
 
-1. independent source archive hash audit;
-2. exact source tag/commit;
-3. documented build recipe/adaptations;
-4. produced artifact hashes;
-5. GPL-2.0/GPL-3.0/BSD distribution compliance;
-6. Android API 37 build;
-7. dynamic dependency/linker behavior;
-8. physical-device execution test;
-9. guest link semantics;
-10. process-tree termination behavior;
-11. environment/bind review;
-12. logs demonstrating no root requirement.
+The license is also marked unresolved until the pinned source's own licensing files are audited.
+
+## Runtime readiness
+
+ExecutionSubstrateProbe now separates:
+
+- files present;
+- artifact contract approved.
+
+prootReady requires both.
+
+Artifact approval is hardcoded false in Alpha 8.
+
+## Before approval
+
+Required evidence:
+
+1. source archive independent hash audit;
+2. exact build reproduction;
+3. ELF report;
+4. dependency closure;
+5. artifact SHA-256 lock;
+6. final license/notice/source-distribution plan;
+7. Android packaging test;
+8. physical-device loader test;
+9. guest filesystem device test;
+10. deterministic process cleanup.
+
+Executor enablement remains a later independent gate.

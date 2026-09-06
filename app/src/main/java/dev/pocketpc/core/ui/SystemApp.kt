@@ -24,7 +24,7 @@ fun SystemApp(
     ) {
         Text("Sistema", style = MaterialTheme.typography.titleMedium)
         Section("PocketPC") {
-            ValueRow("Versão", "0.1.0-alpha7")
+            ValueRow("Versão", "0.1.0-alpha8")
             ValueRow("Desktop shell", "IMPLEMENTED")
             ValueRow("Arquivos SAF", if (storageConfigured) "IMPLEMENTED / CONFIGURED" else "IMPLEMENTED")
             ValueRow("Local Android shell", "IMPLEMENTED")
@@ -34,6 +34,10 @@ fun SystemApp(
             ValueRow("NOFOLLOW cleanup", "IMPLEMENTED")
             ValueRow("Native Runtime Host", if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED")
             ValueRow("Execution substrate", substrate.state)
+            ValueRow(
+                "Artifact contract",
+                if (substrate.artifactContractApproved) "APPROVED" else "REQUIRED / NOT APPROVED",
+            )
             ValueRow("Native Vulkan probe", "IMPLEMENTED / NOT DEVICE VALIDATED")
             ValueRow("Bind/env policy", "IMPLEMENTED / EXECUTION DISABLED")
             ValueRow("Process supervisor", "IMPLEMENTED / ONE-SHOT FOUNDATION")

@@ -1,58 +1,66 @@
 # Roadmap
 
-## 0.1.0-alpha7 — guest filesystem semantics
+## 0.1.0-alpha8 — artifact quarantine & ELF gate
 
-- Alpha 6 execution foundation;
-- metadata parser;
-- guest path resolver;
-- symlink/hardlink planning;
-- transactional link preparation/recovery;
-- hardlink inode verification;
-- metadata hash-bound link marker;
-- NOFOLLOW cleanup;
-- guest-aware entrypoint resolution;
-- Runtimes UI link preparation/verification.
+- Alpha 7 guest filesystem semantics;
+- exact PRoot source baseline;
+- talloc license conflict made explicit;
+- AArch64 ELF artifact contract;
+- quarantined build script;
+- ELF/DT_NEEDED/SONAME auditor;
+- deterministic ELF-policy self-test;
+- review-only artifact candidate generator;
+- manual quarantine workflow;
+- prootReady requires explicit artifact approval;
+- artifact approval remains false.
 
-## Alpha 7 device gate
+## Supply-chain evidence gate
 
-- build APK;
-- install on ARM64 Android;
-- prepare a controlled rootfs with relative and absolute symlinks;
-- verify hardlinks;
-- remove runtime and prove external symlink target survives;
-- export logs.
+Need:
 
-## Next — PRoot artifact build gate
+- PRoot Source Audit PASS;
+- real quarantine build PASS;
+- ELF report;
+- exact artifact hashes;
+- talloc source-license determination;
+- dependency review.
 
-- independently audit source archives;
-- document ARM64 build adaptation;
-- produce quarantined artifacts;
-- audit ELF type/machine/dependencies/RPATH;
-- record SHA-256;
-- license/notice/source-distribution package;
-- do not enable executor yet.
+## Physical-device substrate gate
+
+Only after supply-chain review:
+
+- package reviewed aliases;
+- inspect nativeLibraryDir;
+- test loader path;
+- test symlink/hardlink behavior;
+- test NOFOLLOW cleanup;
+- no Linux executor yet.
 
 ## 0.2 — first one-shot Linux command
 
-- reviewed substrate packaged;
-- explicit executor feature gate;
-- /bin/sh non-interactive smoke;
-- bounded logs/timeout;
-- process cleanup;
+Only after an explicit reviewed artifact approval commit:
+
+- separate executor feature gate;
+- non-interactive /bin/sh;
+- bounded output;
+- timeout;
+- deterministic stop;
 - physical-device evidence.
 
 ## 0.2.x — interactive Linux
 
 - PTY;
-- resize/signals;
-- process-tree lifecycle;
-- package/bootstrap.
+- resize;
+- signals;
+- process tree;
+- package/bootstrap;
+- user storage bridge.
 
 ## 0.3 — graphics
 
 - controlled Vulkan renderer;
-- presentation timing;
-- Linux graphical bridge.
+- frame timing;
+- Linux graphics bridge.
 
 ## 0.4 — Windows compatibility
 

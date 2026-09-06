@@ -1,0 +1,70 @@
+name: PRoot Quarantine Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quarantine-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout PocketPC
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned termux-packages
+        uses: actions/checkout@v4
+        with:
+          repository: termux/termux-packages
+          ref: 32f2b3a6c7a1f2a6d068e523d6248e6b4a334d68
+          path: termux-packages
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify host tools
+        run: |
+          python3 --version
+          docker --version
+          dpkg-deb --version | head -1
+          readelf --version | head -1
+          git -C termux-packages rev-parse HEAD
+
+      - name: Build and audit in quarantine
+        run: |
+          scripts/build-proot-aarch64-quarantine.sh \
+            termux-packages \
+            "$RUNNER_TEMP/pocketpc-proot-audit"
+
+      - name: Create review-only artifact lock candidate
+        run: |
+          python3 scripts/make-proot-artifact-candidate.py \
+            --report "$RUNNER_TEMP/pocketpc-proot-audit/proot-elf-audit.json" \
+            --out "$RUNNER_TEMP/pocketpc-proot-audit/ARTIFACTS.candidate.json"
+
+      - name: Upload reports only
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-PRoot-quarantine-reports
+          path: |
+            ${{ runner.temp }}/pocketpc-proot-audit/proot-elf-audit.json
+            ${{ runner.temp }}/pocketpc-proot-audit/ARTIFACTS.candidate.json
+          if-no-files-found: error
+
+      - name: Prove no PRoot binary entered repository tree
+        run: |
+          matches="$(find app third_party -type f \( \
+            -name 'libproot*.so' -o \
+            -name 'libtalloc.so*' -o \
+            -name 'libandroid-shmem.so' \
+          \) -print)"
+          if [ -n "$matches" ]; then
+            echo "Unexpected third-party binary in repository tree:" >&2
+            echo "$matches" >&2
+            exit 1
+          fi

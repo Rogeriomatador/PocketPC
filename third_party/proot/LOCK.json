@@ -24,7 +24,10 @@
       "sourceRepository": "termux/proot",
       "sourceTag": "v5.1.107.92",
       "sourceCommit": "7266fb3e8516535682f5a9c8f3a7e70f6506eddb",
-      "dependencies": ["libandroid-shmem", "libtalloc"],
+      "dependencies": [
+        "libandroid-shmem",
+        "libtalloc"
+      ],
       "recipeAssertions": [
         "TERMUX_PKG_VERSION=\"5.1.107.92\"",
         "TERMUX_PKG_LICENSE=\"GPL-2.0\"",
@@ -54,7 +57,7 @@
     {
       "id": "libtalloc",
       "version": "2.4.3",
-      "license": "GPL-3.0",
+      "license": "UNRESOLVED_SOURCE_AUDIT_REQUIRED",
       "homepage": "https://talloc.samba.org/talloc/doc/html/index.html",
       "recipePath": "packages/libtalloc/build.sh",
       "sourceUrl": "https://www.samba.org/ftp/talloc/talloc-2.4.3.tar.gz",
@@ -67,11 +70,16 @@
         "TERMUX_PKG_VERSION=2.4.3",
         "TERMUX_PKG_LICENSE=\"GPL-3.0\"",
         "TERMUX_PKG_SHA256=dc46c40b9f46bb34dd97fe41f548b0e8b247b77a918576733c528e83abd854dd"
-      ]
+      ],
+      "recipeLicense": "GPL-3.0",
+      "licenseEvidence": {
+        "status": "CONFLICTING_METADATA",
+        "note": "Termux recipe says GPL-3.0; multiple current distributions identify talloc 2.4.3 library as LGPL-3.0-or-later. Verify the pinned source archive LICENSE/COPYING before redistribution."
+      }
     }
   ],
   "pocketPcPackagingContract": {
-    "status": "DESIGN_NOT_BUILT",
+    "status": "ARTIFACT_ELF_AUDIT_REQUIRED",
     "prootExecutableAlias": "libproot.so",
     "loader64Alias": "libproot_loader.so",
     "loader32Alias": null,
@@ -82,7 +90,8 @@
       "Upstream installs the unbundled 64-bit loader as loader.",
       "PocketPC plans to rename/package it as libproot_loader.so for Android JNI extraction.",
       "PROOT_LOADER will point to the packaged alias.",
-      "No third-party binaries are currently present in the PocketPC repository."
+      "No third-party binaries are currently present in the PocketPC repository.",
+      "Do not assume the runtime filename for talloc. Public talloc 2.4.3 packages commonly expose SONAME libtalloc.so.2; PocketPC must use DT_NEEDED/SONAME from its exact Android build."
     ]
   }
 }
