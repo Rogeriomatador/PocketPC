@@ -25,8 +25,9 @@ def main() -> int:
         failures.append("no PowerShell scripts found")
 
     for path in ps1_files:
+        text = path.read_text(encoding="utf-8")
         for number, line in enumerate(
-            path.read_text(encoding="utf-8").splitlines(),
+            text.splitlines(),
             start=1,
         ):
             if LEADING_LOGICAL.search(line):
@@ -34,6 +35,17 @@ def main() -> int:
                     f"{path.relative_to(ROOT)}:{number}: "
                     "logical operator starts a continuation line; "
                     "Windows PowerShell 5.1 parser rejected this pattern"
+                )
+
+        if path.name == "doctor-windows.ps1":
+            marker = "# POCKETPC_DOCTOR_EOF"
+            if text.count(marker) != 1:
+                failures.append(
+                    "scripts/doctor-windows.ps1 must contain exactly one EOF marker"
+                )
+            elif text.strip().splitlines()[-1].strip() != marker:
+                failures.append(
+                    "scripts/doctor-windows.ps1 contains content after EOF marker"
                 )
 
     if failures:
