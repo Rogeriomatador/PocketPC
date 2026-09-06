@@ -7,5 +7,8 @@ add_library(
     runtime_host.cpp
 )
 
+find_library(vulkan_lib vulkan)
+
 target_compile_features(pocketpc_runtime PRIVATE cxx_std_20)
 target_compile_options(pocketpc_runtime PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(pocketpc_runtime PRIVATE ${vulkan_lib})

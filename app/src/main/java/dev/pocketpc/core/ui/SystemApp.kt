@@ -28,6 +28,7 @@ fun SystemApp(
             ValueRow("Local Android shell", "IMPLEMENTED")
             ValueRow("Runtime staging", "IMPLEMENTED")
             ValueRow("Native Runtime Host", if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED")
+            ValueRow("Native Vulkan probe", "IMPLEMENTED / NOT DEVICE VALIDATED")
             ValueRow("Linux ARM execution", "DESIGN / NOT IMPLEMENTED")
             ValueRow("Windows x86/x64", "DESIGN / PLANNED")
             ValueRow("vGPU", "DESIGN / PLANNED")
@@ -51,12 +52,20 @@ fun SystemApp(
             Text("nativeLibraryDir: ${nativeHost.nativeLibraryDir}", style = MaterialTheme.typography.bodySmall)
         }
 
-        Section("Vulkan exposto pelo Android") {
+        Section("Vulkan — PackageManager") {
             if (snapshot.vulkanFeatures.isEmpty()) {
                 Text("Nenhuma feature Vulkan foi exposta pelo PackageManager.", style = MaterialTheme.typography.bodySmall)
             } else {
                 snapshot.vulkanFeatures.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
+        }
+
+        Section("Vulkan — NDK probe") {
+            Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Este probe apenas enumera capacidades. Ele não renderiza, não mede FPS e não valida uma vGPU.",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

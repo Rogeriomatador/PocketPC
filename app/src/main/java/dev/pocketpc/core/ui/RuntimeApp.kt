@@ -28,9 +28,7 @@ fun RuntimeApp(
     var status by remember { mutableStateOf<String?>(null) }
 
     fun refresh() {
-        scope.launch {
-            runtimes = manager.discover()
-        }
+        scope.launch { runtimes = manager.discover() }
     }
 
     LaunchedEffect(Unit) { runtimes = manager.discover() }
@@ -47,8 +45,10 @@ fun RuntimeApp(
                     "nativeLibraryDir: ${nativeHost.nativeLibraryDir}",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                Text("Vulkan native probe", style = MaterialTheme.typography.titleSmall)
+                Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
                 Text(
-                    "Alpha 4 não executa o rootfs. O host nativo prova somente a fundação executável empacotada no APK.",
+                    "Alpha 4 não executa o rootfs. O host nativo e o probe Vulkan são fundações empacotadas no APK.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
