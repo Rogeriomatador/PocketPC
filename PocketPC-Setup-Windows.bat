@@ -1,26 +1,56 @@
 @echo off
 setlocal
-title PocketPC Windows Setup Downloader
+title PocketPC Windows Setup
 
-set "ZIP=%TEMP%\PocketPC-Windows-Setup.zip"
-set "DIR=%TEMP%\PocketPC-Windows-Setup"
-set "URL=https://raw.githubusercontent.com/Rogeriomatador/PocketPC/main/dist/PocketPC-Windows-Setup.zip"
+set "REPO=D:\Projetos\PocketPC"
 
 echo ============================================================
 echo PocketPC Windows Setup
 echo ============================================================
 echo.
-echo Baixando o instalador oficial do repositorio PocketPC...
-echo.
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; if (Test-Path '%DIR%') { Remove-Item '%DIR%' -Recurse -Force }; Invoke-WebRequest -Uri '%URL%' -OutFile '%ZIP%' -UseBasicParsing; Expand-Archive -Path '%ZIP%' -DestinationPath '%DIR%' -Force"
-
-if errorlevel 1 (
-    echo.
-    echo Falha ao baixar ou extrair o PocketPC Windows Setup.
-    pause
-    exit /b 1
+if not exist "%REPO%\.git" (
+  echo Repositorio PocketPC nao encontrado em:
+  echo %REPO%
+  echo.
+  echo Clone primeiro:
+  echo git clone https://github.com/Rogeriomatador/PocketPC.git D:\Projetos\PocketPC
+  echo.
+  pause
+  exit /b 1
 )
 
-call "%DIR%\INSTALL.bat"
-exit /b %ERRORLEVEL%
+cd /d "%REPO%"
+
+echo Atualizando o repositorio...
+git pull --ff-only
+if errorlevel 1 (
+  echo.
+  echo Falha no git pull. Verifique o Git/rede/autenticacao.
+  pause
+  exit /b 1
+)
+
+echo.
+if not exist "%REPO%\scripts\bootstrap-windows.ps1" (
+  echo bootstrap-windows.ps1 nao encontrado.
+  echo Commit atual:
+  git rev-parse HEAD
+  pause
+  exit /b 1
+)
+
+echo Iniciando PocketPC Windows Setup...
+echo.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%REPO%\scripts\bootstrap-windows.ps1"
+set "EXITCODE=%ERRORLEVEL%"
+
+echo.
+if "%EXITCODE%"=="0" (
+  echo PocketPC setup concluido.
+) else (
+  echo PocketPC setup terminou com erro. Veja o texto acima e o log informado.
+)
+echo.
+pause
+exit /b %EXITCODE%
