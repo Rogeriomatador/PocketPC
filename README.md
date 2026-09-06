@@ -1,4 +1,4 @@
-# PocketPC — v0.1.0-alpha1
+# PocketPC — v0.1.0-alpha2
 
 PocketPC is a proof-of-concept Android desktop/runtime project. The name is provisional.
 
@@ -22,9 +22,11 @@ PocketPC is a proof-of-concept Android desktop/runtime project. The name is prov
 - Available system RAM sampling.
 - Thermal status/headroom sampling when supported.
 - Resizeable activity configuration for desktop/connected-display scenarios.
+- Storage Access Framework folder picker.
+- Persistable folder permission request.
+- Real folder listing through DocumentFile.
 
 ### PLANNED
-- Storage Access Framework file explorer.
 - PTY terminal.
 - Linux ARM rootfs/runtime.
 - x86/x64 translation runtime.
@@ -48,17 +50,22 @@ PocketPC is a proof-of-concept Android desktop/runtime project. The name is prov
 
 ## Build status
 
-The repository starts from a statically reviewed source baseline. GitHub Actions is being used as the first reproducible compilation gate. Until CI or a local Android build proves otherwise, do not label the project as build-validated.
+Source is present on `main` and a GitHub Actions Android build workflow is configured. The first workflow run failed before any job step started, so that failure is currently classified as **CI INFRA/CONFIG UNRESOLVED**, not as an Android compilation failure. Until CI or a local Android build proves otherwise, do not label the project as build-validated.
 
-## Next engineering gate
+## Next engineering gates
 
-**Gate V0.1-A:** compile and launch on a physical Android device.
-
-Pass criteria:
+### Gate V0.1-A — device shell
 1. app launches without crash;
 2. desktop renders correctly in portrait and landscape;
-3. all four prototype windows open;
+3. all four windows open;
 4. windows move/minimize/maximize/close;
 5. FPS counter updates;
-6. thermal field either reports a valid value or cleanly reports unavailable;
-7. external-display resize does not crash the activity.
+6. thermal field reports a value or cleanly reports unavailable;
+7. external-display resize does not crash.
+
+### Gate V0.1-B — files
+1. Android folder picker opens;
+2. selected folder permission persists;
+3. files and directories are listed;
+4. inaccessible/empty folders fail cleanly;
+5. no unrestricted-storage permission is required.
