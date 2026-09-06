@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.NativeHostStatus
 import dev.pocketpc.core.system.SystemSnapshot
 
@@ -15,6 +16,7 @@ fun SystemApp(
     snapshot: SystemSnapshot,
     storageConfigured: Boolean,
     nativeHost: NativeHostStatus,
+    substrate: ExecutionSubstrateStatus,
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -22,12 +24,14 @@ fun SystemApp(
     ) {
         Text("Sistema", style = MaterialTheme.typography.titleMedium)
         Section("PocketPC") {
-            ValueRow("Versão", "0.1.0-alpha4")
+            ValueRow("Versão", "0.1.0-alpha5")
             ValueRow("Desktop shell", "IMPLEMENTED")
             ValueRow("Arquivos SAF", if (storageConfigured) "IMPLEMENTED / CONFIGURED" else "IMPLEMENTED")
             ValueRow("Local Android shell", "IMPLEMENTED")
             ValueRow("Runtime staging", "IMPLEMENTED")
+            ValueRow("Safe rootfs install", "IMPLEMENTED / DATA ONLY")
             ValueRow("Native Runtime Host", if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED")
+            ValueRow("Execution substrate", substrate.state)
             ValueRow("Native Vulkan probe", "IMPLEMENTED / NOT DEVICE VALIDATED")
             ValueRow("Linux ARM execution", "DESIGN / NOT IMPLEMENTED")
             ValueRow("Windows x86/x64", "DESIGN / PLANNED")
@@ -50,6 +54,13 @@ fun SystemApp(
         Section("Runtime host") {
             Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
             Text("nativeLibraryDir: ${nativeHost.nativeLibraryDir}", style = MaterialTheme.typography.bodySmall)
+            Text("substrate: ${substrate.state}", style = MaterialTheme.typography.bodySmall)
+            substrate.components.forEach { component ->
+                Text(
+                    "${component.fileName}: exists=${component.exists}, exec=${component.executable}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
 
         Section("Vulkan — PackageManager") {

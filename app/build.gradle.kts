@@ -30,6 +30,13 @@ android {
         compose = true
     }
 
+    packaging {
+        jniLibs {
+            // A future PRoot loader must exist as a real extracted file in nativeLibraryDir.
+            useLegacyPackaging = true
+        }
+    }
+
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")

@@ -2,24 +2,30 @@
 
 ## Current classification
 
-Runs observed through Alpha 4 predecessors fail before the first declared step begins. Jobs report steps: null and no logs. No checkout, Java, SDK, NDK, Gradle, Kotlin, CMake or compiler action is reached.
+GitHub-hosted runs observed so far fail before their first declared workflow step. Jobs report no steps/logs.
 
 Classification: **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**.
 
-## Alpha 4 workflow intends to test
+Tracked in Issue #3.
+
+## Alpha 5 workflow intends to test
 
 1. checkout;
-2. Temurin JDK 17;
+2. JDK 17;
 3. Android SDK API 37 / Build Tools 36.0.0;
-4. Android NDK r29 (29.0.14206865);
+4. Android NDK r29;
 5. CMake 3.22.1;
 6. Gradle 9.6.0;
-7. unit tests;
+7. all unit tests, including archive security tests;
 8. Android lint;
-9. debug APK;
-10. inspect APK for libpocketpc_runtime.so in arm64-v8a/x86_64;
-11. upload reports/APK.
+9. debug APK assembly;
+10. verify PocketPC native runtime host is packaged;
+11. reject unreviewed PRoot/loader/dependency libraries;
+12. upload reports/APK.
 
-If a run fails before checkout again, do not call it a source build failure.
+## Classification rule
 
-When the runner finally starts, the first actionable Gradle/CMake/Kotlin error becomes the next engineering target.
+- failure before checkout: CI infrastructure/account, not source;
+- Gradle/CMake/compiler reached: source/build failure;
+- APK assembled: CI VALIDATED build only;
+- APK installed/launched: requires DEVICE TEST evidence.

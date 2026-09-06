@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "id": "example.arm64",
+  "name": "Example ARM64 Rootfs",
+  "version": "1.0.0",
+  "architecture": "aarch64",
+  "rootfsSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "rootfsBytes": 1,
+  "entrypoint": "/bin/sh",
+  "license": "REPLACE WITH REAL UPSTREAM LICENSE/REDISTRIBUTION METADATA",
+  "archiveFormat": "tar.gz",
+  "extractedBytesLimit": 536870912,
+  "entryLimit": 200000
+}

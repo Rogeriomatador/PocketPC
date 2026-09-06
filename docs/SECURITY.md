@@ -1,42 +1,55 @@
-# Security model
+# Security model — Alpha 5
 
-## Alpha 4 boundary
+## Current boundary
 
-- normal Android app UID;
+- ordinary Android app UID;
 - no root;
 - no MANAGE_EXTERNAL_STORAGE;
-- user-selected SAF roots;
-- local Android shell inherits PocketPC app permissions;
-- runtime manifest limited to 128 KiB;
-- runtime ID/version validated before becoming filesystem path components;
-- Linux entrypoint rejects .. segments;
-- rootfs declared size enforced while streaming;
-- SHA-256 required before staging promotion;
-- failed staging is deleted;
-- rootfs remains data and is not directly executed.
+- user-selected SAF inputs;
+- archive SHA-256 before staging;
+- schema/path validation;
+- rootfs extraction only from schema-v2 tar/tar.gz;
+- fail-closed TAR parser;
+- no Android symlink/hardlink materialization;
+- transactional staging/install directories;
+- free-space budgets and archive/extraction limits;
+- no Linux execution claim.
 
-## Android code execution
+## TAR policy
 
-PocketPC targets API 37. Do not execute newly downloaded app-home files directly. Native runtime/loader code must be shipped through an Android-compliant executable/package path.
+Rejected:
 
-## Before rootfs extraction
+- absolute archive paths;
+- dot-dot traversal;
+- backslash path ambiguity;
+- duplicate paths;
+- entries below a previously recorded link;
+- link-after-descendant ambiguity;
+- corrupt header checksum;
+- device nodes;
+- FIFOs;
+- unsupported special entry types;
+- byte/entry/header/path limits exceeded.
 
-Extraction is blocked by design until policy handles:
+PAX and GNU long-name metadata are parsed with bounded size.
 
-- ../ and absolute paths;
-- symlinks/hardlinks escaping destination;
-- device nodes/FIFOs;
-- ownership/mode normalization;
-- archive bombs and declared/extracted size caps;
-- partial extraction cleanup.
+## Link policy
 
-## Future downloaded/imported components
+Guest symlink and hardlink information is stored in metadata only.
 
-- cryptographic hash required;
-- source/version/license recorded;
-- architecture validated;
-- fail closed;
-- deterministic process cleanup;
-- no silent permission expansion.
+This prevents extraction writes and recursive cleanup from accidentally following guest links outside the intended data root.
 
-Third-party redistribution requires a documented license audit before bundling.
+## Third-party substrate
+
+PRoot is not bundled. CI rejects unreviewed PRoot-named libraries until provenance and GPL/dependency obligations are documented.
+
+## Future requirements
+
+- no-shell-string construction of PRoot arguments;
+- explicit bind-mount allowlist;
+- controlled environment variables;
+- process-group termination;
+- log/output caps;
+- no silent permission expansion;
+- device/OEM variance testing;
+- runtime package signatures or stronger trust model before automatic downloads.

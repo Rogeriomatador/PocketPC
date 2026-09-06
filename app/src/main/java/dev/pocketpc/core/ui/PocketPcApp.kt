@@ -25,7 +25,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.pocketpc.core.desktop.DesktopApp
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.DesktopWindow
+import dev.pocketpc.core.runtime.ExecutionSubstrateProbe
 import dev.pocketpc.core.runtime.NativeRuntimeHost
+import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.system.collectSystemSnapshot
@@ -43,7 +45,9 @@ fun PocketPcApp() {
     val storage = remember { StorageRepository(appContext) }
     val terminal = remember { LocalShellEngine(appContext) }
     val runtimes = remember { RuntimePackageManager(appContext) }
+    val installer = remember { RuntimeInstallManager(appContext, runtimes) }
     val nativeHost = remember { NativeRuntimeHost.status(appContext) }
+    val substrate = remember { ExecutionSubstrateProbe.inspect(appContext) }
     val systemSnapshot = remember { collectSystemSnapshot(appContext) }
     val sample by telemetry.sample.collectAsStateWithLifecycle()
 
@@ -121,7 +125,9 @@ fun PocketPcApp() {
                         DesktopApp.TERMINAL -> TerminalApp(terminal)
                         DesktopApp.RUNTIMES -> RuntimeApp(
                             manager = runtimes,
+                            installer = installer,
                             nativeHost = nativeHost,
+                            substrate = substrate,
                             manifestUri = runtimeManifestUri,
                             rootfsUri = runtimeRootfsUri,
                             onChooseManifest = {
@@ -147,6 +153,7 @@ fun PocketPcApp() {
                             snapshot = systemSnapshot,
                             storageConfigured = storageRoot != null,
                             nativeHost = nativeHost,
+                            substrate = substrate,
                         )
                         DesktopApp.PERFORMANCE -> PerformanceApp(sample)
                     }
@@ -222,7 +229,7 @@ private fun Taskbar(desktop: DesktopController, modifier: Modifier = Modifier) {
                 }
             }
 
-            Text("α4", fontSize = 12.sp)
+            Text("α5", fontSize = 12.sp)
         }
     }
 }
@@ -236,7 +243,7 @@ private fun StartMenu(desktop: DesktopController, modifier: Modifier = Modifier)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("PocketPC", style = MaterialTheme.typography.titleLarge)
-            Text("0.1.0-alpha4 • runtime foundation", style = MaterialTheme.typography.bodySmall)
+            Text("0.1.0-alpha5 • safe rootfs data install", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
             DesktopApp.entries.forEach { app ->
                 TextButton(

@@ -1,80 +1,61 @@
-# Linux ARM runtime — Alpha 4 plan
+# Linux ARM runtime — Alpha 5
 
-Current state:
+## Implemented foundations
 
-- Runtime Manifest: **IMPLEMENTED**
-- rootfs integrity staging: **IMPLEMENTED**
-- packaged NDK Runtime Host source: **IMPLEMENTED**
-- pure manifest/hash logic: **STATICALLY VALIDATED**
-- JNI/APK build/load: **NOT CI VALIDATED**
-- rootfs extraction: **DESIGN**
-- Linux execution: **DESIGN**
+- Runtime Manifest v1/v2.
+- ARM64 ABI gate.
+- SHA-256 staging.
+- transactional rootfs staging.
+- safe TAR/TAR.GZ data extraction.
+- metadata-only guest links.
+- INSTALLED_DATA inventory.
+- packaged native Runtime Host source.
+- execution-substrate presence probe.
+- structured launch blockers.
 
-## Android W^X constraint
+## Still not implemented
 
-PocketPC targets API 37. Android's target-29+ behavior prevents direct execve of arbitrary executable code from the writable app home directory.
+- actual PRoot/loader binaries;
+- guest symlink/hardlink execution semantics;
+- PRoot argument generation;
+- process supervisor wired to PRoot;
+- PTY;
+- Linux shell execution.
 
-Architecture:
+## Architecture
 
 ~~~text
 APK
-└── native Runtime Host / loader code    [executable package path]
+├── PocketPC native host
+└── future packaged execution substrate
 
-app-private data
-└── verified rootfs                       [data, writable]
+app-private writable data
+├── staged/rootfs.archive
+└── installed/rootfs-data
+    └── rootfs.metadata.tsv
 ~~~
 
-Do not regress to a design that simply downloads proot or Linux ELF files into filesDir and executes them directly.
+The install tree intentionally contains no guest symlink nodes in Alpha 5.
 
-## L0 — runtime integrity
+## Execution candidate
 
-Alpha 4 implements most of L0-prep:
+Research supports a PRoot-style approach where the executable loader/proot component lives in nativeLibraryDir and guest binaries remain data.
 
-- manifest;
-- ABI gate;
-- declared size;
-- SHA-256;
-- fail-closed staging;
-- inventory/removal.
+This remains a candidate until device-tested on PocketPC's API-37 build.
 
-Still required:
+## L2 shell proof gate
 
-- CI build of NDK library;
-- device proof that the native host loads;
-- archive format decision;
-- extraction that rejects path traversal, unsafe symlinks, device nodes and escaping destinations.
+Pass only after evidence shows:
 
-## L1 — execution substrate research
+1. exact APK/commit;
+2. packaged substrate passes provenance/license checks;
+3. INSTALLED_DATA rootfs passes integrity gate;
+4. guest link semantics are correct;
+5. /bin/sh starts through the selected substrate;
+6. basic filesystem/process commands work;
+7. runtime home write/read works;
+8. stop/restart cleanup is deterministic;
+9. no root;
+10. no unrestricted storage permission.
 
-Candidates must be tested, not assumed:
-
-1. APK-packaged native loader/runtime host;
-2. system-linker execution approach for rootfs ELFs;
-3. proot-based path where the proot/loader executable itself is packaged compliantly;
-4. direct JNI/in-process strategies for specific tools where appropriate.
-
-Selection criteria:
-
-- current Android compatibility;
-- targetSdk 37 compatibility;
-- SELinux/seccomp behavior;
-- device/OEM variance;
-- stability;
-- performance;
-- licensing;
-- ability to supervise/terminate processes.
-
-## L2 — first Linux proof
-
-Pass only after a physical-device log proves:
-
-1. packaged runtime host loaded;
-2. verified aarch64 rootfs prepared;
-3. Linux /bin/sh-equivalent launched through the selected substrate;
-4. uname/filesystem/basic process commands;
-5. create/read a file in runtime home;
-6. clean stop and restart;
-7. no root;
-8. no unrestricted Android storage permission.
-
-Graphical Linux begins only after this.
+Only then may PocketPC label a runtime EXECUTABLE_LINUX.

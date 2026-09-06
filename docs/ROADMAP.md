@@ -1,48 +1,48 @@
 # Roadmap
 
-## 0.1.0-alpha4 — runtime foundation
+## 0.1.0-alpha5 — safe rootfs data install
 
-- Alpha 3 desktop/files/local shell/telemetry;
-- Runtimes UI;
-- NDK r29 Runtime Host source;
-- manifest schema;
-- ARM64 compatibility validation;
-- SHA-256 + declared-size verification;
-- fail-closed rootfs staging;
-- path traversal defenses;
-- runtime inventory/removal;
-- NDK/CMake CI definition.
+- schema-v2 runtime manifests;
+- tar/tar.gz declared format;
+- strict bounded TAR extraction;
+- guest links stored as metadata;
+- transactional INSTALLED_DATA state;
+- execution-substrate probe;
+- structured launch blockers;
+- CI rejection of unreviewed PRoot libraries;
+- malicious archive test sources.
 
-Gate: build/JNI load on Android.
+Gate: build + physical device verification.
 
-## 0.1.x — runtime safety
+## 0.1.x — execution substrate preparation
 
-- choose rootfs archive format;
-- safe data extraction;
-- staging/install transaction journal;
-- log export;
-- more device UX/pointer/keyboard hardening.
+- source/build/license audit for PRoot and dependencies;
+- guest link semantics design;
+- PRoot argument model without shell-string concatenation;
+- bind-mount allowlist;
+- process supervisor and bounded logs;
+- PTY design;
+- runtime diagnostics export.
 
-## 0.2 — Linux ARM execution
+## 0.2 — first Linux ARM shell
 
-- Android-compliant executable loader substrate;
-- process supervisor;
-- environment;
-- PTY;
-- first verified aarch64 shell;
-- package/bootstrap research.
+- reviewed substrate packaged in APK;
+- supervised PRoot invocation;
+- /bin/sh proof;
+- runtime home;
+- stop/restart;
+- basic package/bootstrap research.
 
 ## 0.3 — accelerated Linux graphics
 
-- native Vulkan probe;
-- renderer/backend abstraction;
-- buffers/presentation;
-- first graphical Linux workload;
-- frame-time telemetry.
+- controlled Vulkan renderer;
+- swapchain/presentation timing;
+- Linux graphical workload bridge;
+- frame-time measurements.
 
 ## 0.4 — Windows compatibility
 
-- x86/x64 translation feasibility;
+- x86/x64 translation;
 - Wine;
 - DXVK/VKD3D;
 - licensing/redistribution audit;
@@ -56,6 +56,6 @@ Gate: build/JNI load on Android.
 - dynamic resolution/upscaling experiments;
 - sustained A/B benchmarks.
 
-## 1.0 gate
+## 1.0
 
-At least one meaningful advantage must be reproducibly demonstrated without fabricated results.
+Must demonstrate a reproducible useful advantage without fabricated performance claims.
