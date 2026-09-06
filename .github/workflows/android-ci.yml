@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -32,8 +32,9 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK components
-        run: sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"
+      - name: Install Android SDK + NDK
+        run: |
+          sdkmanager             "platform-tools"             "platforms;android-37"             "build-tools;36.0.0"             "ndk;29.0.14206865"             "cmake;3.22.1"
 
       - name: Set up Gradle 9.6.0
         uses: gradle/actions/setup-gradle@v4
@@ -44,7 +45,7 @@ jobs:
         run: |
           java -version
           gradle --version
-          sdkmanager --list_installed | head -80
+          sdkmanager --list_installed | head -120
 
       - name: Unit tests
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
@@ -55,11 +56,15 @@ jobs:
       - name: Assemble debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
+      - name: Inspect packaged native runtime host
+        run: |
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E 'lib/(arm64-v8a|x86_64)/libpocketpc_runtime\.so'
+
       - name: Upload test and lint reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha3-reports
+          name: PocketPC-alpha4-reports
           path: |
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.*
@@ -69,6 +74,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha3-debug
+          name: PocketPC-v0.1-alpha4-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

@@ -1,5 +1,6 @@
 package dev.pocketpc.core.ui
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +25,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.pocketpc.core.desktop.DesktopApp
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.DesktopWindow
+import dev.pocketpc.core.runtime.NativeRuntimeHost
+import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.system.collectSystemSnapshot
 import dev.pocketpc.core.telemetry.TelemetryMonitor
@@ -39,11 +42,24 @@ fun PocketPcApp() {
     val telemetry = remember { TelemetryMonitor(appContext) }
     val storage = remember { StorageRepository(appContext) }
     val terminal = remember { LocalShellEngine(appContext) }
+    val runtimes = remember { RuntimePackageManager(appContext) }
+    val nativeHost = remember { NativeRuntimeHost.status(appContext) }
     val systemSnapshot = remember { collectSystemSnapshot(appContext) }
     val sample by telemetry.sample.collectAsStateWithLifecycle()
 
     var storageRoot by rememberSaveable { mutableStateOf(storage.rootUriString) }
     var storagePickerError by rememberSaveable { mutableStateOf<String?>(null) }
+    var runtimeManifestUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var runtimeRootfsUri by rememberSaveable { mutableStateOf<String?>(null) }
+
+    fun persistRead(uri: Uri) {
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+    }
 
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -55,6 +71,20 @@ fun PocketPcApp() {
                 .onFailure {
                     storagePickerError = it.message ?: "Falha ao persistir a permissão da pasta."
                 }
+        }
+    }
+
+    val manifestPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            persistRead(uri)
+            runtimeManifestUri = uri.toString()
+        }
+    }
+
+    val rootfsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            persistRead(uri)
+            runtimeRootfsUri = uri.toString()
         }
     }
 
@@ -89,9 +119,26 @@ fun PocketPcApp() {
                             },
                         )
                         DesktopApp.TERMINAL -> TerminalApp(terminal)
+                        DesktopApp.RUNTIMES -> RuntimeApp(
+                            manager = runtimes,
+                            nativeHost = nativeHost,
+                            manifestUri = runtimeManifestUri,
+                            rootfsUri = runtimeRootfsUri,
+                            onChooseManifest = {
+                                manifestPicker.launch(
+                                    arrayOf("application/json", "text/plain", "application/octet-stream")
+                                )
+                            },
+                            onChooseRootfs = { rootfsPicker.launch(arrayOf("*/*")) },
+                            onClearSelection = {
+                                runtimeManifestUri = null
+                                runtimeRootfsUri = null
+                            },
+                        )
                         DesktopApp.SYSTEM -> SystemApp(
                             snapshot = systemSnapshot,
                             storageConfigured = storageRoot != null,
+                            nativeHost = nativeHost,
                         )
                         DesktopApp.PERFORMANCE -> PerformanceApp(sample)
                     }
@@ -118,7 +165,7 @@ fun PocketPcApp() {
 private fun DesktopIcons(desktop: DesktopController) {
     Column(
         modifier = Modifier.padding(start = 18.dp, top = 52.dp, bottom = 72.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         DesktopApp.entries.forEach { app ->
             Column(
@@ -126,9 +173,9 @@ private fun DesktopIcons(desktop: DesktopController) {
                 modifier = Modifier
                     .width(82.dp)
                     .clickable { desktop.open(app) }
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = 3.dp),
             ) {
-                Text(app.glyph, fontSize = 26.sp)
+                Text(app.glyph, fontSize = 25.sp)
                 Text(app.label, fontSize = 11.sp, maxLines = 1)
             }
         }
@@ -167,7 +214,7 @@ private fun Taskbar(desktop: DesktopController, modifier: Modifier = Modifier) {
                 }
             }
 
-            Text("α3", fontSize = 12.sp)
+            Text("α4", fontSize = 12.sp)
         }
     }
 }
@@ -175,13 +222,13 @@ private fun Taskbar(desktop: DesktopController, modifier: Modifier = Modifier) {
 @Composable
 private fun StartMenu(desktop: DesktopController, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.width(290.dp),
+        modifier = modifier.width(300.dp),
         shape = RoundedCornerShape(18.dp),
         tonalElevation = 12.dp,
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("PocketPC", style = MaterialTheme.typography.titleLarge)
-            Text("0.1.0-alpha3 • Android desktop runtime", style = MaterialTheme.typography.bodySmall)
+            Text("0.1.0-alpha4 • runtime foundation", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
             DesktopApp.entries.forEach { app ->
                 TextButton(
@@ -208,10 +255,10 @@ private fun DesktopWindowView(
         Modifier.fillMaxSize().padding(bottom = 56.dp)
     } else {
         Modifier
-            .widthIn(min = 300.dp, max = 860.dp)
-            .heightIn(min = 260.dp, max = 620.dp)
-            .fillMaxWidth(0.80f)
-            .fillMaxHeight(0.70f)
+            .widthIn(min = 300.dp, max = 900.dp)
+            .heightIn(min = 260.dp, max = 660.dp)
+            .fillMaxWidth(0.82f)
+            .fillMaxHeight(0.72f)
             .offset { IntOffset(x.roundToInt(), y.roundToInt()) }
     }
 

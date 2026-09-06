@@ -1,26 +1,42 @@
 # Security model
 
-## Current Alpha 3 boundary
+## Alpha 4 boundary
 
 - normal Android app UID;
-- no root request;
+- no root;
 - no MANAGE_EXTERNAL_STORAGE;
 - user-selected SAF roots;
-- local shell inherits PocketPC app permissions;
-- file opening is delegated through Android intents.
+- local Android shell inherits PocketPC app permissions;
+- runtime manifest limited to 128 KiB;
+- runtime ID/version validated before becoming filesystem path components;
+- Linux entrypoint rejects .. segments;
+- rootfs declared size enforced while streaming;
+- SHA-256 required before staging promotion;
+- failed staging is deleted;
+- rootfs remains data and is not directly executed.
 
-The terminal is powerful within the app UID. It can execute commands available to that UID, so future user-facing builds should make that boundary explicit.
+## Android code execution
 
-## Future runtime requirements
+PocketPC targets API 37. Do not execute newly downloaded app-home files directly. Native runtime/loader code must be shipped through an Android-compliant executable/package path.
 
-- verify downloaded/imported runtime artifacts by cryptographic hash;
-- record source/version/license;
-- reject architecture/version mismatches;
-- keep runtime files under app-controlled storage unless the user explicitly exposes a SAF tree;
-- fail closed on validation errors;
-- prevent silent permission expansion;
-- provide deterministic cleanup of supervised processes.
+## Before rootfs extraction
 
-## Third-party components
+Extraction is blocked by design until policy handles:
 
-Before redistribution of Linux rootfs, Box64, Wine, DXVK, VKD3D, Mesa or other components, document upstream license, source/version, modification obligations and redistribution terms.
+- ../ and absolute paths;
+- symlinks/hardlinks escaping destination;
+- device nodes/FIFOs;
+- ownership/mode normalization;
+- archive bombs and declared/extracted size caps;
+- partial extraction cleanup.
+
+## Future downloaded/imported components
+
+- cryptographic hash required;
+- source/version/license recorded;
+- architecture validated;
+- fail closed;
+- deterministic process cleanup;
+- no silent permission expansion.
+
+Third-party redistribution requires a documented license audit before bundling.

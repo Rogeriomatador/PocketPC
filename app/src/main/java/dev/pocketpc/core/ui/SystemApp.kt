@@ -7,21 +7,28 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.pocketpc.core.runtime.NativeHostStatus
 import dev.pocketpc.core.system.SystemSnapshot
 
 @Composable
-fun SystemApp(snapshot: SystemSnapshot, storageConfigured: Boolean) {
+fun SystemApp(
+    snapshot: SystemSnapshot,
+    storageConfigured: Boolean,
+    nativeHost: NativeHostStatus,
+) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text("Sistema", style = MaterialTheme.typography.titleMedium)
         Section("PocketPC") {
-            ValueRow("Versão", "0.1.0-alpha3")
+            ValueRow("Versão", "0.1.0-alpha4")
             ValueRow("Desktop shell", "IMPLEMENTED")
             ValueRow("Arquivos SAF", if (storageConfigured) "IMPLEMENTED / CONFIGURED" else "IMPLEMENTED")
             ValueRow("Local Android shell", "IMPLEMENTED")
-            ValueRow("Linux ARM", "DESIGN / PLANNED")
+            ValueRow("Runtime staging", "IMPLEMENTED")
+            ValueRow("Native Runtime Host", if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED")
+            ValueRow("Linux ARM execution", "DESIGN / NOT IMPLEMENTED")
             ValueRow("Windows x86/x64", "DESIGN / PLANNED")
             ValueRow("vGPU", "DESIGN / PLANNED")
         }
@@ -33,7 +40,15 @@ fun SystemApp(snapshot: SystemSnapshot, storageConfigured: Boolean) {
             ValueRow("ABIs", snapshot.abis.joinToString())
             ValueRow("CPU lógica", snapshot.cpuCores.toString())
             ValueRow("OpenGL ES", snapshot.glEsVersion)
-            ValueRow("Partição /data", "${formatBytes(snapshot.internalFreeBytes)} livres / ${formatBytes(snapshot.internalTotalBytes)}")
+            ValueRow(
+                "Partição /data",
+                "${formatBytes(snapshot.internalFreeBytes)} livres / ${formatBytes(snapshot.internalTotalBytes)}",
+            )
+        }
+
+        Section("Runtime host") {
+            Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
+            Text("nativeLibraryDir: ${nativeHost.nativeLibraryDir}", style = MaterialTheme.typography.bodySmall)
         }
 
         Section("Vulkan exposto pelo Android") {

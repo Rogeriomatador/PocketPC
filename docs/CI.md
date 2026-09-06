@@ -1,34 +1,25 @@
 # CI status and recovery
 
-## Observed historical state
+## Current classification
 
-Actions runs before Alpha 3 were created but completed as failure before the first declared step began. No checkout, Java setup, Android SDK setup, Gradle task or Kotlin compilation was reached.
+Runs observed through Alpha 4 predecessors fail before the first declared step begins. Jobs report steps: null and no logs. No checkout, Java, SDK, NDK, Gradle, Kotlin, CMake or compiler action is reached.
 
 Classification: **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**.
 
-Do not edit Android source solely to fix a run that never reached the source tree.
-
-## Alpha 3 workflow
-
-The workflow requests:
+## Alpha 4 workflow intends to test
 
 1. checkout;
 2. Temurin JDK 17;
-3. Android SDK;
-4. platform-tools, API 37 and Build Tools 36.0.0;
-5. Gradle 9.6.0;
-6. toolchain diagnostics;
-7. testDebugUnitTest;
-8. lintDebug;
-9. assembleDebug;
-10. reports and APK artifacts.
+3. Android SDK API 37 / Build Tools 36.0.0;
+4. Android NDK r29 (29.0.14206865);
+5. CMake 3.22.1;
+6. Gradle 9.6.0;
+7. unit tests;
+8. Android lint;
+9. debug APK;
+10. inspect APK for libpocketpc_runtime.so in arm64-v8a/x86_64;
+11. upload reports/APK.
 
-## If a run still fails before checkout
+If a run fails before checkout again, do not call it a source build failure.
 
-Inspect repository/account-side Actions conditions: whether Actions are enabled, hosted runners are available, and whether private-repository plan/spending/billing or account policy prevents runner allocation.
-
-The exact cause must come from GitHub evidence; do not guess.
-
-## If Gradle starts and fails
-
-Reclassify as **BUILD FAILURE**, capture the first actionable Gradle/compiler/dependency error and fix that exact issue.
+When the runner finally starts, the first actionable Gradle/CMake/Kotlin error becomes the next engineering target.

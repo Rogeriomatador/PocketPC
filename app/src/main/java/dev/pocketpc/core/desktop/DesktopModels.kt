@@ -15,6 +15,7 @@ data class DesktopWindow(
 enum class DesktopApp(val label: String, val glyph: String) {
     FILES("Arquivos", "▣"),
     TERMINAL("Terminal", ">_"),
+    RUNTIMES("Runtimes", "⬡"),
     SYSTEM("Sistema", "◉"),
     PERFORMANCE("Desempenho", "⌁"),
 }

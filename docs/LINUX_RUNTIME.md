@@ -1,35 +1,80 @@
-# Linux ARM runtime — design gate
+# Linux ARM runtime — Alpha 4 plan
 
-Status: **DESIGN**. PocketPC does not yet ship a Linux rootfs.
+Current state:
 
-## Goal
+- Runtime Manifest: **IMPLEMENTED**
+- rootfs integrity staging: **IMPLEMENTED**
+- packaged NDK Runtime Host source: **IMPLEMENTED**
+- pure manifest/hash logic: **STATICALLY VALIDATED**
+- JNI/APK build/load: **NOT CI VALIDATED**
+- rootfs extraction: **DESIGN**
+- Linux execution: **DESIGN**
 
-Run an ARM64 Linux userspace under the normal Android application security boundary, supervised by PocketPC, before attempting x86/x64 Windows compatibility.
+## Android W^X constraint
 
-## Required components
+PocketPC targets API 37. Android's target-29+ behavior prevents direct execve of arbitrary executable code from the writable app home directory.
 
-- RuntimeManifest: version, architecture, source, SHA-256, license metadata.
-- RootfsManager: download/import, verify, extract, update and remove.
-- ProcessSupervisor: start/stop, stdout/stderr, timeout, crash cleanup.
-- EnvironmentBridge: HOME, TMP, locale and controlled user-selected storage.
-- TerminalBridge: initial pipe-based proof; PTY only after the simple path is validated.
-- RuntimeLogs: exact command/runtime version and exit state.
+Architecture:
 
-## Open implementation decision
+~~~text
+APK
+└── native Runtime Host / loader code    [executable package path]
 
-The exact no-root userspace mechanism is intentionally not declared implemented yet. Candidates must be evaluated for Android restrictions, syscall/filesystem behavior, maintenance, performance and licensing.
+app-private data
+└── verified rootfs                       [data, writable]
+~~~
 
-## Linux gate L0
+Do not regress to a design that simply downloads proot or Linux ELF files into filesDir and executes them directly.
 
-Before graphical Linux:
+## L0 — runtime integrity
 
-1. validated ARM64 rootfs manifest;
-2. integrity verification;
-3. start shell;
-4. uname and basic filesystem commands;
-5. create/read file inside runtime home;
-6. stop/cleanup reliably;
-7. no unrestricted storage permission;
-8. repeatable result on at least one physical device.
+Alpha 4 implements most of L0-prep:
 
-Only after L0 should package management and graphics be added.
+- manifest;
+- ABI gate;
+- declared size;
+- SHA-256;
+- fail-closed staging;
+- inventory/removal.
+
+Still required:
+
+- CI build of NDK library;
+- device proof that the native host loads;
+- archive format decision;
+- extraction that rejects path traversal, unsafe symlinks, device nodes and escaping destinations.
+
+## L1 — execution substrate research
+
+Candidates must be tested, not assumed:
+
+1. APK-packaged native loader/runtime host;
+2. system-linker execution approach for rootfs ELFs;
+3. proot-based path where the proot/loader executable itself is packaged compliantly;
+4. direct JNI/in-process strategies for specific tools where appropriate.
+
+Selection criteria:
+
+- current Android compatibility;
+- targetSdk 37 compatibility;
+- SELinux/seccomp behavior;
+- device/OEM variance;
+- stability;
+- performance;
+- licensing;
+- ability to supervise/terminate processes.
+
+## L2 — first Linux proof
+
+Pass only after a physical-device log proves:
+
+1. packaged runtime host loaded;
+2. verified aarch64 rootfs prepared;
+3. Linux /bin/sh-equivalent launched through the selected substrate;
+4. uname/filesystem/basic process commands;
+5. create/read a file in runtime home;
+6. clean stop and restart;
+7. no root;
+8. no unrestricted Android storage permission.
+
+Graphical Linux begins only after this.

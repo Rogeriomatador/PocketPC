@@ -1,63 +1,61 @@
 # Roadmap
 
-## 0.1.0-alpha3 — current source
+## 0.1.0-alpha4 — runtime foundation
 
-- modular desktop shell;
-- navigable SAF explorer;
-- local Android shell;
-- capability view;
-- richer app-scoped telemetry;
-- advisory thermal/memory governor;
-- unit-test sources;
-- stronger CI and device scripts.
+- Alpha 3 desktop/files/local shell/telemetry;
+- Runtimes UI;
+- NDK r29 Runtime Host source;
+- manifest schema;
+- ARM64 compatibility validation;
+- SHA-256 + declared-size verification;
+- fail-closed rootfs staging;
+- path traversal defenses;
+- runtime inventory/removal;
+- NDK/CMake CI definition.
 
-Gate: CI build + physical device smoke test.
+Gate: build/JNI load on Android.
 
-## 0.1.x — desktop hardening
+## 0.1.x — runtime safety
 
-- responsive window geometry;
-- keyboard shortcuts;
-- pointer polish;
-- window state persistence;
-- better file actions;
-- PTY research;
-- connected-display behavior;
-- crash/log export.
+- choose rootfs archive format;
+- safe data extraction;
+- staging/install transaction journal;
+- log export;
+- more device UX/pointer/keyboard hardening.
 
-## 0.2 — Linux ARM runtime
+## 0.2 — Linux ARM execution
 
-- signed/versioned rootfs manifest;
-- runtime installer/validator;
+- Android-compliant executable loader substrate;
 - process supervisor;
-- shell environment;
-- controlled user storage bridge;
-- benchmark harness.
+- environment;
+- PTY;
+- first verified aarch64 shell;
+- package/bootstrap research.
 
 ## 0.3 — accelerated Linux graphics
 
-- Vulkan capability probe;
+- native Vulkan probe;
 - renderer/backend abstraction;
-- buffer/presentation prototype;
-- frame-time telemetry;
-- first accelerated graphical Linux application gate.
+- buffers/presentation;
+- first graphical Linux workload;
+- frame-time telemetry.
 
-## 0.4 — Windows compatibility research
+## 0.4 — Windows compatibility
 
 - x86/x64 translation feasibility;
-- Wine bootstrap;
-- DXVK/VKD3D matrix;
+- Wine;
+- DXVK/VKD3D;
 - licensing/redistribution audit;
 - compatibility database.
 
-## 0.5 — performance engine
+## 0.5 — measured performance engine
 
-- per-runtime profiles;
 - frame pacing;
-- shader/pipeline cache policy;
-- thermal governor connected to controlled workloads;
-- dynamic-resolution experiments;
-- sustained-performance benchmark suite.
+- shader/pipeline cache;
+- thermal governor connected to owned workload;
+- dynamic resolution/upscaling experiments;
+- sustained A/B benchmarks.
 
 ## 1.0 gate
 
-PocketPC must prove at least one meaningful advantage — compatibility, usability, frame-time stability, sustained performance or power — through reproducible evidence, not marketing labels.
+At least one meaningful advantage must be reproducibly demonstrated without fabricated results.

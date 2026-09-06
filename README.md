@@ -1,4 +1,4 @@
-# PocketPC — 0.1.0-alpha3
+# PocketPC — 0.1.0-alpha4
 
 PocketPC is an experimental Android desktop/runtime project. The goal is to turn a phone into a usable desktop workstation while keeping Android as the host, then progressively research Linux ARM, Windows compatibility, accelerated graphics and sustainable performance.
 
@@ -13,69 +13,78 @@ PocketPC does **not** claim that virtual VRAM creates physical memory or that a 
 - **DEVICE TESTED** — the exact APK was exercised on real Android hardware.
 - **BENCHMARKED** — reproducible measurements exist with device/build/workload/methodology recorded.
 
-A higher label must never be inferred from a lower one.
+## Alpha 4 — IMPLEMENTED source
 
-## Alpha 3 — IMPLEMENTED source
+Everything from Alpha 3 plus:
 
-- Jetpack Compose desktop shell.
-- Start menu, desktop icons and scrollable taskbar.
-- Window controller: open, focus, drag, minimize, maximize/restore and close.
-- Safe drawing insets and resizeable activity.
-- Storage Access Framework explorer:
-  - persistent root authorization;
-  - directory listing and child navigation;
-  - external file opening;
-  - explicit disconnect/release flow.
-- Pocket Terminal:
-  - executes Android /system/bin/sh with the normal app UID;
-  - no root claim;
-  - help, pwd, cd, clear and logical exit;
-  - working-directory state;
-  - 8-second command timeout;
-  - 64 KiB output cap;
-  - command/history UI.
-- App-scoped telemetry:
-  - PocketPC UI cadence/FPS;
-  - average/worst frame interval in the sampling window;
-  - process CPU-time estimate;
-  - process PSS memory;
-  - available/total RAM and low-memory signal;
-  - Android thermal status;
-  - 10-second thermal headroom when available.
-- Advisory performance governor:
-  - HOLD;
-  - WATCH;
-  - REDUCE_LOAD;
-  - REDUCE_AGGRESSIVELY.
-- System capability view:
-  - Android/API;
-  - ABI list;
-  - logical CPU count;
-  - OpenGL ES;
-  - /data capacity visible to the app;
-  - Vulkan feature records exposed by PackageManager.
-- Unit-test sources for desktop-controller, shell parsing, byte formatting and governor thresholds.
-- CI workflow for tests, lint, debug assembly and artifact upload.
-- Build/device helper scripts.
+- **Runtimes** desktop application.
+- NDK r29 native Runtime Host packaged as libpocketpc_runtime.so.
+- Native host probe reporting packaged-host load, ABI, process/kernel information and native library directory.
+- Runtime Manifest schema v1.
+- ARM64/aarch64 compatibility gate.
+- manifest/path validation with traversal-resistant id, version and Linux entrypoint.
+- SHA-256 utility with byte limits.
+- verified rootfs staging:
+  - manifest selected through Android documents;
+  - rootfs selected through Android documents;
+  - declared byte count enforced while copying;
+  - SHA-256 verified before promotion;
+  - temporary directory deleted on failure;
+  - prior verified staging preserved until replacement is ready;
+  - staged rootfs stored as **data**, not executed.
+- runtime inventory and removal UI.
+- CI definition extended with Android NDK r29 + CMake and packaged-native-host inspection.
+- pure Kotlin tests for manifest validation and SHA-256.
+
+## Critical Android execution constraint
+
+Android 10+ apps targeting API 29+ cannot directly execve code placed in the writable app home directory. PocketPC targets API 37, so downloaded rootfs binaries must not be treated as ordinary executable app-data files.
+
+Alpha 4 therefore separates:
+
+~~~text
+EXECUTABLE HOST CODE
+    packaged in APK / native library path
+             +
+ROOTFS / PACKAGES
+    writable verified data
+~~~
+
+This is why Alpha 4 stages and verifies a rootfs but deliberately does **not** claim it can execute that rootfs yet.
 
 ## STATICALLY VALIDATED scope
 
-A limited local Kotlin compiler smoke check passed for the pure Kotlin shell models/builtins and performance governor. This does **not** validate Android APIs, Compose, Gradle dependency resolution, APK assembly or execution on a phone.
+A local kotlinc smoke check passed for the pure Kotlin Runtime Manifest validator and SHA-256 logic, including:
 
-## DESIGN / PLANNED
+- valid aarch64 manifest accepted;
+- version=../../escape rejected;
+- /usr/../bin/sh entrypoint rejected;
+- known SHA-256 vector for PocketPC matched.
 
-- PTY-backed terminal.
-- Linux ARM rootfs/runtime manager.
-- Linux package/bootstrap/process supervision.
-- x86/x64 translation research.
-- Wine bootstrap.
-- DXVK/VKD3D path.
-- Pocket graphics bridge / vGPU.
-- shader and pipeline-cache policy.
-- active frame-pacing controller.
-- dynamic-resolution/upscaling experiments.
-- governor actions connected to a renderer/runtime we control.
-- connected-display-specific UX and phone-as-touchpad mode.
+This does **not** validate Android APIs, JNI/NDK linkage, CMake, Compose, Gradle dependency resolution, APK assembly or execution on a phone.
+
+## Existing implemented foundations
+
+- Compose desktop shell, taskbar, start menu and window controller.
+- navigable/persistent SAF file explorer.
+- local /system/bin/sh terminal under the normal app UID.
+- system/ABI/OpenGL/Vulkan capability view.
+- app-scoped UI/process/memory/thermal telemetry.
+- advisory thermal/memory performance governor.
+- unit-test sources and build/device scripts.
+
+## DESIGN / next gates
+
+- prove NDK/JNI host loads in a built APK;
+- rootfs extraction as data with safe archive policy;
+- embedded runtime-loader/proot/system-linker execution research;
+- PTY-backed terminal;
+- first ARM64 Linux userspace shell proof;
+- accelerated Linux graphics;
+- x86/x64 translation + Wine research;
+- DXVK/VKD3D;
+- Pocket graphics bridge / vGPU;
+- active frame pacing/scaling/thermal controls for workloads PocketPC owns.
 
 ## Toolchain
 
@@ -84,66 +93,30 @@ A limited local Kotlin compiler smoke check passed for the pure Kotlin shell mod
 - JDK 17
 - compileSdk / targetSdk 37
 - minSdk 26
+- Android NDK 29.0.14206865 (r29)
+- CMake 3.22.1
 - Compose BOM 2026.08.00
 - Activity Compose 1.13.0
 - Lifecycle 2.11.0
-- DocumentFile 1.1.0
 
-The repository currently does not contain a Gradle Wrapper binary. Do not fabricate one. Use trusted Gradle 9.6.0 directly until a verified wrapper is committed.
+The repository currently does not contain a fabricated Gradle Wrapper binary. Use trusted Gradle 9.6.0 directly until a verified wrapper is committed.
 
-## Build status
+## CI status
 
 **Not CI validated yet.**
 
-Earlier observed Actions runs failed before their first declared job step. That is classified as **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**, not as a Kotlin/Android compilation failure, because checkout and Gradle never ran.
+Observed GitHub Actions runs continue to fail before the first declared job step (steps: null, no job logs). This remains classified as **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**, not as a source build failure.
 
-The Alpha 3 workflow now attempts, in order:
+## Engineering order
 
-1. checkout;
-2. JDK 17;
-3. Android SDK API 37 + Build Tools 36.0.0;
-4. Gradle 9.6.0;
-5. unit tests;
-6. Android lint;
-7. debug APK assembly;
-8. report/APK artifact upload.
+1. Build gate.
+2. Native host/JNI load gate.
+3. Device shell/storage/terminal gate.
+4. Runtime staging gate.
+5. Safe rootfs data extraction.
+6. Linux ARM execution proof.
+7. graphics.
+8. Windows compatibility.
+9. measured performance work.
 
-## Local verification
-
-Run:
-
-~~~bash
-scripts/check.sh
-~~~
-
-Or:
-
-~~~bash
-gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
-~~~
-
-Then install:
-
-~~~bash
-scripts/device-smoke.sh
-~~~
-
-Expected APK:
-
-~~~text
-app/build/outputs/apk/debug/app-debug.apk
-~~~
-
-## Engineering gates
-
-- **A / Build:** tests + lint + assembleDebug pass.
-- **B / Desktop:** launch, rotate, window controls, taskbar.
-- **C / Storage:** permission persistence, navigation, file open, revoke handling.
-- **D / Terminal:** builtins, real local shell command, timeout, truncation, no-root boundary.
-- **E / Telemetry:** plausible updating values and clean unsupported states.
-- **F / Connected display:** resize/pointer/keyboard where hardware supports it.
-- **G / Linux:** rootfs lifecycle + shell proof before graphical Linux.
-- **H / Graphics:** capability probe and measured accelerated presentation before any vGPU performance claim.
-- **I / Benchmark:** reproducible A/B evidence before optimization claims.
-
-See docs/ for architecture, gates, Linux, graphics, CI, security and benchmark policy.
+See docs/ for architecture, runtime package format, Linux plan, graphics, security, CI, device tests and benchmark policy.
