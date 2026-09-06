@@ -1,55 +1,36 @@
-# Security model — Alpha 5
+# Security model — Alpha 6
 
-## Current boundary
+## Existing archive protections
 
-- ordinary Android app UID;
-- no root;
-- no MANAGE_EXTERNAL_STORAGE;
-- user-selected SAF inputs;
-- archive SHA-256 before staging;
-- schema/path validation;
-- rootfs extraction only from schema-v2 tar/tar.gz;
-- fail-closed TAR parser;
-- no Android symlink/hardlink materialization;
-- transactional staging/install directories;
-- free-space budgets and archive/extraction limits;
-- no Linux execution claim.
+- SHA-256 staging verification;
+- bounded TAR/TAR.GZ extraction;
+- path traversal rejection;
+- no guest symlink/hardlink materialization;
+- transactional install;
+- size/entry/path/header limits.
 
-## TAR policy
+## Execution preparation protections
 
-Rejected:
+- no shell-string PRoot invocation;
+- host binds limited to canonical app-owned roots;
+- normalized absolute guest paths;
+- duplicate guest mounts rejected;
+- user binds cannot override reserved system locations;
+- colon/exclamation guest syntax rejected;
+- minimal whitelisted environment;
+- inherited process environment cleared;
+- bounded captured output;
+- command timeout and force-kill fallback;
+- only one supervised process at a time;
+- executor remains disabled.
 
-- absolute archive paths;
-- dot-dot traversal;
-- backslash path ambiguity;
-- duplicate paths;
-- entries below a previously recorded link;
-- link-after-descendant ambiguity;
-- corrupt header checksum;
-- device nodes;
-- FIFOs;
-- unsupported special entry types;
-- byte/entry/header/path limits exceeded.
+## Known open risks
 
-PAX and GNU long-name metadata are parsed with bounded size.
+- PRoot child/process-tree termination on Android is not device validated;
+- PTY is not implemented;
+- guest links are metadata only;
+- /proc, /sys and /dev policy is not finalized;
+- user SAF storage has no direct bind bridge;
+- PRoot binaries have not completed provenance/license review.
 
-## Link policy
-
-Guest symlink and hardlink information is stored in metadata only.
-
-This prevents extraction writes and recursive cleanup from accidentally following guest links outside the intended data root.
-
-## Third-party substrate
-
-PRoot is not bundled. CI rejects unreviewed PRoot-named libraries until provenance and GPL/dependency obligations are documented.
-
-## Future requirements
-
-- no-shell-string construction of PRoot arguments;
-- explicit bind-mount allowlist;
-- controlled environment variables;
-- process-group termination;
-- log/output caps;
-- no silent permission expansion;
-- device/OEM variance testing;
-- runtime package signatures or stronger trust model before automatic downloads.
+No runtime may be labelled EXECUTABLE_LINUX until those gates are addressed with evidence.

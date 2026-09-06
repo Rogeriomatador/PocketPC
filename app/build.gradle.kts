@@ -12,8 +12,8 @@ android {
         applicationId = "dev.pocketpc.core"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.1.0-alpha4"
+        versionCode = 6
+        versionName = "0.1.0-alpha6"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")

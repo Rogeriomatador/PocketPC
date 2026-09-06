@@ -1,77 +1,44 @@
-# PocketPC architecture — draft 0.5
+# PocketPC architecture — draft 0.6
 
-## Layer 0 — Android host [IMPLEMENTED baseline]
+## Android host
 
-Lifecycle, input, displays, SAF, thermal/memory APIs, NDK packaging and Vulkan access.
+Lifecycle, input, SAF, storage, thermal/memory APIs, NDK and Vulkan.
 
-## Layer 1 — Desktop shell [IMPLEMENTED]
+## Desktop shell
 
-Compose desktop, taskbar, start menu, windows and Files/Terminal/Runtimes/System/Performance surfaces.
+Files, Terminal, Runtimes, System, Performance.
 
-## Layer 2 — Host services [IMPLEMENTED baseline]
+## Runtime package pipeline
 
-- StorageRepository.
-- LocalShellEngine.
-- TelemetryMonitor.
-- SystemSnapshot.
-- PerformanceGovernor.
-- NativeRuntimeHost.
-- native Vulkan capability probe.
+manifest -> STAGED_VERIFIED -> safe extraction -> INSTALLED_DATA
 
-## Layer 3 — Runtime package pipeline [IMPLEMENTED source]
+## Execution policy layer [IMPLEMENTED foundation]
 
-~~~text
-manifest + archive
-       ↓
-schema/ABI/path validation
-       ↓
-streamed size + SHA-256
-       ↓
-STAGED_VERIFIED
-       ↓
-strict TAR/TAR.GZ extractor
-       ↓
-INSTALLED_DATA
-~~~
+- RuntimeBindPolicy
+- RuntimeBindPlanner
+- RuntimeEnvironment
+- ProotInvocationPlanner
+- RuntimeProcessSupervisor
 
-Guest links remain metadata.
+The layer can validate and construct a candidate execution request, but EXECUTOR_NOT_ENABLED keeps it non-runnable.
 
-## Layer 4 — Execution substrate [DESIGN]
+## Execution substrate [DESIGN]
 
-Expected shape:
+Future reviewed PRoot components in nativeLibraryDir.
 
-~~~text
-nativeLibraryDir
-├── packaged PocketPC host
-└── future reviewed PRoot/loader components
-             │
-             ▼
-INSTALLED_DATA rootfs
-             │
-             ▼
-supervised Linux process
-~~~
+## Linux services [DESIGN]
 
-ExecutionSubstrateProbe and RuntimeLaunchPlanner exist, but the executor does not.
+- link semantics
+- process-tree behavior
+- PTY
+- signals
+- package/bootstrap
+- user-storage bridge
 
-## Layer 5 — Linux runtime services [DESIGN]
+## Graphics [G0 source implemented]
 
-- guest link semantics;
-- bind mapping;
-- environment construction;
-- process supervision;
-- PTY;
-- logs/crash cleanup;
-- package/bootstrap behavior.
+Native Vulkan capability probe exists. Controlled renderer is next.
 
-## Layer 6 — Graphics bridge [DESIGN after G0 source]
+## Performance [PARTIAL]
 
-- native Vulkan capability probe exists;
-- controlled Vulkan renderer next;
-- timing/presentation;
-- Linux graphical bridge;
-- DXVK/VKD3D only after Windows compatibility substrate.
-
-## Layer 7 — Performance engine [PARTIAL]
-
-Advisory thermal/memory governor exists. Active rendering/runtime policy is blocked until a controlled workload exists.
+Advisory governor only until PocketPC owns a measured runtime/renderer workload.

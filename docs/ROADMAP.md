@@ -1,61 +1,53 @@
 # Roadmap
 
-## 0.1.0-alpha5 — safe rootfs data install
+## 0.1.0-alpha6 — execution foundation
 
-- schema-v2 runtime manifests;
-- tar/tar.gz declared format;
-- strict bounded TAR extraction;
-- guest links stored as metadata;
-- transactional INSTALLED_DATA state;
-- execution-substrate probe;
-- structured launch blockers;
-- CI rejection of unreviewed PRoot libraries;
-- malicious archive test sources.
+- Alpha 5 safe rootfs data installation;
+- structured bind policy;
+- minimal environment;
+- PRoot argv planner;
+- one-shot process supervisor;
+- executor explicitly disabled;
+- execution-policy unit-test sources.
 
-Gate: build + physical device verification.
+## Next — substrate audit
 
-## 0.1.x — execution substrate preparation
+- PRoot source/build/license audit;
+- dependency audit;
+- reproducible or documented Android build path;
+- artifact SHA-256;
+- nativeLibraryDir packaging verification.
 
-- source/build/license audit for PRoot and dependencies;
-- guest link semantics design;
-- PRoot argument model without shell-string concatenation;
-- bind-mount allowlist;
-- process supervisor and bounded logs;
-- PTY design;
-- runtime diagnostics export.
+## 0.2 — first Linux ARM smoke
 
-## 0.2 — first Linux ARM shell
+- resolve guest link semantics;
+- enable only a non-interactive, allowlisted command path;
+- run /bin/sh -c style guest smoke without host shell composition;
+- capture exit/logs;
+- deterministic stop/cleanup;
+- physical-device evidence.
 
-- reviewed substrate packaged in APK;
-- supervised PRoot invocation;
-- /bin/sh proof;
-- runtime home;
-- stop/restart;
-- basic package/bootstrap research.
+## 0.2.x — interactive Linux
 
-## 0.3 — accelerated Linux graphics
+- PTY;
+- terminal resize;
+- signals;
+- process-tree handling;
+- runtime home/package bootstrap.
+
+## 0.3 — graphics
 
 - controlled Vulkan renderer;
-- swapchain/presentation timing;
-- Linux graphical workload bridge;
-- frame-time measurements.
+- presentation timing;
+- Linux graphical bridge.
 
 ## 0.4 — Windows compatibility
 
-- x86/x64 translation;
+- translation layer;
 - Wine;
 - DXVK/VKD3D;
-- licensing/redistribution audit;
 - compatibility database.
 
 ## 0.5 — measured performance engine
 
-- frame pacing;
-- shader/pipeline cache;
-- thermal governor connected to owned workload;
-- dynamic resolution/upscaling experiments;
-- sustained A/B benchmarks.
-
-## 1.0
-
-Must demonstrate a reproducible useful advantage without fabricated performance claims.
+No optimization claim without reproducible A/B evidence.

@@ -1,58 +1,67 @@
 # PRoot execution substrate research
 
-Status: **DESIGN / NOT BUNDLED**
+Status: **DESIGN / NOT BUNDLED / EXECUTOR DISABLED**
 
-## Why this path exists
+## Researched baseline
 
-Android targetSdk 29+ W^X rules prevent PocketPC from simply downloading an executable into app-private writable storage and calling execve on it.
+Termux package metadata currently identifies:
 
-The execution substrate therefore needs packaged executable/native-library components, while guest rootfs files remain data.
-
-## Current researched baseline
-
-Termux currently maintains a PRoot package with:
-
-- version: 5.1.107.89
-- license: GPL-2.0
+- PRoot version 5.1.107.89
+- GPL-2.0
 - dependencies: libandroid-shmem, libtalloc
-- unbundled loader support in its package recipe
 
-Upstream/research references:
+PocketPC does not redistribute those binaries yet.
 
-- https://github.com/termux/proot
-- https://github.com/termux/termux-packages/blob/master/packages/proot/build.sh
-- https://github.com/termux/termux-packages/wiki/Termux-execution-environment
+## Expected packaged components
 
-## Expected packaged component contract
-
-PocketPC's ExecutionSubstrateProbe currently checks for:
+ExecutionSubstrateProbe checks for:
 
 - libproot.so
 - libproot_loader.so
 - libtalloc.so
 - libandroid-shmem.so
 
-Their presence does **not** imply validation.
+Presence alone is never sufficient for readiness.
 
-## CI fail-closed rule
+## Alpha 6 preparation
 
-Until source provenance, exact hashes, build recipe and GPL obligations are documented, CI rejects an APK containing the PRoot substrate names.
+PocketPC now has:
 
-## Before bundling
+- legacy JNI extraction enabled so future loader files can exist in nativeLibraryDir;
+- host-path allowlist;
+- structured binds;
+- minimal environment whitelist;
+- PRoot argv planner;
+- one-shot bounded process supervisor;
+- explicit EXECUTOR_NOT_ENABLED blocker.
 
-Required evidence:
+## CLI basis
 
-1. exact upstream commit/tag;
-2. reproducible build recipe where feasible;
-3. SHA-256 for source/archive and produced libraries;
-4. GPL-2.0 source/notice obligations documented;
-5. dependency licenses documented;
-6. ABI target confirmed;
-7. Android API 37/device behavior tested;
-8. security review of arguments/env/mount mappings;
-9. device test proving stop/cleanup;
-10. no root privilege.
+The planner is based on PRoot's documented structured options:
 
-## Launch gate
+- -r / --rootfs
+- -b / --bind
+- -w / --cwd
+- -0 / --root-id
 
-Even with all libraries present, Alpha 5 still blocks launch with EXECUTOR_NOT_IMPLEMENTED. Rootfs link semantics must also be resolved before execution can be called ready.
+No user input is concatenated into a shell command.
+
+## Fail-closed bundling
+
+CI rejects PRoot-related library names until provenance/reproducible-build/license checks are completed.
+
+## Before enabling executor
+
+Required:
+
+1. exact source tag/commit;
+2. build recipe;
+3. artifact hashes;
+4. GPL source/notice compliance;
+5. dependency license audit;
+6. Android API 37 build;
+7. physical-device execution test;
+8. link semantics;
+9. process-tree termination behavior;
+10. environment/bind review;
+11. logs demonstrating no host-root requirement.
