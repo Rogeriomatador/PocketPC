@@ -1,64 +1,95 @@
-# PocketPC — v0.1.0-alpha1
+# PocketPC — v0.1.0-alpha2
 
-PocketPC is a proof-of-concept Android desktop/runtime project. The name is provisional.
+PocketPC is an experimental Android desktop/runtime project. The name is provisional.
+
+The long-term goal is to turn mobile hardware into a desktop-oriented computing environment with a native shell, Linux/Windows compatibility research, accelerated graphics and measurable sustained-performance management. PocketPC does **not** claim that virtual VRAM or a virtual GPU creates physical compute power.
 
 ## Evidence labels
 
-- **IMPLEMENTED**: source code exists in this repository.
-- **STATICALLY REVIEWED**: manually reviewed for structure/obvious issues, but not necessarily compiled on Android yet.
-- **DEVICE TEST**: requires a real Android device; no such claim is made without evidence.
-- **PLANNED**: architecture only, not implemented.
+- **DESIGN** — architecture/proposal only.
+- **IMPLEMENTED** — source code exists.
+- **STATICALLY REVIEWED** — source was inspected, without claiming a successful build.
+- **CI VALIDATED** — automated build/tests passed for the exact commit.
+- **DEVICE TESTED** — the exact APK was exercised on real Android hardware.
+- **BENCHMARKED** — reproducible measurements exist.
 
-## Current status
+See [docs/ENGINEERING_RULES.md](docs/ENGINEERING_RULES.md).
 
-### IMPLEMENTED
-- Full-screen Compose desktop shell.
-- Desktop icons and start menu.
-- Window controller: open, focus, drag, minimize, maximize/restore, close.
-- Taskbar.
-- App-level performance HUD.
-- UI FPS counter using Choreographer.
-- App process memory sampling.
-- Available system RAM sampling.
-- Thermal status/headroom sampling when supported.
-- Resizeable activity configuration for desktop/connected-display scenarios.
+## Alpha 2 — IMPLEMENTED source
 
-### PLANNED
-- Storage Access Framework file explorer.
-- PTY terminal.
+### Desktop
+- Jetpack Compose full-screen desktop shell.
+- Start menu and taskbar.
+- Window controller: open, focus, drag, minimize, maximize/restore and close.
+- Resizable activity for phone/connected-display layouts.
+
+### Real file access
+- Storage Access Framework directory picker.
+- Persisted user-granted tree access.
+- Directory navigation and back stack.
+- File metadata listing.
+- Open files through compatible Android apps.
+- Explicit disconnect/release of persisted access.
+
+Android remains the authority over what the app can access. PocketPC does not request unrestricted storage access.
+
+### Pocket Terminal
+- Executes commands using `/system/bin/sh` as the PocketPC app UID.
+- Stateful working directory with `cd`.
+- Bounded command output.
+- Command timeout/termination.
+- Scrollable command history.
+
+This is a real subprocess shell in the **Android app sandbox**, not a Linux rootfs and not a PTY yet. Interactive TTY programs are therefore out of scope for this alpha.
+
+### Telemetry
+- UI FPS via Choreographer.
+- PocketPC process CPU sampling.
+- PocketPC process RAM.
+- available system RAM.
+- thermal status/headroom when supported.
+
+## PLANNED
+
+- PTY-backed terminal.
 - Linux ARM rootfs/runtime.
-- x86/x64 translation runtime.
+- runtime/process supervisor.
+- Vulkan capability probe and graphics bridge.
+- frame-time telemetry.
+- shader/pipeline cache research.
+- x86/x64 translation research.
 - Wine compatibility layer.
-- DXVK/VKD3D integration.
-- Vulkan vGPU/translation layer.
-- shader/pipeline cache manager.
-- frame pacing controller.
-- dynamic-resolution/upscaling experimentation.
+- DXVK/VKD3D compatibility research.
+- dynamic-resolution/upscaling experiments.
 - thermal/performance governor.
+- reproducible benchmark harness.
 
 ## Toolchain target
 
-- compileSdk 37
-- targetSdk 37
-- minSdk 26
-- Android Gradle Plugin 9.4.0
-- Gradle 9.6.0 target
-- Compose BOM 2026.08.00
-- Java 17 toolchain target
+- Android 17 / compileSdk 37 / targetSdk 37.
+- minSdk 26.
+- Android Gradle Plugin 9.4.0.
+- Gradle 9.6.0.
+- AGP built-in Kotlin + Compose compiler plugin.
+- Compose BOM 2026.08.00.
+- Activity Compose 1.13.0.
+- Lifecycle 2.11.0.
+- Java 17 target.
 
-## Build status
+## Validation status
 
-The repository starts from a statically reviewed source baseline. GitHub Actions is being used as the first reproducible compilation gate. Until CI or a local Android build proves otherwise, do not label the project as build-validated.
+Source presence is **not** build proof.
 
-## Next engineering gate
+Current engineering gate:
 
-**Gate V0.1-A:** compile and launch on a physical Android device.
+1. JVM unit tests pass.
+2. Android lint passes.
+3. debug APK assembles.
+4. exact APK launches on a physical device.
+5. desktop/window interactions work in portrait and landscape.
+6. SAF can select, persist, browse and disconnect a directory.
+7. terminal can run `pwd`, `ls`, `id`, `uname -a`, `cd` and timeout a long command.
+8. telemetry updates without crashing when thermal headroom is unavailable.
+9. resizing/external display does not crash the activity.
 
-Pass criteria:
-1. app launches without crash;
-2. desktop renders correctly in portrait and landscape;
-3. all four prototype windows open;
-4. windows move/minimize/maximize/close;
-5. FPS counter updates;
-6. thermal field either reports a valid value or cleanly reports unavailable;
-7. external-display resize does not crash the activity.
+Only after steps 1–3 may the commit be labeled **CI VALIDATED**. Step 4+ is **DEVICE TESTED**.
