@@ -41,14 +41,11 @@ fun RuntimeApp(
                 Text("Runtime Host empacotado", style = MaterialTheme.typography.titleSmall)
                 ValueRow("Native host", if (nativeHost.loaded) "LOADED" else "FAILED")
                 Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
-                Text(
-                    "nativeLibraryDir: ${nativeHost.nativeLibraryDir}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Text("nativeLibraryDir: ${nativeHost.nativeLibraryDir}", style = MaterialTheme.typography.bodySmall)
                 Text("Vulkan native probe", style = MaterialTheme.typography.titleSmall)
                 Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
                 Text(
-                    "Alpha 4 não executa o rootfs. O host nativo e o probe Vulkan são fundações empacotadas no APK.",
+                    "O rootfs permanece como dados verificados; execução Linux ainda não está habilitada.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -71,13 +68,13 @@ fun RuntimeApp(
                     val manifest = manifestUri ?: return@Button
                     val rootfs = rootfsUri ?: return@Button
                     busy = true
-                    status = "Verificando e copiando rootfs…"
+                    status = "Verificando espaço, tamanho e SHA-256…"
                     scope.launch {
                         manager.stage(manifest, rootfs)
                             .onSuccess {
                                 status = "STAGED_VERIFIED: ${it.manifest.name} ${it.manifest.version}"
                                 onClearSelection()
-                                refresh()
+                                runtimes = manager.discover()
                             }
                             .onFailure {
                                 status = "STAGING FAILED: ${it.message ?: it.javaClass.simpleName}"
@@ -101,7 +98,7 @@ fun RuntimeApp(
             Text(
                 it,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (it.startsWith("STAGING FAILED")) MaterialTheme.colorScheme.error
+                color = if (it.contains("FAILED")) MaterialTheme.colorScheme.error
                 else MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -126,22 +123,44 @@ fun RuntimeApp(
                 items = runtimes,
                 key = { "${it.manifest.id}:${it.manifest.version}" },
             ) { runtime ->
-                RuntimeCard(runtime) {
-                    busy = true
-                    scope.launch {
-                        val removed = manager.remove(runtime)
-                        status = if (removed) "Staging removido." else "Não foi possível remover staging."
-                        runtimes = manager.discover()
-                        busy = false
-                    }
-                }
+                RuntimeCard(
+                    runtime = runtime,
+                    enabled = !busy,
+                    onAudit = {
+                        busy = true
+                        status = "Recalculando SHA-256 de ${runtime.manifest.name}…"
+                        scope.launch {
+                            val audit = manager.audit(runtime)
+                            status = if (audit.valid) {
+                                "AUDIT_OK: ${runtime.manifest.name} ${runtime.manifest.version}"
+                            } else {
+                                audit.message
+                            }
+                            busy = false
+                        }
+                    },
+                    onRemove = {
+                        busy = true
+                        scope.launch {
+                            val removed = manager.remove(runtime)
+                            status = if (removed) "Staging removido." else "Não foi possível remover staging."
+                            runtimes = manager.discover()
+                            busy = false
+                        }
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun RuntimeCard(runtime: StagedRuntime, onRemove: () -> Unit) {
+private fun RuntimeCard(
+    runtime: StagedRuntime,
+    enabled: Boolean,
+    onAudit: () -> Unit,
+    onRemove: () -> Unit,
+) {
     Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row {
@@ -152,15 +171,13 @@ private fun RuntimeCard(runtime: StagedRuntime, onRemove: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                TextButton(onClick = onRemove) { Text("Remover") }
+                TextButton(onClick = onAudit, enabled = enabled) { Text("Auditar") }
+                TextButton(onClick = onRemove, enabled = enabled) { Text("Remover") }
             }
             Text("id: ${runtime.manifest.id}", style = MaterialTheme.typography.bodySmall)
             Text("entrypoint: ${runtime.manifest.entrypoint}", style = MaterialTheme.typography.bodySmall)
             Text("license: ${runtime.manifest.license}", style = MaterialTheme.typography.bodySmall)
-            Text(
-                "sha256: ${runtime.manifest.rootfsSha256.take(16)}…",
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Text("sha256: ${runtime.manifest.rootfsSha256.take(16)}…", style = MaterialTheme.typography.bodySmall)
             Text("Estado: STAGED_VERIFIED (não executável ainda)", style = MaterialTheme.typography.labelSmall)
         }
     }

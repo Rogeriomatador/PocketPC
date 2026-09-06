@@ -3,6 +3,7 @@ package dev.pocketpc.core.runtime
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.os.StatFs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -18,6 +19,13 @@ data class StagedRuntime(
     val stagedBytes: Long,
 )
 
+data class RuntimeAudit(
+    val valid: Boolean,
+    val actualSha256: String?,
+    val actualBytes: Long?,
+    val message: String,
+)
+
 class RuntimePackageManager(private val context: Context) {
     private val runtimeRoot = File(context.noBackupFilesDir, "runtimes/staged").apply { mkdirs() }
 
@@ -30,12 +38,15 @@ class RuntimePackageManager(private val context: Context) {
         rootfsUriString: String,
     ): Result<StagedRuntime> = withContext(Dispatchers.IO) {
         runCatching {
+            recoverInterruptedTransactions()
+
             val manifest = readManifestBlocking(manifestUriString)
             val validation = RuntimeManifestValidator.validate(
                 manifest = manifest,
                 supportedAbis = Build.SUPPORTED_ABIS.toList(),
             )
             require(validation.valid) { validation.errors.joinToString(" ") }
+            requireEnoughSpace(manifest.rootfsBytes)
 
             val idDir = File(runtimeRoot, manifest.id).apply { mkdirs() }
             val targetDir = File(idDir, manifest.version)
@@ -93,21 +104,49 @@ class RuntimePackageManager(private val context: Context) {
     }
 
     suspend fun discover(): List<StagedRuntime> = withContext(Dispatchers.IO) {
+        recoverInterruptedTransactions()
+
         runtimeRoot.listFiles()
             .orEmpty()
             .filter { it.isDirectory && !it.name.startsWith(".") }
             .flatMap { idDir -> idDir.listFiles().orEmpty().filter(File::isDirectory) }
             .mapNotNull { directory ->
-                runCatching {
-                    val manifestFile = File(directory, "manifest.json")
-                    val archive = File(directory, "rootfs.archive")
-                    val verified = File(directory, "VERIFIED")
-                    if (!manifestFile.isFile || !archive.isFile || !verified.isFile) return@runCatching null
-                    val manifest = RuntimeManifestCodec.parse(manifestFile.readText())
-                    StagedRuntime(manifest, directory, archive, archive.length())
-                }.getOrNull()
+                loadStagedRuntime(directory)
             }
             .sortedWith(compareBy<StagedRuntime> { it.manifest.name }.thenBy { it.manifest.version })
+    }
+
+    suspend fun audit(runtime: StagedRuntime): RuntimeAudit = withContext(Dispatchers.IO) {
+        runCatching {
+            val canonicalRoot = runtimeRoot.canonicalFile
+            val canonicalArchive = runtime.archive.canonicalFile
+            require(canonicalArchive.path.startsWith(canonicalRoot.path + File.separator)) {
+                "Archive fora do diretório de runtimes."
+            }
+            require(canonicalArchive.isFile) { "Archive do rootfs não existe." }
+
+            val digest = canonicalArchive.inputStream().buffered().use { input ->
+                Sha256.digest(
+                    input = input,
+                    maxBytes = runtime.manifest.rootfsBytes,
+                )
+            }
+            val sizeOk = digest.bytes == runtime.manifest.rootfsBytes
+            val hashOk = digest.sha256.equals(runtime.manifest.rootfsSha256, ignoreCase = true)
+            RuntimeAudit(
+                valid = sizeOk && hashOk,
+                actualSha256 = digest.sha256,
+                actualBytes = digest.bytes,
+                message = if (sizeOk && hashOk) "AUDIT_OK" else "Hash/tamanho divergente do manifesto.",
+            )
+        }.getOrElse {
+            RuntimeAudit(
+                valid = false,
+                actualSha256 = null,
+                actualBytes = null,
+                message = "AUDIT_FAILED: ${it.message ?: it.javaClass.simpleName}",
+            )
+        }
     }
 
     suspend fun remove(runtime: StagedRuntime): Boolean = withContext(Dispatchers.IO) {
@@ -117,11 +156,33 @@ class RuntimePackageManager(private val context: Context) {
         canonicalTarget.deleteRecursively()
     }
 
+    private fun loadStagedRuntime(directory: File): StagedRuntime? = runCatching {
+        val manifestFile = File(directory, "manifest.json")
+        val archive = File(directory, "rootfs.archive")
+        val verified = File(directory, "VERIFIED")
+        if (!manifestFile.isFile || !archive.isFile || !verified.isFile) return@runCatching null
+
+        val manifest = RuntimeManifestCodec.parse(manifestFile.readText())
+        val validation = RuntimeManifestValidator.validate(manifest, Build.SUPPORTED_ABIS.toList())
+        if (!validation.valid) return@runCatching null
+        if (directory.name != manifest.version || directory.parentFile?.name != manifest.id) return@runCatching null
+
+        StagedRuntime(manifest, directory, archive, archive.length())
+    }.getOrNull()
+
     private fun readManifestBlocking(uriString: String): RuntimeManifest {
         val text = context.contentResolver.openInputStream(Uri.parse(uriString))?.use {
             readUtf8Limited(it, MAX_MANIFEST_BYTES)
         } ?: error("Não foi possível abrir o manifesto.")
         return RuntimeManifestCodec.parse(text)
+    }
+
+    private fun requireEnoughSpace(rootfsBytes: Long) {
+        val available = StatFs(runtimeRoot.absolutePath).availableBytes
+        val reserve = minOf(MIN_FREE_RESERVE_BYTES, maxOf(32L * 1024L * 1024L, rootfsBytes / 20L))
+        require(available >= rootfsBytes + reserve) {
+            "Espaço insuficiente: rootfs=${rootfsBytes}B, livre=${available}B, reserva=${reserve}B."
+        }
     }
 
     private fun promoteVerified(tempDir: File, targetDir: File) {
@@ -137,15 +198,53 @@ class RuntimePackageManager(private val context: Context) {
             require(tempDir.renameTo(targetDir)) { "Falha ao promover staging verificado." }
             if (oldMoved) backupDir.deleteRecursively()
         } catch (error: Throwable) {
-            if (!targetDir.exists() && oldMoved) {
-                backupDir.renameTo(targetDir)
-            }
+            if (!targetDir.exists() && oldMoved) backupDir.renameTo(targetDir)
             throw error
+        }
+    }
+
+    private fun recoverInterruptedTransactions() {
+        for (idDir in runtimeRoot.listFiles().orEmpty().filter(File::isDirectory)) {
+            for (temp in idDir.listFiles().orEmpty()) {
+                if (temp.isDirectory && temp.name.startsWith(".tmp-")) {
+                    temp.deleteRecursively()
+                }
+            }
+
+            for (backup in idDir.listFiles().orEmpty()) {
+                if (!backup.isDirectory || !backup.name.startsWith(".backup-")) continue
+
+                val manifest = runCatching {
+                    RuntimeManifestCodec.parse(File(backup, "manifest.json").readText())
+                }.getOrNull()
+
+                if (manifest == null || manifest.id != idDir.name) {
+                    backup.deleteRecursively()
+                    continue
+                }
+
+                val validation = RuntimeManifestValidator.validate(
+                    manifest,
+                    Build.SUPPORTED_ABIS.toList(),
+                )
+                if (!validation.valid) {
+                    backup.deleteRecursively()
+                    continue
+                }
+
+                val target = File(idDir, manifest.version)
+                if (target.exists()) {
+                    backup.deleteRecursively()
+                } else if (!backup.renameTo(target)) {
+                    // Keep the backup intact so a later recovery pass can retry.
+                }
+            }
         }
     }
 
     companion object {
         private const val MAX_MANIFEST_BYTES = 128 * 1024
+        private const val MIN_FREE_RESERVE_BYTES = 256L * 1024L * 1024L
 
         internal fun readUtf8Limited(input: InputStream, maxBytes: Int): String {
             require(maxBytes > 0)

@@ -44,7 +44,7 @@ Alpha 4 requires:
 6. manifest + VERIFIED marker are written;
 7. only then is the verified staging promoted;
 8. failures delete temporary data;
-9. the rootfs is **not executed**.
+9. the rootfs is **not executed**.\n10. PocketPC keeps a free-space reserve before copying.\n11. a verified staging can be re-audited by recomputing SHA-256 and byte count.\n12. interrupted temporary staging directories are cleaned on recovery; recoverable verified backups are restored when possible.
 
 The rootfs archive format is intentionally not fixed yet. Safe extraction rules will be defined before extraction is implemented.
 

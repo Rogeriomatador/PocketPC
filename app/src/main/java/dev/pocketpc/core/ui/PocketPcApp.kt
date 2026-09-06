@@ -131,6 +131,14 @@ fun PocketPcApp() {
                             },
                             onChooseRootfs = { rootfsPicker.launch(arrayOf("*/*")) },
                             onClearSelection = {
+                                listOfNotNull(runtimeManifestUri, runtimeRootfsUri).forEach { uriString ->
+                                    runCatching {
+                                        context.contentResolver.releasePersistableUriPermission(
+                                            Uri.parse(uriString),
+                                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                        )
+                                    }
+                                }
                                 runtimeManifestUri = null
                                 runtimeRootfsUri = null
                             },

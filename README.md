@@ -32,7 +32,7 @@ Everything from Alpha 3 plus:
   - temporary directory deleted on failure;
   - prior verified staging preserved until replacement is ready;
   - staged rootfs stored as **data**, not executed.
-- runtime inventory and removal UI.
+- runtime inventory, SHA-256 re-audit and removal UI.\n- free-space reserve before staging and interrupted-transaction recovery.\n- temporary runtime-document permissions released after selection is cleared.
 - CI definition extended with Android NDK r29 + CMake and packaged-native-host inspection.
 - pure Kotlin tests for manifest validation and SHA-256.
 
