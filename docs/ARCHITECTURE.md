@@ -1,11 +1,9 @@
-# PocketPC architecture — draft 0.15
+# PocketPC architecture — draft 0.16
 
-## First physical test chain
+## First physical path
 
-clean Git -> strict build -> local build record -> APK -> physical install -> install record -> debug evidence runner -> evidence bundle -> cross-verifier -> physical validation record -> final first-physical-test record.
+preflight doctor -> strict build -> second preflight -> device install -> debug evidence runner -> evidence bundle -> full-chain verifier -> physical record -> final first-physical-test record.
 
-Every record is hash-linked and independently verified.
+The preflight layer prevents known local environment/device readiness failures from entering the evidence-producing stages.
 
-## Separate execution branch
-
-PRoot source/artifact/license/device approval and Linux executor enablement remain independent later gates.
+PRoot/Linux remains a separate later branch.

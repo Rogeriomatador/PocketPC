@@ -1,7 +1,7 @@
-# CI status — Alpha 15
+# CI status — Alpha 16
 
-Hosted Android CI remains infrastructure-blocked before declared steps in the latest observed runs.
+Hosted Android CI remains blocked before declared steps in the latest observed runs.
 
-Alpha 15 CI definitions add self-test coverage for the final first-physical-test record and PowerShell parse coverage for the one-command harness.
+Alpha 16 CI definitions add deterministic preflight-record self-test and PowerShell parse coverage for doctor-windows.ps1.
 
-The actual one-command physical test remains local because it requires a real authorized Android device.
+The real doctor/device checks are inherently local because hosted runners do not have the user's authorized physical Android device.

@@ -47,6 +47,31 @@ if (-not $OutputRoot) {
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 $OutputRoot = (Resolve-Path $OutputRoot).Path
 
+$doctorScript = Join-Path $repoRoot "scripts\doctor-windows.ps1"
+$preflightDir = Join-Path $OutputRoot "preflight"
+New-Item -ItemType Directory -Force -Path $preflightDir | Out-Null
+
+$doctorArgs = @{
+    RequireDevice = $true
+    OutputPath = (Join-Path $preflightDir "preflight-before-build.json")
+}
+if ($AndroidSdkRoot) {
+    $doctorArgs.AndroidSdkRoot = $AndroidSdkRoot
+}
+if ($JavaHome) {
+    $doctorArgs.JavaHome = $JavaHome
+}
+if ($DeviceSerial) {
+    $doctorArgs.DeviceSerial = $DeviceSerial
+}
+if ($InstallMissingSdkComponents) {
+    $doctorArgs.AllowMissingSdkComponents = $true
+}
+
+Write-Host ""
+Write-Host "==> Preflight Doctor (antes do build)" -ForegroundColor Cyan
+& $doctorScript @doctorArgs
+
 $appVersion = [string]$lock.app.versionName
 $shortCommit = $commit.Substring(0, 12).ToLowerInvariant()
 $expectedBuildDir = Join-Path $OutputRoot "$appVersion-$shortCommit"
@@ -104,6 +129,24 @@ if (
 ) {
     throw "APK não foi pinado ao commit atual."
 }
+
+$doctorAfterArgs = @{
+    RequireDevice = $true
+    OutputPath = (Join-Path $preflightDir "preflight-after-build.json")
+}
+if ($AndroidSdkRoot) {
+    $doctorAfterArgs.AndroidSdkRoot = $AndroidSdkRoot
+}
+if ($JavaHome) {
+    $doctorAfterArgs.JavaHome = $JavaHome
+}
+if ($DeviceSerial) {
+    $doctorAfterArgs.DeviceSerial = $DeviceSerial
+}
+
+Write-Host ""
+Write-Host "==> Preflight Doctor (depois do build)" -ForegroundColor Cyan
+& $doctorScript @doctorAfterArgs
 
 Write-Host ""
 Write-Host "==> 2/2 Automated physical validation" -ForegroundColor Cyan

@@ -1,38 +1,44 @@
-# PocketPC — 0.1.0-alpha15
+# PocketPC — 0.1.0-alpha16
 
 PocketPC is an experimental Android desktop/runtime project with strict evidence labels.
 
-## Alpha 15 — One-command First Physical Test
+## Alpha 16 — Windows Preflight Doctor
 
-Alpha 15 composes the Alpha 12–14 gates into one strict Windows entry point:
+Alpha 16 adds a non-destructive preflight stage before the one-command physical test.
 
-scripts/first-physical-test-windows.ps1
+The doctor checks:
 
-It refuses a dirty Git tree, runs the reproducible local builder in strict Python policy mode, validates the exact build record, installs the APK on one physical ARM64 ADB device, launches PocketPC, runs the debug-only evidence runner, pulls and verifies the evidence bundle, cross-checks build/install/device identity, requires critical filesystem PASS and Native Runtime Host loaded, writes a final physical-validation record, and verifies the final first-physical-test record.
+- toolchain lock;
+- Git availability and clean tree;
+- Python 3;
+- required JDK major;
+- Android SDK;
+- every locked Android SDK component;
+- adb availability;
+- Gradle cache hash when present;
+- free disk space;
+- ADB authorization state;
+- exactly one physical device or an explicit DeviceSerial;
+- arm64-v8a;
+- Android API >= minSdk;
+- basic /data free space;
+- optional HTTPS connectivity to Gradle/Google hosts.
 
-The success token is:
+The raw ADB serial is never written to the report; only SHA-256(serial) is persisted.
 
-POCKETPC_FIRST_PHYSICAL_TEST_OK
+## Two-pass preflight
 
-## Command
+first-physical-test-windows.ps1 now runs the doctor twice:
 
-powershell -ExecutionPolicy Bypass -File .\scripts\first-physical-test-windows.ps1
+1. before build, optionally allowing missing SDK components as repairable WARN when -InstallMissingSdkComponents is requested;
+2. after build, requiring the environment/device to be fully ready before physical validation.
 
-Optional:
+Each preflight produces JSON + SHA-256 sidecar.
 
-- -InstallMissingSdkComponents
-- -AcceptAndroidLicenses
-- -DeviceSerial <serial>
-- -RequireInstalledApkHash
+## Verification
 
-## Final evidence
+verify-preflight-record.py checks PASS/WARN/FAIL counts, classification, required checks, device identity hash and sidecar.
 
-The physical-validation directory contains the APK/bundle-linked evidence chain plus:
+test-preflight-record-verifier.py provides deterministic good/bad fixtures.
 
-- first-physical-test-record.json
-- first-physical-test-record.json.sha256
-- first-physical-test-verification.txt
-
-The final record is independently checked against the clean source commit, local build record, physical-validation record, APK SHA-256 and evidence-bundle SHA-256.
-
-PRoot is still unbundled/unapproved and Linux execution remains disabled.
+The final physical success token remains POCKETPC_FIRST_PHYSICAL_TEST_OK and still requires all Alpha 15 gates.

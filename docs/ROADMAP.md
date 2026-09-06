@@ -1,18 +1,20 @@
 # Roadmap
 
-## 0.1.0-alpha15 — one-command first physical test
+## 0.1.0-alpha16 — Windows preflight doctor
 
-- Alpha 14 automated physical evidence runner;
-- strict one-command Windows orchestration;
-- clean-tree enforcement before the entire chain;
-- final first-physical-test record;
-- final record verifier/self-test;
-- only one final PASS token after every prior gate succeeds.
+- non-destructive environment doctor;
+- locked SDK component checks;
+- JDK/Python/Git/ADB checks;
+- physical-device authorization/ABI/API checks;
+- device serial hashing;
+- disk-space checks;
+- optional network checks;
+- preflight JSON + SHA-256;
+- preflight verifier/self-test;
+- two-pass integration into the one-command physical test.
 
-## Immediate next real action
+## Immediate real step
 
-Run first-physical-test-windows.ps1 on the Windows development PC with one physical ARM64 Android device authorized over ADB.
+Run first-physical-test-windows.ps1 on Windows with one authorized physical ARM64 Android device.
 
-If POCKETPC_FIRST_PHYSICAL_TEST_OK appears, preserve the entire physical-validation directory and its hashes.
-
-Only after that should the project advance the separate PRoot artifact/device gate.
+If preflight fails, fix the explicit FAIL item. If the complete chain succeeds, preserve the entire local-build output and physical-validation evidence.

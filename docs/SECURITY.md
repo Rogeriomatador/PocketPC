@@ -1,9 +1,11 @@
-# Security model — Alpha 15
+# Security model — Alpha 16
 
-Alpha 15 does not relax any earlier gate.
+Alpha 16 adds an environment/device readiness boundary before build/install.
 
-The one-command harness refuses dirty source and always invokes the strict builder. It accepts the physical test only after the final record verifier rechecks hashes linking source build evidence and physical evidence.
+The doctor is non-destructive by default. It records only SHA-256 of the ADB serial, not the raw serial.
 
-The debug-only evidence Activity remains confined to src/debug.
+Missing SDK components are FAIL unless explicitly treated as repairable warnings by the one-command harness when installation was requested.
 
-POCKETPC_FIRST_PHYSICAL_TEST_OK is intentionally unrelated to PRoot approval or Linux execution.
+The second doctor pass requires the repaired environment to be ready before ADB physical validation continues.
+
+All earlier build, install, evidence, filesystem, native-host and PRoot separation gates remain unchanged.

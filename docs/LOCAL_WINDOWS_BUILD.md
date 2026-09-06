@@ -1,5 +1,5 @@
-# Local Windows Build Harness — Alpha 15
+# Local Windows Build Harness — Alpha 16
 
 The strict local builder remains independently usable.
 
-For the first real phone test, scripts/first-physical-test-windows.ps1 is now preferred because it composes the strict build and Alpha 14 physical validation without bypassing either.
+The preferred first-phone path is first-physical-test-windows.ps1, which now wraps the build in two Windows Preflight Doctor passes and then runs the complete Alpha 15 physical evidence chain.
