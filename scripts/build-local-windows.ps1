@@ -334,7 +334,9 @@ function Invoke-PythonPolicyChecks {
         "scripts\verify-proot-approval.py",
         "scripts\test-device-evidence-bundle-verifier.py",
         "scripts\test-local-build-record-verifier.py",
-        "scripts\test-device-install-record-verifier.py"
+        "scripts\test-device-install-record-verifier.py",
+        "scripts\test-device-chain-verifier.py",
+        "scripts\test-physical-validation-record-verifier.py"
     )
 
     foreach ($relative in $scripts) {

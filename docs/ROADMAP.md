@@ -1,23 +1,22 @@
 # Roadmap
 
-## 0.1.0-alpha13 — Device Install & Evidence Chain
+## 0.1.0-alpha14 — automated physical evidence runner
 
-- Alpha 12 reproducible Windows builder;
-- local build re-verification before install;
-- ADB physical-device selection;
-- emulator refusal by default;
-- device serial hashing;
-- arm64-v8a gate;
-- non-incremental APK installation;
-- installed package/version validation;
-- synchronized MainActivity launch;
-- installed APK pull/hash attempt;
-- structured install record + sidecar;
-- install record verifier/self-test;
-- full build/install/evidence cross-verifier.
+- Alpha 13 ADB install gate;
+- debug-only ADB evidence Activity;
+- automated Device Evidence collection;
+- app-specific external evidence export for adb pull;
+- one-script physical orchestrator;
+- filesystem PASS requirement;
+- Native Runtime Host load requirement;
+- full-chain self-test;
+- final physical-validation record;
+- final record verifier/self-test.
 
-## Next real evidence step
+## Next real step
 
-Run Alpha 12/13 scripts on the Windows development PC, install the exact APK on a physical ARM64 phone, run the in-app Device Evidence Harness, export the evidence bundle and verify the full chain.
+Generate a clean Alpha 14 APK on Windows and run validate-device-windows.ps1 against a physical ARM64 Android phone.
 
-PRoot supply-chain work remains separate and Linux execution remains disabled.
+If the script returns PHYSICAL_DEVICE_CHAIN_VERIFIED, the first build/install/runtime-smoke evidence chain is complete.
+
+PRoot/Linux remain separate later gates.

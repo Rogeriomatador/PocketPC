@@ -1,13 +1,14 @@
-# PocketPC architecture — draft 0.13
+# PocketPC architecture — draft 0.14
 
-## Build and physical-evidence chain
+## Build/physical path
 
-android-build-lock -> clean Git commit -> Windows/CI build -> local-build-record -> exact APK -> ADB Device Install Gate -> device-install-record -> installed PocketPC -> Device Evidence Harness -> Evidence Bundle -> full device-chain verifier.
+toolchain lock -> clean build -> local-build-record -> APK -> device install -> device-install-record -> debug evidence runner -> evidence bundle -> cross-verifier -> physical-validation-record -> final verifier.
 
-Each transition has a distinct evidence label and does not imply the next.
+## Strong runtime-smoke gate
 
-## Runtime chain
+The final physical classification additionally requires:
 
-Rootfs staging -> safe extraction -> guest links -> launch policy -> PRoot supply-chain quarantine -> artifact attestation -> future executor.
+- critical filesystem self-test PASS;
+- PocketPC Native Runtime Host loaded.
 
-PRoot approval and Linux execution remain independent from the build/device-install chain.
+PRoot attestation/execution remains a separate branch and is not unlocked by this path.

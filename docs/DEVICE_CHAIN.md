@@ -1,26 +1,14 @@
-# Device Evidence Chain — Alpha 13
+# Device Evidence Chain — Alpha 14
 
-Status: IMPLEMENTED HOST VERIFIER / REAL CHAIN PENDING
+scripts/verify-device-chain.py cross-verifies local build, device install and evidence bundle.
 
-scripts/verify-device-chain.py combines three independently verified artifacts:
+Alpha 14 adds optional strong gates:
 
-1. local-build-record.json;
-2. device-install-record.json;
-3. exported PocketPC evidence bundle.
+--require-filesystem-pass
+--require-native-host
 
-It cross-checks:
+The automated physical runner uses both.
 
-- clean pinned source commit;
-- package name;
-- version name/code;
-- local APK SHA-256 versus install record;
-- build signing-certificate hashes versus installed app Build Identity;
-- manufacturer/model/API;
-- complete ABI set;
-- MainActivity launch PASS.
+Therefore a cryptographically consistent bundle from a device with broken link semantics or a failed PocketPC native host is rejected from the strong physical classification.
 
-The evidence bundle verifier is run with --expected-revision equal to the build commit.
-
-A POCKETPC_DEVICE_CHAIN_OK result means the build/install/evidence artifacts are internally consistent with one another.
-
-It still does not imply Linux execution or PRoot approval.
+POCKETPC_DEVICE_CHAIN_OK still means internal identity consistency. The final physical record verifier is a separate last gate.

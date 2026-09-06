@@ -1,22 +1,7 @@
-# Android Build Toolchain Lock — Alpha 13
+# Android Build Toolchain Lock — Alpha 14
 
-Status: PINNED METADATA
+Current app identity: dev.pocketpc.core 0.1.0-alpha14 / code 14.
 
-Source of truth: toolchains/android-build-lock.json
+Toolchain pins remain AGP 9.4.0, Kotlin Compose 2.3.21, Gradle 9.6.0, JDK 17, compileSdk 37, Build Tools 36.0.0, NDK 29.0.14206865 and CMake 3.22.1.
 
-Current app identity: dev.pocketpc.core 0.1.0-alpha13 / code 13.
-
-Toolchain pins remain:
-
-- AGP 9.4.0
-- Kotlin Compose plugin 2.3.21
-- Gradle 9.6.0
-- JDK 17
-- compileSdk 37
-- Build Tools 36.0.0
-- NDK 29.0.14206865
-- CMake 3.22.1
-
-Gradle distribution SHA-256 remains bbaeb2fef8710818cf0e261201dab964c572f92b942812df0c3620d62a529a01.
-
-verify-android-build-lock.py detects drift against Gradle configuration, Android CI and the Windows local builder.
+Gradle binary ZIP SHA-256 remains bbaeb2fef8710818cf0e261201dab964c572f92b942812df0c3620d62a529a01.

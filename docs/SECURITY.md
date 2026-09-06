@@ -1,23 +1,17 @@
-# Security model — Alpha 13
+# Security model — Alpha 14
 
-Existing archive, guest-filesystem, supply-chain, attestation, build and evidence-bundle boundaries remain active.
+Existing archive, guest-filesystem, substrate, build, install and evidence-bundle protections remain.
 
-## ADB device boundary
+## Debug automation boundary
 
-The device installer refuses emulators by default and requires exactly one authorized device unless an explicit serial is supplied.
+DebugEvidenceActivity exists only in src/debug.
 
-Only SHA-256 of the device serial is persisted.
+It runs PocketPC's own deterministic evidence probes and writes only app-specific evidence output. It does not execute arbitrary shell commands, PRoot, or guest code.
 
-## APK boundary
+## Strong physical classification
 
-The local build record is reverified before adb installation.
+The final physical classification requires both critical filesystem PASS and Native Runtime Host loaded.
 
-The script validates the local APK hash/bytes, installed package path, installed version and MainActivity launch.
+The final record is hash-bound to build record, install record, automation result, device evidence and bundle, and receives its own sidecar.
 
-Installed APK byte equality is attempted through adb pull and can be made mandatory.
-
-## Classification boundary
-
-Metadata-only installation and installed-APK-hash verification are different classifications.
-
-Neither classification is DEVICE TESTED application behavior and neither can approve PRoot or enable Linux.
+verify-physical-validation-record.py independently recomputes those relationships.

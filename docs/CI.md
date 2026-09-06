@@ -1,13 +1,11 @@
-# CI status — Alpha 13
+# CI status — Alpha 14
 
-Hosted Android CI remains blocked before step execution in the latest observed runs.
+Hosted Android CI remains blocked before declared steps in the latest observed runs.
 
-Alpha 13 CI definitions add:
+Alpha 14 definitions add:
 
-- Device install record verifier self-test;
-- PowerShell parse check for both Windows build and device-install harnesses;
-- Windows workflow parse/self-test coverage for the device installer.
+- full device-chain verifier self-test;
+- physical-validation record self-test;
+- PowerShell parse coverage for build, install and physical-validation harnesses.
 
-A hosted runner cannot perform the real physical-device gate unless an actual authorized Android device is attached.
-
-The intended real path is therefore local Windows build -> local ADB physical install -> in-app evidence bundle -> host full-chain verification.
+The real physical gate cannot be completed by ordinary hosted runners because it requires an authorized physical Android device.

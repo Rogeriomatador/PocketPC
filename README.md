@@ -1,53 +1,62 @@
-# PocketPC — 0.1.0-alpha13
+# PocketPC — 0.1.0-alpha14
 
 PocketPC is an experimental Android desktop/runtime project with strict evidence labels.
 
-## Alpha 13 — Device Install & Evidence Chain
+## Alpha 14 — Automated Physical Evidence Runner
 
-Alpha 13 extends the Alpha 12 reproducible Windows build path with a physical-device ADB installation gate.
+Alpha 14 removes most manual interaction from the first physical-device validation.
 
-The Windows device installer:
+A debug-only Activity lives under src/debug and therefore is included only in the debug build variant. Android build-type source sets are designed for code/manifest entries that exist only in that variant. The runner can be launched by ADB with am start -W. 
 
-- re-verifies local-build-record.json before installation;
-- requires functional Python 3 for that verification;
-- selects one authorized ADB device or requires an explicit serial;
-- refuses emulators by default;
-- hashes the device serial instead of storing it raw;
-- requires arm64-v8a for the first physical gate;
-- installs with adb install -r -t --no-incremental;
-- confirms the installed package path;
-- verifies installed versionName/versionCode;
-- launches dev.pocketpc.core/.MainActivity with am start -W -S;
-- records launch output;
-- attempts to pull the installed base APK and compare SHA-256;
-- can require the installed APK hash check;
-- writes device-install-record.json plus SHA-256 sidecar.
+The automated runner:
 
-Two install classifications exist:
+- collects Native Runtime Host and substrate state;
+- runs the filesystem evidence probe;
+- creates Device Evidence JSON;
+- creates the signed-identity/policy Evidence Bundle;
+- copies the final bundle to app-specific external storage;
+- writes automation-result.json with the expected commit and hashes;
+- never enables PRoot or the Linux executor.
 
-- DEVICE_INSTALL_APK_HASH_VERIFIED
-- DEVICE_INSTALL_METADATA_VERIFIED
+## One-device physical validation flow
 
-The second classification is used only when package/version/launch passed but Android would not allow the installed APK to be pulled for byte-hash comparison.
+scripts/validate-device-windows.ps1 performs:
 
-## Full device chain
+1. re-verify the clean local build;
+2. Device Install Gate;
+3. start DebugEvidenceActivity through ADB;
+4. wait for automation-result.json;
+5. pull the bundle/evidence with adb pull;
+6. verify bundle SHA-256;
+7. run the full build/install/evidence cross-verifier;
+8. require filesystem critical PASS;
+9. require Native Runtime Host loaded;
+10. write physical-validation-record.json;
+11. independently verify that final record.
 
-scripts/verify-device-chain.py cross-checks:
+Only after every step passes does it emit:
 
-local build record -> device install record -> exported evidence bundle
+PHYSICAL_DEVICE_CHAIN_VERIFIED
 
-It requires the same clean source commit, app identity, APK SHA-256, signing-certificate identity and device manufacturer/model/API/ABI set.
+## Strong physical gate
 
-## Windows usage
+A chain can be internally consistent and still contain a runtime failure. Therefore Alpha 14 does not award the strong physical classification unless both are true:
 
-Build first:
+- filesystem.allCriticalPassed = true
+- nativeHost.loaded = true
 
-powershell -ExecutionPolicy Bypass -File .\scripts\build-local-windows.ps1 -RequirePythonPolicyChecks
+## Final output
 
-Then install the produced build directory:
+physical-validation/ contains:
 
-powershell -ExecutionPolicy Bypass -File .\scripts\install-device-windows.ps1 -BuildDir .\local-build\<build-dir>
+- automation-result.json
+- device-evidence.json
+- pocketpc-evidence-bundle.zip
+- bundle SHA-256 sidecar
+- bundle-verification.txt
+- device-chain-verification.txt
+- physical-validation-record.json
+- physical-validation-record.json.sha256
+- physical-validation-verification.txt
 
-For the strongest install evidence add -RequireInstalledApkHash.
-
-PRoot remains unbundled, approval remains false and Linux execution remains disabled.
+PRoot remains unbundled/unapproved; prootReady is still expected false and Linux execution stays disabled.

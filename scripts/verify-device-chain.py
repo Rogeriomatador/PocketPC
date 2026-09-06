@@ -37,6 +37,8 @@ def main() -> int:
     parser.add_argument("--bundle", type=pathlib.Path, required=True)
     parser.add_argument("--expected-commit")
     parser.add_argument("--require-installed-apk-hash", action="store_true")
+    parser.add_argument("--require-filesystem-pass", action="store_true")
+    parser.add_argument("--require-native-host", action="store_true")
     args = parser.parse_args()
 
     build_dir = args.build_dir.resolve()
@@ -137,6 +139,16 @@ def main() -> int:
 
     if install_record.get("launch", {}).get("status") != "PASS":
         failures.append("install record did not confirm MainActivity launch")
+
+    if args.require_filesystem_pass:
+        filesystem = evidence.get("filesystem", {})
+        if filesystem.get("allCriticalPassed") is not True:
+            failures.append("device filesystem critical gate is not PASS")
+
+    if args.require_native_host:
+        native_host = evidence.get("nativeHost", {})
+        if native_host.get("loaded") is not True:
+            failures.append("PocketPC native runtime host is not loaded")
 
     if failures:
         print("POCKETPC_DEVICE_CHAIN_FAILED", file=sys.stderr)

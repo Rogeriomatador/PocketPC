@@ -88,12 +88,19 @@ jobs:
       - name: Device install record verifier self-test
         run: python3 scripts/test-device-install-record-verifier.py
 
+      - name: Full device-chain verifier self-test
+        run: python3 scripts/test-device-chain-verifier.py
+
+      - name: Physical validation record self-test
+        run: python3 scripts/test-physical-validation-record-verifier.py
+
       - name: Parse Windows PowerShell harnesses
         shell: pwsh
         run: |
           foreach ($script in @(
             "scripts/build-local-windows.ps1",
-            "scripts/install-device-windows.ps1"
+            "scripts/install-device-windows.ps1",
+            "scripts/validate-device-windows.ps1"
           )) {
             $tokens = $null
             $errors = $null
@@ -123,8 +130,8 @@ jobs:
           sha256sum "$APK" | tee app/build/outputs/apk/debug/app-debug.apk.sha256
           {
             echo "sourceRevision=$GITHUB_SHA"
-            echo "versionName=0.1.0-alpha13"
-            echo "versionCode=13"
+            echo "versionName=0.1.0-alpha14"
+            echo "versionCode=14"
             echo "workflowRunId=$GITHUB_RUN_ID"
             echo "workflowRunAttempt=$GITHUB_RUN_ATTEMPT"
           } > app/build/outputs/apk/debug/app-debug.build.txt
@@ -146,7 +153,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha13-reports
+          name: PocketPC-alpha14-reports
           path: |
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.*
@@ -156,7 +163,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha13-debug
+          name: PocketPC-v0.1-alpha14-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
