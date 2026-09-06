@@ -1,39 +1,43 @@
 # Roadmap
 
-## 0.1.0-alpha10 — device evidence harness
+## 0.1.0-alpha11 — evidence bundle & build identity
 
-- Alpha 9 runtime artifact attestation;
-- app-private filesystem capability probe;
-- relative symlink device test;
-- absolute symlink device test;
-- hardlink inode test;
-- NOFOLLOW cleanup safety test;
-- external target preservation check;
-- structured device/substrate JSON evidence;
-- SHA-256 sidecar;
-- System UI trigger.
+- Alpha 10 physical-device harness;
+- source revision embedded into BuildConfig;
+- LOCAL_UNPINNED fallback;
+- APK signing-certificate SHA-256;
+- package/version/installer identity;
+- evidence JSON schema v2;
+- deterministic payload manifest;
+- policy snapshots;
+- evidence ZIP;
+- SAF export;
+- host bundle verifier;
+- tamper-detection self-test;
+- CI APK SHA-256/build record definition.
 
-## Next evidence gate
+## Next practical gate
 
-- produce a build from a functioning Android toolchain;
-- identify exact commit/APK;
-- run Device Evidence Harness on physical ARM64 Android;
-- preserve JSON + sidecar;
-- classify results honestly.
+Produce an installable APK from a functioning Android build environment.
 
-## Supply-chain gate
+Then:
 
-Still requires:
+1. record APK SHA-256;
+2. install APK on ARM64 Android;
+3. run Device Evidence Harness;
+4. export Alpha 11 evidence bundle;
+5. run host verifier with expected commit;
+6. inspect filesystem/native-host/substrate results.
+
+## Supply-chain work remains separate
 
 - source archive audit;
-- real quarantine build;
-- ELF/dependency report;
-- Android packaging blocker resolution;
-- source-license review;
-- final ARTIFACTS.lock.json.
+- real PRoot quarantine build;
+- talloc/Android dynamic-link resolution;
+- license review;
+- final artifact lock;
+- approved substrate attestation.
 
-## Linux executor gate
+## Linux executor
 
-Still later and separate.
-
-No /bin/sh execution should be enabled merely because filesystem evidence passes.
+Still disabled after all Alpha 11 work.

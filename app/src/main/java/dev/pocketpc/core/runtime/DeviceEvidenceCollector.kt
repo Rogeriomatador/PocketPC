@@ -2,6 +2,7 @@ package dev.pocketpc.core.runtime
 
 import android.content.Context
 import android.os.Build
+import dev.pocketpc.core.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -24,6 +25,7 @@ data class DeviceEvidenceReport(
     val policyDigestsVerified: Boolean,
     val artifactIntegrityVerified: Boolean,
     val prootReady: Boolean,
+    val buildIdentity: BuildIdentity,
     val outputFile: File,
     val outputSha256: String,
     val sha256File: File,
@@ -48,14 +50,16 @@ object DeviceEvidenceCollector {
             val filesystem = FilesystemEvidenceProbe.run(
                 File(context.cacheDir, "pocketpc-selftest")
             )
+            val identity = BuildIdentityCollector.collect(context)
             val generated = Instant.now().toString()
             val output = File(evidenceRoot, "device-evidence-latest.json")
             val shaFile = File(evidenceRoot, "device-evidence-latest.sha256")
 
             val json = JSONObject()
-                .put("schemaVersion", 1)
-                .put("pocketPcVersion", "0.1.0-alpha10")
+                .put("schemaVersion", 2)
+                .put("pocketPcVersion", BuildConfig.VERSION_NAME)
                 .put("generatedAtUtc", generated)
+                .put("buildIdentity", BuildIdentityCollector.toJson(identity))
                 .put(
                     "device",
                     JSONObject()
@@ -148,6 +152,7 @@ object DeviceEvidenceCollector {
                 policyDigestsVerified = substrate.policyDigestsVerified,
                 artifactIntegrityVerified = substrate.artifactIntegrityVerified,
                 prootReady = substrate.prootReady,
+                buildIdentity = identity,
                 outputFile = output,
                 outputSha256 = outputSha,
                 sha256File = shaFile,

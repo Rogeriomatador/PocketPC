@@ -1,96 +1,57 @@
-# Device Evidence Harness — Alpha 10
+# Device Evidence Harness — Alpha 11
 
 Status: **IMPLEMENTED SOURCE / NOT YET RUN ON PHYSICAL DEVICE**
 
-## Purpose
+## Physical filesystem test
 
-Several PocketPC gates cannot be proven by JVM tests or source inspection:
+The Alpha 10 checks remain:
 
-- Android app-private symlink behavior;
-- hardlink support on the device filesystem;
-- NOFOLLOW cleanup behavior;
-- nativeLibraryDir extraction/permissions;
-- actual runtime substrate state.
+- relative symlink;
+- absolute symlink;
+- hardlink;
+- Files.isSameFile;
+- NOFOLLOW cleanup;
+- external target preservation.
 
-Alpha 10 adds an in-app evidence harness for those questions.
+The test stays inside app-private temporary storage and never runs PRoot.
 
-## Safety boundary
+## Alpha 11 additions
 
-The filesystem test:
+The evidence JSON schema advances to v2 and embeds Build Identity.
 
-- uses context.cacheDir only;
-- creates uniquely named temporary directories;
-- creates a separate external test target under the same app cache;
-- never touches shared/user storage;
-- never runs PRoot;
-- never requests root;
-- removes its test data afterward.
+The report now carries:
 
-## Filesystem checks
+- package/version identity;
+- source revision and pinning status;
+- APK signing-certificate hashes;
+- installer package;
+- device identity/capabilities;
+- filesystem results;
+- native host information;
+- substrate approval/attestation state.
 
-### Relative symlink
+## Persistence
 
-Creates a Linux-like layout:
-
-~~~text
-guest/usr/bin/sh
-guest/bin -> usr/bin
-~~~
-
-Then verifies the link node and target text.
-
-### Absolute symlink
-
-Creates a symlink to a second app-private temporary directory.
-
-This is used only to prove that NOFOLLOW cleanup does not traverse the target.
-
-### Hardlink
-
-Creates a regular file and a hardlink, then requires:
+Internal files:
 
 ~~~text
-Files.isSameFile(alias, target) == true
-~~~
-
-### NOFOLLOW cleanup
-
-Deletes the root test tree using SafeTreeOps.deleteNoFollow.
-
-It then verifies the external target file still exists with unchanged content.
-
-## Evidence report
-
-DeviceEvidenceCollector stores:
-
-- timestamp UTC;
-- PocketPC version;
-- Build manufacturer/model/API/ABIs;
-- each filesystem capability result and detail;
-- Native Runtime Host state;
-- Vulkan probe string;
-- nativeLibraryDir;
-- substrate state;
-- approval/attestation booleans;
-- substrate components;
-- approval errors.
-
-## Integrity sidecar
-
-After the JSON is promoted, PocketPC computes SHA-256 and writes:
-
-~~~text
+device-evidence-latest.json
 device-evidence-latest.sha256
+pocketpc-evidence-bundle-latest.zip
+pocketpc-evidence-bundle-latest.sha256
 ~~~
 
-This lets later analysis refer to the exact evidence bytes.
+The bundle can be exported from the System UI through SAF.
 
-## Evidence classification
+## Evidence rule
 
-Source presence: IMPLEMENTED.
+A future DEVICE TESTED classification should reference at minimum:
 
-Host/JVM test: SOFTWARE TEST only.
+- exact repository commit;
+- APK SHA-256;
+- APK signing identity;
+- exported evidence bundle SHA-256;
+- device model/API/ABI;
+- relevant PASS/FAIL fields.
 
-Physical phone run: DEVICE TEST candidate, but only after recording exact APK/commit and reviewing the resulting report.
-
-A passing filesystem harness does not validate PRoot execution.
+A screenshot alone should not replace the structured bundle when the bundle is available.

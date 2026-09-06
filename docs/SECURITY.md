@@ -1,42 +1,46 @@
-# Security model — Alpha 10
+# Security model — Alpha 11
 
 ## Existing boundaries
 
-Archive integrity, link-free extraction, transactional guest-link preparation, artifact quarantine and runtime attestation remain unchanged.
+Archive security, guest filesystem safety, artifact quarantine and runtime attestation remain unchanged.
 
-## Device self-test boundary
+## Build identity
 
-The new Device Evidence Harness:
+Unpinned local builds explicitly report LOCAL_UNPINNED.
 
-- is explicit user-triggered;
-- runs only in app-private temporary storage;
-- does not use SAF/shared storage;
-- does not invoke PRoot;
-- does not invoke the future Linux executor;
-- does not require root;
-- uses NOFOLLOW deletion;
-- removes temporary test trees.
+CI builds use GITHUB_SHA when the workflow reaches the build.
 
-## External-target test
+PocketPC records signing-certificate SHA-256 values; it never reads or exports signing private keys.
 
-The harness deliberately creates an app-private symlink pointing at a sibling app-private test directory.
+## Bundle path security
 
-The root tree is deleted with NOFOLLOW and the sibling file must survive.
+EvidenceBundleCore accepts only relative controlled paths.
 
-This is a safety proof for cleanup behavior, not permission expansion.
+It rejects:
 
-## Evidence integrity
+- absolute paths;
+- backslashes;
+- empty path components;
+- . and .. components;
+- duplicate paths;
+- manifest path collision.
 
-The report is written transactionally and receives a SHA-256 sidecar.
+## Bundle integrity
 
-The sidecar is not a digital signature. It detects byte changes but does not establish authorship.
+Every payload entry is bound to byte length and SHA-256 in bundle-manifest.json.
 
-## Approval boundary
+device-evidence.json also keeps its own SHA-256 sidecar.
 
-Device filesystem PASS cannot set approved=true.
+The bundle ZIP itself receives an internal sidecar before export, while the host verifier independently recomputes the exported ZIP SHA-256.
 
-Artifact approval still requires the full source/artifact/license/device chain.
+## Export boundary
 
-## Execution boundary
+CreateDocument/SAF gives the destination URI selected by the user.
 
-The Linux executor remains disabled independently of the device harness.
+PocketPC writes only to that returned destination and does not request broad filesystem access for bundle export.
+
+## Verification boundary
+
+The host verifier treats malformed JSON and malformed ZIP structures as clean failures instead of allowing parser crashes to be confused with successful verification.
+
+A valid bundle still does not imply Linux execution, source approval or device-test PASS.

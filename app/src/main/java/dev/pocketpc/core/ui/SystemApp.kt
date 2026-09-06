@@ -1,5 +1,7 @@
 package dev.pocketpc.core.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,6 +12,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.runtime.DeviceEvidenceCollector
 import dev.pocketpc.core.runtime.DeviceEvidenceReport
+import dev.pocketpc.core.runtime.EvidenceBundleManager
+import dev.pocketpc.core.runtime.EvidenceBundleReport
 import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.NativeHostStatus
 import dev.pocketpc.core.system.SystemSnapshot
@@ -22,11 +26,40 @@ fun SystemApp(
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
 ) {
-    val context = LocalContext.current.applicationContext
+    val localContext = LocalContext.current
+    val context = localContext.applicationContext
     val scope = rememberCoroutineScope()
+
     var evidence by remember { mutableStateOf<DeviceEvidenceReport?>(null) }
+    var bundle by remember { mutableStateOf<EvidenceBundleReport?>(null) }
     var evidenceStatus by remember { mutableStateOf<String?>(null) }
     var evidenceBusy by remember { mutableStateOf(false) }
+
+    val exportBundle = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        val current = bundle
+        if (uri != null && current != null) {
+            evidenceBusy = true
+            evidenceStatus = "EVIDENCE_BUNDLE_EXPORTING"
+            scope.launch {
+                EvidenceBundleManager.exportToUri(
+                    context = context,
+                    bundle = current,
+                    destination = uri,
+                )
+                    .onSuccess {
+                        evidenceStatus = "EVIDENCE_BUNDLE_EXPORTED"
+                    }
+                    .onFailure { error ->
+                        evidenceStatus =
+                            "EVIDENCE_BUNDLE_EXPORT_FAILED: " +
+                                (error.message ?: error.javaClass.simpleName)
+                    }
+                evidenceBusy = false
+            }
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -35,15 +68,19 @@ fun SystemApp(
         Text("Sistema", style = MaterialTheme.typography.titleMedium)
 
         Section("PocketPC") {
-            ValueRow("Versão", "0.1.0-alpha10")
+            ValueRow("Versão", "0.1.0-alpha11")
             ValueRow("Desktop shell", "IMPLEMENTED")
-            ValueRow("Arquivos SAF", if (storageConfigured) "IMPLEMENTED / CONFIGURED" else "IMPLEMENTED")
+            ValueRow(
+                "Arquivos SAF",
+                if (storageConfigured) "IMPLEMENTED / CONFIGURED" else "IMPLEMENTED",
+            )
             ValueRow("Local Android shell", "IMPLEMENTED")
             ValueRow("Runtime staging", "IMPLEMENTED")
             ValueRow("Safe rootfs install", "IMPLEMENTED")
             ValueRow("Guest link semantics", "IMPLEMENTED / NOT DEVICE VALIDATED")
             ValueRow("NOFOLLOW cleanup", "IMPLEMENTED")
             ValueRow("Device evidence harness", "IMPLEMENTED / USER-RUN TEST")
+            ValueRow("Evidence bundle", "IMPLEMENTED / EXPORTABLE")
             ValueRow(
                 "Native Runtime Host",
                 if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED",
@@ -78,44 +115,82 @@ fun SystemApp(
             ValueRow("OpenGL ES", snapshot.glEsVersion)
             ValueRow(
                 "Partição /data",
-                "${formatBytes(snapshot.internalFreeBytes)} livres / ${formatBytes(snapshot.internalTotalBytes)}",
+                "${formatBytes(snapshot.internalFreeBytes)} livres / " +
+                    formatBytes(snapshot.internalTotalBytes),
             )
         }
 
         Section("Teste do dispositivo") {
             Text(
-                "Teste local e não destrutivo: usa somente diretórios privados temporários, não executa PRoot e não requer root.",
+                "Teste local e não destrutivo: usa somente diretórios privados temporários, " +
+                    "não executa PRoot e não requer root.",
                 style = MaterialTheme.typography.bodySmall,
             )
 
-            Button(
-                enabled = !evidenceBusy,
-                onClick = {
-                    evidenceBusy = true
-                    evidenceStatus = "DEVICE_EVIDENCE_RUNNING"
-                    scope.launch {
-                        DeviceEvidenceCollector.collectAndPersist(
-                            context = context,
-                            nativeHost = nativeHost,
-                            substrate = substrate,
-                        )
-                            .onSuccess { report ->
-                                evidence = report
-                                evidenceStatus = if (report.filesystem.allCriticalPassed) {
-                                    "DEVICE_FILESYSTEM_SELFTEST_PASS"
-                                } else {
-                                    "DEVICE_FILESYSTEM_SELFTEST_PARTIAL_OR_FAIL"
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    enabled = !evidenceBusy,
+                    onClick = {
+                        evidenceBusy = true
+                        evidence = null
+                        bundle = null
+                        evidenceStatus = "DEVICE_EVIDENCE_RUNNING"
+
+                        scope.launch {
+                            DeviceEvidenceCollector.collectAndPersist(
+                                context = context,
+                                nativeHost = nativeHost,
+                                substrate = substrate,
+                            )
+                                .onSuccess { report ->
+                                    evidence = report
+                                    evidenceStatus = if (report.filesystem.allCriticalPassed) {
+                                        "DEVICE_FILESYSTEM_SELFTEST_PASS"
+                                    } else {
+                                        "DEVICE_FILESYSTEM_SELFTEST_PARTIAL_OR_FAIL"
+                                    }
+
+                                    EvidenceBundleManager.create(context, report)
+                                        .onSuccess { created ->
+                                            bundle = created
+                                            evidenceStatus =
+                                                if (report.filesystem.allCriticalPassed) {
+                                                    "DEVICE_EVIDENCE_BUNDLE_READY"
+                                                } else {
+                                                    "DEVICE_EVIDENCE_BUNDLE_READY_WITH_FAILURES"
+                                                }
+                                        }
+                                        .onFailure { error ->
+                                            evidenceStatus =
+                                                "EVIDENCE_BUNDLE_CREATE_FAILED: " +
+                                                    (error.message ?: error.javaClass.simpleName)
+                                        }
                                 }
-                            }
-                            .onFailure { error ->
-                                evidenceStatus =
-                                    "DEVICE_EVIDENCE_FAILED: ${error.message ?: error.javaClass.simpleName}"
-                            }
-                        evidenceBusy = false
-                    }
-                },
-            ) {
-                Text("Executar teste do dispositivo")
+                                .onFailure { error ->
+                                    evidenceStatus =
+                                        "DEVICE_EVIDENCE_FAILED: " +
+                                            (error.message ?: error.javaClass.simpleName)
+                                }
+                            evidenceBusy = false
+                        }
+                    },
+                ) {
+                    Text("Executar teste")
+                }
+
+                OutlinedButton(
+                    enabled = !evidenceBusy && bundle != null,
+                    onClick = {
+                        val current = bundle ?: return@OutlinedButton
+                        val revision = current.buildIdentity.sourceRevision
+                            .let { if (current.buildIdentity.sourceRevisionPinned) it.take(12) else "local" }
+                        exportBundle.launch(
+                            "PocketPC-${current.buildIdentity.versionName}-$revision-evidence.zip"
+                        )
+                    },
+                ) {
+                    Text("Exportar bundle")
+                }
             }
 
             if (evidenceBusy) {
@@ -140,12 +215,37 @@ fun SystemApp(
                     if (report.filesystem.allCriticalPassed) "PASS" else "FAIL / REVIEW",
                 )
                 ValueRow("Substrate attested", if (report.prootReady) "YES" else "NO")
+                ValueRow(
+                    "Source revision",
+                    if (report.buildIdentity.sourceRevisionPinned) {
+                        report.buildIdentity.sourceRevision.take(12)
+                    } else {
+                        "LOCAL_UNPINNED"
+                    },
+                )
+                ValueRow(
+                    "Assinaturas APK",
+                    report.buildIdentity.signingCertificateSha256.size.toString(),
+                )
                 Text(
-                    "Evidence salvo internamente: ${report.outputFile.path}",
+                    "Evidence interno: ${report.outputFile.path}",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
-                    "SHA-256: ${report.outputSha256}",
+                    "Evidence SHA-256: ${report.outputSha256}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            bundle?.let { report ->
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                ValueRow("Bundle entries", report.entryCount.toString())
+                ValueRow(
+                    "Build pinned",
+                    if (report.buildIdentity.sourceRevisionPinned) "YES" else "NO",
+                )
+                Text(
+                    "Bundle SHA-256: ${report.bundleSha256}",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -191,7 +291,8 @@ fun SystemApp(
         Section("Vulkan — NDK probe") {
             Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
             Text(
-                "Este probe apenas enumera capacidades. Ele não renderiza, não mede FPS e não valida uma vGPU.",
+                "Este probe apenas enumera capacidades. " +
+                    "Ele não renderiza, não mede FPS e não valida uma vGPU.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }

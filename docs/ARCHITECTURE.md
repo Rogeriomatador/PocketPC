@@ -1,8 +1,8 @@
-# PocketPC architecture — draft 0.10
+# PocketPC architecture — draft 0.11
 
 ## Layer 0 — Android host
 
-Lifecycle, SAF, storage, input, thermal/memory APIs, NDK and Vulkan.
+Lifecycle, SAF, storage, input, package/signing identity, NDK and Vulkan.
 
 ## Layer 1 — desktop shell
 
@@ -14,41 +14,41 @@ STAGED_VERIFIED -> INSTALLED_DATA.
 
 ## Layer 3 — guest filesystem
 
-INSTALLED_DATA -> LINKS_PREPARED.
-
-Includes metadata parsing, guest path resolution, hardlink identity checks and NOFOLLOW cleanup.
+INSTALLED_DATA -> LINKS_PREPARED with guest link semantics and NOFOLLOW cleanup.
 
 ## Layer 4 — execution policy foundation
 
-Bind policy, environment, argv planning, launch planner and one-shot process supervisor.
+Bind/environment policy, argv planning and bounded process supervision.
 
 Executor remains disabled.
 
 ## Layer 5 — substrate supply chain
 
-Source lock, source audit, quarantine build, ELF/dependency audit, Android packaging blockers and artifact candidate evidence.
+Source locks, archive audit, artifact quarantine, ELF/dependency audit and Android packaging gates.
 
 ## Layer 6 — runtime artifact attestation
 
-Embedded approval manifest, policy digest binding, final artifact-lock requirement and nativeLibraryDir hash verification.
+Approval manifest, policy digest binding and nativeLibraryDir artifact hashes.
 
-## Layer 7 — device evidence [Alpha 10]
+## Layer 7 — device evidence
 
-User-triggered app-private probes for:
+Physical filesystem/self-test harness.
 
-- relative symlink;
-- absolute symlink;
-- hardlink;
-- NOFOLLOW cleanup;
-- external target preservation;
-- native host/substrate state.
+## Layer 8 — evidence identity and export [Alpha 11]
 
-Results are persisted as JSON plus SHA-256 sidecar.
+- BuildConfig source revision;
+- installed APK version;
+- signing-certificate hashes;
+- installer identity;
+- evidence bundle;
+- per-entry hashes;
+- host verifier;
+- SAF export.
 
-## Layer 8 — future reviewed PRoot executor
+## Layer 9 — future PRoot executor
 
 Not implemented/enabled.
 
-## Layer 9 — graphics
+## Layer 10 — graphics
 
-Native Vulkan capability probe exists. Controlled renderer remains future work.
+Native Vulkan capability enumeration exists. Controlled renderer remains future work.

@@ -1,28 +1,35 @@
-# CI status — Alpha 10
+# CI status — Alpha 11
 
-## Current hosted runner state
+## Current infrastructure evidence
 
-Recent Android CI and PRoot Source Audit jobs continue to fail before their first declared step with steps=null and logs_url=null.
+GitHub-hosted jobs remain unresolved before step 1 in the latest observed runs.
 
-Classification remains CI RUNNER/ACCOUNT/INFRA UNRESOLVED.
+This is not Android source/build evidence.
 
-## Alpha 10 intended JVM/CI checks
+## Intended Alpha 11 Android CI
 
-- PRoot policy JSON validation;
-- ELF policy self-test;
-- approval policy validation;
-- no unapproved substrate binaries;
-- guest filesystem unit tests;
-- runtime attestation unit tests;
-- FilesystemEvidenceProbe host test;
-- Android lint;
-- APK assembly;
-- APK payload inspection.
+When a runner starts, the workflow is configured to:
 
-## Device Evidence Harness
+1. checkout exact commit;
+2. set up JDK/SDK/NDK/CMake/Gradle;
+3. validate PRoot policy JSON;
+4. run ELF policy self-test;
+5. verify denied/approved PRoot approval policy;
+6. run evidence-bundle verifier self-test;
+7. reject unreviewed substrate binaries;
+8. run JVM unit tests;
+9. lint;
+10. assemble APK;
+11. write APK SHA-256;
+12. write build record with GITHUB_SHA/version/run identity;
+13. inspect native runtime host;
+14. reject unapproved PRoot APK payload;
+15. upload APK + SHA-256 + build record.
 
-CI cannot substitute for this gate.
+## Device evidence
 
-The in-app harness must be run on a physical Android device to answer device filesystem questions.
+CI cannot replace the physical-device test.
 
-A host FilesystemEvidenceProbeTest only validates the probe logic on the CI/host filesystem.
+A successful APK build gives CI VALIDATED build evidence only.
+
+Device Evidence Harness + verified exported bundle is the path toward DEVICE TEST evidence.

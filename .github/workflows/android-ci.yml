@@ -76,6 +76,9 @@ jobs:
       - name: Verify PRoot approval policy
         run: python3 scripts/verify-proot-approval.py
 
+      - name: Evidence bundle verifier self-test
+        run: python3 scripts/test-device-evidence-bundle-verifier.py
+
       - name: Unit tests
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
 
@@ -84,6 +87,18 @@ jobs:
 
       - name: Assemble debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Record APK build identity
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          sha256sum "$APK" | tee app/build/outputs/apk/debug/app-debug.apk.sha256
+          {
+            echo "sourceRevision=$GITHUB_SHA"
+            echo "versionName=0.1.0-alpha11"
+            echo "versionCode=11"
+            echo "workflowRunId=$GITHUB_RUN_ID"
+            echo "workflowRunAttempt=$GITHUB_RUN_ATTEMPT"
+          } > app/build/outputs/apk/debug/app-debug.build.txt
 
       - name: Inspect packaged native runtime host
         run: |
@@ -102,7 +117,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha10-reports
+          name: PocketPC-alpha11-reports
           path: |
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.*
@@ -112,6 +127,9 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha10-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: PocketPC-v0.1-alpha11-debug
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/app-debug.apk.sha256
+            app/build/outputs/apk/debug/app-debug.build.txt
           if-no-files-found: error

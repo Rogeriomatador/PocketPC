@@ -3,6 +3,15 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val pocketPcSourceRevision = providers.environmentVariable("GITHUB_SHA")
+    .orElse(providers.environmentVariable("POCKETPC_SOURCE_REVISION"))
+    .getOrElse("LOCAL_UNPINNED")
+    .trim()
+    .take(128)
+
+val pocketPcSourceRevisionPinned =
+    Regex("^[0-9a-fA-F]{40}$").matches(pocketPcSourceRevision)
+
 android {
     namespace = "dev.pocketpc.core"
     compileSdk = 37
@@ -12,12 +21,23 @@ android {
         applicationId = "dev.pocketpc.core"
         minSdk = 26
         targetSdk = 37
-        versionCode = 10
-        versionName = "0.1.0-alpha10"
+        versionCode = 11
+        versionName = "0.1.0-alpha11"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
+
+        buildConfigField(
+            "String",
+            "POCKETPC_SOURCE_REVISION",
+            "\"${pocketPcSourceRevision.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
+        buildConfigField(
+            "boolean",
+            "POCKETPC_SOURCE_REVISION_PINNED",
+            pocketPcSourceRevisionPinned.toString(),
+        )
 
         externalNativeBuild {
             cmake {
@@ -28,6 +48,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     sourceSets.getByName("main").assets.srcDir(
