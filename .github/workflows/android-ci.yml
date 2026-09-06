@@ -103,6 +103,9 @@ jobs:
       - name: Failure triage record self-test
         run: python3 scripts/test-failure-triage-verifier.py
 
+      - name: PowerShell 5.1 compatibility smoke
+        run: python3 scripts/test-powershell51-compat.py
+
       - name: Parse Windows PowerShell harnesses
         shell: pwsh
         run: |
