@@ -64,6 +64,17 @@ jobs:
       - name: Physical validation record self-test
         run: python scripts/test-physical-validation-record-verifier.py
 
+      - name: First physical test record self-test
+        run: python scripts/test-first-physical-test-record-verifier.py
+
+      - name: Parse one-command physical test harness
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path "scripts/first-physical-test-windows.ps1"), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -ne 0) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+
       - name: Parse Physical Validation orchestrator
         shell: pwsh
         run: |
@@ -86,6 +97,6 @@ jobs:
       - name: Upload local build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha14-Windows-local-build
+          name: PocketPC-alpha15-Windows-local-build
           path: ${{ runner.temp }}/PocketPC-local-build/**
           if-no-files-found: error

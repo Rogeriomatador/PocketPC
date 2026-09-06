@@ -1,14 +1,11 @@
-# PocketPC architecture — draft 0.14
+# PocketPC architecture — draft 0.15
 
-## Build/physical path
+## First physical test chain
 
-toolchain lock -> clean build -> local-build-record -> APK -> device install -> device-install-record -> debug evidence runner -> evidence bundle -> cross-verifier -> physical-validation-record -> final verifier.
+clean Git -> strict build -> local build record -> APK -> physical install -> install record -> debug evidence runner -> evidence bundle -> cross-verifier -> physical validation record -> final first-physical-test record.
 
-## Strong runtime-smoke gate
+Every record is hash-linked and independently verified.
 
-The final physical classification additionally requires:
+## Separate execution branch
 
-- critical filesystem self-test PASS;
-- PocketPC Native Runtime Host loaded.
-
-PRoot attestation/execution remains a separate branch and is not unlocked by this path.
+PRoot source/artifact/license/device approval and Linux executor enablement remain independent later gates.

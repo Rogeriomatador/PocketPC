@@ -1,11 +1,7 @@
-# CI status — Alpha 14
+# CI status — Alpha 15
 
-Hosted Android CI remains blocked before declared steps in the latest observed runs.
+Hosted Android CI remains infrastructure-blocked before declared steps in the latest observed runs.
 
-Alpha 14 definitions add:
+Alpha 15 CI definitions add self-test coverage for the final first-physical-test record and PowerShell parse coverage for the one-command harness.
 
-- full device-chain verifier self-test;
-- physical-validation record self-test;
-- PowerShell parse coverage for build, install and physical-validation harnesses.
-
-The real physical gate cannot be completed by ordinary hosted runners because it requires an authorized physical Android device.
+The actual one-command physical test remains local because it requires a real authorized Android device.

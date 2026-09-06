@@ -1,6 +1,6 @@
-# Android Build Toolchain Lock — Alpha 14
+# Android Build Toolchain Lock — Alpha 15
 
-Current app identity: dev.pocketpc.core 0.1.0-alpha14 / code 14.
+Current app identity: dev.pocketpc.core 0.1.0-alpha15 / code 15.
 
 Toolchain pins remain AGP 9.4.0, Kotlin Compose 2.3.21, Gradle 9.6.0, JDK 17, compileSdk 37, Build Tools 36.0.0, NDK 29.0.14206865 and CMake 3.22.1.
 

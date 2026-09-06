@@ -1,62 +1,38 @@
-# PocketPC — 0.1.0-alpha14
+# PocketPC — 0.1.0-alpha15
 
 PocketPC is an experimental Android desktop/runtime project with strict evidence labels.
 
-## Alpha 14 — Automated Physical Evidence Runner
+## Alpha 15 — One-command First Physical Test
 
-Alpha 14 removes most manual interaction from the first physical-device validation.
+Alpha 15 composes the Alpha 12–14 gates into one strict Windows entry point:
 
-A debug-only Activity lives under src/debug and therefore is included only in the debug build variant. Android build-type source sets are designed for code/manifest entries that exist only in that variant. The runner can be launched by ADB with am start -W. 
+scripts/first-physical-test-windows.ps1
 
-The automated runner:
+It refuses a dirty Git tree, runs the reproducible local builder in strict Python policy mode, validates the exact build record, installs the APK on one physical ARM64 ADB device, launches PocketPC, runs the debug-only evidence runner, pulls and verifies the evidence bundle, cross-checks build/install/device identity, requires critical filesystem PASS and Native Runtime Host loaded, writes a final physical-validation record, and verifies the final first-physical-test record.
 
-- collects Native Runtime Host and substrate state;
-- runs the filesystem evidence probe;
-- creates Device Evidence JSON;
-- creates the signed-identity/policy Evidence Bundle;
-- copies the final bundle to app-specific external storage;
-- writes automation-result.json with the expected commit and hashes;
-- never enables PRoot or the Linux executor.
+The success token is:
 
-## One-device physical validation flow
+POCKETPC_FIRST_PHYSICAL_TEST_OK
 
-scripts/validate-device-windows.ps1 performs:
+## Command
 
-1. re-verify the clean local build;
-2. Device Install Gate;
-3. start DebugEvidenceActivity through ADB;
-4. wait for automation-result.json;
-5. pull the bundle/evidence with adb pull;
-6. verify bundle SHA-256;
-7. run the full build/install/evidence cross-verifier;
-8. require filesystem critical PASS;
-9. require Native Runtime Host loaded;
-10. write physical-validation-record.json;
-11. independently verify that final record.
+powershell -ExecutionPolicy Bypass -File .\scripts\first-physical-test-windows.ps1
 
-Only after every step passes does it emit:
+Optional:
 
-PHYSICAL_DEVICE_CHAIN_VERIFIED
+- -InstallMissingSdkComponents
+- -AcceptAndroidLicenses
+- -DeviceSerial <serial>
+- -RequireInstalledApkHash
 
-## Strong physical gate
+## Final evidence
 
-A chain can be internally consistent and still contain a runtime failure. Therefore Alpha 14 does not award the strong physical classification unless both are true:
+The physical-validation directory contains the APK/bundle-linked evidence chain plus:
 
-- filesystem.allCriticalPassed = true
-- nativeHost.loaded = true
+- first-physical-test-record.json
+- first-physical-test-record.json.sha256
+- first-physical-test-verification.txt
 
-## Final output
+The final record is independently checked against the clean source commit, local build record, physical-validation record, APK SHA-256 and evidence-bundle SHA-256.
 
-physical-validation/ contains:
-
-- automation-result.json
-- device-evidence.json
-- pocketpc-evidence-bundle.zip
-- bundle SHA-256 sidecar
-- bundle-verification.txt
-- device-chain-verification.txt
-- physical-validation-record.json
-- physical-validation-record.json.sha256
-- physical-validation-verification.txt
-
-PRoot remains unbundled/unapproved; prootReady is still expected false and Linux execution stays disabled.
+PRoot is still unbundled/unapproved and Linux execution remains disabled.

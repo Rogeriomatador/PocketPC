@@ -1,22 +1,18 @@
 # Roadmap
 
-## 0.1.0-alpha14 — automated physical evidence runner
+## 0.1.0-alpha15 — one-command first physical test
 
-- Alpha 13 ADB install gate;
-- debug-only ADB evidence Activity;
-- automated Device Evidence collection;
-- app-specific external evidence export for adb pull;
-- one-script physical orchestrator;
-- filesystem PASS requirement;
-- Native Runtime Host load requirement;
-- full-chain self-test;
-- final physical-validation record;
-- final record verifier/self-test.
+- Alpha 14 automated physical evidence runner;
+- strict one-command Windows orchestration;
+- clean-tree enforcement before the entire chain;
+- final first-physical-test record;
+- final record verifier/self-test;
+- only one final PASS token after every prior gate succeeds.
 
-## Next real step
+## Immediate next real action
 
-Generate a clean Alpha 14 APK on Windows and run validate-device-windows.ps1 against a physical ARM64 Android phone.
+Run first-physical-test-windows.ps1 on the Windows development PC with one physical ARM64 Android device authorized over ADB.
 
-If the script returns PHYSICAL_DEVICE_CHAIN_VERIFIED, the first build/install/runtime-smoke evidence chain is complete.
+If POCKETPC_FIRST_PHYSICAL_TEST_OK appears, preserve the entire physical-validation directory and its hashes.
 
-PRoot/Linux remain separate later gates.
+Only after that should the project advance the separate PRoot artifact/device gate.
