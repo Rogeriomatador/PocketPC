@@ -30,6 +30,12 @@ def main() -> int:
                 f"{path.relative_to(ROOT)}: avoid @($checks) over generic List[object]; "
                 "use ToArray()"
             )
+
+        if re.search(r"\[string\]\$Home\b", text, re.IGNORECASE):
+            failures.append(
+                f"{path.relative_to(ROOT)}: do not use $Home as a parameter; "
+                "PowerShell $HOME is a readonly automatic variable"
+            )
         for number, line in enumerate(text.splitlines(), start=1):
             if LEADING_LOGICAL.search(line):
                 failures.append(

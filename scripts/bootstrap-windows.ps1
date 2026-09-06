@@ -57,13 +57,13 @@ function Add-UserPath([string]$Entry) {
     }
 }
 
-function Test-Jdk17([string]$Home) {
-    if ([string]::IsNullOrWhiteSpace($Home)) {
+function Test-Jdk17([string]$JdkHome) {
+    if ([string]::IsNullOrWhiteSpace($JdkHome)) {
         return $false
     }
 
-    $java = Join-Path $Home "bin\java.exe"
-    $javac = Join-Path $Home "bin\javac.exe"
+    $java = Join-Path $JdkHome "bin\java.exe"
+    $javac = Join-Path $JdkHome "bin\javac.exe"
     if (-not (Test-Path $java -PathType Leaf)) {
         return $false
     }
