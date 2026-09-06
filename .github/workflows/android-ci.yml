@@ -5,14 +5,19 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  assemble-debug:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -27,21 +32,43 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android API 37
-        run: sdkmanager "platforms;android-37"
+      - name: Install Android SDK components
+        run: sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"
 
       - name: Set up Gradle 9.6.0
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.6.0'
 
+      - name: Toolchain versions
+        run: |
+          java -version
+          gradle --version
+          sdkmanager --list_installed | head -80
+
+      - name: Unit tests
+        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
+
+      - name: Android lint
+        run: gradle --no-daemon --stacktrace :app:lintDebug
+
       - name: Assemble debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-alpha3-reports
+          path: |
+            app/build/reports/tests/**
+            app/build/reports/lint-results-debug.*
+          if-no-files-found: ignore
 
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha1-debug
+          name: PocketPC-v0.1-alpha3-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

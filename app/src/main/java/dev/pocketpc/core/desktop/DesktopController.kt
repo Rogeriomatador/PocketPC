@@ -11,6 +11,7 @@ class DesktopController {
         private set
 
     private var nextZ = 1
+    private var nextWindowId = 1L
 
     fun toggleStartMenu() {
         startMenuOpen = !startMenuOpen
@@ -24,21 +25,20 @@ class DesktopController {
         val existing = windows.indexOfFirst { it.app == app }
         if (existing >= 0) {
             val current = windows[existing]
-            windows[existing] = current.copy(minimized = false, zIndex = nextZ++)
+            windows[existing] = current.copy(minimized = false, zIndex = allocateZ())
         } else {
             windows += DesktopWindow(
-                id = "${app.name.lowercase()}-${System.nanoTime()}",
+                id = "${app.name.lowercase()}-${nextWindowId++}",
                 title = app.label,
                 app = app,
-                zIndex = nextZ++,
+                zIndex = allocateZ(),
             )
         }
         startMenuOpen = false
     }
 
     fun focus(id: String) {
-        val index = windows.indexOfFirst { it.id == id }
-        if (index >= 0) windows[index] = windows[index].copy(zIndex = nextZ++)
+        mutate(id) { it.copy(zIndex = allocateZ()) }
     }
 
     fun close(id: String) {
@@ -46,15 +46,23 @@ class DesktopController {
     }
 
     fun minimize(id: String) {
-        val index = windows.indexOfFirst { it.id == id }
-        if (index >= 0) windows[index] = windows[index].copy(minimized = true)
+        mutate(id) { it.copy(minimized = true) }
     }
 
     fun toggleMaximize(id: String) {
-        val index = windows.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            val w = windows[index]
-            windows[index] = w.copy(maximized = !w.maximized, minimized = false, zIndex = nextZ++)
+        mutate(id) { window ->
+            window.copy(
+                maximized = !window.maximized,
+                minimized = false,
+                zIndex = allocateZ(),
+            )
         }
     }
+
+    private fun mutate(id: String, transform: (DesktopWindow) -> DesktopWindow) {
+        val index = windows.indexOfFirst { it.id == id }
+        if (index >= 0) windows[index] = transform(windows[index])
+    }
+
+    private fun allocateZ(): Int = nextZ++
 }
