@@ -1,58 +1,39 @@
 # Roadmap
 
-## 0.1.0-alpha9 — runtime artifact attestation
+## 0.1.0-alpha10 — device evidence harness
 
-- Alpha 8 artifact quarantine;
-- Android packaging blocker detection;
-- embedded approval manifest;
-- source/contract/final-lock digest binding;
-- native artifact bytes/SHA-256 verification;
-- approved alias validation;
-- unexpected sensitive artifact rejection;
-- approval policy CI script;
-- policy files packaged as assets;
-- current approval locked false.
+- Alpha 9 runtime artifact attestation;
+- app-private filesystem capability probe;
+- relative symlink device test;
+- absolute symlink device test;
+- hardlink inode test;
+- NOFOLLOW cleanup safety test;
+- external target preservation check;
+- structured device/substrate JSON evidence;
+- SHA-256 sidecar;
+- System UI trigger.
 
-## Immediate evidence gates
+## Next evidence gate
 
-1. fix/restore GitHub runner execution;
-2. PRoot Source Audit PASS;
-3. real PRoot Quarantine Build;
-4. inspect real DT_NEEDED/SONAME;
-5. resolve Android talloc packaging if blocked;
-6. finish source-license audit;
-7. create final reviewed ARTIFACTS.lock.json;
-8. physical device package/link test.
+- produce a build from a functioning Android toolchain;
+- identify exact commit/APK;
+- run Device Evidence Harness on physical ARM64 Android;
+- preserve JSON + sidecar;
+- classify results honestly.
 
-## Approval transition
+## Supply-chain gate
 
-Only after all evidence exists:
+Still requires:
 
-- create APPROVED artifact lock;
-- set approval manifest true;
-- bind all three policy hashes;
-- include exact final artifact aliases/hashes/bytes;
-- update CI from binary rejection to exact-hash allowlist;
-- device-test runtime attestation.
+- source archive audit;
+- real quarantine build;
+- ELF/dependency report;
+- Android packaging blocker resolution;
+- source-license review;
+- final ARTIFACTS.lock.json.
 
-## 0.2 — one-shot Linux executor
+## Linux executor gate
 
-Only after Alpha 9 attestation passes on a device:
+Still later and separate.
 
-- separate executor enable switch;
-- /bin/sh one-shot smoke;
-- bounded logs;
-- timeout;
-- deterministic process cleanup.
-
-## 0.2.x — interactive Linux
-
-PTY, signals, resize, process tree and bootstrap.
-
-## 0.3 — graphics
-
-Controlled Vulkan renderer and Linux graphics bridge.
-
-## 0.4 — Windows compatibility
-
-Translation, Wine, DXVK/VKD3D.
+No /bin/sh execution should be enabled merely because filesystem evidence passes.

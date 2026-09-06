@@ -4,12 +4,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import dev.pocketpc.core.runtime.DeviceEvidenceCollector
+import dev.pocketpc.core.runtime.DeviceEvidenceReport
 import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.NativeHostStatus
 import dev.pocketpc.core.system.SystemSnapshot
+import kotlinx.coroutines.launch
 
 @Composable
 fun SystemApp(
@@ -18,13 +22,20 @@ fun SystemApp(
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
 ) {
+    val context = LocalContext.current.applicationContext
+    val scope = rememberCoroutineScope()
+    var evidence by remember { mutableStateOf<DeviceEvidenceReport?>(null) }
+    var evidenceStatus by remember { mutableStateOf<String?>(null) }
+    var evidenceBusy by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text("Sistema", style = MaterialTheme.typography.titleMedium)
+
         Section("PocketPC") {
-            ValueRow("Versão", "0.1.0-alpha9")
+            ValueRow("Versão", "0.1.0-alpha10")
             ValueRow("Desktop shell", "IMPLEMENTED")
             ValueRow("Arquivos SAF", if (storageConfigured) "IMPLEMENTED / CONFIGURED" else "IMPLEMENTED")
             ValueRow("Local Android shell", "IMPLEMENTED")
@@ -32,7 +43,11 @@ fun SystemApp(
             ValueRow("Safe rootfs install", "IMPLEMENTED")
             ValueRow("Guest link semantics", "IMPLEMENTED / NOT DEVICE VALIDATED")
             ValueRow("NOFOLLOW cleanup", "IMPLEMENTED")
-            ValueRow("Native Runtime Host", if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED")
+            ValueRow("Device evidence harness", "IMPLEMENTED / USER-RUN TEST")
+            ValueRow(
+                "Native Runtime Host",
+                if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED",
+            )
             ValueRow("Execution substrate", substrate.state)
             ValueRow(
                 "Approval manifest",
@@ -67,10 +82,83 @@ fun SystemApp(
             )
         }
 
+        Section("Teste do dispositivo") {
+            Text(
+                "Teste local e não destrutivo: usa somente diretórios privados temporários, não executa PRoot e não requer root.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+
+            Button(
+                enabled = !evidenceBusy,
+                onClick = {
+                    evidenceBusy = true
+                    evidenceStatus = "DEVICE_EVIDENCE_RUNNING"
+                    scope.launch {
+                        DeviceEvidenceCollector.collectAndPersist(
+                            context = context,
+                            nativeHost = nativeHost,
+                            substrate = substrate,
+                        )
+                            .onSuccess { report ->
+                                evidence = report
+                                evidenceStatus = if (report.filesystem.allCriticalPassed) {
+                                    "DEVICE_FILESYSTEM_SELFTEST_PASS"
+                                } else {
+                                    "DEVICE_FILESYSTEM_SELFTEST_PARTIAL_OR_FAIL"
+                                }
+                            }
+                            .onFailure { error ->
+                                evidenceStatus =
+                                    "DEVICE_EVIDENCE_FAILED: ${error.message ?: error.javaClass.simpleName}"
+                            }
+                        evidenceBusy = false
+                    }
+                },
+            ) {
+                Text("Executar teste do dispositivo")
+            }
+
+            if (evidenceBusy) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+
+            evidenceStatus?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall)
+            }
+
+            evidence?.let { report ->
+                ValueRow("Symlink relativo", passLabel(report.filesystem.relativeSymlink.passed))
+                ValueRow("Symlink absoluto", passLabel(report.filesystem.absoluteSymlink.passed))
+                ValueRow("Hardlink", passLabel(report.filesystem.hardlink.passed))
+                ValueRow("NOFOLLOW cleanup", passLabel(report.filesystem.noFollowCleanup.passed))
+                ValueRow(
+                    "Alvo externo preservado",
+                    passLabel(report.filesystem.externalTargetPreserved.passed),
+                )
+                ValueRow(
+                    "Filesystem gate",
+                    if (report.filesystem.allCriticalPassed) "PASS" else "FAIL / REVIEW",
+                )
+                ValueRow("Substrate attested", if (report.prootReady) "YES" else "NO")
+                Text(
+                    "Evidence salvo internamente: ${report.outputFile.path}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    "SHA-256: ${report.outputSha256}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+
         Section("Runtime host") {
             Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
-            Text("nativeLibraryDir: ${nativeHost.nativeLibraryDir}", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "nativeLibraryDir: ${nativeHost.nativeLibraryDir}",
+                style = MaterialTheme.typography.bodySmall,
+            )
             Text("substrate: ${substrate.state}", style = MaterialTheme.typography.bodySmall)
+
             substrate.approvalErrors.forEach { error ->
                 Text(
                     "approval: $error",
@@ -78,6 +166,7 @@ fun SystemApp(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
+
             substrate.components.forEach { component ->
                 Text(
                     "${component.fileName}: exists=${component.exists}, exec=${component.executable}",
@@ -88,9 +177,14 @@ fun SystemApp(
 
         Section("Vulkan — PackageManager") {
             if (snapshot.vulkanFeatures.isEmpty()) {
-                Text("Nenhuma feature Vulkan foi exposta pelo PackageManager.", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Nenhuma feature Vulkan foi exposta pelo PackageManager.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             } else {
-                snapshot.vulkanFeatures.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+                snapshot.vulkanFeatures.forEach {
+                    Text(it, style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
 
@@ -104,9 +198,15 @@ fun SystemApp(
     }
 }
 
+private fun passLabel(value: Boolean): String = if (value) "PASS" else "FAIL"
+
 @Composable
 private fun Section(title: String, body: @Composable ColumnScope.() -> Unit) {
-    Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 6.dp))
+    Text(
+        title,
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(top = 6.dp),
+    )
     Column(verticalArrangement = Arrangement.spacedBy(4.dp), content = body)
 }
 

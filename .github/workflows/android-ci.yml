@@ -102,7 +102,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha9-reports
+          name: PocketPC-alpha10-reports
           path: |
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.*
@@ -112,6 +112,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha9-debug
+          name: PocketPC-v0.1-alpha10-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

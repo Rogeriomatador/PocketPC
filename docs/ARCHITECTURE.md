@@ -1,4 +1,4 @@
-# PocketPC architecture — draft 0.9
+# PocketPC architecture — draft 0.10
 
 ## Layer 0 — Android host
 
@@ -16,38 +16,39 @@ STAGED_VERIFIED -> INSTALLED_DATA.
 
 INSTALLED_DATA -> LINKS_PREPARED.
 
-Includes metadata parser, guest link resolver, hardlink verification and NOFOLLOW cleanup.
+Includes metadata parsing, guest path resolution, hardlink identity checks and NOFOLLOW cleanup.
 
-## Layer 4 — execution policy
+## Layer 4 — execution policy foundation
 
-Bind policy, environment, PRoot argv planner, process supervisor and launch planner.
+Bind policy, environment, argv planning, launch planner and one-shot process supervisor.
 
 Executor remains disabled.
 
 ## Layer 5 — substrate supply chain
 
-- source lock;
-- source archive auditor;
-- ELF artifact contract;
-- quarantine build;
-- ELF/DT_NEEDED/SONAME auditor;
-- Android packaging blocker detection;
-- candidate evidence.
+Source lock, source audit, quarantine build, ELF/dependency audit, Android packaging blockers and artifact candidate evidence.
 
-## Layer 6 — runtime artifact attestation [Alpha 9]
+## Layer 6 — runtime artifact attestation
 
-- embedded approval manifest;
-- policy asset digest binding;
-- final artifact-lock requirement;
-- nativeLibraryDir byte/hash verification;
-- extra sensitive artifact rejection.
+Embedded approval manifest, policy digest binding, final artifact-lock requirement and nativeLibraryDir hash verification.
 
-prootReady is derived from attestation, not file names.
+## Layer 7 — device evidence [Alpha 10]
 
-## Layer 7 — future reviewed PRoot executor
+User-triggered app-private probes for:
+
+- relative symlink;
+- absolute symlink;
+- hardlink;
+- NOFOLLOW cleanup;
+- external target preservation;
+- native host/substrate state.
+
+Results are persisted as JSON plus SHA-256 sidecar.
+
+## Layer 8 — future reviewed PRoot executor
 
 Not implemented/enabled.
 
-## Layer 8 — graphics
+## Layer 9 — graphics
 
 Native Vulkan capability probe exists. Controlled renderer remains future work.

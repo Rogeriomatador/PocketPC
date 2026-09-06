@@ -1,43 +1,28 @@
-# CI status — Alpha 9
+# CI status — Alpha 10
 
-## Current hosted-runner evidence
+## Current hosted runner state
 
-Android CI #18 and PRoot Source Audit #2:
+Recent Android CI and PRoot Source Audit jobs continue to fail before their first declared step with steps=null and logs_url=null.
 
-- conclusion=failure;
-- steps=null;
-- logs_url=null.
+Classification remains CI RUNNER/ACCOUNT/INFRA UNRESOLVED.
 
-No declared workflow step ran.
+## Alpha 10 intended JVM/CI checks
 
-Classification: **CI RUNNER/ACCOUNT/INFRA UNRESOLVED**.
-
-## Alpha 9 Android CI intended checks
-
-- policy JSON syntax;
-- ELF-policy self-test;
+- PRoot policy JSON validation;
+- ELF policy self-test;
 - approval policy validation;
-- no PRoot binaries in app/src or third_party;
-- JVM unit tests including attestation model tests;
+- no unapproved substrate binaries;
+- guest filesystem unit tests;
+- runtime attestation unit tests;
+- FilesystemEvidenceProbe host test;
 - Android lint;
 - APK assembly;
-- native host packaging;
-- no unapproved PRoot payload in APK.
+- APK payload inspection.
 
-## PRoot Source Audit
+## Device Evidence Harness
 
-Independently re-hashes pinned source archives.
+CI cannot substitute for this gate.
 
-## PRoot Quarantine Build
+The in-app harness must be run on a physical Android device to answer device filesystem questions.
 
-Manual only. Builds raw ARM64 artifacts outside the repository and uploads JSON reports only.
-
-## Evidence labels
-
-- ELF policy self-test -> STATICALLY VALIDATED policy;
-- approval script pass with approved=false -> locked-policy validation;
-- source audit PASS -> SOURCE VERIFIED;
-- real ELF audit PASS -> ARTIFACT STRUCTURE VALIDATED;
-- packaging blockers resolved -> ANDROID PACKAGING CONTRACT REVIEWED;
-- artifact lock + device hash match -> DEVICE ATTESTED;
-- executor command works -> separate DEVICE TESTED Linux execution.
+A host FilesystemEvidenceProbeTest only validates the probe logic on the CI/host filesystem.

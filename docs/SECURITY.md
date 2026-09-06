@@ -1,59 +1,42 @@
-# Security model — Alpha 9
+# Security model — Alpha 10
 
-## Archive boundary
+## Existing boundaries
 
-Strict staged archive integrity, bounded extraction and path validation remain in force.
+Archive integrity, link-free extraction, transactional guest-link preparation, artifact quarantine and runtime attestation remain unchanged.
 
-## Guest filesystem boundary
+## Device self-test boundary
 
-Links are created only after extraction and validation. Hardlinks are inode verified. Cleanup uses NOFOLLOW traversal.
+The new Device Evidence Harness:
 
-## Supply-chain boundary
+- is explicit user-triggered;
+- runs only in app-private temporary storage;
+- does not use SAF/shared storage;
+- does not invoke PRoot;
+- does not invoke the future Linux executor;
+- does not require root;
+- uses NOFOLLOW deletion;
+- removes temporary test trees.
 
-- exact source pin;
-- archive hash audit;
-- artifact quarantine;
-- ELF architecture/dependency audit;
-- Android packaging blocker detection;
-- no automatic artifact promotion.
+## External-target test
+
+The harness deliberately creates an app-private symlink pointing at a sibling app-private test directory.
+
+The root tree is deleted with NOFOLLOW and the sibling file must survive.
+
+This is a safety proof for cleanup behavior, not permission expansion.
+
+## Evidence integrity
+
+The report is written transactionally and receives a SHA-256 sidecar.
+
+The sidecar is not a digital signature. It detects byte changes but does not establish authorship.
 
 ## Approval boundary
 
-Alpha 9 adds a separate approval manifest.
+Device filesystem PASS cannot set approved=true.
 
-A denied approval must contain no stale hashes, artifacts or completed review flags.
-
-A future approved manifest must be cryptographically tied by SHA-256 to:
-
-- source lock;
-- artifact contract;
-- final artifact lock.
-
-## Native runtime boundary
-
-Even an approved manifest is insufficient by itself.
-
-PocketPC verifies the actual files in nativeLibraryDir:
-
-- exact names;
-- exact size;
-- exact SHA-256;
-- required execute permission;
-- canonical containment;
-- absence of extra sensitive substrate artifacts.
-
-## Android packaging boundary
-
-Approved aliases must conform to lib*.so packaging names.
-
-Versioned talloc SONAME/DT_NEEDED is treated as a blocker until the build/link contract is resolved.
+Artifact approval still requires the full source/artifact/license/device chain.
 
 ## Execution boundary
 
-prootReady still does not enable the Linux executor.
-
-The executor remains a separate future control after supply-chain and device evidence.
-
-## CI
-
-CI checks the denied/approved manifest policy and rejects PRoot-related binaries under both app/src and third_party while the current project remains unapproved.
+The Linux executor remains disabled independently of the device harness.
