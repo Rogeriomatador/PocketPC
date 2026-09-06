@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""PocketPC Windows PowerShell 5.1 compatibility smoke checks.
-
-This is intentionally narrow: it protects parser patterns that have already
-failed on the project's real Windows PowerShell 5.1 execution path.
-"""
-
 from __future__ import annotations
 
 import pathlib
@@ -13,7 +7,6 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
-
 LEADING_LOGICAL = re.compile(r"^\s*-(and|or)\b", re.IGNORECASE)
 
 
@@ -26,26 +19,71 @@ def main() -> int:
 
     for path in ps1_files:
         text = path.read_text(encoding="utf-8")
-        for number, line in enumerate(
-            text.splitlines(),
-            start=1,
-        ):
+        for number, line in enumerate(text.splitlines(), start=1):
             if LEADING_LOGICAL.search(line):
                 failures.append(
                     f"{path.relative_to(ROOT)}:{number}: "
-                    "logical operator starts a continuation line; "
-                    "Windows PowerShell 5.1 parser rejected this pattern"
+                    "logical operator starts a continuation line"
                 )
 
         if path.name == "doctor-windows.ps1":
             marker = "# POCKETPC_DOCTOR_EOF"
             if text.count(marker) != 1:
-                failures.append(
-                    "scripts/doctor-windows.ps1 must contain exactly one EOF marker"
-                )
+                failures.append("doctor must contain exactly one EOF marker")
             elif text.strip().splitlines()[-1].strip() != marker:
+                failures.append("doctor contains content after EOF marker")
+
+            git_head_regex = "($head.Text -match '^[0-9a-fA-F]{40}$')"
+            if git_head_regex not in text:
+                failures.append("doctor Git HEAD regex sentinel missing/truncated")
+
+            paren = brace = bracket = 0
+            for number, line in enumerate(text.splitlines(), start=1):
+                in_single = False
+                in_double = False
+                index = 0
+                while index < len(line):
+                    char = line[index]
+                    if not in_single and not in_double and char == "#":
+                        break
+                    if char == "'" and not in_double:
+                        if in_single and index + 1 < len(line) and line[index + 1] == "'":
+                            index += 2
+                            continue
+                        in_single = not in_single
+                        index += 1
+                        continue
+                    if char == '"' and not in_single:
+                        if index > 0 and line[index - 1] == "`":
+                            index += 1
+                            continue
+                        in_double = not in_double
+                        index += 1
+                        continue
+                    if not in_single and not in_double:
+                        if char == "(":
+                            paren += 1
+                        elif char == ")":
+                            paren -= 1
+                        elif char == "{":
+                            brace += 1
+                        elif char == "}":
+                            brace -= 1
+                        elif char == "[":
+                            bracket += 1
+                        elif char == "]":
+                            bracket -= 1
+                    index += 1
+
+                if in_single or in_double:
+                    failures.append(
+                        f"scripts/doctor-windows.ps1:{number}: unclosed quoted string"
+                    )
+
+            if (paren, brace, bracket) != (0, 0, 0):
                 failures.append(
-                    "scripts/doctor-windows.ps1 contains content after EOF marker"
+                    "doctor delimiter balance is not zero: "
+                    f"paren={paren} brace={brace} bracket={bracket}"
                 )
 
     if failures:

@@ -218,7 +218,8 @@ else {
     )
     if (
         ($head.ExitCode -eq 0) -and
-        ($head.Text -match '^[0-9a-fA-F]{40}
+        ($head.Text -match '^[0-9a-fA-F]{40}$')
+    ) {
         $context.sourceCommit = $head.Text.ToLowerInvariant()
         Add-Check "git-head" "PASS" "Commit $($context.sourceCommit)"
     }
