@@ -100,7 +100,7 @@ class SandboxShell(context: Context) {
             home
         } else {
             val cleaned = rawTarget
-                .removeSurrounding(""")
+                .removeSurrounding("\\\"")
                 .removeSurrounding("'")
             if (cleaned.startsWith("/")) File(cleaned) else File(currentDirectory, cleaned)
         }
