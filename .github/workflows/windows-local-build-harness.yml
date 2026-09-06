@@ -1,0 +1,66 @@
+name: Windows Local Build Harness
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/build-local-windows.ps1"
+      - "scripts/verify-local-build-record.py"
+      - "scripts/test-local-build-record-verifier.py"
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/windows-local-build-harness.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-local-build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android components from lock
+        shell: pwsh
+        run: |
+          $lock = Get-Content "toolchains/android-build-lock.json" -Raw | ConvertFrom-Json
+          $components = @($lock.android.requiredComponents)
+          & sdkmanager @components
+          if ($LASTEXITCODE -ne 0) { throw "sdkmanager failed with $LASTEXITCODE" }
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Run PocketPC Windows builder
+        shell: pwsh
+        run: ./scripts/build-local-windows.ps1 -AndroidSdkRoot "$env:ANDROID_SDK_ROOT" -JavaHome "$env:JAVA_HOME" -RequirePythonPolicyChecks -OutputRoot "$env:RUNNER_TEMP/PocketPC-local-build"
+
+      - name: Locate and verify local build record
+        shell: pwsh
+        run: |
+          $record = Get-ChildItem "$env:RUNNER_TEMP/PocketPC-local-build" -Recurse -Filter "local-build-record.json" | Select-Object -First 1
+          if (-not $record) { throw "local-build-record.json not found." }
+          python scripts/verify-local-build-record.py $record.Directory.FullName --expected-commit "$env:GITHUB_SHA"
+
+      - name: Upload local build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-alpha12-Windows-local-build
+          path: ${{ runner.temp }}/PocketPC-local-build/**
+          if-no-files-found: error

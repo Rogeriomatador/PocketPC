@@ -65,6 +65,9 @@ jobs:
             exit 1
           fi
 
+      - name: Verify Android build lock
+        run: python3 scripts/verify-android-build-lock.py
+
       - name: Validate PRoot policy JSON
         run: |
           python3 -m json.tool third_party/proot/LOCK.json >/dev/null
@@ -78,6 +81,24 @@ jobs:
 
       - name: Evidence bundle verifier self-test
         run: python3 scripts/test-device-evidence-bundle-verifier.py
+
+      - name: Local build record verifier self-test
+        run: python3 scripts/test-local-build-record-verifier.py
+
+      - name: Parse Windows local builder PowerShell
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "scripts/build-local-windows.ps1"),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -ne 0) {
+            $errors | Format-List | Out-String | Write-Error
+            exit 1
+          }
 
       - name: Unit tests
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
@@ -94,8 +115,8 @@ jobs:
           sha256sum "$APK" | tee app/build/outputs/apk/debug/app-debug.apk.sha256
           {
             echo "sourceRevision=$GITHUB_SHA"
-            echo "versionName=0.1.0-alpha11"
-            echo "versionCode=11"
+            echo "versionName=0.1.0-alpha12"
+            echo "versionCode=12"
             echo "workflowRunId=$GITHUB_RUN_ID"
             echo "workflowRunAttempt=$GITHUB_RUN_ATTEMPT"
           } > app/build/outputs/apk/debug/app-debug.build.txt
@@ -117,7 +138,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha11-reports
+          name: PocketPC-alpha12-reports
           path: |
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.*
@@ -127,7 +148,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha11-debug
+          name: PocketPC-v0.1-alpha12-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256

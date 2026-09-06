@@ -1,46 +1,17 @@
-# Security model — Alpha 11
+# Security model — Alpha 12
 
-## Existing boundaries
+Archive validation, guest-link safety, NOFOLLOW cleanup, artifact quarantine, runtime attestation and evidence-bundle integrity remain active.
 
-Archive security, guest filesystem safety, artifact quarantine and runtime attestation remain unchanged.
+## Local build supply chain
 
-## Build identity
+Gradle is accepted only after the pinned distribution SHA-256 matches.
 
-Unpinned local builds explicitly report LOCAL_UNPINNED.
+Dirty source is refused by default. Explicit dirty builds embed LOCAL_UNPINNED.
 
-CI builds use GITHUB_SHA when the workflow reaches the build.
+verify-android-build-lock.py detects configuration drift.
 
-PocketPC records signing-certificate SHA-256 values; it never reads or exports signing private keys.
+The local builder rejects unapproved PRoot/talloc/shmem payload, verifies APK structure and captures signing-certificate hashes.
 
-## Bundle path security
+The APK receives a SHA-256 sidecar and structured build record; verify-local-build-record.py recomputes and checks them.
 
-EvidenceBundleCore accepts only relative controlled paths.
-
-It rejects:
-
-- absolute paths;
-- backslashes;
-- empty path components;
-- . and .. components;
-- duplicate paths;
-- manifest path collision.
-
-## Bundle integrity
-
-Every payload entry is bound to byte length and SHA-256 in bundle-manifest.json.
-
-device-evidence.json also keeps its own SHA-256 sidecar.
-
-The bundle ZIP itself receives an internal sidecar before export, while the host verifier independently recomputes the exported ZIP SHA-256.
-
-## Export boundary
-
-CreateDocument/SAF gives the destination URI selected by the user.
-
-PocketPC writes only to that returned destination and does not request broad filesystem access for bundle export.
-
-## Verification boundary
-
-The host verifier treats malformed JSON and malformed ZIP structures as clean failures instead of allowing parser crashes to be confused with successful verification.
-
-A valid bundle still does not imply Linux execution, source approval or device-test PASS.
+Python policy checks may be skipped only with an explicit lower-confidence classification; strict mode requires them.

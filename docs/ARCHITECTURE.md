@@ -1,54 +1,15 @@
-# PocketPC architecture — draft 0.11
+# PocketPC architecture — draft 0.12
 
-## Layer 0 — Android host
+## Runtime path
 
-Lifecycle, SAF, storage, input, package/signing identity, NDK and Vulkan.
+Android host -> desktop shell -> runtime package pipeline -> guest filesystem -> execution policy -> PRoot supply-chain quarantine -> runtime attestation -> physical device evidence -> evidence bundle.
 
-## Layer 1 — desktop shell
+## Build-evidence path — Alpha 12
 
-Files, Terminal, Runtimes, System, Performance.
+android-build-lock.json -> clean Git commit -> local Windows builder or CI -> policy checks -> unit tests/lint/assemble -> APK structure/signing inspection -> APK SHA-256 -> local-build-record.json -> installed Build Identity -> Device Evidence Bundle.
 
-## Layer 2 — runtime package pipeline
+The local builder and hosted CI are independent producers targeting the same declared toolchain.
 
-STAGED_VERIFIED -> INSTALLED_DATA.
+Neither path can approve PRoot or enable Linux execution.
 
-## Layer 3 — guest filesystem
-
-INSTALLED_DATA -> LINKS_PREPARED with guest link semantics and NOFOLLOW cleanup.
-
-## Layer 4 — execution policy foundation
-
-Bind/environment policy, argv planning and bounded process supervision.
-
-Executor remains disabled.
-
-## Layer 5 — substrate supply chain
-
-Source locks, archive audit, artifact quarantine, ELF/dependency audit and Android packaging gates.
-
-## Layer 6 — runtime artifact attestation
-
-Approval manifest, policy digest binding and nativeLibraryDir artifact hashes.
-
-## Layer 7 — device evidence
-
-Physical filesystem/self-test harness.
-
-## Layer 8 — evidence identity and export [Alpha 11]
-
-- BuildConfig source revision;
-- installed APK version;
-- signing-certificate hashes;
-- installer identity;
-- evidence bundle;
-- per-entry hashes;
-- host verifier;
-- SAF export.
-
-## Layer 9 — future PRoot executor
-
-Not implemented/enabled.
-
-## Layer 10 — graphics
-
-Native Vulkan capability enumeration exists. Controlled renderer remains future work.
+The reviewed PRoot executor, PTY/Linux graphics and vGPU remain later layers.

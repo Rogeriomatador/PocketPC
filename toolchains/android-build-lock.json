@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "status": "PINNED",
+  "app": {
+    "packageName": "dev.pocketpc.core",
+    "versionName": "0.1.0-alpha12",
+    "versionCode": 12
+  },
+  "gradle": {
+    "version": "9.6.0",
+    "distributionUrl": "https://services.gradle.org/distributions/gradle-9.6.0-bin.zip",
+    "distributionSha256": "bbaeb2fef8710818cf0e261201dab964c572f92b942812df0c3620d62a529a01"
+  },
+  "plugins": {
+    "androidGradlePlugin": "9.4.0",
+    "kotlinComposePlugin": "2.3.21"
+  },
+  "jdk": {
+    "major": 17
+  },
+  "android": {
+    "compileSdk": 37,
+    "buildTools": "36.0.0",
+    "ndk": "29.0.14206865",
+    "cmake": "3.22.1",
+    "requiredComponents": [
+      "platform-tools",
+      "platforms;android-37",
+      "build-tools;36.0.0",
+      "ndk;29.0.14206865",
+      "cmake;3.22.1"
+    ]
+  },
+  "evidence": {
+    "sourceRevisionEnvironment": "POCKETPC_SOURCE_REVISION",
+    "dirtyTreeEmbeddedRevision": "LOCAL_UNPINNED"
+  }
+}

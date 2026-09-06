@@ -1,119 +1,75 @@
-# PocketPC — 0.1.0-alpha11
+# PocketPC — 0.1.0-alpha12
 
-PocketPC is an experimental Android desktop/runtime project aimed at turning a phone into a desktop workstation while preserving strict evidence labels.
+PocketPC is an experimental Android desktop/runtime project with strict evidence labels.
 
-## Alpha 11 — Evidence Bundle & Build Identity
+## Alpha 12 — reproducible local Windows build
 
-Alpha 11 builds on the Alpha 10 Device Evidence Harness and makes physical-device evidence exportable and traceable to a concrete app build.
+GitHub-hosted Actions is still failing before step 1, so Alpha 12 adds an independent Windows build path without weakening the verification gates.
 
-After running the device test, PocketPC can create and export an audit bundle through Android SAF.
+The local builder:
 
-The bundle contains:
+- reads toolchains/android-build-lock.json;
+- refuses a dirty Git tree by default;
+- embeds the exact clean Git commit, or LOCAL_UNPINNED only when dirty builds are explicitly allowed;
+- requires the pinned JDK major;
+- discovers the Android SDK and validates required components;
+- can install missing SDK components through sdkmanager;
+- downloads the pinned Gradle binary distribution;
+- verifies its SHA-256 before extraction;
+- runs Python policy checks when Python 3 is available, with an optional strict requirement;
+- runs JVM unit tests, Android lint and assembleDebug;
+- inspects the APK structure;
+- rejects unapproved PRoot/talloc/shmem payload;
+- verifies APK signing through apksigner;
+- records APK SHA-256 and a structured local-build-record.json.
 
-- device evidence JSON;
-- evidence SHA-256 sidecar;
-- build identity JSON;
-- source revision identity;
-- APK signing-certificate SHA-256 values;
-- installer package when available;
-- PRoot approval manifest snapshot;
-- PRoot source lock snapshot;
-- PRoot artifact contract snapshot;
-- final artifact lock snapshot when one exists;
-- bundle-info metadata;
-- bundle-manifest.json containing SHA-256 and byte length for every payload entry.
+## Current build lock
 
-## Build identity
+- app: dev.pocketpc.core 0.1.0-alpha12 / code 12
+- AGP: 9.4.0
+- Kotlin Compose plugin: 2.3.21
+- Gradle: 9.6.0
+- JDK: 17
+- compileSdk: 37
+- Build Tools: 36.0.0
+- NDK: 29.0.14206865
+- CMake: 3.22.1
 
-CI builds read GITHUB_SHA and embed that revision into BuildConfig.
+Gradle 9.6.0 binary ZIP SHA-256:
 
-A local build without a supplied revision records:
+bbaeb2fef8710818cf0e261201dab964c572f92b942812df0c3620d62a529a01
 
-~~~text
-LOCAL_UNPINNED
-~~~
+## Windows build
 
-PocketPC never invents a commit for an unpinned local build.
+Basic:
 
-Build identity records:
+powershell -ExecutionPolicy Bypass -File .\scripts\build-local-windows.ps1
 
-- package name;
-- version name/code;
-- source revision;
-- whether that revision is pinned;
-- debug/release state;
-- APK signing certificate SHA-256 list;
-- installer package when available.
+Strict policy mode:
 
-## Evidence bundle export
+powershell -ExecutionPolicy Bypass -File .\scripts\build-local-windows.ps1 -RequirePythonPolicyChecks
 
-The System panel flow becomes:
+Install missing Android SDK components:
 
-~~~text
-Executar teste
-    ↓
-device-evidence.json
-    ↓
-SHA-256 sidecar
-    ↓
-build identity + policy snapshots
-    ↓
-bundle-manifest.json
-    ↓
-PocketPC evidence ZIP
-    ↓
-Exportar bundle
-~~~
+powershell -ExecutionPolicy Bypass -File .\scripts\build-local-windows.ps1 -InstallMissingSdkComponents -AcceptAndroidLicenses
 
-The export uses Android CreateDocument/SAF and does not request broad shared-storage access.
+## Output
 
-## Host verification
+Default output is under ignored local-build/ and contains:
 
-scripts/verify-device-evidence-bundle.py verifies:
+- PocketPC APK;
+- APK SHA-256 sidecar;
+- apk-signing.txt;
+- local-build-record.json.
 
-- ZIP entry safety;
-- no duplicate paths;
-- manifest/payload entry-set equality;
-- byte counts;
-- SHA-256 for every payload;
-- evidence sidecar;
-- evidence/build-identity consistency;
-- revision pinning;
-- signing-certificate digest format;
-- approval manifest basic state.
+Verify the result with:
 
-It can also require an exact revision:
+python scripts/verify-local-build-record.py local-build/<build-dir>
 
-~~~text
-python3 scripts/verify-device-evidence-bundle.py \
-  PocketPC-...-evidence.zip \
-  --expected-revision <40-char-git-sha>
-~~~
+An exact source revision can be required with --expected-commit <40-char-sha>.
 
-A separate self-test creates a valid synthetic bundle and a tampered bundle.
+## Evidence chain
 
-## APK CI identity
+Git commit -> local build record -> APK SHA-256/signing identity -> installed Build Identity -> Device Evidence -> exported Evidence Bundle.
 
-When Android CI eventually runs successfully, it is configured to upload:
-
-- app-debug.apk;
-- app-debug.apk.sha256;
-- app-debug.build.txt.
-
-The build record includes GITHUB_SHA, version and workflow-run identity.
-
-## Evidence boundary
-
-Alpha 11 source is IMPLEMENTED.
-
-The bundle/hash format received a local smoke of its core integrity relationships, including tamper detection.
-
-Android compilation and physical-device export are still not validated because hosted Actions remains blocked before step 1.
-
-## Current Linux state
-
-- approval=false;
-- no ARTIFACTS.lock.json;
-- no PRoot binary bundled;
-- prootReady=false;
-- Linux executor disabled.
+PRoot remains unbundled and unapproved. Linux execution remains disabled.

@@ -1,35 +1,25 @@
-# CI status — Alpha 11
+# CI status — Alpha 12
 
-## Current infrastructure evidence
+Latest observed hosted Android CI still fails before checkout with steps=null and logs_url=null. This is infrastructure/account evidence, not source compilation evidence.
 
-GitHub-hosted jobs remain unresolved before step 1 in the latest observed runs.
+## Android CI intended checks
 
-This is not Android source/build evidence.
+- Android build-lock verification;
+- PRoot policy validation;
+- ELF policy self-test;
+- PRoot approval policy;
+- evidence-bundle verifier self-test;
+- local-build-record verifier self-test;
+- PowerShell parse check for the Windows builder;
+- unit tests;
+- lint;
+- assemble;
+- APK SHA-256/build record;
+- native host inspection;
+- unapproved substrate rejection.
 
-## Intended Alpha 11 Android CI
+## Windows Local Build Harness
 
-When a runner starts, the workflow is configured to:
+A separate Windows workflow is defined to exercise the same local builder with JDK 17, SDK components from the lock, Python strict policy mode, record verification against GITHUB_SHA and artifact upload.
 
-1. checkout exact commit;
-2. set up JDK/SDK/NDK/CMake/Gradle;
-3. validate PRoot policy JSON;
-4. run ELF policy self-test;
-5. verify denied/approved PRoot approval policy;
-6. run evidence-bundle verifier self-test;
-7. reject unreviewed substrate binaries;
-8. run JVM unit tests;
-9. lint;
-10. assemble APK;
-11. write APK SHA-256;
-12. write build record with GITHUB_SHA/version/run identity;
-13. inspect native runtime host;
-14. reject unapproved PRoot APK payload;
-15. upload APK + SHA-256 + build record.
-
-## Device evidence
-
-CI cannot replace the physical-device test.
-
-A successful APK build gives CI VALIDATED build evidence only.
-
-Device Evidence Harness + verified exported bundle is the path toward DEVICE TEST evidence.
+The local PowerShell route can also run on a user's own Windows machine without relying on hosted Actions.

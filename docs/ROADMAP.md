@@ -1,43 +1,29 @@
 # Roadmap
 
-## 0.1.0-alpha11 — evidence bundle & build identity
+## 0.1.0-alpha12 — reproducible local Windows build
 
-- Alpha 10 physical-device harness;
-- source revision embedded into BuildConfig;
-- LOCAL_UNPINNED fallback;
-- APK signing-certificate SHA-256;
-- package/version/installer identity;
-- evidence JSON schema v2;
-- deterministic payload manifest;
-- policy snapshots;
-- evidence ZIP;
-- SAF export;
-- host bundle verifier;
-- tamper-detection self-test;
-- CI APK SHA-256/build record definition.
+- Alpha 11 evidence bundle and build identity;
+- Android toolchain lock;
+- Gradle distribution SHA-256 pin;
+- clean-tree gate;
+- dirty-tree LOCAL_UNPINNED behavior;
+- JDK/Android SDK discovery;
+- optional sdkmanager installation;
+- Python policy gate;
+- unit test/lint/assemble pipeline;
+- APK structure gate;
+- APK signing identity capture;
+- APK SHA-256;
+- local build record;
+- independent build-record verifier/self-test;
+- Windows Actions harness definition.
 
-## Next practical gate
+## Highest-value next step
 
-Produce an installable APK from a functioning Android build environment.
+Run the Alpha 12 builder on a real Windows development machine.
 
-Then:
+If it succeeds: preserve the build record, APK hash/signing evidence, install that exact APK, run Device Evidence Harness, export the evidence bundle and verify it against the same commit.
 
-1. record APK SHA-256;
-2. install APK on ARM64 Android;
-3. run Device Evidence Harness;
-4. export Alpha 11 evidence bundle;
-5. run host verifier with expected commit;
-6. inspect filesystem/native-host/substrate results.
+If it fails: the first real toolchain/compiler/test error becomes actionable evidence and should be fixed directly.
 
-## Supply-chain work remains separate
-
-- source archive audit;
-- real PRoot quarantine build;
-- talloc/Android dynamic-link resolution;
-- license review;
-- final artifact lock;
-- approved substrate attestation.
-
-## Linux executor
-
-Still disabled after all Alpha 11 work.
+PRoot integration and Linux execution remain separate later gates.
