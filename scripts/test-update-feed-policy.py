@@ -79,7 +79,7 @@ def main() -> int:
         ),
         UPDATER: (
             "raw.githubusercontent.com/Rogeriomatador/PocketPC/main/updates/stable.json",
-            "manifest.apkUrl.startsWith("https://")",
+            'manifest.apkUrl.startsWith("https://")',
             "SHA-256 do APK não confere.",
             "archiveInfo.packageName",
             "signaturesCompatible",
