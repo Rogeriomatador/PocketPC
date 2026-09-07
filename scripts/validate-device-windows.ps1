@@ -333,8 +333,47 @@ if (
 ) {
     throw "Evidence runner sourceRevision divergiu do build."
 }
+
+# Pull diagnostic evidence before enforcing capability gates so a physical
+# failure remains actionable instead of collapsing to a single boolean.
+Pull-Required $remoteEvidence $evidencePath | Out-Null
+$deviceEvidence = Get-Content $evidencePath -Raw | ConvertFrom-Json
+
+Write-Host ""
+Write-Host "==> Device filesystem evidence" -ForegroundColor Cyan
+$filesystemChecks = @(
+    @("relativeSymlink", "Symlink relativo"),
+    @("absoluteSymlink", "Symlink absoluto"),
+    @("hardlink", "Hardlink"),
+    @("noFollowCleanup", "NOFOLLOW cleanup"),
+    @("externalTargetPreserved", "Alvo externo preservado")
+)
+
+foreach ($check in $filesystemChecks) {
+    $propertyName = [string]$check[0]
+    $label = [string]$check[1]
+    $capability = $deviceEvidence.filesystem.$propertyName
+    if ($null -eq $capability) {
+        Write-Host ("[UNKNOWN] {0}: evidence ausente" -f $label) -ForegroundColor Yellow
+        continue
+    }
+
+    $passed = ($capability.passed -eq $true)
+    $state = if ($passed) { "PASS" } else { "FAIL" }
+    $detail = [string]$capability.detail
+    $color = if ($passed) { "Green" } else { "Red" }
+    Write-Host ("[{0}] {1}: {2}" -f $state, $label, $detail) -ForegroundColor $color
+}
+Write-Host (
+    "Filesystem critical: " +
+    $(if ($deviceEvidence.filesystem.allCriticalPassed -eq $true) { "PASS" } else { "FAIL" })
+)
+
 if ($result.filesystemCriticalPassed -ne $true) {
-    throw "Device filesystem critical gate não passou."
+    throw (
+        "Device filesystem critical gate não passou. " +
+        "Os detalhes individuais foram impressos acima e preservados em device-evidence.json."
+    )
 }
 if ($result.nativeHostLoaded -ne $true) {
     throw "PocketPC Native Runtime Host não carregou no aparelho."
@@ -342,7 +381,6 @@ if ($result.nativeHostLoaded -ne $true) {
 
 Pull-Required $remoteBundle $bundlePath | Out-Null
 Pull-Required $remoteBundleSha $bundleShaPath | Out-Null
-Pull-Required $remoteEvidence $evidencePath | Out-Null
 
 $bundleHash = (Get-FileHash $bundlePath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($bundleHash -ne ([string]$result.bundleSha256).ToLowerInvariant()) {
