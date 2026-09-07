@@ -4,6 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -312,18 +314,124 @@ class StorageRepository(private val context: Context) {
             }
         }
 
-    fun openFile(entry: StorageEntry): Result<Unit> = runCatching {
-        require(!entry.directory) { "Diretórios devem ser navegados dentro do PocketPC." }
-        val uri = Uri.parse(entry.uri)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, entry.mimeType ?: "*/*")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun openFile(entry: StorageEntry): Result<Unit> =
+        runCatching {
+            require(!entry.directory) {
+                "Diretórios devem ser navegados dentro do PocketPC."
+            }
+
+            val lowerName =
+                entry.name.lowercase()
+            val fileClass =
+                classifyPocketFile(entry.name)
+            val uri = Uri.parse(entry.uri)
+
+            when {
+                lowerName.endsWith(".apk") -> {
+                    requestAndroidPackageInstall(uri)
+                }
+
+                lowerName.endsWith(".apks") ||
+                    lowerName.endsWith(".xapk") -> {
+                    error(
+                        "Pacote Android em bundle detectado. " +
+                            "APKS/XAPK ainda precisa de um instalador " +
+                            "de bundles compatível."
+                    )
+                }
+
+                fileClass ==
+                    PocketFileClass.PC_INSTALLER -> {
+                    error(
+                        "Pacote de PC detectado: ${entry.name}. " +
+                            "Ele está armazenado no PocketDrive, mas " +
+                            "a execução aguarda um runtime Windows " +
+                            "compatível realmente validado."
+                    )
+                }
+
+                else -> {
+                    val intent =
+                        Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(
+                                uri,
+                                entry.mimeType ?: "*/*",
+                            )
+                            addFlags(
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            )
+                            addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK
+                            )
+                        }
+                    try {
+                        context.startActivity(intent)
+                    } catch (
+                        error:
+                        ActivityNotFoundException
+                    ) {
+                        throw IllegalStateException(
+                            "Nenhum app instalado consegue " +
+                                "abrir este tipo de arquivo.",
+                            error,
+                        )
+                    }
+                }
+            }
         }
+
+    private fun requestAndroidPackageInstall(
+        uri: Uri,
+    ) {
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.O &&
+            !context.packageManager
+                .canRequestPackageInstalls()
+        ) {
+            val settingsIntent =
+                Intent(
+                    Settings
+                        .ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse(
+                        "package:${context.packageName}"
+                    ),
+                ).apply {
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK
+                    )
+                }
+
+            context.startActivity(settingsIntent)
+            error(
+                "Permita 'Instalar apps desconhecidos' " +
+                    "para o PocketPC e abra o APK novamente."
+            )
+        }
+
+        val installIntent =
+            Intent(
+                Intent.ACTION_INSTALL_PACKAGE,
+                uri,
+            ).apply {
+                addFlags(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+                )
+            }
+
         try {
-            context.startActivity(intent)
-        } catch (error: ActivityNotFoundException) {
-            throw IllegalStateException("Nenhum app instalado consegue abrir este tipo de arquivo.", error)
+            context.startActivity(installIntent)
+        } catch (
+            error: ActivityNotFoundException
+        ) {
+            throw IllegalStateException(
+                "O instalador de pacotes do Android " +
+                    "não está disponível.",
+                error,
+            )
         }
     }
 
