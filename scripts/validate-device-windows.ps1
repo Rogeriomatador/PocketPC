@@ -206,7 +206,11 @@ if (-not (Test-Path $adb -PathType Leaf)) {
     $adb = $command.Source
 }
 
+Write-Host ""
+Write-Host "==> ADB Device Selection" -ForegroundColor Cyan
+Write-Host "Procurando aparelho autorizado..." -ForegroundColor DarkGray
 $serial = Select-Device $adb $DeviceSerial
+Write-Host "ADB device selecionado." -ForegroundColor Green
 
 $installScript = Join-Path $repoRoot "scripts\install-device-windows.ps1"
 $installArgs = @{
