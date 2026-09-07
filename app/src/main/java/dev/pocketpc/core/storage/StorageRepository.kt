@@ -500,6 +500,90 @@ class StorageRepository(private val context: Context) {
     }
 }
 
+internal fun sanitizePocketImportedFileName(
+    raw: String,
+): String {
+    val leaf =
+        raw
+            .substringAfterLast('/')
+            .substringAfterLast('\\')
+            .trim()
+
+    val normalized =
+        buildString {
+            leaf.forEach { character ->
+                val forbidden =
+                    character.code < 32 ||
+                        character in
+                            setOf(
+                                '<',
+                                '>',
+                                ':',
+                                '"',
+                                '/',
+                                '\\',
+                                '|',
+                                '?',
+                                '*',
+                            )
+
+                append(
+                    if (forbidden) {
+                        '_'
+                    } else {
+                        character
+                    }
+                )
+            }
+        }
+            .trim()
+            .trimEnd('.', ' ')
+
+    val fallback =
+        normalized
+            .ifBlank { "download" }
+
+    val baseName =
+        fallback
+            .substringBefore('.')
+            .uppercase()
+
+    val reserved =
+        baseName in
+            setOf(
+                "CON",
+                "PRN",
+                "AUX",
+                "NUL",
+                "COM1",
+                "COM2",
+                "COM3",
+                "COM4",
+                "COM5",
+                "COM6",
+                "COM7",
+                "COM8",
+                "COM9",
+                "LPT1",
+                "LPT2",
+                "LPT3",
+                "LPT4",
+                "LPT5",
+                "LPT6",
+                "LPT7",
+                "LPT8",
+                "LPT9",
+            )
+
+    return validateStorageName(
+        if (reserved) {
+            "_$fallback"
+        } else {
+            fallback
+        }
+    )
+}
+
 internal fun validateStorageName(raw: String): String {
     val value = raw.trim()
     require(value.isNotEmpty()) {
