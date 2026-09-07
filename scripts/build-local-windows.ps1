@@ -56,9 +56,17 @@ function Invoke-Native {
         [string[]]$Arguments = @()
     )
 
-    & $FilePath @Arguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "Command failed ($LASTEXITCODE): $FilePath $($Arguments -join ' ')"
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & $FilePath @Arguments
+        $exit = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($exit -ne 0) {
+        throw "Command failed ($exit): $FilePath $($Arguments -join ' ')"
     }
 }
 
@@ -68,8 +76,15 @@ function Invoke-NativeCapture {
         [string[]]$Arguments = @()
     )
 
-    $result = & $FilePath @Arguments 2>&1
-    $exit = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $result = & $FilePath @Arguments 2>&1
+        $exit = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $text = ($result | Out-String).Trim()
     if ($exit -ne 0) {
         throw ("Command failed ($exit): $FilePath $($Arguments -join ' ')" +
@@ -95,7 +110,7 @@ function Resolve-JavaPinned {
         $java = Join-Path $candidate "bin\java.exe"
         if (-not (Test-Path $java -PathType Leaf)) { continue }
 
-        $version = (& $java -version 2>&1 | Out-String)
+        $version = Invoke-NativeCapture $java @("-version")
         if ($version -match 'version\s+"(?<major>\d+)') {
             if ([int]$Matches.major -eq $JdkMajor) {
                 return [pscustomobject]@{

@@ -20,8 +20,15 @@ function Invoke-Capture {
         [string[]]$Arguments = @()
     )
 
-    $output = & $FilePath @Arguments 2>&1
-    $exit = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = & $FilePath @Arguments 2>&1
+        $exit = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     return [pscustomobject]@{
         ExitCode = $exit
         Text = (($output | Out-String).Trim())

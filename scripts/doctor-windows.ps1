@@ -40,8 +40,19 @@ function Invoke-Capture {
         [string[]]$Arguments = @()
     )
 
-    $output = & $FilePath @Arguments 2>&1
-    $exit = $LASTEXITCODE
+    # Windows PowerShell 5.1 can promote native stderr to an ErrorRecord.
+    # The Doctor must classify native commands by their exit code, not by
+    # whether they write informational/version text to stderr.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = & $FilePath @Arguments 2>&1
+        $exit = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
     return [pscustomobject]@{
         ExitCode = $exit
         Text = (($output | Out-String).Trim())

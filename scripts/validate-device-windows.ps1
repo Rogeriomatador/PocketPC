@@ -17,8 +17,15 @@ function Invoke-NativeCapture {
         [switch]$AllowFailure
     )
 
-    $result = & $FilePath @Arguments 2>&1
-    $exit = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $result = & $FilePath @Arguments 2>&1
+        $exit = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $text = ($result | Out-String).Trim()
 
     if ($exit -ne 0 -and -not $AllowFailure) {

@@ -13,8 +13,15 @@ $ErrorActionPreference = "Stop"
 
 function Invoke-NativeCapture {
     param([string]$FilePath, [string[]]$Arguments = @(), [switch]$AllowFailure)
-    $output = & $FilePath @Arguments 2>&1
-    $exit = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = & $FilePath @Arguments 2>&1
+        $exit = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $text = ($output | Out-String).Trim()
     if ($exit -ne 0 -and -not $AllowFailure) {
         throw ("Command failed ($exit): $FilePath $($Arguments -join ' ')" + [Environment]::NewLine + $text)
