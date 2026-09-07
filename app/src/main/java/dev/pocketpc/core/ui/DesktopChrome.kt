@@ -547,6 +547,95 @@ fun AppIconTile(
     }
 }
 
+@Composable
+private fun PocketPcStartLogo(
+    size: Int,
+) {
+    Surface(
+        modifier = Modifier.size(size.dp),
+        shape = RoundedCornerShape(
+            (size * 0.28f).dp
+        ),
+        color =
+            MaterialTheme.colorScheme.primaryContainer,
+    ) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding((size * 0.25f).dp),
+        ) {
+            val gap = this.size.minDimension * 0.12f
+            val tile =
+                (this.size.minDimension - gap) / 2f
+            val color =
+                MaterialTheme.colorScheme
+                    .onPrimaryContainer
+
+            drawRoundRect(
+                color = color,
+                topLeft = Offset.Zero,
+                size = Size(tile, tile),
+                cornerRadius =
+                    androidx.compose.ui.geometry
+                        .CornerRadius(tile * 0.16f),
+            )
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(tile + gap, 0f),
+                size = Size(tile, tile),
+                cornerRadius =
+                    androidx.compose.ui.geometry
+                        .CornerRadius(tile * 0.16f),
+            )
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(0f, tile + gap),
+                size = Size(tile, tile),
+                cornerRadius =
+                    androidx.compose.ui.geometry
+                        .CornerRadius(tile * 0.16f),
+            )
+            drawRoundRect(
+                color = color,
+                topLeft =
+                    Offset(tile + gap, tile + gap),
+                size = Size(tile, tile),
+                cornerRadius =
+                    androidx.compose.ui.geometry
+                        .CornerRadius(tile * 0.16f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PocketPcStartButton(
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .size(44.dp)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        tonalElevation = if (active) 8.dp else 2.dp,
+        color =
+            if (active) {
+                MaterialTheme.colorScheme
+                    .secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+        ) {
+            PocketPcStartLogo(size = 30)
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TaskbarV2(
@@ -572,14 +661,10 @@ fun TaskbarV2(
                 .padding(horizontal = 10.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Button(
+            PocketPcStartButton(
+                active = desktop.startMenuOpen,
                 onClick = desktop::toggleStartMenu,
-                modifier = Modifier.size(46.dp),
-                shape = RoundedCornerShape(16.dp),
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Text("PC", fontSize = 12.sp)
-            }
+            )
 
             Spacer(Modifier.width(8.dp))
 
@@ -587,7 +672,7 @@ fun TaskbarV2(
                 modifier = Modifier
                     .weight(1f)
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 apps.forEach { app ->
@@ -630,7 +715,7 @@ fun TaskbarV2(
                             )
                             .padding(horizontal = 3.dp),
                     ) {
-                        AppIconTile(app = app, size = 38, active = active)
+                        AppIconTile(app = app, size = 36, active = active)
                         Box(
                             Modifier
                                 .padding(top = 2.dp)
@@ -680,40 +765,63 @@ private fun DesktopSystemTray(
         }
     }
 
-    Row(
+    Surface(
         modifier = Modifier
             .pointerHoverIcon(PointerIcon.Hand)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 2.dp,
     ) {
-        if (peripherals.mouseCount > 0) {
-            Text("Mouse", fontSize = 9.sp)
-        }
-        if (peripherals.keyboardCount > 0) {
-            Text("Teclado", fontSize = 9.sp)
-        }
-        if (peripherals.gamepadCount > 0) {
-            Text("Controle", fontSize = 9.sp)
-        }
-        Text(
-            if (online) "Online" else "Offline",
-            fontSize = 9.sp,
-        )
-        Text(
-            "${battery.coerceIn(0, 100)}%",
-            fontSize = 9.sp,
-        )
-        Column(horizontalAlignment = Alignment.End) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 9.dp,
+                vertical = 4.dp,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            if (peripherals.desktopInputActive) {
+                Text(
+                    "INPUT",
+                    fontSize = 8.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                )
+            }
             Text(
-                now.format(DateTimeFormatter.ofPattern("HH:mm")),
-                fontSize = 12.sp,
+                if (online) "●" else "○",
+                fontSize = 9.sp,
+                color =
+                    if (online) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
             )
             Text(
-                now.format(DateTimeFormatter.ofPattern("dd/MM")),
+                "${battery.coerceIn(0, 100)}%",
                 fontSize = 9.sp,
             )
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    now.format(
+                        DateTimeFormatter.ofPattern("HH:mm")
+                    ),
+                    fontSize = 11.sp,
+                )
+                Text(
+                    now.format(
+                        DateTimeFormatter.ofPattern("dd/MM")
+                    ),
+                    fontSize = 8.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -731,71 +839,170 @@ fun StartMenuV2(
             DesktopApp.entries
         } else {
             DesktopApp.entries.filter { app ->
-                app.label.contains(normalized, ignoreCase = true) ||
-                    app.name.contains(normalized, ignoreCase = true)
+                app.label.contains(
+                    normalized,
+                    ignoreCase = true,
+                ) ||
+                    app.name.contains(
+                        normalized,
+                        ignoreCase = true,
+                    )
             }
         }
     }
 
     Surface(
         modifier = modifier
-            .width(360.dp)
-            .heightIn(max = 330.dp),
-        shape = RoundedCornerShape(20.dp),
+            .width(390.dp)
+            .heightIn(max = 350.dp),
+        shape = RoundedCornerShape(18.dp),
         tonalElevation = 14.dp,
-        shadowElevation = 16.dp,
+        shadowElevation = 18.dp,
     ) {
         Column(
-            modifier = Modifier
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(8.dp),
         ) {
-            Text("PocketPC", fontSize = 22.sp)
-            Text(BuildConfig.VERSION_NAME, fontSize = 11.sp)
-            Text(
-                if (peripherals.desktopInputActive) {
-                    "Perfil desktop: mouse/teclado detectado"
-                } else {
-                    "Perfil touch desktop"
-                },
-                fontSize = 11.sp,
-            )
-            HorizontalDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically,
+            ) {
+                PocketPcStartLogo(size = 34)
+
+                Spacer(Modifier.width(9.dp))
+
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "PocketPC",
+                        style =
+                            MaterialTheme.typography
+                                .titleLarge,
+                    )
+                    Text(
+                        BuildConfig.VERSION_NAME,
+                        fontSize = 8.sp,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant,
+                    )
+                }
+
+                Text(
+                    if (peripherals.desktopInputActive) {
+                        "Desktop input"
+                    } else {
+                        "Touch"
+                    },
+                    fontSize = 8.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                )
+            }
 
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp),
                 singleLine = true,
-                label = { Text("Pesquisar") },
+                placeholder = {
+                    Text("Pesquisar aplicativos")
+                },
+                textStyle =
+                    LocalTextStyle.current.copy(
+                        fontSize = 11.sp
+                    ),
             )
 
-            visibleApps.chunked(3).forEach { rowApps ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    rowApps.forEach { app ->
-                        TextButton(
-                            onClick = { desktop.open(app) },
-                            modifier = Modifier.weight(1f),
+            HorizontalDivider()
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(
+                        rememberScrollState()
+                    ),
+                verticalArrangement =
+                    Arrangement.spacedBy(5.dp),
+            ) {
+                visibleApps.chunked(4)
+                    .forEach { rowApps ->
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(5.dp),
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                AppIconTile(app = app, size = 36)
-                                Text(app.label, fontSize = 9.sp, maxLines = 1)
+                            rowApps.forEach { app ->
+                                TextButton(
+                                    onClick = {
+                                        desktop.open(app)
+                                    },
+                                    modifier =
+                                        Modifier.weight(1f),
+                                    contentPadding =
+                                        PaddingValues(
+                                            horizontal = 3.dp,
+                                            vertical = 4.dp,
+                                        ),
+                                ) {
+                                    Column(
+                                        horizontalAlignment =
+                                            Alignment.CenterHorizontally,
+                                    ) {
+                                        AppIconTile(
+                                            app = app,
+                                            size = 32,
+                                        )
+                                        Spacer(
+                                            Modifier.height(3.dp)
+                                        )
+                                        Text(
+                                            app.label,
+                                            fontSize = 8.sp,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
+
+                            repeat(4 - rowApps.size) {
+                                Spacer(
+                                    Modifier.weight(1f)
+                                )
                             }
                         }
                     }
-                }
             }
 
             HorizontalDivider()
-            Text(
-                "Atalhos: Meta+E Arquivos  |  Meta+B Navegador  |  " +
-                    "Ctrl+Alt+T Terminal  |  Alt+Tab",
-                fontSize = 9.sp,
-            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    "Meta+E Arquivos • Meta+B Web • Alt+Tab",
+                    fontSize = 8.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                )
+                TextButton(
+                    onClick = desktop::minimizeAll,
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Text(
+                        "Mostrar desktop",
+                        fontSize = 8.sp,
+                    )
+                }
+            }
         }
     }
 }
