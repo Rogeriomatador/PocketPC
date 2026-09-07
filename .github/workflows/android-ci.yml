@@ -68,6 +68,16 @@ jobs:
       - name: Verify Android build lock
         run: python3 scripts/verify-android-build-lock.py
 
+      - name: Export locked app version
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+          lock = json.loads(Path("toolchains/android-build-lock.json").read_text())
+          print(f"POCKETPC_VERSION_NAME={lock['app']['versionName']}")
+          print(f"POCKETPC_VERSION_CODE={lock['app']['versionCode']}")
+          PY
+
       - name: Verify generated-file ignore policy
         run: python3 scripts/test-gitignore-policy.py
 
@@ -109,6 +119,9 @@ jobs:
       - name: PowerShell 5.1 compatibility smoke
         run: python3 scripts/test-powershell51-compat.py
 
+      - name: Desktop Mode policy self-test
+        run: python3 scripts/test-desktop-mode-policy.py
+
       - name: Parse Windows PowerShell harnesses
         shell: pwsh
         run: |
@@ -146,8 +159,8 @@ jobs:
           sha256sum "$APK" | tee app/build/outputs/apk/debug/app-debug.apk.sha256
           {
             echo "sourceRevision=$GITHUB_SHA"
-            echo "versionName=0.1.0-alpha17"
-            echo "versionCode=17"
+            echo "versionName=$POCKETPC_VERSION_NAME"
+            echo "versionCode=$POCKETPC_VERSION_CODE"
             echo "workflowRunId=$GITHUB_RUN_ID"
             echo "workflowRunAttempt=$GITHUB_RUN_ATTEMPT"
           } > app/build/outputs/apk/debug/app-debug.build.txt
@@ -169,7 +182,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha17-reports
+          name: PocketPC-${{ env.POCKETPC_VERSION_NAME }}-reports
           path: |
             app/build/reports/tests/**
             app/build/reports/lint-results-debug.*
@@ -179,7 +192,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-v0.1-alpha17-debug
+          name: PocketPC-${{ env.POCKETPC_VERSION_NAME }}-debug
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/app-debug.apk.sha256
