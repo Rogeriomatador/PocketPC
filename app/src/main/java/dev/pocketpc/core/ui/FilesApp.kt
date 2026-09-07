@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.pocketpc.core.storage.PocketDriveDirectory
+import dev.pocketpc.core.storage.PocketDriveMount
 import dev.pocketpc.core.storage.StorageEntry
 import dev.pocketpc.core.storage.StorageListing
 import dev.pocketpc.core.storage.StorageRepository
@@ -50,6 +52,9 @@ fun FilesApp(
     var error by remember(currentUri) {
         mutableStateOf<String?>(null)
     }
+    var driveMount by remember(rootUri) {
+        mutableStateOf<PocketDriveMount?>(null)
+    }
     var refreshToken by remember { mutableIntStateOf(0) }
     var query by remember(currentUri) { mutableStateOf("") }
     var selectedUri by remember(currentUri) {
@@ -64,6 +69,21 @@ fun FilesApp(
     val selected =
         listing?.entries
             ?.firstOrNull { it.uri == selectedUri }
+
+    LaunchedEffect(rootUri) {
+        driveMount = null
+        if (rootUri != null) {
+            repository.ensurePocketDrive(rootUri)
+                .onSuccess { mount ->
+                    driveMount = mount
+                }
+                .onFailure { failure ->
+                    error =
+                        failure.message
+                            ?: "Falha ao preparar o PocketDrive."
+                }
+        }
+    }
 
     LaunchedEffect(currentUri, refreshToken) {
         if (currentUri == null) {
@@ -149,12 +169,22 @@ fun FilesApp(
                     if (pathStack.size == 1) {
                         listing?.directoryName
                     } else {
-                        "Pasta raiz"
-                    } ?: "PC",
+                        "PocketDrive"
+                    } ?: "PocketDrive",
                 entryCount = listing?.entries?.size ?: 0,
+                mount = driveMount,
                 onRoot = {
                     pathStack = listOf(rootUri)
                     selectedUri = null
+                },
+                onDirectory = { directory ->
+                    driveMount
+                        ?.uriFor(directory)
+                        ?.let { uri ->
+                            pathStack =
+                                listOf(rootUri, uri)
+                            selectedUri = null
+                        }
                 },
                 onChangeRoot = onChooseStorage,
                 onDisconnect = onDisconnectStorage,
@@ -474,47 +504,94 @@ private fun EmptyExplorer(
 private fun ExplorerSidebar(
     rootName: String,
     entryCount: Int,
+    mount: PocketDriveMount?,
     onRoot: () -> Unit,
+    onDirectory: (PocketDriveDirectory) -> Unit,
     onChangeRoot: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
+    val quickDirectories =
+        listOf(
+            PocketDriveDirectory.DESKTOP,
+            PocketDriveDirectory.DOCUMENTS,
+            PocketDriveDirectory.DOWNLOADS,
+            PocketDriveDirectory.APPLICATIONS,
+            PocketDriveDirectory.GAMES,
+            PocketDriveDirectory.PROJECTS,
+        )
+
     Surface(
         modifier = Modifier
-            .width(164.dp)
+            .width(174.dp)
             .fillMaxHeight(),
         tonalElevation = 2.dp,
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(9.dp),
             verticalArrangement =
-                Arrangement.spacedBy(6.dp),
+                Arrangement.spacedBy(3.dp),
         ) {
             Text(
                 "Explorador",
                 style =
                     MaterialTheme.typography.titleMedium,
             )
+            Text(
+                "P:  PocketDrive",
+                fontSize = 10.sp,
+                color =
+                    MaterialTheme.colorScheme.primary,
+            )
             HorizontalDivider()
 
             TextButton(
                 onClick = onRoot,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(32.dp),
+                contentPadding =
+                    PaddingValues(horizontal = 5.dp),
             ) {
                 Text(
                     "▣  Este PC",
                     modifier = Modifier.fillMaxWidth(),
+                    fontSize = 10.sp,
                 )
             }
 
+            quickDirectories.forEach { directory ->
+                TextButton(
+                    onClick = {
+                        onDirectory(directory)
+                    },
+                    enabled =
+                        mount?.uriFor(directory) != null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(30.dp),
+                    contentPadding =
+                        PaddingValues(horizontal = 5.dp),
+                ) {
+                    Text(
+                        "  ${directory.displayName}",
+                        modifier = Modifier.fillMaxWidth(),
+                        fontSize = 9.sp,
+                        maxLines = 1,
+                    )
+                }
+            }
+
+            HorizontalDivider()
+
             Text(
                 rootName,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                fontSize = 11.sp,
+                fontSize = 9.sp,
             )
             Text(
                 "$entryCount item(ns)",
-                fontSize = 10.sp,
+                fontSize = 8.sp,
                 color =
                     MaterialTheme.colorScheme
                         .onSurfaceVariant,
@@ -524,15 +601,29 @@ private fun ExplorerSidebar(
 
             OutlinedButton(
                 onClick = onChangeRoot,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(34.dp),
+                contentPadding =
+                    PaddingValues(horizontal = 4.dp),
             ) {
-                Text("Trocar pasta", fontSize = 10.sp)
+                Text(
+                    "Trocar PocketDrive",
+                    fontSize = 8.sp,
+                )
             }
             TextButton(
                 onClick = onDisconnect,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(30.dp),
+                contentPadding =
+                    PaddingValues(horizontal = 4.dp),
             ) {
-                Text("Desconectar", fontSize = 10.sp)
+                Text(
+                    "Desconectar P:",
+                    fontSize = 8.sp,
+                )
             }
         }
     }
