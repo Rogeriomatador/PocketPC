@@ -300,6 +300,60 @@ fun AppIconTile(
                     )
                 }
 
+                DesktopApp.STORE -> {
+                    drawRoundRect(
+                        color = white,
+                        topLeft = Offset(w * 0.18f, h * 0.30f),
+                        size = Size(w * 0.64f, h * 0.55f),
+                        cornerRadius =
+                            androidx.compose.ui.geometry.CornerRadius(
+                                w * 0.07f,
+                                w * 0.07f,
+                            ),
+                        style = stroke,
+                    )
+                    drawArc(
+                        color = white,
+                        startAngle = 180f,
+                        sweepAngle = 180f,
+                        useCenter = false,
+                        topLeft = Offset(w * 0.31f, h * 0.12f),
+                        size = Size(w * 0.38f, h * 0.36f),
+                        style = stroke,
+                    )
+                }
+
+                DesktopApp.CONTROL_CENTER -> {
+                    val rows = listOf(0.25f, 0.50f, 0.75f)
+                    val knobs = listOf(0.68f, 0.34f, 0.58f)
+                    rows.forEachIndexed { index, row ->
+                        drawLine(
+                            white,
+                            Offset(w * 0.14f, h * row),
+                            Offset(w * 0.86f, h * row),
+                            line,
+                            StrokeCap.Round,
+                        )
+                        drawCircle(
+                            color = Color(app.accentArgb),
+                            radius = w * 0.12f,
+                            center = Offset(
+                                w * knobs[index],
+                                h * row,
+                            ),
+                        )
+                        drawCircle(
+                            color = white,
+                            radius = w * 0.08f,
+                            center = Offset(
+                                w * knobs[index],
+                                h * row,
+                            ),
+                            style = stroke,
+                        )
+                    }
+                }
+
                 DesktopApp.DISPLAYS -> {
                     drawRoundRect(
                         color = white,
