@@ -56,6 +56,7 @@ data class PocketPcUpdateDownload(
 
 enum class PocketPcInstallResult {
     SESSION_COMMITTED,
+    SESSION_ALREADY_PENDING,
     NEEDS_UNKNOWN_SOURCE_PERMISSION,
 }
 
@@ -264,7 +265,20 @@ class PocketPcUpdater(
             .remove(KEY_DOWNLOAD_ID)
             .remove(KEY_DOWNLOAD_MANIFEST)
             .remove(KEY_VERIFIED_DOWNLOAD_ID)
+            .remove(
+                KEY_INSTALL_ATTEMPT_DOWNLOAD_ID
+            )
             .apply()
+    }
+
+    fun installAttemptedForPending(): Boolean {
+        val pending =
+            pendingDownloadId()
+                ?: return false
+        return prefs.getLong(
+            KEY_INSTALL_ATTEMPT_DOWNLOAD_ID,
+            -1L,
+        ) == pending
     }
 
     fun beginDownload(
@@ -569,6 +583,17 @@ class PocketPcUpdater(
                 }
 
                 if (
+                    prefs.getLong(
+                        KEY_INSTALL_ATTEMPT_DOWNLOAD_ID,
+                        -1L,
+                    ) == verified.id
+                ) {
+                    return@runCatching
+                        PocketPcInstallResult
+                            .SESSION_ALREADY_PENDING
+                }
+
+                if (
                     Build.VERSION.SDK_INT >=
                     Build.VERSION_CODES.O &&
                     !appContext.packageManager
@@ -682,6 +707,10 @@ class PocketPcUpdater(
                         ).apply {
                             action =
                                 ACTION_INSTALL_STATUS
+                            putExtra(
+                                EXTRA_UPDATE_DOWNLOAD_ID,
+                                verified.id,
+                            )
                         }
                     val callback =
                         PendingIntent.getBroadcast(
@@ -691,6 +720,13 @@ class PocketPcUpdater(
                             PendingIntent.FLAG_UPDATE_CURRENT or
                                 PendingIntent.FLAG_MUTABLE,
                         )
+
+                    prefs.edit()
+                        .putLong(
+                            KEY_INSTALL_ATTEMPT_DOWNLOAD_ID,
+                            verified.id,
+                        )
+                        .apply()
 
                     session.commit(
                         callback.intentSender
