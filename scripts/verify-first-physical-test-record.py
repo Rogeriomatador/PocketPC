@@ -44,12 +44,14 @@ def main() -> int:
     build_record_path = build / "local-build-record.json"
     physical_record_path = physical / "physical-validation-record.json"
     physical_verify_path = physical / "physical-validation-verification.txt"
+    manual_launch_path = physical / "manual-launch.txt"
 
     for path in (
         final_path,
         build_record_path,
         physical_record_path,
         physical_verify_path,
+        manual_launch_path,
     ):
         if not path.is_file():
             failures.append(f"required file missing: {path.name}")
@@ -104,6 +106,7 @@ def main() -> int:
     hashes = {
         "localBuildRecordSha256": build_record_path,
         "physicalValidationRecordSha256": physical_record_path,
+        "manualLaunchSha256": manual_launch_path,
     }
     for field, path in hashes.items():
         expected = str(final.get(field, "")).lower()
@@ -134,6 +137,8 @@ def main() -> int:
         failures.append("final filesystem critical gate is not PASS")
     if final.get("nativeHostLoaded") is not True:
         failures.append("final native host gate is not PASS")
+    if final.get("appOpened") is not True:
+        failures.append("final app-open gate is not PASS")
     if physical_record.get("filesystemCriticalPassed") is not True:
         failures.append("physical record filesystem critical gate is not PASS")
     if physical_record.get("nativeHostLoaded") is not True:
@@ -147,6 +152,13 @@ def main() -> int:
     )
     if "PHYSICAL_VALIDATION_RECORD_OK" not in physical_verify_text:
         failures.append("physical validation verifier output is not PASS")
+
+    manual_launch_text = manual_launch_path.read_text(
+        encoding="utf-8-sig",
+        errors="replace",
+    )
+    if not re.search(r"(?m)^Status:\s*ok\s*$", manual_launch_text):
+        failures.append("final manual Activity launch output is not PASS")
 
     if not final_sidecar.is_file():
         failures.append("final record SHA-256 sidecar missing")

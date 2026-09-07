@@ -33,7 +33,7 @@ SAFE_NATIVE_CAPTURE = re.compile(
     r"^\s*\$(?:output|result)\s*=\s*&\s*\$FilePath\s+@Arguments\s+2>&1\s*$",
     re.IGNORECASE,
 )
-LEGACY_SMART_QUOTE_BYTES = frozenset((0x91, 0x92, 0x93, 0x94))
+UTF8_BOM = b"\xef\xbb\xbf"
 
 
 def main() -> int:
@@ -48,16 +48,17 @@ def main() -> int:
         text = raw.decode("utf-8")
         relative = path.relative_to(ROOT)
 
-        if not raw.startswith(b"\xef\xbb\xbf"):
-            for offset, byte in enumerate(raw):
-                if byte in LEGACY_SMART_QUOTE_BYTES:
-                    number = raw[:offset].count(b"\n") + 1
-                    failures.append(
-                        f"{relative}:{number}: UTF-8 without BOM contains byte "
-                        f"0x{byte:02x}, which Windows PowerShell 5.1 can decode "
-                        "as a smart quote"
-                    )
-                    break
+        if not raw.startswith(UTF8_BOM):
+            non_ascii_offset = next(
+                (offset for offset, byte in enumerate(raw) if byte >= 0x80),
+                None,
+            )
+            if non_ascii_offset is not None:
+                number = raw[:non_ascii_offset].count(b"\n") + 1
+                failures.append(
+                    f"{relative}:{number}: non-ASCII PowerShell source must use "
+                    "a UTF-8 BOM so Windows PowerShell 5.1 decodes it correctly"
+                )
 
         if "New-Object System.Collections.Generic.List[object]" in text:
             failures.append(

@@ -4,15 +4,18 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.LinkOption
+import java.nio.file.Paths
 
 class RootfsLinkManagerTest {
     @Test
     fun preparesAndVerifiesSymlinkAndHardlink() = runBlocking {
         val base = Files.createTempDirectory("pocketpc-links-").toFile()
         try {
+            assumeSymlinkSupport(base)
             val runtime = makeRuntime(base)
             val manager = RootfsLinkManager()
 
@@ -23,7 +26,10 @@ class RootfsLinkManagerTest {
 
             val symlink = runtime.rootfsData.resolve("bin").toPath()
             assertTrue(Files.isSymbolicLink(symlink))
-            assertEquals("usr/bin", Files.readSymbolicLink(symlink).toString())
+            assertEquals(
+                Paths.get("usr/bin").normalize(),
+                Files.readSymbolicLink(symlink).normalize(),
+            )
 
             val hardlink = runtime.rootfsData.resolve("usr/bin/sh-copy").toPath()
             val target = runtime.rootfsData.resolve("usr/bin/sh").toPath()
@@ -40,6 +46,7 @@ class RootfsLinkManagerTest {
     fun recoversInterruptedLinkCreationBeforeRetry() = runBlocking {
         val base = Files.createTempDirectory("pocketpc-links-recover-").toFile()
         try {
+            assumeSymlinkSupport(base)
             val runtime = makeRuntime(base)
             val root = runtime.rootfsData.toPath()
             Files.createSymbolicLink(root.resolve("bin"), java.nio.file.Paths.get("usr/bin"))
@@ -66,6 +73,7 @@ class RootfsLinkManagerTest {
         val base = Files.createTempDirectory("pocketpc-delete-").toFile()
         val outside = Files.createTempDirectory("pocketpc-outside-").toFile()
         try {
+            assumeSymlinkSupport(base)
             outside.resolve("keep.txt").writeText("keep")
             val root = base.resolve("rootfs").apply { mkdirs() }
             Files.createSymbolicLink(
@@ -136,5 +144,17 @@ class RootfsLinkManagerTest {
             ),
             linksPrepared = false,
         )
+    }
+
+    private fun assumeSymlinkSupport(base: java.io.File) {
+        val target = base.resolve("symlink-probe-target").apply { mkdirs() }
+        val link = base.resolve("symlink-probe-link").toPath()
+        val supported = runCatching {
+            Files.createSymbolicLink(link, target.toPath())
+            Files.isSymbolicLink(link)
+        }.getOrDefault(false)
+        Files.deleteIfExists(link)
+        target.delete()
+        assumeTrue("Host filesystem does not permit symbolic links", supported)
     }
 }

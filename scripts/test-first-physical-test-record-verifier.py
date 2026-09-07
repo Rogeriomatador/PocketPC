@@ -67,6 +67,12 @@ def make_fixture(
         "PHYSICAL_VALIDATION_RECORD_OK\n",
         encoding="utf-8",
     )
+    manual_launch_path = physical / "manual-launch.txt"
+    manual_launch_path.write_text(
+        "Starting: Intent { cmp=dev.pocketpc.core/.MainActivity }\n"
+        "Status: ok\n",
+        encoding="utf-8",
+    )
 
     final = {
         "schemaVersion": 1,
@@ -77,10 +83,12 @@ def make_fixture(
         "physicalValidationRecordSha256": sha(
             physical_record_path.read_bytes()
         ),
+        "manualLaunchSha256": sha(manual_launch_path.read_bytes()),
         "apkSha256": apk_sha,
         "evidenceBundleSha256": bundle_sha,
         "filesystemCriticalPassed": True,
         "nativeHostLoaded": True,
+        "appOpened": True,
         "substrateState": "SUBSTRATE_NOT_APPROVED",
         "prootReady": False,
     }

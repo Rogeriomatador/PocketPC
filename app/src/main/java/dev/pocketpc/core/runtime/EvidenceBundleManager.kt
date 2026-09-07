@@ -122,6 +122,7 @@ object EvidenceBundleManager {
                     input.copyTo(output, 64 * 1024)
                 }
             }
+            Unit
         }
     }
 

@@ -15,6 +15,6 @@ Não há root e isto ainda não é um runtime Linux/PTY completo."""
         val trimmed = raw.trim()
         if (trimmed == "cd") return "~"
         if (!trimmed.startsWith("cd ")) return null
-        return trimmed.removePrefix("cd ").trim().removeSurrounding(""").removeSurrounding("'")
+        return trimmed.removePrefix("cd ").trim().removeSurrounding("\"").removeSurrounding("'")
     }
 }

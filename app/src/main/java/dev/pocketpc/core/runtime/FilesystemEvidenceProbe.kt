@@ -37,7 +37,10 @@ object FilesystemEvidenceProbe {
             val link = File(guest, "bin").toPath()
             Files.createSymbolicLink(link, Paths.get("usr/bin"))
             require(Files.isSymbolicLink(link))
-            require(Files.readSymbolicLink(link).toString() == "usr/bin")
+            require(
+                Files.readSymbolicLink(link).normalize() ==
+                    Paths.get("usr/bin").normalize()
+            )
             CapabilityEvidence(true, "relative symlink created/read successfully")
         }.getOrElse {
             CapabilityEvidence(false, "relative symlink failed: ${it.javaClass.simpleName}: ${it.message}")

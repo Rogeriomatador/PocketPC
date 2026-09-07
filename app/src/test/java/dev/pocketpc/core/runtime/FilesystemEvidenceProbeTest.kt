@@ -1,6 +1,7 @@
 package dev.pocketpc.core.runtime
 
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.nio.file.Files
 
@@ -10,6 +11,13 @@ class FilesystemEvidenceProbeTest {
         val base = Files.createTempDirectory("pocketpc-device-evidence-").toFile()
         try {
             val result = FilesystemEvidenceProbe.run(base)
+
+            if (System.getProperty("os.name").startsWith("Windows")) {
+                assumeTrue(
+                    "Windows host does not permit symbolic links",
+                    result.relativeSymlink.passed && result.absoluteSymlink.passed,
+                )
+            }
 
             assertTrue(result.relativeSymlink.detail, result.relativeSymlink.passed)
             assertTrue(result.absoluteSymlink.detail, result.absoluteSymlink.passed)

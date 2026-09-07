@@ -6,15 +6,17 @@ PocketPC is an experimental Android desktop/runtime project with strict evidence
 
 Alpha 17 keeps the Alpha 16 one-command physical test but wraps it with automatic failure diagnostics.
 
-scripts/first-physical-test-windows.ps1 is now the public wrapper.
+`scripts/first-physical-test-windows.ps1` is the public PowerShell entry point.
+
+For the simplest Windows path, double-click `PocketPC-Test-Windows.bat`. It updates the repository, performs the pinned build, installs and validates the APK on the connected physical device, and leaves PocketPC open for manual testing.
 
 The previous Alpha 16 pipeline is preserved as:
 
-scripts/first-physical-test-core-windows.ps1
+`scripts/first-physical-test-core-windows.ps1`
 
 If any stage throws, the wrapper preserves the original failure and invokes:
 
-scripts/collect-failure-triage-windows.ps1
+`scripts/collect-failure-triage-windows.ps1`
 
 The triage pack can capture, when available:
 
@@ -33,23 +35,24 @@ The triage pack can capture, when available:
 - package dumpsys;
 - PocketPC-only logcat when a PID exists;
 - AndroidRuntime crash-only logcat fallback;
-- activity state filtered for dev.pocketpc.core;
+- activity state filtered for `dev.pocketpc.core`;
 - manufacturer/model/API/ABI/fingerprint;
 - SHA-256 of the ADB serial instead of the raw serial;
 - SHA-256 for every captured file.
 
-triage-record.json and its sidecar make the diagnostic pack independently verifiable.
+`triage-record.json` and its sidecar make the diagnostic pack independently verifiable.
 
 ## Normal command
 
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\first-physical-test-windows.ps1
+```
 
-If it succeeds, the final token remains POCKETPC_FIRST_PHYSICAL_TEST_OK.
+If it succeeds, the final token remains `POCKETPC_FIRST_PHYSICAL_TEST_OK` and the app is reopened on the phone.
 
-If it fails, a failure-triage directory is created automatically when possible.
+If it fails, a `failure-triage` directory is created automatically when possible.
 
 PRoot remains unbundled/unapproved and Linux execution remains disabled.
-
 
 ## PocketPC Windows Setup
 

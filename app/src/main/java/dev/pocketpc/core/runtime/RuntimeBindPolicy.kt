@@ -51,7 +51,7 @@ object RuntimeBindPolicy {
                     host == root || host.path.startsWith(root.path + File.separator)
                 }
                 if (!allowed) errors += "bind[$index] host fora da allowlist."
-                if (':' in host.path || '\n' in host.path || '\u0000' in host.path) {
+                if (hasReservedHostSyntax(host.path)) {
                     errors += "bind[$index] host contém caractere incompatível."
                 }
             }
@@ -88,6 +88,21 @@ object RuntimeBindPolicy {
             }
         }
         return "/" + parts.joinToString("/")
+    }
+
+    private fun hasReservedHostSyntax(path: String): Boolean {
+        if ('\n' in path || '\u0000' in path) return true
+
+        val windowsDrivePrefix =
+            File.separatorChar == '\\' &&
+                path.length >= 3 &&
+                path[0].isLetter() &&
+                path[1] == ':' &&
+                (path[2] == '\\' || path[2] == '/')
+
+        return path.withIndex().any { (index, character) ->
+            character == ':' && !(windowsDrivePrefix && index == 1)
+        }
     }
 }
 

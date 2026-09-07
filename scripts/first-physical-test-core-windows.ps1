@@ -201,12 +201,16 @@ if ($RequireInstalledApkHash) {
 $physicalDir = Join-Path $expectedBuildDir "physical-validation"
 $physicalRecordPath = Join-Path $physicalDir "physical-validation-record.json"
 $physicalVerifyPath = Join-Path $physicalDir "physical-validation-verification.txt"
+$manualLaunchPath = Join-Path $physicalDir "manual-launch.txt"
 
 if (-not (Test-Path $physicalRecordPath -PathType Leaf)) {
     throw "Physical validation record nao foi produzido."
 }
 if (-not (Test-Path $physicalVerifyPath -PathType Leaf)) {
     throw "Final physical verifier output nao foi produzido."
+}
+if (-not (Test-Path $manualLaunchPath -PathType Leaf)) {
+    throw "Final manual launch output nao foi produzido."
 }
 
 $physical = Get-Content $physicalRecordPath -Raw | ConvertFrom-Json
@@ -237,10 +241,14 @@ $finalRecord = [ordered]@{
     physicalValidationRecordSha256 = (
         Get-FileHash $physicalRecordPath -Algorithm SHA256
     ).Hash.ToLowerInvariant()
+    manualLaunchSha256 = (
+        Get-FileHash $manualLaunchPath -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
     apkSha256 = [string]$buildRecord.apk.sha256
     evidenceBundleSha256 = [string]$physical.bundleSha256
     filesystemCriticalPassed = [bool]$physical.filesystemCriticalPassed
     nativeHostLoaded = [bool]$physical.nativeHostLoaded
+    appOpened = $true
     substrateState = [string]$physical.substrateState
     prootReady = [bool]$physical.prootReady
 }
@@ -319,6 +327,7 @@ Write-Host "APK SHA-256  : $($buildRecord.apk.sha256)"
 Write-Host "Bundle SHA   : $($physical.bundleSha256)"
 Write-Host "Filesystem   : PASS"
 Write-Host "Native host  : PASS"
+Write-Host "App opened   : PASS"
 Write-Host "prootReady   : $($physical.prootReady)"
 Write-Host ("Evidence dir : {0}" -f $physicalDir)
 # POCKETPC_FIRST_PHYSICAL_TEST_CORE_EOF

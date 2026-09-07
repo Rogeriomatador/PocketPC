@@ -142,7 +142,10 @@ class RootfsLinkManager {
                         require(Files.isSymbolicLink(path)) {
                             "Symlink ausente: ${entry.path}"
                         }
-                        require(Files.readSymbolicLink(path).toString() == entry.target) {
+                        require(
+                            Files.readSymbolicLink(path).normalize() ==
+                                Paths.get(entry.target).normalize()
+                        ) {
                             "Target de symlink divergiu: ${entry.path}"
                         }
                         symlinks++

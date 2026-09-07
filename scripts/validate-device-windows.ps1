@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$BuildDir,
     [string]$AndroidSdkRoot,
@@ -423,6 +423,29 @@ $physicalVerify.Text |
     ) -Encoding UTF8
 
 Write-Host ""
+Write-Host "==> Abrindo PocketPC para teste manual" -ForegroundColor Cyan
+$manualLaunch = Invoke-NativeCapture $adb @(
+    "-s",
+    $serial,
+    "shell",
+    "am",
+    "start",
+    "-W",
+    "-S",
+    "-n",
+    "$packageName/.MainActivity"
+)
+if ($manualLaunch.Text -notmatch '(?m)^Status:\s*ok\s*$') {
+    throw (
+        "PocketPC foi validado, mas a abertura final falhou." +
+        [Environment]::NewLine +
+        $manualLaunch.Text
+    )
+}
+$manualLaunch.Text |
+    Set-Content (Join-Path $outputDir "manual-launch.txt") -Encoding UTF8
+
+Write-Host ""
 Write-Host "PocketPC Physical Validation concluída." -ForegroundColor Green
 Write-Host "Classification : PHYSICAL_DEVICE_CHAIN_VERIFIED"
 Write-Host "Source commit  : $expectedCommit"
@@ -430,4 +453,5 @@ Write-Host "Bundle SHA-256 : $bundleHash"
 Write-Host "Filesystem     : $($result.filesystemCriticalPassed)"
 Write-Host "Native host    : $($result.nativeHostLoaded)"
 Write-Host "prootReady     : $($result.prootReady)"
+Write-Host "App aberta     : PASS"
 Write-Host "Output         : $outputDir"
