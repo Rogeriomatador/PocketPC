@@ -201,6 +201,27 @@ def main() -> int:
                     "the returned policy state"
                 )
 
+        if path.name == "install-device-windows.ps1":
+            required_install_sentinels = (
+                "[int]$InstallTimeoutSeconds = 180",
+                "function Invoke-AdbInstallWithTimeout",
+                "Start-Process",
+                "$process.WaitForExit($TimeoutSeconds * 1000)",
+                '[Device Install] {0}',
+                'Instalando APK via ADB (timeout: {0}s)',
+            )
+            for sentinel in required_install_sentinels:
+                if sentinel not in text:
+                    failures.append(
+                        "Windows device install gate is missing bounded/progress "
+                        f"sentinel: {sentinel}"
+                    )
+            if 'Invoke-NativeCapture $adb @("-s", $serial, "install"' in text:
+                failures.append(
+                    "Windows device install gate must not run adb install "
+                    "through the unbounded native capture path"
+                )
+
         if path.name == "doctor-windows.ps1":
             marker = "# POCKETPC_DOCTOR_EOF"
             if text.count(marker) != 1:
