@@ -8,9 +8,12 @@ import android.hardware.display.DisplayManager
 import android.media.ImageReader
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
-import android.media.MediaFormat
 import android.os.Build
 import android.companion.virtual.VirtualDeviceManager
+
+internal const val POCKET_MIME_AV1 = "video/av01"
+internal const val POCKET_MIME_HEVC = "video/hevc"
+internal const val POCKET_MIME_AVC = "video/avc"
 
 data class ResearchCodec(
     val name: String,
@@ -24,9 +27,9 @@ enum class PreferredRemoteCodec(
     val mimeType: String?,
     val label: String,
 ) {
-    AV1(MediaFormat.MIMETYPE_VIDEO_AV1, "AV1"),
-    HEVC(MediaFormat.MIMETYPE_VIDEO_HEVC, "HEVC/H.265"),
-    AVC(MediaFormat.MIMETYPE_VIDEO_AVC, "H.264/AVC"),
+    AV1(POCKET_MIME_AV1, "AV1"),
+    HEVC(POCKET_MIME_HEVC, "HEVC/H.265"),
+    AVC(POCKET_MIME_AVC, "H.264/AVC"),
     NONE(null, "Nenhum encoder de hardware confirmado"),
 }
 
@@ -149,18 +152,15 @@ object PocketPcResearchProbe {
                         .asSequence()
                         .filter { type ->
                             type.equals(
-                                MediaFormat
-                                    .MIMETYPE_VIDEO_AVC,
+                                POCKET_MIME_AVC,
                                 ignoreCase = true,
                             ) ||
                                 type.equals(
-                                    MediaFormat
-                                        .MIMETYPE_VIDEO_HEVC,
+                                    POCKET_MIME_HEVC,
                                     ignoreCase = true,
                                 ) ||
                                 type.equals(
-                                    MediaFormat
-                                        .MIMETYPE_VIDEO_AV1,
+                                    POCKET_MIME_AV1,
                                     ignoreCase = true,
                                 )
                         }
@@ -402,16 +402,13 @@ internal fun choosePreferredRemoteCodec(
             .toSet()
 
     return when {
-        MediaFormat.MIMETYPE_VIDEO_AV1
-            .lowercase() in hardwareTypes ->
+        POCKET_MIME_AV1 in hardwareTypes ->
             PreferredRemoteCodec.AV1
 
-        MediaFormat.MIMETYPE_VIDEO_HEVC
-            .lowercase() in hardwareTypes ->
+        POCKET_MIME_HEVC in hardwareTypes ->
             PreferredRemoteCodec.HEVC
 
-        MediaFormat.MIMETYPE_VIDEO_AVC
-            .lowercase() in hardwareTypes ->
+        POCKET_MIME_AVC in hardwareTypes ->
             PreferredRemoteCodec.AVC
 
         else ->
