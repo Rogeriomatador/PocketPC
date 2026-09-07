@@ -47,8 +47,8 @@ class DesktopPeripheralMonitor(context: Context) : InputManager.InputDeviceListe
         var keyboards = 0
         var gamepads = 0
 
-        for (deviceId in InputDevice.getDeviceIds()) {
-            val device = InputDevice.getDevice(deviceId) ?: continue
+        for (deviceId in inputManager.inputDeviceIds) {
+            val device = inputManager.getInputDevice(deviceId) ?: continue
             if (device.isVirtual) continue
 
             val sources = device.sources
