@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.pocketpc.core.storage.PocketDriveDirectory
 import dev.pocketpc.core.storage.PocketDriveMount
+import dev.pocketpc.core.storage.PocketFileClass
+import dev.pocketpc.core.storage.classifyPocketFile
 import dev.pocketpc.core.storage.StorageEntry
 import dev.pocketpc.core.storage.StorageListing
 import dev.pocketpc.core.storage.StorageRepository
@@ -124,13 +126,26 @@ fun FilesApp(
         if (entry.directory) {
             pathStack = pathStack + entry.uri
             selectedUri = null
-        } else {
-            repository.openFile(entry)
-                .onFailure {
-                    error =
-                        it.message
-                            ?: "Não foi possível abrir o arquivo."
-                }
+            return
+        }
+
+        when (classifyPocketFile(entry.name)) {
+            PocketFileClass.PC_INSTALLER -> {
+                error =
+                    "Instalador de PC detectado: " +
+                        entry.name +
+                        ". O arquivo está armazenado no PocketDrive, " +
+                        "mas a execução Windows ainda depende do " +
+                        "runtime de compatibilidade."
+            }
+
+            else ->
+                repository.openFile(entry)
+                    .onFailure {
+                        error =
+                            it.message
+                                ?: "Não foi possível abrir o arquivo."
+                    }
         }
     }
 
@@ -799,7 +814,7 @@ private fun FileTableRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                if (entry.directory) "▣" else "•",
+                fileGlyph(entry),
                 modifier = Modifier.width(24.dp),
             )
             Text(
@@ -810,14 +825,7 @@ private fun FileTableRow(
             )
         }
         Text(
-            if (entry.directory) {
-                "Pasta"
-            } else {
-                entry.mimeType
-                    ?.substringAfterLast('/')
-                    ?.ifBlank { "Arquivo" }
-                    ?: "Arquivo"
-            },
+            fileTypeLabel(entry),
             modifier = Modifier.width(110.dp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -872,7 +880,7 @@ private fun ExplorerDetailsPane(
             }
 
             Text(
-                if (entry.directory) "▣" else "●",
+                fileGlyph(entry),
                 fontSize = 34.sp,
             )
             Text(
@@ -884,17 +892,34 @@ private fun ExplorerDetailsPane(
             )
             ValueRow(
                 "Tipo",
-                if (entry.directory) {
-                    "Pasta"
-                } else {
-                    entry.mimeType ?: "Arquivo"
-                },
+                fileTypeLabel(entry),
             )
             if (!entry.directory) {
                 ValueRow(
                     "Tamanho",
                     formatBytes(entry.size),
                 )
+
+                if (
+                    classifyPocketFile(entry.name) ==
+                    PocketFileClass.PC_INSTALLER
+                ) {
+                    ValueRow(
+                        "Ambiente",
+                        "Windows / PC",
+                    )
+                    Text(
+                        "O PocketPC preserva este pacote como software de PC. " +
+                            "Ele não será tratado como APK Android. " +
+                            "A execução ficará disponível somente quando " +
+                            "o runtime Windows compatível estiver pronto.",
+                        style =
+                            MaterialTheme.typography.bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant,
+                    )
+                }
             }
             ValueRow(
                 "Modificado",
@@ -908,10 +933,14 @@ private fun ExplorerDetailsPane(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    if (entry.directory) {
-                        "Abrir pasta"
-                    } else {
-                        "Abrir arquivo"
+                    when {
+                        entry.directory ->
+                            "Abrir pasta"
+                        classifyPocketFile(entry.name) ==
+                            PocketFileClass.PC_INSTALLER ->
+                            "Ver compatibilidade"
+                        else ->
+                            "Abrir arquivo"
                     }
                 )
             }
@@ -986,6 +1015,46 @@ private fun ExplorerMessage(
             },
         fontSize = 10.sp,
     )
+}
+
+private fun fileGlyph(
+    entry: StorageEntry,
+): String {
+    if (entry.directory) return "▣"
+
+    return when (
+        classifyPocketFile(entry.name)
+    ) {
+        PocketFileClass.PC_INSTALLER -> "PC"
+        PocketFileClass.ANDROID_PACKAGE -> "APK"
+        PocketFileClass.ARCHIVE -> "ZIP"
+        PocketFileClass.DISK_IMAGE -> "IMG"
+        PocketFileClass.GENERIC -> "•"
+    }
+}
+
+private fun fileTypeLabel(
+    entry: StorageEntry,
+): String {
+    if (entry.directory) return "Pasta"
+
+    return when (
+        classifyPocketFile(entry.name)
+    ) {
+        PocketFileClass.PC_INSTALLER ->
+            "Instalador de PC"
+        PocketFileClass.ANDROID_PACKAGE ->
+            "Pacote Android"
+        PocketFileClass.ARCHIVE ->
+            "Arquivo compactado"
+        PocketFileClass.DISK_IMAGE ->
+            "Imagem de disco"
+        PocketFileClass.GENERIC ->
+            entry.mimeType
+                ?.substringAfterLast('/')
+                ?.ifBlank { "Arquivo" }
+                ?: "Arquivo"
+    }
 }
 
 internal fun formatBytes(bytes: Long): String =
