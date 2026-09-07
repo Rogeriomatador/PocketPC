@@ -29,6 +29,8 @@ enum class DesktopApp(
     TERMINAL("Terminal", ">_", 0xFF30343B),
     APPS("Aplicativos", "APP", 0xFF7C4DFF),
     DOWNLOADS("Downloads", "DL", 0xFF20B968),
+    STORE("Loja", "SHOP", 0xFF34A853),
+    CONTROL_CENTER("Central", "CTL", 0xFF455A64),
     DISPLAYS("Telas", "TV", 0xFF26A69A),
     PERSONALIZATION("Personalizacao", "IMG", 0xFFEC6A5C),
     RUNTIMES("Runtimes", "RT", 0xFF8B5CF6),
