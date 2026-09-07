@@ -520,6 +520,20 @@ def main() -> int:
                     "without importing the internal layout.weight symbol"
                 )
 
+        if relative.endswith("PocketPcProfileBackup.kt"):
+            for forbidden in (
+                "custom_wallpaper_uri",
+                "pocketpc-storage",
+                "pocketpc-updater",
+                "root-uri",
+            ):
+                if forbidden in text:
+                    failures.append(
+                        "Profile backup must not persist Android grants, " +
+                        "storage roots, updater state, or custom URI grants: " +
+                        forbidden
+                    )
+
         if relative.endswith("BrowserApp.kt"):
             if 'label = { Text("Endereço ou pesquisa") }' in text:
                 failures.append(
