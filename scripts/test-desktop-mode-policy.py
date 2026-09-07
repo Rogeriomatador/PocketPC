@@ -151,7 +151,7 @@ CHECKS = {
         "DownloadManager.Query",
         "STATUS_RUNNING",
         "getUriForDownloadedFile",
-        "P:\\Downloads",
+        "P:\\\\Downloads",
         "PocketFileClass.PC_INSTALLER",
         "Pacote de PC",
         "PocketDriveDirectory.DOWNLOADS",
