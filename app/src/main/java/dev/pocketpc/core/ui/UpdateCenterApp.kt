@@ -447,6 +447,9 @@ fun UpdateCenterApp() {
                         result.updateAvailable &&
                         pending == null
                     ) {
+                        onAttentionChanged(
+                            PocketPcUpdateAttention.AVAILABLE
+                        )
                         Button(
                             onClick = {
                                 updater.beginDownload(
@@ -735,8 +738,19 @@ private fun updateDownloadStatus(
             "Desconhecido"
     }
 
+enum class PocketPcUpdateAttention {
+    NONE,
+    AVAILABLE,
+    DOWNLOADING,
+    READY,
+    BLOCKED,
+}
+
 @Composable
-fun PocketPcUpdateAutoCheck() {
+fun PocketPcUpdateAutoCheck(
+    onAttentionChanged:
+        (PocketPcUpdateAttention) -> Unit = {},
+) {
     val context = LocalContext.current
     val updater =
         remember {
@@ -763,11 +777,17 @@ fun PocketPcUpdateAutoCheck() {
             if (
                 updater.isPendingDownloadVerified()
             ) {
+                onAttentionChanged(
+                    PocketPcUpdateAttention.READY
+                )
                 return true
             }
 
             updater.verifyPendingDownload()
                 .onSuccess { verified ->
+                    onAttentionChanged(
+                        PocketPcUpdateAttention.READY
+                    )
                     Toast.makeText(
                         context,
                         "PocketPC " +
@@ -778,6 +798,9 @@ fun PocketPcUpdateAutoCheck() {
                     ).show()
                 }
                 .onFailure { error ->
+                    onAttentionChanged(
+                        PocketPcUpdateAttention.BLOCKED
+                    )
                     Toast.makeText(
                         context,
                         "Atualização baixada foi bloqueada: " +
@@ -798,6 +821,21 @@ fun PocketPcUpdateAutoCheck() {
 
         var pending =
             updater.queryPendingDownload()
+
+        when {
+            updater.isPendingDownloadVerified() ->
+                onAttentionChanged(
+                    PocketPcUpdateAttention.READY
+                )
+            pending != null ->
+                onAttentionChanged(
+                    PocketPcUpdateAttention.DOWNLOADING
+                )
+            else ->
+                onAttentionChanged(
+                    PocketPcUpdateAttention.NONE
+                )
+        }
 
         if (
             updater.shouldRunAutomaticCheck()
@@ -825,6 +863,9 @@ fun PocketPcUpdateAutoCheck() {
                                 result.manifest
                             )
                                 .onSuccess {
+                                    onAttentionChanged(
+                                        PocketPcUpdateAttention.DOWNLOADING
+                                    )
                                     pending =
                                         updater
                                             .queryPendingDownload()
@@ -860,6 +901,20 @@ fun PocketPcUpdateAutoCheck() {
                                 Toast.LENGTH_LONG,
                             ).show()
                         }
+                    } else if (
+                        !result.updateAvailable &&
+                        pending == null
+                    ) {
+                        onAttentionChanged(
+                            PocketPcUpdateAttention.NONE
+                        )
+                    }
+                }
+                .onFailure {
+                    if (pending == null) {
+                        onAttentionChanged(
+                            PocketPcUpdateAttention.NONE
+                        )
                     }
                 }
         }
@@ -885,6 +940,9 @@ fun PocketPcUpdateAutoCheck() {
                 status ==
                     DownloadManager.STATUS_FAILED
             ) {
+                onAttentionChanged(
+                    PocketPcUpdateAttention.BLOCKED
+                )
                 break
             }
 
