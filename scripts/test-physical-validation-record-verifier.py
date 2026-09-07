@@ -43,6 +43,8 @@ def make_fixture(root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path, pathli
         "bundleSha256": sha(bundle),
         "evidenceSha256": sha(evidence),
         "filesystemCriticalPassed": True,
+        "hostFilesystemCriticalPassed": True,
+        "runtimeLinkSemanticsReady": False,
         "nativeHostLoaded": True,
     }
     automation_bytes = json.dumps(automation, indent=2).encode()
@@ -72,6 +74,8 @@ def make_fixture(root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path, pathli
         "evidenceSha256": sha(evidence),
         "bundleSha256": sha(bundle),
         "filesystemCriticalPassed": True,
+        "hostFilesystemCriticalPassed": True,
+        "runtimeLinkSemanticsReady": False,
         "nativeHostLoaded": True,
         "substrateState": "SUBSTRATE_NOT_APPROVED",
         "prootReady": False,
