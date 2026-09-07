@@ -1,9 +1,7 @@
 package dev.pocketpc.core.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,11 +33,7 @@ fun ResearchLabApp() {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(
-                rememberScrollState()
-            ),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement =
             Arrangement.spacedBy(10.dp),
     ) {
