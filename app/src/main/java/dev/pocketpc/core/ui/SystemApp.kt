@@ -153,20 +153,20 @@ fun SystemApp(
                             )
                                 .onSuccess { report ->
                                     evidence = report
-                                    evidenceStatus = if (report.filesystem.allCriticalPassed) {
-                                        "DEVICE_FILESYSTEM_SELFTEST_PASS"
+                                    evidenceStatus = if (report.filesystem.hostCriticalPassed) {
+                                        "DEVICE_HOST_FILESYSTEM_PASS"
                                     } else {
-                                        "DEVICE_FILESYSTEM_SELFTEST_PARTIAL_OR_FAIL"
+                                        "DEVICE_HOST_FILESYSTEM_FAIL"
                                     }
 
                                     EvidenceBundleManager.create(context, report)
                                         .onSuccess { created ->
                                             bundle = created
                                             evidenceStatus =
-                                                if (report.filesystem.allCriticalPassed) {
+                                                if (report.filesystem.hostCriticalPassed) {
                                                     "DEVICE_EVIDENCE_BUNDLE_READY"
                                                 } else {
-                                                    "DEVICE_EVIDENCE_BUNDLE_READY_WITH_FAILURES"
+                                                    "DEVICE_EVIDENCE_BUNDLE_READY_WITH_HOST_FAILURES"
                                                 }
                                         }
                                         .onFailure { error ->
@@ -220,8 +220,20 @@ fun SystemApp(
                     passLabel(report.filesystem.externalTargetPreserved.passed),
                 )
                 ValueRow(
-                    "Filesystem gate",
-                    if (report.filesystem.allCriticalPassed) "PASS" else "FAIL / REVIEW",
+                    "Host filesystem",
+                    if (report.filesystem.hostCriticalPassed) "PASS" else "FAIL / REVIEW",
+                )
+                ValueRow(
+                    "Linux link semantics",
+                    if (report.filesystem.runtimeLinkSemanticsReady) {
+                        "READY"
+                    } else {
+                        "BLOCKED / HARDLINK OR HOST CAPABILITY"
+                    },
+                )
+                ValueRow(
+                    "Todas capacidades",
+                    if (report.filesystem.allCriticalPassed) "PASS" else "PARTIAL",
                 )
                 ValueRow("Substrate attested", if (report.prootReady) "YES" else "NO")
                 ValueRow(
