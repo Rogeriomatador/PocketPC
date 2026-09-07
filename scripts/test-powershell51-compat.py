@@ -186,6 +186,11 @@ def main() -> int:
                 )
 
         if path.name == "build-local-windows.ps1":
+            if "test-process-capture-windows.ps1" not in text:
+                failures.append(
+                    "Windows builder must run the process-capture selftest "
+                    "before expensive toolchain/build work"
+                )
             if "$policyOutput = Invoke-NativeCapture $python (" not in text:
                 failures.append(
                     "Windows builder must capture each Python policy output "
@@ -205,10 +210,10 @@ def main() -> int:
             required_install_sentinels = (
                 "[int]$InstallTimeoutSeconds = 180",
                 "[int]$AdbCommandTimeoutSeconds = 20",
+                'process-capture-windows.ps1',
+                "Invoke-PocketPcProcessCapture",
                 "function Invoke-AdbCaptureWithTimeout",
                 "function Invoke-AdbInstallWithTimeout",
-                "Start-Process",
-                "$process.WaitForExit($TimeoutSeconds * 1000)",
                 '[Device Install] {0}',
                 'Lendo fabricante',
                 'Lendo modelo',
@@ -217,8 +222,6 @@ def main() -> int:
                 'Verificando indicador de emulador',
                 'Lendo build fingerprint',
                 'Instalando APK via ADB (timeout: {0}s)',
-                "[IO.File]::ReadAllText($stdoutPath).Trim()",
-                "[IO.File]::ReadAllText($stderrPath).Trim()",
             )
             for sentinel in required_install_sentinels:
                 if sentinel not in text:
@@ -230,8 +233,9 @@ def main() -> int:
                 'Invoke-NativeCapture $adb @("-s", $serial, "install"',
                 'Invoke-NativeCapture $adb @("-s", $serial, "pull"',
                 'return Invoke-NativeCapture $adb (@("-s", $serial, "shell")',
-                "(Get-Content $stdoutPath -Raw).Trim()",
-                "(Get-Content $stderrPath -Raw).Trim()",
+                "Start-Process",
+                "RedirectStandardOutput",
+                "RedirectStandardError",
             )
             for sentinel in forbidden_unbounded_adb:
                 if sentinel in text:
@@ -243,14 +247,15 @@ def main() -> int:
         if path.name == "validate-device-windows.ps1":
             required_validate_sentinels = (
                 "[int]$AdbCommandTimeoutSeconds = 20",
+                'process-capture-windows.ps1',
+                "Invoke-PocketPcProcessCapture",
                 "function Invoke-AdbCaptureWithTimeout",
+                '==> ADB Device Selection',
                 'adb shell rm previous evidence',
                 'adb shell am start DebugEvidenceActivity',
                 'adb shell ls automation-result',
                 'adb pull required evidence',
                 'adb shell am start MainActivity',
-                "[IO.File]::ReadAllText($stdoutPath).Trim()",
-                "[IO.File]::ReadAllText($stderrPath).Trim()",
             )
             for sentinel in required_validate_sentinels:
                 if sentinel not in text:
@@ -264,13 +269,49 @@ def main() -> int:
                     "the unbounded native capture path"
                 )
             for sentinel in (
-                "(Get-Content $stdoutPath -Raw).Trim()",
-                "(Get-Content $stderrPath -Raw).Trim()",
+                "Start-Process",
+                "RedirectStandardOutput",
+                "RedirectStandardError",
             ):
                 if sentinel in text:
                     failures.append(
-                        "Windows physical validator must not Trim null output "
-                        f"from an empty redirected ADB stream: {sentinel}"
+                        "Windows physical validator must use the shared reliable "
+                        f"process capture instead of: {sentinel}"
+                    )
+
+        if path.name == "process-capture-windows.ps1":
+            required_process_capture_sentinels = (
+                "New-Object System.Diagnostics.ProcessStartInfo",
+                "New-Object System.Diagnostics.Process",
+                "$process.StandardOutput.ReadToEndAsync()",
+                "$process.StandardError.ReadToEndAsync()",
+                "$process.WaitForExit($TimeoutSeconds * 1000)",
+                "$exitCode = [int]$process.ExitCode",
+            )
+            for sentinel in required_process_capture_sentinels:
+                if sentinel not in text:
+                    failures.append(
+                        "Shared Windows process capture is missing sentinel: "
+                        f"{sentinel}"
+                    )
+            if "Start-Process" in text:
+                failures.append(
+                    "Shared Windows process capture must not use Start-Process"
+                )
+
+        if path.name == "test-process-capture-windows.ps1":
+            required_capture_selftest_sentinels = (
+                "POCKETPC_PROCESS_CAPTURE_SELFTEST_OK",
+                "exit /b 0",
+                "exit /b 7",
+                "Start-Sleep -Seconds 3",
+                "TimeoutSeconds = 1",
+            )
+            for sentinel in required_capture_selftest_sentinels:
+                if sentinel not in text:
+                    failures.append(
+                        "Windows process-capture selftest is missing sentinel: "
+                        f"{sentinel}"
                     )
 
         if path.name == "doctor-windows.ps1":
