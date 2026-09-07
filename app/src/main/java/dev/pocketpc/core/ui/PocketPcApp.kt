@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,6 +60,13 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     }
     val browserSession = remember { BrowserSessionState() }
     val appearance = remember { DesktopAppearanceState(appContext) }
+    val systemDark = isSystemInDarkTheme()
+    val useDarkTheme =
+        when (appearance.themeMode) {
+            DesktopThemeMode.SYSTEM -> systemDark
+            DesktopThemeMode.LIGHT -> false
+            DesktopThemeMode.DARK -> true
+        }
     val peripheralMonitor = remember { DesktopPeripheralMonitor(appContext) }
     val capabilityMonitor = remember { DesktopCapabilityMonitor(appContext) }
     val telemetry = remember { TelemetryMonitor(appContext) }
@@ -148,6 +156,14 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
         }
     }
 
+    MaterialTheme(
+        colorScheme =
+            if (useDarkTheme) {
+                darkColorScheme()
+            } else {
+                lightColorScheme()
+            },
+    ) {
     Box(
         modifier = Modifier.fillMaxSize(),
     ) {
@@ -207,7 +223,9 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                         DesktopApp.DISPLAYS -> DisplaysApp(desktopCapabilities)
                         DesktopApp.PERSONALIZATION -> PersonalizationApp(
                             selected = appearance.wallpaper,
+                            themeMode = appearance.themeMode,
                             onSelect = appearance::selectWallpaper,
+                            onThemeSelect = appearance::selectTheme,
                         )
                         DesktopApp.RUNTIMES -> RuntimeApp(
                             manager = runtimes,
@@ -277,6 +295,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             peripherals = peripherals,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+    }
     }
 }
 
