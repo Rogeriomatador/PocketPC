@@ -1020,6 +1020,17 @@ class PocketPcUpdater(
     }
 }
 
+internal fun shouldAutoInstallUpdate(
+    enabled: Boolean,
+    verified: Boolean,
+    canInstallPackages: Boolean,
+    alreadyAttempted: Boolean,
+): Boolean =
+    enabled &&
+        verified &&
+        canInstallPackages &&
+        !alreadyAttempted
+
 internal fun shouldRunUpdateCheck(
     enabled: Boolean,
     lastCheckMillis: Long,
