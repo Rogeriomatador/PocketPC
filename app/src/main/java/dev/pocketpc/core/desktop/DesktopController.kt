@@ -7,18 +7,46 @@ import androidx.compose.runtime.setValue
 
 class DesktopController {
     val windows = mutableStateListOf<DesktopWindow>()
+    val pinnedApps = mutableStateListOf(
+        DesktopApp.FILES,
+        DesktopApp.BROWSER,
+        DesktopApp.TERMINAL,
+        DesktopApp.APPS,
+    )
+
     var startMenuOpen by mutableStateOf(false)
+        private set
+    var contextMenuOpen by mutableStateOf(false)
+        private set
+    var contextMenuTarget by mutableStateOf<DesktopApp?>(null)
         private set
 
     private var nextZ = 1
     private var nextWindowId = 1L
 
+    val activeWindow: DesktopWindow?
+        get() = windows
+            .filterNot { it.minimized }
+            .maxByOrNull { it.zIndex }
+
     fun toggleStartMenu() {
         startMenuOpen = !startMenuOpen
+        if (startMenuOpen) closeContextMenu()
     }
 
     fun closeStartMenu() {
         startMenuOpen = false
+    }
+
+    fun openContextMenu(app: DesktopApp? = null) {
+        contextMenuTarget = app
+        contextMenuOpen = true
+        startMenuOpen = false
+    }
+
+    fun closeContextMenu() {
+        contextMenuOpen = false
+        contextMenuTarget = null
     }
 
     fun open(app: DesktopApp) {
@@ -34,7 +62,8 @@ class DesktopController {
                 zIndex = allocateZ(),
             )
         }
-        startMenuOpen = false
+        closeStartMenu()
+        closeContextMenu()
     }
 
     fun focus(id: String) {
@@ -45,8 +74,33 @@ class DesktopController {
         windows.removeAll { it.id == id }
     }
 
+    fun closeActive() {
+        activeWindow?.let { close(it.id) }
+    }
+
     fun minimize(id: String) {
         mutate(id) { it.copy(minimized = true) }
+    }
+
+    fun minimizeAll() {
+        windows.indices.forEach { index ->
+            windows[index] = windows[index].copy(minimized = true)
+        }
+        closeStartMenu()
+        closeContextMenu()
+    }
+
+    fun cycleWindows() {
+        val candidates = windows.filterNot { it.minimized }
+        if (candidates.isEmpty()) {
+            windows.maxByOrNull { it.zIndex }?.let { open(it.app) }
+            return
+        }
+        val active = activeWindow ?: return
+        val ordered = candidates.sortedBy { it.zIndex }
+        val index = ordered.indexOfFirst { it.id == active.id }
+        val next = ordered[(index + 1).mod(ordered.size)]
+        focus(next.id)
     }
 
     fun toggleMaximize(id: String) {
@@ -56,6 +110,14 @@ class DesktopController {
                 minimized = false,
                 zIndex = allocateZ(),
             )
+        }
+    }
+
+    fun togglePin(app: DesktopApp) {
+        if (app in pinnedApps) {
+            pinnedApps.remove(app)
+        } else {
+            pinnedApps.add(app)
         }
     }
 
