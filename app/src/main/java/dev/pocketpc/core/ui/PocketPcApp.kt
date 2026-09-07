@@ -30,6 +30,7 @@ import dev.pocketpc.core.desktop.DesktopCommand
 import dev.pocketpc.core.desktop.DesktopCapabilityMonitor
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.DesktopPeripheralMonitor
+import dev.pocketpc.core.desktop.DesktopPinStore
 import dev.pocketpc.core.desktop.DesktopWindow
 import dev.pocketpc.core.desktop.WindowSnap
 import dev.pocketpc.core.runtime.ExecutionSubstrateProbe
@@ -49,7 +50,13 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val context = LocalContext.current
     val appContext = context.applicationContext
     val scope = rememberCoroutineScope()
-    val desktop = remember { DesktopController() }
+    val pinStore = remember { DesktopPinStore(appContext) }
+    val desktop = remember {
+        DesktopController(
+            initialPinnedApps = pinStore.load(),
+            onPinnedAppsChanged = pinStore::save,
+        )
+    }
     val browserSession = remember { BrowserSessionState() }
     val appearance = remember { DesktopAppearanceState(appContext) }
     val peripheralMonitor = remember { DesktopPeripheralMonitor(appContext) }
