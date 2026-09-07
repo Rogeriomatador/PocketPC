@@ -5,14 +5,14 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-class DesktopController {
+class DesktopController(
+    initialPinnedApps: List<DesktopApp> = DesktopPinStore.defaultPins(),
+    private val onPinnedAppsChanged: ((List<DesktopApp>) -> Unit)? = null,
+) {
     val windows = mutableStateListOf<DesktopWindow>()
-    val pinnedApps = mutableStateListOf(
-        DesktopApp.FILES,
-        DesktopApp.BROWSER,
-        DesktopApp.TERMINAL,
-        DesktopApp.APPS,
-    )
+    val pinnedApps = mutableStateListOf<DesktopApp>().apply {
+        addAll(initialPinnedApps.distinct())
+    }
 
     var startMenuOpen by mutableStateOf(false)
         private set
@@ -156,6 +156,7 @@ class DesktopController {
         } else {
             pinnedApps.add(app)
         }
+        onPinnedAppsChanged?.invoke(pinnedApps.toList())
     }
 
     private fun mutate(id: String, transform: (DesktopWindow) -> DesktopWindow) {
