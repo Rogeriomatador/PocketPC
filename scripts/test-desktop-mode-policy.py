@@ -112,7 +112,7 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopPinStore.kt": (
         "pinned_apps",
-        "defaultPins",
+        "defaultDesktopPins",
         "joinToString",
         "return emptyList()",
     ),
