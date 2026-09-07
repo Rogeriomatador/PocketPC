@@ -20,6 +20,8 @@ MAIN_ACTIVITY = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "c
 AUTO_TEST = ROOT / "app" / "src" / "test" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdaterPolicyTest.kt"
 PREPARE = ROOT / "scripts" / "prepare-update-feed.py"
 PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-update.yml"
+BOOTSTRAP_SIGNER = ROOT / "updates" / "bootstrap-signer.json"
+VERIFY_BOOTSTRAP_SIGNER = ROOT / "scripts" / "verify-bootstrap-signer.py"
 BUILD_GRADLE = ROOT / "app" / "build.gradle.kts"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -79,6 +81,29 @@ def main() -> int:
             failures.append(
                 "unpublished bootstrap feed must not expose APK URL/hash"
             )
+
+    try:
+        bootstrap_signer = json.loads(load_text(BOOTSTRAP_SIGNER))
+    except Exception as error:
+        failures.append(f"invalid bootstrap signer metadata: {error}")
+        bootstrap_signer = {}
+
+    if bootstrap_signer.get("schemaVersion") != 1:
+        failures.append("bootstrap signer schemaVersion must be 1")
+    if bootstrap_signer.get("packageName") != expected_package:
+        failures.append("bootstrap signer packageName must match build lock")
+
+    allowed_signers = bootstrap_signer.get(
+        "allowedSigningCertificateSha256"
+    )
+    if not isinstance(allowed_signers, list) or not allowed_signers:
+        failures.append("bootstrap signer allow-list must be non-empty")
+    else:
+        for signer in allowed_signers:
+            if not SHA256_RE.fullmatch(str(signer)):
+                failures.append(
+                    "bootstrap signer allow-list contains invalid SHA-256"
+                )
 
     required = {
         MANIFEST: (
@@ -196,6 +221,19 @@ def main() -> int:
             "pocketPcReleaseSigningConfigured",
             'create("pocketPcRelease")',
         ),
+        BOOTSTRAP_SIGNER: (
+            "PHYSICAL_BOOTSTRAP_SIGNER_PINNED",
+            "allowedSigningCertificateSha256",
+            "bootstrapVersionName",
+            "bootstrapSourceRevision",
+            "evidenceBundleSha256",
+        ),
+        VERIFY_BOOTSTRAP_SIGNER: (
+            "BOOTSTRAP_SIGNER_VERIFY_OK",
+            "BOOTSTRAP_SIGNER_VERIFY_FAILED",
+            "candidate APK signer does not match",
+            "--signer-sha256",
+        ),
         PUBLISH_WORKFLOW: (
             "PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED",
             "POCKETPC_SIGNING_KEYSTORE_BASE64",
@@ -204,6 +242,8 @@ def main() -> int:
             "POCKETPC_SIGNING_KEY_PASSWORD",
             ":app:assembleRelease",
             "apksigner",
+            "verify-bootstrap-signer.py",
+            "PUBLISH_UPDATE_FAILED_SIGNER_DIGEST_MISSING",
             "gh release create",
             "scripts/prepare-update-feed.py",
             "--publish",
