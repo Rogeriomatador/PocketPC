@@ -43,9 +43,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.awaitPointerEventScope
 import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -81,6 +83,7 @@ fun DesktopIconsV2(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .width(92.dp)
+                            .pointerHoverIcon(PointerIcon.Hand)
                             .hoverable(hoverSource)
                             .background(
                                 if (hovered) {
@@ -191,6 +194,7 @@ fun TaskbarV2(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
+                            .pointerHoverIcon(PointerIcon.Hand)
                             .hoverable(hoverSource)
                             .background(
                                 if (hovered) {
