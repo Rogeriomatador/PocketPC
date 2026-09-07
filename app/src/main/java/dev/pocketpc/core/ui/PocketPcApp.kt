@@ -235,6 +235,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                         DesktopApp.TERMINAL -> TerminalApp(terminal)
                         DesktopApp.APPS -> InstalledAppsApp(desktopCapabilities)
                         DesktopApp.DOWNLOADS -> DownloadsApp()
+                        DesktopApp.STORE -> StoreApp()
+                        DesktopApp.CONTROL_CENTER -> ControlCenterApp()
                         DesktopApp.DISPLAYS -> DisplaysApp(desktopCapabilities)
                         DesktopApp.PERSONALIZATION -> PersonalizationApp(
                             selected = appearance.wallpaper,
