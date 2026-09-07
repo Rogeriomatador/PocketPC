@@ -133,6 +133,14 @@ fun SystemApp(
                 },
             )
             ValueRow(
+                "Freeform window management",
+                if (desktopCapabilities.freeformWindowManagement) {
+                    "SUPPORTED"
+                } else {
+                    "NOT ADVERTISED"
+                },
+            )
+            ValueRow(
                 "Monitores externos",
                 desktopCapabilities.externalDisplayCount.toString(),
             )
