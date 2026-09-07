@@ -42,10 +42,12 @@ import dev.pocketpc.core.runtime.NativeRuntimeHost
 import dev.pocketpc.core.runtime.RootfsLinkManager
 import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimePackageManager
+import dev.pocketpc.core.storage.PocketDownloadImporter
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.system.collectSystemSnapshot
 import dev.pocketpc.core.telemetry.TelemetryMonitor
 import dev.pocketpc.core.terminal.LocalShellEngine
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlin.math.roundToInt
 
@@ -155,6 +157,18 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             telemetry.stop()
             peripheralMonitor.stop()
             capabilityMonitor.stop()
+        }
+    }
+
+    LaunchedEffect(storageRoot) {
+        while (true) {
+            if (storageRoot != null) {
+                PocketDownloadImporter.importReady(
+                    context = appContext,
+                    storage = storage,
+                )
+            }
+            delay(3_000)
         }
     }
 
