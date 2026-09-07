@@ -11,6 +11,8 @@ on:
       - "scripts/test-desktop-mode-policy.py"
       - "scripts/test-ci-version-policy.py"
       - "scripts/test-update-feed-policy.py"
+      - "scripts/test-pocketdrive-research-policy.py"
+      - "scripts/termux-on-device-preflight.sh"
       - "updates/stable.json"
       - "scripts/test-powershell51-compat.py"
       - "scripts/verify-device-evidence-bundle.py"
@@ -82,6 +84,9 @@ jobs:
 
       - name: PocketPC update feed policy
         run: python scripts/test-update-feed-policy.py
+
+      - name: PocketDrive and research policy
+        run: python scripts/test-pocketdrive-research-policy.py
 
       - name: PowerShell 5.1 compatibility smoke
         run: python scripts/test-powershell51-compat.py
