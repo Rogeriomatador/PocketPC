@@ -32,6 +32,7 @@ private enum class PcInfoTab(
     HARDWARE("Hardware"),
     DESKTOP("Desktop"),
     UPDATES("Atualizações"),
+    RESEARCH("Pesquisa"),
     DIAGNOSTICS("Diagnóstico"),
 }
 
@@ -168,6 +169,9 @@ fun SystemApp(
 
                 PcInfoTab.UPDATES ->
                     UpdateCenterApp()
+
+                PcInfoTab.RESEARCH ->
+                    ResearchLabApp()
 
                 PcInfoTab.DIAGNOSTICS ->
                     DiagnosticsTab(
