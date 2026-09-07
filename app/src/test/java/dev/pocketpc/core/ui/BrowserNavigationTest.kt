@@ -38,7 +38,31 @@ class BrowserNavigationTest {
         val desktop = desktopUserAgent(input)
 
         assertFalse(desktop.contains("; wv"))
+        assertFalse(desktop.contains("Android"))
         assertFalse(desktop.contains(" Mobile "))
+        assertTrue(desktop.contains("Windows NT 10.0"))
+        assertTrue(desktop.contains("Win64; x64"))
         assertTrue(desktop.contains("Chrome/150.0"))
+    }
+
+    @Test
+    fun tabSessionCreatesSelectsAndClosesTabsDeterministically() {
+        val session = BrowserSessionState()
+        assertEquals(1, session.tabs.size)
+
+        val second = session.newTab("https://example.com")
+        assertEquals(2, session.tabs.size)
+        assertEquals(second.id, session.activeTabId)
+        assertEquals("https://example.com", session.activeTab.url)
+
+        session.updateActive(
+            url = "https://example.com/page",
+            title = "Example",
+        )
+        assertEquals("Example", session.activeTab.title)
+
+        session.closeTab(second.id)
+        assertEquals(1, session.tabs.size)
+        assertEquals(POCKETPC_HOME, session.activeTab.url)
     }
 }
