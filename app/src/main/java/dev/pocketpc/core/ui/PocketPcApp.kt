@@ -170,13 +170,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
         }
     }
 
-    MaterialTheme(
-        colorScheme =
-            if (useDarkTheme) {
-                darkColorScheme()
-            } else {
-                lightColorScheme()
-            },
+    PocketPcTheme(
+        darkTheme = useDarkTheme,
     ) {
     Box(
         modifier = Modifier.fillMaxSize(),
