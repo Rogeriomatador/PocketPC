@@ -17,6 +17,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.pocketpc.core.storage.PocketDriveDirectory
 import dev.pocketpc.core.storage.PocketFileClass
+import dev.pocketpc.core.storage.PocketPcPackageRecord
+import dev.pocketpc.core.storage.PocketPcPackageRegistry
+import dev.pocketpc.core.storage.PocketPcPackageState
 import dev.pocketpc.core.storage.StorageEntry
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.storage.classifyPocketFile
@@ -56,6 +59,11 @@ fun DownloadsApp(
             emptyList()
         )
     }
+    var pcPackages by remember {
+        mutableStateOf<List<PocketPcPackageRecord>>(
+            emptyList()
+        )
+    }
     var statusMessage by remember {
         mutableStateOf<String?>(null)
     }
@@ -92,9 +100,23 @@ fun DownloadsApp(
                     emptyList()
                 }
 
+            pcPackages =
+                withContext(Dispatchers.IO) {
+                    PocketPcPackageRegistry(
+                        context
+                    ).records()
+                }
+
             delay(2_000)
         }
     }
+
+    val regularPocketFiles =
+        pocketFiles.filterNot { entry ->
+            !entry.directory &&
+                classifyPocketFile(entry.name) ==
+                    PocketFileClass.PC_INSTALLER
+        }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -163,7 +185,8 @@ fun DownloadsApp(
 
         if (
             activeDownloads.isEmpty() &&
-            pocketFiles.isEmpty()
+            regularPocketFiles.isEmpty() &&
+            pcPackages.isEmpty()
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -260,7 +283,26 @@ fun DownloadsApp(
                     }
                 }
 
-                if (pocketFiles.isNotEmpty()) {
+                if (pcPackages.isNotEmpty()) {
+                    item {
+                        DownloadSectionHeader(
+                            title = "Programas de PC detectados",
+                            subtitle =
+                                "${pcPackages.size} pacote(s)",
+                        )
+                    }
+
+                    items(
+                        items = pcPackages,
+                        key = {
+                            "pc-package-${it.uri}"
+                        },
+                    ) { record ->
+                        PcPackageRow(record)
+                    }
+                }
+
+                if (regularPocketFiles.isNotEmpty()) {
                     item {
                         DownloadSectionHeader(
                             title = "P:\\Downloads",
@@ -270,7 +312,7 @@ fun DownloadsApp(
                     }
 
                     items(
-                        items = pocketFiles,
+                        items = regularPocketFiles,
                         key = { "drive-${it.uri}" },
                     ) { entry ->
                         PocketDriveDownloadRow(
@@ -323,6 +365,88 @@ private fun DownloadSectionHeader(
                 MaterialTheme.colorScheme
                     .onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun PcPackageRow(
+    record: PocketPcPackageRecord,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment =
+                Alignment.CenterVertically,
+            horizontalArrangement =
+                Arrangement.spacedBy(10.dp),
+        ) {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = RoundedCornerShape(10.dp),
+                color =
+                    MaterialTheme.colorScheme
+                        .primaryContainer,
+            ) {
+                Box(
+                    contentAlignment =
+                        Alignment.Center,
+                ) {
+                    Text(
+                        "PC",
+                        style =
+                            MaterialTheme.typography
+                                .titleSmall,
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement =
+                    Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    record.name,
+                    maxLines = 1,
+                    overflow =
+                        TextOverflow.Ellipsis,
+                )
+                Text(
+                    "P:\\Downloads • " +
+                        formatBytes(record.size),
+                    fontSize = 9.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                )
+                Text(
+                    when (record.state) {
+                        PocketPcPackageState.STORED ->
+                            "Armazenado"
+                        PocketPcPackageState.RUNTIME_REQUIRED ->
+                            "Aguardando runtime Windows"
+                    },
+                    fontSize = 9.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .primary,
+                )
+            }
+
+            AssistChip(
+                onClick = {},
+                label = {
+                    Text(
+                        "Runtime necessário",
+                        fontSize = 8.sp,
+                    )
+                },
+            )
+        }
     }
 }
 
