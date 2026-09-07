@@ -36,6 +36,7 @@ import dev.pocketpc.core.desktop.DesktopWindow
 import dev.pocketpc.core.desktop.DesktopWindowLayoutStore
 import dev.pocketpc.core.desktop.WindowGeometry
 import dev.pocketpc.core.desktop.WindowSnap
+import dev.pocketpc.core.desktop.windowSpec
 import dev.pocketpc.core.runtime.ExecutionSubstrateProbe
 import dev.pocketpc.core.runtime.NativeRuntimeHost
 import dev.pocketpc.core.runtime.RootfsLinkManager
@@ -348,36 +349,66 @@ private fun DesktopWindowView(
     val screenHeightPx =
         with(density) { configuration.screenHeightDp.dp.toPx() }
             .coerceAtLeast(1f)
+    val taskbarHeightPx = with(density) { 58.dp.toPx() }
+    val workspaceHeightPx =
+        (screenHeightPx - taskbarHeightPx).coerceAtLeast(1f)
+    val spec = window.app.windowSpec()
+    val minWidthFraction =
+        (
+            with(density) { spec.minWidthDp.dp.toPx() } /
+                screenWidthPx
+        ).coerceIn(0.20f, spec.maxWidthFraction)
+    val minHeightFraction =
+        (
+            with(density) { spec.minHeightDp.dp.toPx() } /
+                workspaceHeightPx
+        ).coerceIn(0.20f, spec.maxHeightFraction)
 
     val savedGeometry = remember(window.app) {
         layoutStore.load(window.app)
     }
 
+    var widthFraction by remember(window.id) {
+        mutableFloatStateOf(
+            (savedGeometry?.widthFraction ?: spec.defaultWidthFraction)
+                .coerceIn(minWidthFraction, spec.maxWidthFraction)
+        )
+    }
+    var heightFraction by remember(window.id) {
+        mutableFloatStateOf(
+            (savedGeometry?.heightFraction ?: spec.defaultHeightFraction)
+                .coerceIn(minHeightFraction, spec.maxHeightFraction)
+        )
+    }
     var x by remember(window.id) {
+        val centered =
+            ((1f - widthFraction) * screenWidthPx / 2f)
+                .coerceAtLeast(0f)
         mutableFloatStateOf(
             savedGeometry?.xFraction?.times(screenWidthPx)
-                ?: (90f + (window.zIndex % 3) * 32f)
+                ?: centered
         )
     }
     var y by remember(window.id) {
+        val centered =
+            ((1f - heightFraction) * workspaceHeightPx / 2f)
+                .coerceAtLeast(0f)
         mutableFloatStateOf(
-            savedGeometry?.yFraction?.times(screenHeightPx)
-                ?: (86f + (window.zIndex % 3) * 24f)
+            savedGeometry?.yFraction?.times(workspaceHeightPx)
+                ?: centered
         )
-    }
-    var widthFraction by remember(window.id) {
-        mutableFloatStateOf(savedGeometry?.widthFraction ?: 0.72f)
-    }
-    var heightFraction by remember(window.id) {
-        mutableFloatStateOf(savedGeometry?.heightFraction ?: 0.70f)
     }
 
     fun persistGeometry() {
         layoutStore.save(
             app = window.app,
             geometry = WindowGeometry(
-                xFraction = (x / screenWidthPx).coerceIn(0f, 0.85f),
-                yFraction = (y / screenHeightPx).coerceIn(0f, 0.80f),
+                xFraction =
+                    (x / screenWidthPx)
+                        .coerceIn(0f, (1f - widthFraction).coerceAtLeast(0f)),
+                yFraction =
+                    (y / workspaceHeightPx)
+                        .coerceIn(0f, (1f - heightFraction).coerceAtLeast(0f)),
                 widthFraction = widthFraction,
                 heightFraction = heightFraction,
             ),
@@ -391,16 +422,23 @@ private fun DesktopWindowView(
                     .fillMaxSize()
                     .padding(bottom = 58.dp)
 
-            window.snap != WindowSnap.NONE ->
+            window.snap != WindowSnap.NONE -> {
+                val snapFraction =
+                    if (configuration.screenWidthDp / 2 >= spec.minWidthDp) {
+                        0.5f
+                    } else {
+                        1.0f
+                    }
                 modifier
                     .fillMaxHeight()
-                    .fillMaxWidth(0.5f)
+                    .fillMaxWidth(snapFraction)
                     .padding(bottom = 58.dp)
+            }
 
             else ->
                 modifier
-                    .widthIn(min = 300.dp, max = 1200.dp)
-                    .heightIn(min = 240.dp, max = 900.dp)
+                    .widthIn(min = spec.minWidthDp.dp)
+                    .heightIn(min = spec.minHeightDp.dp)
                     .fillMaxWidth(widthFraction)
                     .fillMaxHeight(heightFraction)
                     .offset {
@@ -433,7 +471,7 @@ private fun DesktopWindowView(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .height(38.dp)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .pointerInput(
                             window.id,
@@ -452,14 +490,18 @@ private fun DesktopWindowView(
                                     onDragCancel = { persistGeometry() },
                                 ) { change, drag ->
                                     change.consume()
-                                    x = (x + drag.x).coerceIn(
-                                        0f,
-                                        screenWidthPx * 0.85f,
-                                    )
-                                    y = (y + drag.y).coerceIn(
-                                        0f,
-                                        screenHeightPx * 0.80f,
-                                    )
+                                    val maxX =
+                                        (
+                                            screenWidthPx -
+                                                screenWidthPx * widthFraction
+                                        ).coerceAtLeast(0f)
+                                    val maxY =
+                                        (
+                                            workspaceHeightPx -
+                                                workspaceHeightPx * heightFraction
+                                        ).coerceAtLeast(0f)
+                                    x = (x + drag.x).coerceIn(0f, maxX)
+                                    y = (y + drag.y).coerceIn(0f, maxY)
                                 }
                             }
                         }
@@ -510,7 +552,13 @@ private fun DesktopWindowView(
                     Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .then(
+                            if (spec.contentPaddingDp > 0) {
+                                Modifier.padding(spec.contentPaddingDp.dp)
+                            } else {
+                                Modifier
+                            }
+                        )
                 ) {
                     content()
                 }
@@ -531,16 +579,40 @@ private fun DesktopWindowView(
                                 onDragCancel = { persistGeometry() },
                             ) { change, drag ->
                                 change.consume()
+                                val xFraction =
+                                    (x / screenWidthPx).coerceIn(0f, 1f)
+                                val yFraction =
+                                    (y / workspaceHeightPx).coerceIn(0f, 1f)
+                                val maxWidth =
+                                    minOf(
+                                        spec.maxWidthFraction,
+                                        (1f - xFraction).coerceAtLeast(
+                                            minWidthFraction
+                                        ),
+                                    )
+                                val maxHeight =
+                                    minOf(
+                                        spec.maxHeightFraction,
+                                        (1f - yFraction).coerceAtLeast(
+                                            minHeightFraction
+                                        ),
+                                    )
                                 widthFraction =
                                     (
                                         widthFraction +
                                             drag.x / screenWidthPx
-                                    ).coerceIn(0.38f, 0.95f)
+                                    ).coerceIn(
+                                        minWidthFraction,
+                                        maxWidth,
+                                    )
                                 heightFraction =
                                     (
                                         heightFraction +
-                                            drag.y / screenHeightPx
-                                    ).coerceIn(0.42f, 0.92f)
+                                            drag.y / workspaceHeightPx
+                                    ).coerceIn(
+                                        minHeightFraction,
+                                        maxHeight,
+                                    )
                             }
                         },
                     contentAlignment = Alignment.Center,
