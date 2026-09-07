@@ -23,6 +23,7 @@ enum class PocketDriveDirectory(
     VIDEOS("Videos", "Vídeos"),
     MUSIC("Music", "Músicas"),
     SHARED("Shared", "Compartilhado"),
+    BACKUPS("Backups", "Backups"),
 }
 
 data class PocketDriveMount(
