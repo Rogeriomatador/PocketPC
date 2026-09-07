@@ -4,11 +4,16 @@ param(
     [string]$AndroidSdkRoot,
     [string]$DeviceSerial,
     [switch]$RequireInstalledApkHash,
-    [int]$EvidenceTimeoutSeconds = 120
+    [int]$EvidenceTimeoutSeconds = 120,
+    [int]$AdbCommandTimeoutSeconds = 20
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ($AdbCommandTimeoutSeconds -lt 5 -or $AdbCommandTimeoutSeconds -gt 300) {
+    throw "AdbCommandTimeoutSeconds deve ficar entre 5 e 300 segundos."
+}
 
 function Invoke-NativeCapture {
     param(
@@ -39,6 +44,91 @@ function Invoke-NativeCapture {
     return [pscustomobject]@{
         ExitCode = $exit
         Text = $text
+    }
+}
+
+function Invoke-AdbCaptureWithTimeout {
+    param(
+        [Parameter(Mandatory=$true)][string]$Adb,
+        [Parameter(Mandatory=$true)][string[]]$Arguments,
+        [Parameter(Mandatory=$true)][string]$Operation,
+        [Parameter(Mandatory=$true)][int]$TimeoutSeconds,
+        [switch]$AllowFailure
+    )
+
+    $stdoutPath = [IO.Path]::GetTempFileName()
+    $stderrPath = [IO.Path]::GetTempFileName()
+    $process = $null
+
+    try {
+        $quotedArguments = @(
+            foreach ($argument in $Arguments) {
+                if ($argument -match '[\s"]') {
+                    '"' + $argument.Replace('"', '\"') + '"'
+                } else {
+                    $argument
+                }
+            }
+        )
+        $argumentLine = $quotedArguments -join " "
+
+        $process = Start-Process `
+            -FilePath $Adb `
+            -ArgumentList $argumentLine `
+            -NoNewWindow `
+            -PassThru `
+            -RedirectStandardOutput $stdoutPath `
+            -RedirectStandardError $stderrPath
+
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            try { $process.Kill() } catch {}
+            try { [void]$process.WaitForExit(5000) } catch {}
+            throw (
+                "$Operation excedeu o timeout de $TimeoutSeconds segundos. " +
+                "O ADB ou o aparelho deixou de responder."
+            )
+        }
+
+        $process.WaitForExit()
+        $stdoutText = if (Test-Path $stdoutPath -PathType Leaf) {
+            (Get-Content $stdoutPath -Raw).Trim()
+        } else {
+            ""
+        }
+        $stderrText = if (Test-Path $stderrPath -PathType Leaf) {
+            (Get-Content $stderrPath -Raw).Trim()
+        } else {
+            ""
+        }
+
+        $parts = New-Object System.Collections.Generic.List[string]
+        if (-not [string]::IsNullOrWhiteSpace($stdoutText)) {
+            $parts.Add($stdoutText)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
+            $parts.Add($stderrText)
+        }
+        $combinedText = ($parts -join [Environment]::NewLine).Trim()
+
+        if ($process.ExitCode -ne 0 -and -not $AllowFailure) {
+            throw (
+                "$Operation falhou com exit code $($process.ExitCode)." +
+                [Environment]::NewLine +
+                $combinedText
+            )
+        }
+
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Text = $combinedText
+        }
+    }
+    finally {
+        Remove-Item -Force $stdoutPath -ErrorAction SilentlyContinue
+        Remove-Item -Force $stderrPath -ErrorAction SilentlyContinue
+        if ($process) {
+            $process.Dispose()
+        }
     }
 }
 
@@ -97,18 +187,22 @@ function Select-Device {
     )
 
     if ($RequestedSerial) {
-        $state = Invoke-NativeCapture $Adb @(
-            "-s",
-            $RequestedSerial,
-            "get-state"
-        )
+        $state = Invoke-AdbCaptureWithTimeout `
+            -Adb $Adb `
+            -Arguments @("-s", $RequestedSerial, "get-state") `
+            -Operation "adb get-state" `
+            -TimeoutSeconds $AdbCommandTimeoutSeconds
         if ($state.Text.Trim() -ne "device") {
             throw "Dispositivo solicitado não está autorizado/online."
         }
         return $RequestedSerial
     }
 
-    $devices = Invoke-NativeCapture $Adb @("devices")
+    $devices = Invoke-AdbCaptureWithTimeout `
+        -Adb $Adb `
+        -Arguments @("devices") `
+        -Operation "adb devices" `
+        -TimeoutSeconds $AdbCommandTimeoutSeconds
     $found = New-Object System.Collections.Generic.List[string]
 
     foreach ($line in ($devices.Text -split '\r?\n')) {
@@ -176,6 +270,7 @@ $installArgs = @{
     BuildDir = $buildRoot
     AndroidSdkRoot = $sdkRoot
     DeviceSerial = $serial
+    AdbCommandTimeoutSeconds = $AdbCommandTimeoutSeconds
 }
 if ($RequireInstalledApkHash) {
     $installArgs.RequireInstalledApkHash = $true
@@ -201,28 +296,19 @@ $remoteEvidence = "$remoteRoot/device-evidence.json"
 
 Write-Host ""
 Write-Host "==> Limpando evidence anterior" -ForegroundColor Cyan
-Invoke-NativeCapture $adb @(
-    "-s",
-    $serial,
-    "shell",
-    "rm",
-    "-rf",
-    $remoteRoot
-) | Out-Null
+Invoke-AdbCaptureWithTimeout `
+    -Adb $adb `
+    -Arguments @("-s", $serial, "shell", "rm", "-rf", $remoteRoot) `
+    -Operation "adb shell rm previous evidence" `
+    -TimeoutSeconds $AdbCommandTimeoutSeconds | Out-Null
 
 Write-Host ""
 Write-Host "==> Iniciando Debug Evidence Runner" -ForegroundColor Cyan
-$start = Invoke-NativeCapture $adb @(
-    "-s",
-    $serial,
-    "shell",
-    "am",
-    "start",
-    "-W",
-    "-S",
-    "-n",
-    $debugActivity
-)
+$start = Invoke-AdbCaptureWithTimeout `
+    -Adb $adb `
+    -Arguments @("-s", $serial, "shell", "am", "start", "-W", "-S", "-n", $debugActivity) `
+    -Operation "adb shell am start DebugEvidenceActivity" `
+    -TimeoutSeconds ([Math]::Max($AdbCommandTimeoutSeconds, 45))
 if ($start.Text -notmatch '(?m)^Status:\s*ok\s*$') {
     throw (
         "Debug Evidence Runner não confirmou Status: ok." +
@@ -235,13 +321,12 @@ $deadline = [DateTime]::UtcNow.AddSeconds($EvidenceTimeoutSeconds)
 $resultReady = $false
 
 while ([DateTime]::UtcNow -lt $deadline) {
-    $probe = Invoke-NativeCapture $adb @(
-        "-s",
-        $serial,
-        "shell",
-        "ls",
-        $remoteResult
-    ) -AllowFailure
+    $probe = Invoke-AdbCaptureWithTimeout `
+        -Adb $adb `
+        -Arguments @("-s", $serial, "shell", "ls", $remoteResult) `
+        -Operation "adb shell ls automation-result" `
+        -TimeoutSeconds $AdbCommandTimeoutSeconds `
+        -AllowFailure
 
     if ($probe.ExitCode -eq 0 -and $probe.Text -match 'automation-result[.]json') {
         $resultReady = $true
@@ -267,13 +352,11 @@ function Pull-Required {
         [string]$Local
     )
 
-    $pull = Invoke-NativeCapture $adb @(
-        "-s",
-        $serial,
-        "pull",
-        $Remote,
-        $Local
-    )
+    $pull = Invoke-AdbCaptureWithTimeout `
+        -Adb $adb `
+        -Arguments @("-s", $serial, "pull", $Remote, $Local) `
+        -Operation "adb pull required evidence" `
+        -TimeoutSeconds ([Math]::Max($AdbCommandTimeoutSeconds, 60))
     if (-not (Test-Path $Local -PathType Leaf)) {
         throw "adb pull não produziu: $Local"
     }
@@ -424,17 +507,11 @@ $physicalVerify.Text |
 
 Write-Host ""
 Write-Host "==> Abrindo PocketPC para teste manual" -ForegroundColor Cyan
-$manualLaunch = Invoke-NativeCapture $adb @(
-    "-s",
-    $serial,
-    "shell",
-    "am",
-    "start",
-    "-W",
-    "-S",
-    "-n",
-    "$packageName/.MainActivity"
-)
+$manualLaunch = Invoke-AdbCaptureWithTimeout `
+    -Adb $adb `
+    -Arguments @("-s", $serial, "shell", "am", "start", "-W", "-S", "-n", "$packageName/.MainActivity") `
+    -Operation "adb shell am start MainActivity" `
+    -TimeoutSeconds ([Math]::Max($AdbCommandTimeoutSeconds, 45))
 if ($manualLaunch.Text -notmatch '(?m)^Status:\s*ok\s*$') {
     throw (
         "PocketPC foi validado, mas a abertura final falhou." +
