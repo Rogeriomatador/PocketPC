@@ -167,11 +167,32 @@ class PocketPcInstallReceiver :
                     )
                 }
 
-            confirmation?.apply {
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK
-                )
-            }?.let(context::startActivity)
+            confirmation
+                ?.apply {
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK
+                    )
+                }
+                ?.let { userAction ->
+                    runCatching {
+                        context.startActivity(
+                            userAction
+                        )
+                    }.onFailure {
+                        if (downloadId >= 0L) {
+                            context.applicationContext
+                                .getSharedPreferences(
+                                    UPDATE_PREFS_NAME,
+                                    Context.MODE_PRIVATE,
+                                )
+                                .edit()
+                                .remove(
+                                    KEY_INSTALL_ATTEMPT_DOWNLOAD_ID
+                                )
+                                .apply()
+                        }
+                    }
+                }
         }
     }
 }
