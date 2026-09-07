@@ -141,4 +141,25 @@ class DesktopControllerTest {
         assertFalse(window.maximized)
         assertFalse(window.minimized)
     }
+
+    @Test
+    fun pinChangesInvokePersistenceCallbackInCurrentOrder() {
+        var saved = emptyList<DesktopApp>()
+        val controller = DesktopController(
+            initialPinnedApps = listOf(
+                DesktopApp.FILES,
+                DesktopApp.BROWSER,
+            ),
+            onPinnedAppsChanged = { saved = it },
+        )
+
+        controller.togglePin(DesktopApp.FILES)
+        assertEquals(listOf(DesktopApp.BROWSER), saved)
+
+        controller.togglePin(DesktopApp.TERMINAL)
+        assertEquals(
+            listOf(DesktopApp.BROWSER, DesktopApp.TERMINAL),
+            saved,
+        )
+    }
 }
