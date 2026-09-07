@@ -15,6 +15,7 @@ class PocketPcResearchProbeTest {
                         MediaFormat.MIMETYPE_VIDEO_AVC,
                     hardwareAccelerated = true,
                     vendor = true,
+                    surfaceInput = true,
                 ),
                 ResearchCodec(
                     name = "hw-hevc",
@@ -22,6 +23,7 @@ class PocketPcResearchProbeTest {
                         MediaFormat.MIMETYPE_VIDEO_HEVC,
                     hardwareAccelerated = true,
                     vendor = true,
+                    surfaceInput = true,
                 ),
                 ResearchCodec(
                     name = "hw-av1",
@@ -29,6 +31,7 @@ class PocketPcResearchProbeTest {
                         MediaFormat.MIMETYPE_VIDEO_AV1,
                     hardwareAccelerated = true,
                     vendor = true,
+                    surfaceInput = true,
                 ),
             )
 
@@ -48,6 +51,7 @@ class PocketPcResearchProbeTest {
                         MediaFormat.MIMETYPE_VIDEO_AV1,
                     hardwareAccelerated = false,
                     vendor = false,
+                    surfaceInput = true,
                 ),
                 ResearchCodec(
                     name = "hw-avc",
@@ -55,6 +59,7 @@ class PocketPcResearchProbeTest {
                         MediaFormat.MIMETYPE_VIDEO_AVC,
                     hardwareAccelerated = true,
                     vendor = true,
+                    surfaceInput = true,
                 ),
             )
 
