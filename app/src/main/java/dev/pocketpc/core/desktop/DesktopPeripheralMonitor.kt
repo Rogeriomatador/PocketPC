@@ -16,33 +16,14 @@ data class PeripheralSnapshot(
         get() = mouseCount > 0 || keyboardCount > 0
 }
 
-class DesktopPeripheralMonitor(context: Context) : InputManager.InputDeviceListener {
-    private val inputManager =
-        context.getSystemService(Context.INPUT_SERVICE) as InputManager
-
-    private val mutableState = MutableStateFlow(scan())
-    val state: StateFlow<PeripheralSnapshot> = mutableState.asStateFlow()
-
-    fun start() {
-        inputManager.registerInputDeviceListener(this, null)
-        refresh()
+object DesktopPeripheralProbe {
+    fun inspect(context: Context): PeripheralSnapshot {
+        val inputManager =
+            context.getSystemService(Context.INPUT_SERVICE) as InputManager
+        return inspect(inputManager)
     }
 
-    fun stop() {
-        inputManager.unregisterInputDeviceListener(this)
-    }
-
-    override fun onInputDeviceAdded(deviceId: Int) = refresh()
-
-    override fun onInputDeviceRemoved(deviceId: Int) = refresh()
-
-    override fun onInputDeviceChanged(deviceId: Int) = refresh()
-
-    private fun refresh() {
-        mutableState.value = scan()
-    }
-
-    private fun scan(): PeripheralSnapshot {
+    fun inspect(inputManager: InputManager): PeripheralSnapshot {
         var mice = 0
         var keyboards = 0
         var gamepads = 0
@@ -81,4 +62,32 @@ class DesktopPeripheralMonitor(context: Context) : InputManager.InputDeviceListe
 
     private fun hasSource(sources: Int, source: Int): Boolean =
         sources.and(source) == source
+}
+
+class DesktopPeripheralMonitor(context: Context) : InputManager.InputDeviceListener {
+    private val inputManager =
+        context.getSystemService(Context.INPUT_SERVICE) as InputManager
+
+    private val mutableState =
+        MutableStateFlow(DesktopPeripheralProbe.inspect(inputManager))
+    val state: StateFlow<PeripheralSnapshot> = mutableState.asStateFlow()
+
+    fun start() {
+        inputManager.registerInputDeviceListener(this, null)
+        refresh()
+    }
+
+    fun stop() {
+        inputManager.unregisterInputDeviceListener(this)
+    }
+
+    override fun onInputDeviceAdded(deviceId: Int) = refresh()
+
+    override fun onInputDeviceRemoved(deviceId: Int) = refresh()
+
+    override fun onInputDeviceChanged(deviceId: Int) = refresh()
+
+    private fun refresh() {
+        mutableState.value = DesktopPeripheralProbe.inspect(inputManager)
+    }
 }
