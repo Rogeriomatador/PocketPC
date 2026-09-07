@@ -8,6 +8,14 @@ on:
       - "scripts/verify-local-build-record.py"
       - "scripts/test-local-build-record-verifier.py"
       - "scripts/test-gitignore-policy.py"
+      - "scripts/test-desktop-mode-policy.py"
+      - "scripts/test-powershell51-compat.py"
+      - "scripts/verify-device-evidence-bundle.py"
+      - "scripts/test-device-evidence-bundle-verifier.py"
+      - "scripts/verify-physical-validation-record.py"
+      - "scripts/test-physical-validation-record-verifier.py"
+      - "scripts/verify-first-physical-test-record.py"
+      - "scripts/test-first-physical-test-record-verifier.py"
       - ".gitignore"
       - "app/**"
       - "build.gradle.kts"
@@ -62,6 +70,15 @@ jobs:
 
       - name: Generated-file ignore policy self-test
         run: python scripts/test-gitignore-policy.py
+
+      - name: Desktop Mode policy self-test
+        run: python scripts/test-desktop-mode-policy.py
+
+      - name: PowerShell 5.1 compatibility smoke
+        run: python scripts/test-powershell51-compat.py
+
+      - name: Evidence bundle verifier self-test
+        run: python scripts/test-device-evidence-bundle-verifier.py
 
       - name: Full device-chain verifier self-test
         run: python scripts/test-device-chain-verifier.py
@@ -130,6 +147,6 @@ jobs:
       - name: Upload local build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-alpha17-Windows-local-build
+          name: PocketPC-Windows-local-build
           path: ${{ runner.temp }}/PocketPC-local-build/**
           if-no-files-found: error
