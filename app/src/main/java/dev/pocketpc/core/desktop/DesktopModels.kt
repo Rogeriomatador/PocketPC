@@ -35,3 +35,11 @@ enum class DesktopApp(
     SYSTEM("Sistema", "SYS", 0xFF607D8B),
     PERFORMANCE("Desempenho", "FPS", 0xFF00A86B),
 }
+
+fun defaultDesktopPins(): List<DesktopApp> =
+    listOf(
+        DesktopApp.FILES,
+        DesktopApp.BROWSER,
+        DesktopApp.TERMINAL,
+        DesktopApp.APPS,
+    )
