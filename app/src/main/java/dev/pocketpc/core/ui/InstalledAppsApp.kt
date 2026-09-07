@@ -14,10 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
@@ -36,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -53,51 +58,191 @@ data class LaunchableAndroidApp(
 )
 
 @Composable
-fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
+fun InstalledAppsApp(
+    capabilities: DesktopCapabilitySnapshot,
+) {
     val context = LocalContext.current
-    var apps by remember { mutableStateOf<List<LaunchableAndroidApp>>(emptyList()) }
+    var apps by remember {
+        mutableStateOf<List<LaunchableAndroidApp>>(
+            emptyList()
+        )
+    }
     var query by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<String?>(null) }
-    val compatibilityStore = remember { GameCompatibilityStore(context) }
+    val compatibilityStore =
+        remember { GameCompatibilityStore(context) }
     var selectedGame by remember {
         mutableStateOf<LaunchableAndroidApp?>(null)
     }
-    var profileRevision by remember { mutableIntStateOf(0) }
-    var preferExternal by rememberSaveable { mutableStateOf(true) }
-    var preferWindowed by rememberSaveable { mutableStateOf(true) }
-    var gamesOnly by rememberSaveable { mutableStateOf(false) }
-    val externalDisplayId = capabilities.preferredExternalDisplayId
-
-    LaunchedEffect(Unit) {
-        apps = withContext(Dispatchers.IO) { queryLaunchableApps(context) }
+    var profileRevision by remember {
+        mutableIntStateOf(0)
+    }
+    var preferExternal by rememberSaveable {
+        mutableStateOf(true)
+    }
+    var preferWindowed by rememberSaveable {
+        mutableStateOf(true)
+    }
+    var gamesOnly by rememberSaveable {
+        mutableStateOf(false)
     }
 
-    val filtered = remember(apps, query, gamesOnly) {
-        val normalized = query.trim()
-        apps.filter { app ->
-            val categoryMatches = !gamesOnly || app.isGame
-            val queryMatches =
-                normalized.isBlank() ||
-                    app.label.contains(normalized, ignoreCase = true) ||
-                    app.packageName.contains(normalized, ignoreCase = true)
-            categoryMatches && queryMatches
+    LaunchedEffect(Unit) {
+        apps =
+            withContext(Dispatchers.IO) {
+                queryLaunchableApps(context)
+            }
+    }
+
+    val filtered =
+        remember(apps, query, gamesOnly) {
+            val normalized = query.trim()
+            apps.filter { app ->
+                val categoryMatches =
+                    !gamesOnly || app.isGame
+                val queryMatches =
+                    normalized.isBlank() ||
+                        app.label.contains(
+                            normalized,
+                            ignoreCase = true,
+                        ) ||
+                        app.packageName.contains(
+                            normalized,
+                            ignoreCase = true,
+                        )
+                categoryMatches && queryMatches
+            }
+        }
+
+    fun launch(app: LaunchableAndroidApp) {
+        val launchIntent =
+            Intent(Intent.ACTION_MAIN).apply {
+                addCategory(
+                    Intent.CATEGORY_LAUNCHER
+                )
+                setClassName(
+                    app.packageName,
+                    app.activityName,
+                )
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+                )
+            }
+
+        val launchPlan =
+            DesktopLaunchPolicy.plan(
+                capabilities = capabilities,
+                preferExternal = preferExternal,
+                preferWindowed = preferWindowed,
+            )
+
+        val result =
+            runCatching {
+                val options =
+                    if (
+                        launchPlan.usesExternalDisplay ||
+                        launchPlan.usesDesktopWindowing
+                    ) {
+                        buildDesktopLaunchOptions(
+                            context = context,
+                            capabilities = capabilities,
+                            requestedDisplayId =
+                                launchPlan.requestedDisplayId,
+                            useFreeformBounds =
+                                launchPlan.useFreeformBounds,
+                        )
+                    } else {
+                        null
+                    }
+
+                if (options != null) {
+                    context.startActivity(
+                        launchIntent,
+                        options.toBundle(),
+                    )
+                } else {
+                    context.startActivity(
+                        launchIntent
+                    )
+                }
+
+                status =
+                    when {
+                        launchPlan.usesExternalDisplay &&
+                            launchPlan.usesDesktopWindowing ->
+                            "Aberto no monitor externo com janela: ${app.label}"
+                        launchPlan.usesExternalDisplay ->
+                            "Aberto no monitor externo: ${app.label}"
+                        launchPlan.usesDesktopWindowing ->
+                            "Aberto com pedido de janela livre: ${app.label}"
+                        else ->
+                            "Aberto: ${app.label}"
+                    }
+            }
+
+        result.onFailure { externalError ->
+            if (launchPlan.usesExternalDisplay) {
+                runCatching {
+                    context.startActivity(launchIntent)
+                }
+                    .onSuccess {
+                        status =
+                            "Monitor externo recusou a abertura; " +
+                                "app aberto na tela atual."
+                    }
+                    .onFailure { fallbackError ->
+                        status =
+                            "Falha ao abrir ${app.label}: " +
+                                (
+                                    fallbackError.message
+                                        ?: externalError.message
+                                        ?: fallbackError
+                                            .javaClass
+                                            .simpleName
+                                    )
+                    }
+            } else {
+                status =
+                    "Falha ao abrir ${app.label}: " +
+                        (
+                            externalError.message
+                                ?: externalError
+                                    .javaClass
+                                    .simpleName
+                            )
+            }
         }
     }
 
     val editingGame = selectedGame
     if (editingGame != null) {
-        val profile = remember(editingGame.packageName, profileRevision) {
-            compatibilityStore.load(editingGame.packageName)
-        }
+        val profile =
+            remember(
+                editingGame.packageName,
+                profileRevision,
+            ) {
+                compatibilityStore.load(
+                    editingGame.packageName
+                )
+            }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .verticalScroll(
+                    rememberScrollState()
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(10.dp),
         ) {
-            OutlinedButton(onClick = { selectedGame = null }) {
-                Text("Voltar para aplicativos")
+            OutlinedButton(
+                onClick = {
+                    selectedGame = null
+                }
+            ) {
+                Text("← Aplicativos")
             }
+
             GameCompatibilityEditor(
                 app = editingGame,
                 profile = profile,
@@ -106,10 +251,14 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                     profileRevision++
                 },
                 onReset = {
-                    compatibilityStore.clear(editingGame.packageName)
+                    compatibilityStore.clear(
+                        editingGame.packageName
+                    )
                     profileRevision++
                 },
-                onClose = { selectedGame = null },
+                onClose = {
+                    selectedGame = null
+                },
             )
         }
         return
@@ -117,63 +266,27 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
 
     Column(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Text("Aplicativos Android", fontSize = 18.sp)
-        Text(
-            "Abra apps e jogos instalados a partir do desktop PocketPC.",
-            fontSize = 12.sp,
-        )
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement =
+                Arrangement.spacedBy(7.dp),
         ) {
-            Switch(
-                checked = preferExternal,
-                onCheckedChange = { preferExternal = it },
-                enabled = externalDisplayId != null,
-            )
-            Text(
-                if (externalDisplayId != null) {
-                    "Monitor externo detectado: abrir apps nele"
-                } else {
-                    "Nenhum monitor externo disponivel"
-                },
-                fontSize = 11.sp,
-            )
-        }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Aplicativos",
+                    style =
+                        MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    "${apps.size} apps detectados pelo Android",
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                )
+            }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Switch(
-                checked = preferWindowed,
-                onCheckedChange = { preferWindowed = it },
-                enabled = capabilities.freeformWindowManagement,
-            )
-            Text(
-                if (capabilities.freeformWindowManagement) {
-                    "Pedir janela livre do Android"
-                } else {
-                    "Freeform do Android nao anunciado"
-                },
-                fontSize = 11.sp,
-            )
-        }
-
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Pesquisar aplicativos") },
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = !gamesOnly,
                 onClick = { gamesOnly = false },
@@ -184,137 +297,219 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                 onClick = { gamesOnly = true },
                 label = { Text("Jogos") },
             )
-            Text(
-                "${filtered.size} encontrados",
-                modifier = Modifier.align(Alignment.CenterVertically),
-                fontSize = 10.sp,
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement =
+                Arrangement.spacedBy(7.dp),
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
+                singleLine = true,
+                placeholder = {
+                    Text("Pesquisar aplicativos")
+                },
+                textStyle =
+                    LocalTextStyle.current.copy(
+                        fontSize = 11.sp
+                    ),
+            )
+
+            FilterChip(
+                selected =
+                    preferWindowed &&
+                        capabilities
+                            .freeformWindowManagement,
+                onClick = {
+                    preferWindowed =
+                        !preferWindowed
+                },
+                enabled =
+                    capabilities
+                        .freeformWindowManagement,
+                label = {
+                    Text("Janela", fontSize = 10.sp)
+                },
+            )
+            FilterChip(
+                selected =
+                    preferExternal &&
+                        capabilities
+                            .preferredExternalDisplayId != null,
+                onClick = {
+                    preferExternal =
+                        !preferExternal
+                },
+                enabled =
+                    capabilities
+                        .preferredExternalDisplayId != null,
+                label = {
+                    Text("Monitor", fontSize = 10.sp)
+                },
             )
         }
 
-        status?.let { Text(it, fontSize = 12.sp) }
+        status?.let {
+            Text(
+                it,
+                fontSize = 10.sp,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant,
+            )
+        }
 
         HorizontalDivider()
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            items(
-                items = filtered,
-                key = { "${it.packageName}/${it.activityName}" },
-            ) { app ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            val launchIntent = Intent(Intent.ACTION_MAIN).apply {
-                                addCategory(Intent.CATEGORY_LAUNCHER)
-                                setClassName(app.packageName, app.activityName)
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (filtered.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (query.isBlank()) {
+                        "Nenhum aplicativo encontrado."
+                    } else {
+                        "Nenhum resultado para a pesquisa."
+                    }
+                )
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(
+                    minSize = 132.dp
+                ),
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(8.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp),
+                contentPadding =
+                    androidx.compose.foundation.layout.PaddingValues(
+                        bottom = 6.dp
+                    ),
+            ) {
+                items(
+                    items = filtered,
+                    key = {
+                        "${it.packageName}/${it.activityName}"
+                    },
+                ) { app ->
+                    val profile =
+                        if (app.isGame) {
+                            compatibilityStore.load(
+                                app.packageName
+                            )
+                        } else {
+                            null
+                        }
+
+                    Card(
+                        onClick = { launch(app) },
+                        modifier = Modifier.height(118.dp),
+                        colors =
+                            CardDefaults.cardColors(
+                                containerColor =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .surfaceVariant
+                            ),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(10.dp),
+                            verticalArrangement =
+                                Arrangement.spacedBy(5.dp),
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .size(38.dp),
+                                shape =
+                                    androidx.compose.foundation
+                                        .shape
+                                        .RoundedCornerShape(
+                                            10.dp
+                                        ),
+                                color =
+                                    if (app.isGame) {
+                                        MaterialTheme
+                                            .colorScheme
+                                            .tertiaryContainer
+                                    } else {
+                                        MaterialTheme
+                                            .colorScheme
+                                            .primaryContainer
+                                    },
+                            ) {
+                                Box(
+                                    contentAlignment =
+                                        Alignment.Center,
+                                ) {
+                                    Text(
+                                        app.label
+                                            .take(1)
+                                            .uppercase(),
+                                        style =
+                                            MaterialTheme
+                                                .typography
+                                                .titleMedium,
+                                    )
+                                }
                             }
 
-                            val launchPlan = DesktopLaunchPolicy.plan(
-                                capabilities = capabilities,
-                                preferExternal = preferExternal,
-                                preferWindowed = preferWindowed,
+                            Text(
+                                app.label,
+                                maxLines = 1,
+                                overflow =
+                                    TextOverflow.Ellipsis,
+                                fontSize = 11.sp,
                             )
 
-                            val result = runCatching {
-                                val options =
-                                    if (
-                                        launchPlan.usesExternalDisplay ||
-                                        launchPlan.usesDesktopWindowing
-                                    ) {
-                                        buildDesktopLaunchOptions(
-                                            context = context,
-                                            capabilities = capabilities,
-                                            requestedDisplayId =
-                                                launchPlan.requestedDisplayId,
-                                            useFreeformBounds =
-                                                launchPlan.useFreeformBounds,
-                                        )
-                                    } else {
-                                        null
-                                    }
-
-                                if (options != null) {
-                                    context.startActivity(
-                                        launchIntent,
-                                        options.toBundle(),
-                                    )
+                            Text(
+                                if (app.isGame) {
+                                    "Jogo • " +
+                                        (
+                                            profile
+                                                ?.rating
+                                                ?.label
+                                                ?: "NÃO TESTADO"
+                                            )
                                 } else {
-                                    context.startActivity(launchIntent)
-                                }
+                                    "Aplicativo Android"
+                                },
+                                maxLines = 1,
+                                overflow =
+                                    TextOverflow.Ellipsis,
+                                fontSize = 8.sp,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                            )
 
-                                status =
-                                    when {
-                                        launchPlan.usesExternalDisplay &&
-                                            launchPlan.usesDesktopWindowing ->
-                                            "Aberto no monitor externo com pedido de janela: ${app.label}"
-                                        launchPlan.usesExternalDisplay ->
-                                            "Aberto no monitor externo: ${app.label}"
-                                        launchPlan.usesDesktopWindowing ->
-                                            "Aberto com pedido de janela livre: ${app.label}"
-                                        else ->
-                                            "Aberto: ${app.label}"
-                                    }
-                            }
-
-                            result.onFailure { externalError ->
-                                if (launchPlan.usesExternalDisplay) {
-                                    runCatching {
-                                        context.startActivity(launchIntent)
-                                    }.onSuccess {
-                                        status =
-                                            "Monitor externo recusou o launch; " +
-                                                "aberto na tela atual."
-                                    }.onFailure { fallbackError ->
-                                        status =
-                                            "Falha ao abrir ${app.label}: " +
-                                                (fallbackError.message
-                                                    ?: externalError.message
-                                                    ?: fallbackError.javaClass.simpleName)
-                                    }
-                                } else {
-                                    status =
-                                        "Falha ao abrir ${app.label}: " +
-                                            (externalError.message
-                                                ?: externalError.javaClass.simpleName)
-                                }
-                            }
-                        }
-                        .padding(vertical = 8.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        text = app.label.take(1).uppercase(),
-                        modifier = Modifier.width(30.dp),
-                        fontSize = 20.sp,
-                    )
-                    Column(Modifier.weight(1f)) {
-                        Text(app.label, maxLines = 1)
-                        Text(
                             if (app.isGame) {
-                                val profile =
-                                    compatibilityStore.load(app.packageName)
-                                "JOGO • ${profile.rating.label} • " +
-                                    "entrada desktop depende do jogo"
-                            } else {
-                                "APP ANDROID"
-                            },
-                            fontSize = 9.sp,
-                            maxLines = 1,
-                        )
-                        Text(app.packageName, fontSize = 9.sp, maxLines = 1)
-                    }
-                    if (app.isGame) {
-                        OutlinedButton(
-                            onClick = { selectedGame = app },
-                        ) {
-                            Text("Perfil", fontSize = 9.sp)
+                                TextButton(
+                                    onClick = {
+                                        selectedGame = app
+                                    },
+                                    contentPadding =
+                                        androidx.compose.foundation
+                                            .layout
+                                            .PaddingValues(0.dp),
+                                ) {
+                                    Text(
+                                        "Perfil desktop",
+                                        fontSize = 8.sp,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
