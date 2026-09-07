@@ -86,6 +86,7 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/InstalledAppsApp.kt": (
         "queryLaunchableApps",
         "DesktopCapabilitySnapshot",
+        "DesktopLaunchPolicy.plan",
         "setLaunchDisplayId",
         "setLaunchBounds",
         "Pedir janela livre do Android",
@@ -162,6 +163,19 @@ CHECKS = {
     "app/src/debug/AndroidManifest.xml": (
         'android:screenOrientation="sensorLandscape"',
         'android:resizeableActivity="true"',
+    ),
+    "app/src/main/java/dev/pocketpc/core/desktop/DesktopLaunchPolicy.kt": (
+        "data class DesktopLaunchPlan",
+        "requestedDisplayId",
+        "useFreeformBounds",
+        "preferredExternalDisplayId",
+        "freeformWindowManagement",
+    ),
+    "app/src/test/java/dev/pocketpc/core/desktop/DesktopLaunchPolicyTest.kt": (
+        "noCapabilitiesFallsBackToCurrentDisplayWithoutFreeform",
+        "presentationDisplayIsPreferredOverGenericExternalDisplay",
+        "userCanKeepExternalDisplayButDisableFreeformBounds",
+        "userCanPreferCurrentDisplayWhileStillRequestingFreeform",
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopCapabilityProbe.kt": (
         "FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS",
