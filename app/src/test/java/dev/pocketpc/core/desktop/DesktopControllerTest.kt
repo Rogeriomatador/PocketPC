@@ -98,4 +98,47 @@ class DesktopControllerTest {
         assertEquals(1, controller.windows.size)
         assertEquals(DesktopApp.FILES, controller.windows.single().app)
     }
+
+    @Test
+    fun snapActiveLeftAndRightMovesActiveWindowBetweenHalves() {
+        val controller = DesktopController()
+        controller.open(DesktopApp.BROWSER)
+
+        controller.snapActiveLeft()
+        assertEquals(WindowSnap.LEFT, controller.windows.single().snap)
+        assertFalse(controller.windows.single().maximized)
+
+        controller.snapActiveRight()
+        assertEquals(WindowSnap.RIGHT, controller.windows.single().snap)
+        assertFalse(controller.windows.single().maximized)
+    }
+
+    @Test
+    fun maximizeClearsWindowSnap() {
+        val controller = DesktopController()
+        controller.open(DesktopApp.FILES)
+        val id = controller.windows.single().id
+        controller.snapActiveLeft()
+
+        controller.toggleMaximize(id)
+
+        val window = controller.windows.single()
+        assertTrue(window.maximized)
+        assertEquals(WindowSnap.NONE, window.snap)
+    }
+
+    @Test
+    fun restoreSnapReturnsWindowToFreeform() {
+        val controller = DesktopController()
+        controller.open(DesktopApp.TERMINAL)
+        val id = controller.windows.single().id
+        controller.snapActiveRight()
+
+        controller.restoreSnap(id)
+
+        val window = controller.windows.single()
+        assertEquals(WindowSnap.NONE, window.snap)
+        assertFalse(window.maximized)
+        assertFalse(window.minimized)
+    }
 }
