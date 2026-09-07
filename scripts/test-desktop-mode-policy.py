@@ -16,6 +16,8 @@ CHECKS = {
         "onKeyDown(",
         "onGenericMotionEvent(",
         "addOnUnhandledKeyEventListener",
+        "onProvideKeyboardShortcuts(",
+        "KeyboardShortcutGroup",
         "BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE",
     ),
     "app/src/main/AndroidManifest.xml": (
@@ -48,9 +50,18 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/ui/InstalledAppsApp.kt": (
         "queryLaunchableApps",
+        "DesktopCapabilitySnapshot",
         "setLaunchDisplayId",
-        "DISPLAY_CATEGORY_PRESENTATION",
+        "ApplicationInfo.CATEGORY_GAME",
+        "entrada desktop depende do jogo",
         "Monitor externo recusou o launch",
+    ),
+    "app/src/main/java/dev/pocketpc/core/desktop/DesktopCapabilityProbe.kt": (
+        "FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS",
+        "DISPLAY_CATEGORY_PRESENTATION",
+        "DisplayManager.DisplayListener",
+        "preferredExternalDisplayId",
+        "MutableStateFlow",
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopPeripheralMonitor.kt": (
         "inputManager.inputDeviceIds",
