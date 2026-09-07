@@ -43,6 +43,7 @@ fun PocketPcApp() {
     val appContext = context.applicationContext
     val scope = rememberCoroutineScope()
     val desktop = remember { DesktopController() }
+    val browserSession = remember { BrowserSessionState() }
     val telemetry = remember { TelemetryMonitor(appContext) }
     val storage = remember { StorageRepository(appContext) }
     val terminal = remember { LocalShellEngine(appContext) }
@@ -114,7 +115,7 @@ fun PocketPcApp() {
             .forEach { window ->
                 DesktopWindowView(window = window, desktop = desktop) {
                     when (window.app) {
-                        DesktopApp.BROWSER -> BrowserApp()
+                        DesktopApp.BROWSER -> BrowserApp(browserSession)
                         DesktopApp.FILES -> FilesApp(
                             repository = storage,
                             rootUri = storageRoot,
