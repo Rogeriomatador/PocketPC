@@ -42,6 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.awaitPointerEventScope
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,6 +78,9 @@ fun DesktopIconsV2(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .width(92.dp)
+                            .desktopSecondaryClick {
+                                desktop.openContextMenu(app)
+                            }
                             .combinedClickable(
                                 onClick = { desktop.open(app) },
                                 onLongClick = { desktop.openContextMenu(app) },
@@ -167,7 +175,11 @@ fun TaskbarV2(
                     val window = desktop.windows.firstOrNull { it.app == app }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.combinedClickable(
+                        modifier = Modifier
+                            .desktopSecondaryClick {
+                                desktop.openContextMenu(app)
+                            }
+                            .combinedClickable(
                             onClick = { desktop.open(app) },
                             onLongClick = { desktop.openContextMenu(app) },
                         ),
@@ -363,6 +375,24 @@ fun DesktopContextMenu(
         }
     }
 }
+
+internal fun Modifier.desktopSecondaryClick(
+    onSecondaryClick: () -> Unit,
+): Modifier =
+    pointerInput(onSecondaryClick) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (
+                    event.type == PointerEventType.Press &&
+                    event.buttons.isSecondaryPressed
+                ) {
+                    event.changes.forEach { change -> change.consume() }
+                    onSecondaryClick()
+                }
+            }
+        }
+    }
 
 private fun readBatteryPercent(context: Context): Int {
     val battery = context.registerReceiver(
