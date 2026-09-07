@@ -14,6 +14,7 @@ class DesktopLaunchPolicyTest {
         DesktopCapabilitySnapshot(
             secondaryDisplayActivities = displays.isNotEmpty(),
             freeformWindowManagement = freeform,
+            pcHardwareType = false,
             externalDisplays = displays,
         )
 
