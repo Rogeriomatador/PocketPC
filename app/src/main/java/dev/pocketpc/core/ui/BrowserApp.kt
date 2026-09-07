@@ -42,22 +42,27 @@ import androidx.compose.ui.viewinterop.AndroidView
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-private const val POCKETPC_HOME = "https://www.google.com/"
+internal const val POCKETPC_HOME = "https://www.google.com/"
+
+class BrowserSessionState {
+    var url by mutableStateOf(POCKETPC_HOME)
+    var desktopMode by mutableStateOf(false)
+}
 
 @Composable
-fun BrowserApp() {
+fun BrowserApp(session: BrowserSessionState) {
     val context = LocalContext.current
 
     var webView by remember { mutableStateOf<WebView?>(null) }
-    var address by remember { mutableStateOf(POCKETPC_HOME) }
+    var address by remember { mutableStateOf(session.url) }
     var pageTitle by remember { mutableStateOf("Google") }
     var progress by remember { mutableFloatStateOf(0f) }
-    var desktopMode by remember { mutableStateOf(false) }
     var mobileUserAgent by remember { mutableStateOf<String?>(null) }
 
     fun navigate(raw: String) {
         val target = browserTarget(raw)
         address = target
+        session.url = target
         webView?.loadUrl(target)
     }
 
@@ -89,8 +94,8 @@ fun BrowserApp() {
             }
             OutlinedButton(
                 onClick = {
-                    val next = !desktopMode
-                    desktopMode = next
+                    val next = !session.desktopMode
+                    session.desktopMode = next
                     webView?.let { view ->
                         val base = mobileUserAgent ?: view.settings.userAgentString.orEmpty()
                         view.settings.userAgentString =
@@ -101,7 +106,7 @@ fun BrowserApp() {
                     }
                 },
             ) {
-                Text(if (desktopMode) "Desktop ✓" else "Desktop")
+                Text(if (session.desktopMode) "Desktop ✓" else "Desktop")
             }
             OutlinedButton(
                 onClick = {
@@ -169,6 +174,11 @@ fun BrowserApp() {
                 WebView(activityContext).apply {
                     webView = this
                     mobileUserAgent = settings.userAgentString
+                    if (session.desktopMode) {
+                        settings.userAgentString = desktopUserAgent(settings.userAgentString.orEmpty())
+                        settings.useWideViewPort = true
+                        settings.loadWithOverviewMode = true
+                    }
 
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
@@ -208,6 +218,7 @@ fun BrowserApp() {
                             super.onPageFinished(view, url)
                             if (!url.isNullOrBlank()) {
                                 address = url
+                                session.url = url
                             }
                             pageTitle = view?.title.orEmpty()
                         }
@@ -237,7 +248,7 @@ fun BrowserApp() {
                         }
                     )
 
-                    loadUrl(POCKETPC_HOME)
+                    loadUrl(session.url)
                 }
             },
             update = { view ->
