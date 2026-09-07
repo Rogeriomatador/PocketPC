@@ -105,6 +105,11 @@ CHECKS = {
         "externalDisplayConfirmed",
         "pocketpc-game-compatibility",
     ),
+    "app/src/test/java/dev/pocketpc/core/desktop/GameCompatibilityProfileTest.kt": (
+        "newGameStartsUntestedWithoutConfirmedDesktopInput",
+        "anyConfirmedInputMarksDesktopInputAsObserved",
+        "optimizedRatingDoesNotFabricateInputEvidence",
+    ),
     "app/src/main/java/dev/pocketpc/core/runtime/DeviceEvidenceCollector.kt": (
         '"schemaVersion", 4',
         '"desktop"',
