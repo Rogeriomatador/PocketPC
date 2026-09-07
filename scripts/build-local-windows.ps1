@@ -399,7 +399,12 @@ function Invoke-PythonPolicyChecks {
         $env:POCKETPC_READELF = $readelf
         foreach ($relative in $scripts) {
             Write-Step "Policy check: $relative"
-            Invoke-Native $python ($prefixArgs + @(Join-Path $RepoRoot $relative))
+            $policyOutput = Invoke-NativeCapture $python (
+                $prefixArgs + @(Join-Path $RepoRoot $relative)
+            )
+            if (-not [string]::IsNullOrWhiteSpace($policyOutput)) {
+                Write-Host $policyOutput
+            }
         }
     }
     finally {
@@ -551,6 +556,16 @@ Assert-NoUnapprovedSubstrateBinaries $repoRoot
 
 Write-Step "Executando policy checks Python quando disponíveis"
 $pythonPolicyState = Invoke-PythonPolicyChecks $repoRoot $sdkRoot
+$allowedPythonPolicyStates = @("PASS", "SKIPPED_NO_PYTHON")
+if (
+    $pythonPolicyState -isnot [string] -or
+    $allowedPythonPolicyStates -notcontains $pythonPolicyState
+) {
+    throw (
+        "Invoke-PythonPolicyChecks retornou estado inválido. " +
+        "Somente PASS ou SKIPPED_NO_PYTHON são permitidos."
+    )
+}
 
 $oldJavaHome = $env:JAVA_HOME
 $oldAndroidSdkRoot = $env:ANDROID_SDK_ROOT

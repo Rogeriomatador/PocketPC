@@ -185,6 +185,22 @@ def main() -> int:
                     f"paren={paren} brace={brace} bracket={bracket}"
                 )
 
+        if path.name == "build-local-windows.ps1":
+            if "$policyOutput = Invoke-NativeCapture $python (" not in text:
+                failures.append(
+                    "Windows builder must capture each Python policy output "
+                    "before writing it to the host"
+                )
+            if "$pythonPolicyState -isnot [string]" not in text:
+                failures.append(
+                    "Windows builder must reject non-string Python policy states"
+                )
+            if re.search(r"(?m)^\s*Invoke-Native\s+\$python\b", text):
+                failures.append(
+                    "Windows builder must not leak Python policy stdout into "
+                    "the returned policy state"
+                )
+
         if path.name == "doctor-windows.ps1":
             marker = "# POCKETPC_DOCTOR_EOF"
             if text.count(marker) != 1:

@@ -102,6 +102,21 @@ def main() -> int:
             print(good.stderr, file=sys.stderr)
             raise SystemExit("valid local build fixture was rejected")
 
+        record_path = root / "local-build-record.json"
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        record["checks"]["pythonPolicyChecks"] = ["policy output", "PASS"]
+        record_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+
+        contaminated = run(root, commit)
+        if contaminated.returncode == 0:
+            raise SystemExit("array-valued Python policy state unexpectedly passed")
+        if "unexpected pythonPolicyChecks state" not in contaminated.stderr:
+            print(contaminated.stderr, file=sys.stderr)
+            raise SystemExit("array-valued policy failure was not reported")
+
+        record["checks"]["pythonPolicyChecks"] = "PASS"
+        record_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+
         apk.write_bytes(apk.read_bytes() + b"tampered")
         bad = run(root, commit)
         if bad.returncode == 0:
