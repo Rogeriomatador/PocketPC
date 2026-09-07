@@ -6,7 +6,7 @@ It can cooperate with Android desktop/freeform/display APIs, but it does not pre
 that Android applications are Windows processes or that unsupported runtime features
 already work.
 
-## Alpha 21 — PocketDrive storage architecture
+## Alpha 21 — PocketDrive + self-update bootstrap
 
 Alpha 21 separates PocketPC storage into logical volumes instead of treating the
 user-selected Android folder as an unstructured directory.
@@ -32,6 +32,27 @@ to the phone's internal shared storage, both volumes may use the same physical d
 
 Alpha 21 does **not** yet implement Windows execution. Storing a Windows PC installer
 is separate from executing it.
+
+### In-app update bootstrap
+
+Alpha 21 also introduces the first PocketPC Update Center:
+
+- checks the stable update feed when PocketPC starts;
+- exposes **Este PC > Atualizações**;
+- downloads APK updates through Android DownloadManager;
+- verifies HTTPS feed metadata, APK SHA-256, package name, versionCode and signing
+  certificate compatibility before enabling installation;
+- routes unknown-source authorization through Android system settings when required;
+- never treats a mismatched/unverified APK as an update.
+
+The current Alpha 21 feed is intentionally `published=false`. Automatic delivery is
+therefore **BLOCKED** until a correctly signed APK is hosted and the feed is activated.
+
+The updater does not embed a signing private key. A long-lived signing key must be
+configured outside the repository before server-built releases can safely update an
+installed PocketPC. Alpha 21 is the bootstrap version: it must still be installed once
+through the existing validated install flow before future versions can use the in-app
+Update Center.
 
 ## Alpha 20 — Desktop UX Overhaul
 
@@ -148,22 +169,23 @@ and it is not global GPU utilization.
 
 ## Evidence state
 
-### Alpha 19
+### Alpha 20
 
-Real physical/manual evidence exists that the redesigned desktop foundation launched on
-the POCO and rendered Browser, Control Center, Files and desktop/taskbar UI. Earlier
-physical evidence also established exact APK install/hash verification and the Android
-host filesystem state.
+Alpha 20 completed the real Windows build + install + device chain on the POCO X7 5G.
+The exact APK was hash-verified after installation and the run reached
+`POCKETPC_FIRST_PHYSICAL_TEST_OK`.
 
-That does not automatically validate every Alpha 19 feature.
+The physical result established the Alpha 20 host baseline: landscape PASS, app launch
+PASS, native host PASS and host filesystem PASS. Linux/rootfs link semantics remained
+BLOCKED because Android denied the direct hardlink capability.
 
 ### Alpha 21 current HEAD
 
 - DESIGN: advanced;
 - IMPLEMENTED: yes;
 - STATICALLY VALIDATED: ongoing source/policy audit;
-- SOFTWARE TEST: NOT_EXECUTED after Alpha 21 storage changes;
-- INTEGRATION TEST: NOT_EXECUTED after Alpha 21 storage changes;
+- SOFTWARE TEST: NOT_EXECUTED after Alpha 21 PocketDrive/updater changes;
+- INTEGRATION TEST: NOT_EXECUTED after Alpha 21 PocketDrive/updater changes;
 - PHYSICAL: NOT_EXECUTED for Alpha 21;
 - Linux/PRoot execution: BLOCKED by its independent runtime/artifact/link gates.
 
@@ -180,7 +202,7 @@ separate gates.
 
 ## One-command Windows validation
 
-After the Alpha 20 source audit is complete:
+After the Alpha 21 source audit is complete:
 
 ```text
 D:\Projetos\PocketPC\PocketPC-Test-Windows.bat
