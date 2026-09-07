@@ -105,6 +105,27 @@ def main() -> int:
     if record.get("nativeHostLoaded") is not True:
         failures.append("nativeHostLoaded is not true")
 
+    if record.get("desktopOrientationLandscape") is not True:
+        failures.append("desktopOrientationLandscape is not true")
+
+    for field in (
+        "desktopFreeformAdvertised",
+        "secondaryDisplayActivitiesAdvertised",
+    ):
+        if not isinstance(record.get(field), bool):
+            failures.append(f"{field} must be boolean")
+
+    for field in (
+        "externalDisplayCount",
+        "presentationDisplayCount",
+        "mouseCount",
+        "keyboardCount",
+        "gamepadCount",
+    ):
+        value = record.get(field)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            failures.append(f"{field} must be a non-negative integer")
+
     automation_path = physical / "automation-result.json"
     if automation_path.is_file():
         try:
@@ -138,6 +159,34 @@ def main() -> int:
             failures.append("automation runtimeLinkSemanticsReady must be boolean")
         if automation.get("nativeHostLoaded") is not True:
             failures.append("automation native host is not loaded")
+
+        desktop = automation.get("desktop")
+        if not isinstance(desktop, dict):
+            failures.append("automation desktop evidence must be an object")
+            desktop = {}
+        if desktop.get("orientationLandscape") is not True:
+            failures.append("automation desktop orientation is not landscape")
+
+        desktop_pairs = (
+            ("desktopFreeformAdvertised", "freeformWindowManagement"),
+            (
+                "secondaryDisplayActivitiesAdvertised",
+                "secondaryDisplayActivities",
+            ),
+            ("externalDisplayCount", "externalDisplayCount"),
+            ("presentationDisplayCount", "presentationDisplayCount"),
+            ("mouseCount", "mouseCount"),
+            ("keyboardCount", "keyboardCount"),
+            ("gamepadCount", "gamepadCount"),
+        )
+        for record_field, desktop_field in desktop_pairs:
+            desktop_value = desktop.get(desktop_field)
+            if record.get(record_field) != desktop_value:
+                failures.append(
+                    f"physical record {record_field} differs from automation "
+                    f"desktop {desktop_field}"
+                )
+
         if (
             str(automation.get("bundleSha256", "")).lower()
             != str(record.get("bundleSha256", "")).lower()
