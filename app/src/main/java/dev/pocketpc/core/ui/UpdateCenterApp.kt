@@ -99,7 +99,7 @@ fun UpdateCenterApp() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement =
             Arrangement.spacedBy(10.dp),
     ) {
@@ -360,8 +360,6 @@ fun UpdateCenterApp() {
                 },
             )
         }
-
-        Spacer(Modifier.weight(1f))
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
