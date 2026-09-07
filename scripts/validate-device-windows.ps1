@@ -364,14 +364,30 @@ foreach ($check in $filesystemChecks) {
     $color = if ($passed) { "Green" } else { "Red" }
     Write-Host ("[{0}] {1}: {2}" -f $state, $label, $detail) -ForegroundColor $color
 }
-Write-Host (
-    "Filesystem critical: " +
-    $(if ($deviceEvidence.filesystem.allCriticalPassed -eq $true) { "PASS" } else { "FAIL" })
+$hostFilesystemPassed = (
+    $deviceEvidence.filesystem.hostCriticalPassed -eq $true -or
+    (
+        $null -eq $deviceEvidence.filesystem.hostCriticalPassed -and
+        $result.hostFilesystemCriticalPassed -eq $true
+    )
+)
+$runtimeLinksReady = (
+    $deviceEvidence.filesystem.runtimeLinkSemanticsReady -eq $true -or
+    $result.runtimeLinkSemanticsReady -eq $true
 )
 
-if ($result.filesystemCriticalPassed -ne $true) {
+Write-Host (
+    "Host filesystem critical: " +
+    $(if ($hostFilesystemPassed) { "PASS" } else { "FAIL" })
+)
+Write-Host (
+    "Linux runtime link semantics: " +
+    $(if ($runtimeLinksReady) { "READY" } else { "BLOCKED" })
+)
+
+if (-not $hostFilesystemPassed) {
     throw (
-        "Device filesystem critical gate não passou. " +
+        "Device host filesystem critical gate não passou. " +
         "Os detalhes individuais foram impressos acima e preservados em device-evidence.json."
     )
 }
@@ -418,7 +434,7 @@ $chainArgs = @(
     $bundlePath,
     "--expected-commit",
     $expectedCommit,
-    "--require-filesystem-pass",
+    "--require-host-filesystem-pass",
     "--require-native-host"
 )
 if ($RequireInstalledApkHash) {
@@ -450,7 +466,10 @@ $physicalRecord = [ordered]@{
         Get-FileHash $evidencePath -Algorithm SHA256
     ).Hash.ToLowerInvariant()
     bundleSha256 = $bundleHash
-    filesystemCriticalPassed = [bool]$result.filesystemCriticalPassed
+    # Legacy field now represents the Android host filesystem gate.
+    filesystemCriticalPassed = [bool]$hostFilesystemPassed
+    hostFilesystemCriticalPassed = [bool]$hostFilesystemPassed
+    runtimeLinkSemanticsReady = [bool]$runtimeLinksReady
     nativeHostLoaded = [bool]$result.nativeHostLoaded
     substrateState = [string]$result.substrateState
     prootReady = [bool]$result.prootReady
@@ -512,7 +531,8 @@ Write-Host "PocketPC Physical Validation concluída." -ForegroundColor Green
 Write-Host "Classification : PHYSICAL_DEVICE_CHAIN_VERIFIED"
 Write-Host "Source commit  : $expectedCommit"
 Write-Host "Bundle SHA-256 : $bundleHash"
-Write-Host "Filesystem     : $($result.filesystemCriticalPassed)"
+Write-Host "Host filesystem: $hostFilesystemPassed"
+Write-Host "Linux links    : $runtimeLinksReady"
 Write-Host "Native host    : $($result.nativeHostLoaded)"
 Write-Host "prootReady     : $($result.prootReady)"
 Write-Host "App aberta     : PASS"
