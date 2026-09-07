@@ -1,8 +1,10 @@
 package dev.pocketpc.core.ui
 
+import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.hardware.display.DisplayManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,12 +17,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 data class LaunchableAndroidApp(
@@ -42,9 +47,18 @@ fun InstalledAppsApp() {
     var apps by remember { mutableStateOf<List<LaunchableAndroidApp>>(emptyList()) }
     var query by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<String?>(null) }
+    var externalDisplayId by remember { mutableStateOf<Int?>(null) }
+    var preferExternal by rememberSaveable { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         apps = withContext(Dispatchers.IO) { queryLaunchableApps(context) }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            externalDisplayId = preferredExternalDisplayId(context)
+            delay(2_000)
+        }
     }
 
     val filtered = remember(apps, query) {
@@ -69,6 +83,26 @@ fun InstalledAppsApp() {
             fontSize = 12.sp,
         )
 
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Switch(
+                checked = preferExternal,
+                onCheckedChange = { preferExternal = it },
+                enabled = externalDisplayId != null,
+            )
+            Text(
+                if (externalDisplayId != null) {
+                    "Monitor externo detectado: abrir apps nele"
+                } else {
+                    "Nenhum monitor externo disponivel"
+                },
+                fontSize = 11.sp,
+            )
+        }
+
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
@@ -92,18 +126,49 @@ fun InstalledAppsApp() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_MAIN).apply {
-                                        addCategory(Intent.CATEGORY_LAUNCHER)
-                                        setClassName(app.packageName, app.activityName)
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            val launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                                addCategory(Intent.CATEGORY_LAUNCHER)
+                                setClassName(app.packageName, app.activityName)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+
+                            val requestedDisplay =
+                                if (preferExternal) externalDisplayId else null
+
+                            val result = runCatching {
+                                if (requestedDisplay != null) {
+                                    val options = ActivityOptions.makeBasic()
+                                        .setLaunchDisplayId(requestedDisplay)
+                                        .toBundle()
+                                    context.startActivity(launchIntent, options)
+                                    status = "Aberto no monitor externo: ${app.label}"
+                                } else {
+                                    context.startActivity(launchIntent)
+                                    status = "Aberto: ${app.label}"
+                                }
+                            }
+
+                            result.onFailure { externalError ->
+                                if (requestedDisplay != null) {
+                                    runCatching {
+                                        context.startActivity(launchIntent)
+                                    }.onSuccess {
+                                        status =
+                                            "Monitor externo recusou o launch; " +
+                                                "aberto na tela atual."
+                                    }.onFailure { fallbackError ->
+                                        status =
+                                            "Falha ao abrir ${app.label}: " +
+                                                (fallbackError.message
+                                                    ?: externalError.message
+                                                    ?: fallbackError.javaClass.simpleName)
                                     }
-                                )
-                            }.onFailure { error ->
-                                status =
-                                    "Falha ao abrir ${app.label}: " +
-                                        (error.message ?: error.javaClass.simpleName)
+                                } else {
+                                    status =
+                                        "Falha ao abrir ${app.label}: " +
+                                            (externalError.message
+                                                ?: externalError.javaClass.simpleName)
+                                }
                             }
                         }
                         .padding(vertical = 8.dp, horizontal = 4.dp),
@@ -123,6 +188,23 @@ fun InstalledAppsApp() {
             }
         }
     }
+}
+
+private fun preferredExternalDisplayId(context: Context): Int? {
+    if (
+        !context.packageManager.hasSystemFeature(
+            PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS
+        )
+    ) {
+        return null
+    }
+
+    val displayManager =
+        context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+    return displayManager
+        .getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+        .firstOrNull()
+        ?.displayId
 }
 
 @Suppress("DEPRECATION")
