@@ -38,6 +38,7 @@ def main() -> int:
     parser.add_argument("--expected-commit")
     parser.add_argument("--require-installed-apk-hash", action="store_true")
     parser.add_argument("--require-filesystem-pass", action="store_true")
+    parser.add_argument("--require-host-filesystem-pass", action="store_true")
     parser.add_argument("--require-native-host", action="store_true")
     args = parser.parse_args()
 
@@ -140,10 +141,15 @@ def main() -> int:
     if install_record.get("launch", {}).get("status") != "PASS":
         failures.append("install record did not confirm MainActivity launch")
 
+    filesystem = evidence.get("filesystem", {})
     if args.require_filesystem_pass:
-        filesystem = evidence.get("filesystem", {})
         if filesystem.get("allCriticalPassed") is not True:
-            failures.append("device filesystem critical gate is not PASS")
+            failures.append("all device filesystem capabilities are not PASS")
+
+    if args.require_host_filesystem_pass:
+        host_pass = filesystem.get("hostCriticalPassed")
+        if host_pass is not True:
+            failures.append("Android host filesystem critical gate is not PASS")
 
     if args.require_native_host:
         native_host = evidence.get("nativeHost", {})
