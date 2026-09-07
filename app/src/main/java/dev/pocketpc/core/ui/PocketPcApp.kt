@@ -425,6 +425,10 @@ private fun DesktopWindowView(
         )
     }
 
+    val canHalfSnap =
+        configuration.screenWidthDp / 2 >=
+            spec.minWidthDp
+
     val windowModifier =
         when {
             window.maximized ->
@@ -518,43 +522,41 @@ private fun DesktopWindowView(
                         .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(window.title, modifier = Modifier.weight(1f))
-                    TextButton(
-                        onClick = { desktop.snapLeft(window.id) }
-                    ) {
-                        Text("◧")
+                    Text(
+                        window.title,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                    )
+                    if (canHalfSnap) {
+                        WindowControlButton("◧") {
+                            desktop.snapLeft(window.id)
+                        }
+                        WindowControlButton("◨") {
+                            desktop.snapRight(window.id)
+                        }
                     }
-                    TextButton(
-                        onClick = { desktop.snapRight(window.id) }
-                    ) {
-                        Text("◨")
+                    WindowControlButton("—") {
+                        desktop.minimize(window.id)
                     }
-                    TextButton(
-                        onClick = { desktop.minimize(window.id) }
-                    ) {
-                        Text("—")
-                    }
-                    TextButton(
-                        onClick = {
-                            if (window.snap != WindowSnap.NONE) {
-                                desktop.restoreSnap(window.id)
-                            } else {
-                                desktop.toggleMaximize(window.id)
-                            }
+                    WindowControlButton(
+                        when {
+                            window.snap != WindowSnap.NONE -> "↙"
+                            window.maximized -> "▣"
+                            else -> "□"
                         }
                     ) {
-                        Text(
-                            when {
-                                window.snap != WindowSnap.NONE -> "↙"
-                                window.maximized -> "▣"
-                                else -> "□"
-                            }
-                        )
+                        if (window.snap != WindowSnap.NONE) {
+                            desktop.restoreSnap(window.id)
+                        } else {
+                            desktop.toggleMaximize(window.id)
+                        }
                     }
-                    TextButton(
-                        onClick = { desktop.close(window.id) }
+                    WindowControlButton(
+                        label = "×",
+                        danger = true,
                     ) {
-                        Text("×")
+                        desktop.close(window.id)
                     }
                 }
 
@@ -632,4 +634,42 @@ private fun DesktopWindowView(
             }
         }
     }
+@Composable
+private fun WindowControlButton(
+    label: String,
+    danger: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val background =
+        if (danger) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        }
+    val foreground =
+        if (danger) {
+            MaterialTheme.colorScheme.onErrorContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
+    Box(
+        modifier = Modifier
+            .size(width = 34.dp, height = 30.dp)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .clickable(onClick = onClick)
+            .background(
+                background.copy(alpha = 0.55f),
+                RoundedCornerShape(8.dp),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = foreground,
+            fontSize = 11.sp,
+        )
+    }
+}
+
 }
