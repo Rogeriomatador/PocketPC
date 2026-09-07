@@ -103,3 +103,57 @@ packaging mode could potentially rebuild Kotlin/Compose-only changes without run
 the complete NDK build on the phone.
 
 That mode is DESIGN until implemented and validated.
+
+
+## Download a published PocketPC APK without a PC
+
+The repository now includes a separate fail-closed helper:
+
+```bash
+bash scripts/termux-install-published.sh
+```
+
+This helper does **not** build PocketPC on the phone.
+
+It:
+
+1. fetches `updates/stable.json`;
+2. verifies that the feed explicitly says `published=true`;
+3. validates package/version/HTTPS/SHA metadata;
+4. downloads the APK to Android Downloads;
+5. verifies the exact SHA-256;
+6. uses `termux-open` to request the Android package installer when available.
+
+If the feed is still unpublished, the script stops with:
+
+```text
+Classification : POCKETPC_ON_DEVICE_NO_PUBLISHED_APK
+```
+
+That is the correct current result until an APK with a stable signing identity is
+actually published.
+
+When Termux is the app opening the APK, Android can request "Install unknown apps"
+authorization for Termux. When PocketPC itself installs a downloaded APK from its own
+PocketDrive/updater, the corresponding authorization is for PocketPC.
+
+Neither authorization bypasses Android signature compatibility rules.
+
+## Optional Termux bridge research
+
+PocketPC now declares the optional Termux `RUN_COMMAND` permission and can detect:
+
+- whether Termux is visible/installed;
+- whether PocketPC has been granted `com.termux.permission.RUN_COMMAND`.
+
+No Termux command is executed yet.
+
+A future bridge also requires the user to set:
+
+```text
+allow-external-apps=true
+```
+
+inside `~/.termux/termux.properties`.
+
+This remains an explicit opt-in integration, not an implicit privilege path.
