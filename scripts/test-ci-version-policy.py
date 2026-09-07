@@ -43,7 +43,7 @@ def main() -> int:
         for pattern in STALE_VERSION_PATTERNS:
             if re.search(pattern, text):
                 failures.append(
-                    f"{label} contains stale pre-alpha20 version reference: {pattern}"
+                    f"{label} contains stale pre-alpha21 version reference: {pattern}"
                 )
 
     android_text = (
