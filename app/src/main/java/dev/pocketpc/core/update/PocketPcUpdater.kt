@@ -460,6 +460,45 @@ class PocketPcUpdater(
                     "versionCode do APK não corresponde " +
                         "ao manifesto."
                 }
+                require(
+                    archiveInfo.versionName ==
+                        pending.manifest.versionName
+                ) {
+                    "versionName do APK não corresponde " +
+                        "ao manifesto."
+                }
+
+                val archiveMetadata =
+                    archiveInfo.applicationInfo
+                        ?.metaData
+                        ?: error(
+                            "APK não contém identidade de origem."
+                        )
+                val archiveRevision =
+                    archiveMetadata.getString(
+                        META_SOURCE_REVISION
+                    ).orEmpty()
+                val archivePinned =
+                    archiveMetadata.getString(
+                        META_SOURCE_REVISION_PINNED
+                    ).orEmpty()
+                        .equals(
+                            "true",
+                            ignoreCase = true,
+                        )
+
+                require(archivePinned) {
+                    "APK foi compilado sem revisão Git fixada."
+                }
+                require(
+                    archiveRevision.equals(
+                        pending.manifest.sourceRevision,
+                        ignoreCase = true,
+                    )
+                ) {
+                    "Source revision do APK não corresponde " +
+                        "ao feed."
+                }
 
                 require(
                     archiveVersion >
@@ -679,9 +718,12 @@ class PocketPcUpdater(
                 .getPackageArchiveInfo(
                     apk.absolutePath,
                     PackageManager.PackageInfoFlags.of(
-                        PackageManager
-                            .GET_SIGNING_CERTIFICATES
-                            .toLong()
+                        (
+                            PackageManager
+                                .GET_SIGNING_CERTIFICATES or
+                                PackageManager
+                                    .GET_META_DATA
+                            ).toLong()
                     ),
                 )
         } else {
@@ -689,8 +731,12 @@ class PocketPcUpdater(
             appContext.packageManager
                 .getPackageArchiveInfo(
                     apk.absolutePath,
-                    PackageManager
-                        .GET_SIGNING_CERTIFICATES,
+                    (
+                        PackageManager
+                            .GET_SIGNING_CERTIFICATES or
+                            PackageManager
+                                .GET_META_DATA
+                        ),
                 )
         }
 
@@ -799,6 +845,10 @@ class PocketPcUpdater(
     }
 
     companion object {
+        private const val META_SOURCE_REVISION =
+            "dev.pocketpc.SOURCE_REVISION"
+        private const val META_SOURCE_REVISION_PINNED =
+            "dev.pocketpc.SOURCE_REVISION_PINNED"
         private const val KEY_LAST_MANIFEST =
             "last-manifest"
         private const val KEY_DOWNLOAD_ID =
