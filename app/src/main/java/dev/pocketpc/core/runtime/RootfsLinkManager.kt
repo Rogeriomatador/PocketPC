@@ -3,6 +3,7 @@ package dev.pocketpc.core.runtime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.file.AccessDeniedException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -69,7 +70,14 @@ class RootfsLinkManager {
                         "Hardlink sem target regular: ${entry.path}"
                     )
                 val targetPath = root.resolve(targetRelative).normalize()
-                Files.createLink(linkPath, targetPath)
+                try {
+                    Files.createLink(linkPath, targetPath)
+                } catch (error: AccessDeniedException) {
+                    throw ArchiveSecurityException(
+                        "HARDLINK_HOST_DENIED: Android/host policy denied hardlink " +
+                            "${entry.path}; Linux runtime link semantics remain blocked."
+                    )
+                }
                 created.add(linkPath)
                 hardlinks++
             }
