@@ -50,8 +50,7 @@ class PocketPcProfileBackup(
                             storage
                                 .importIntoPocketDrive(
                                     directory =
-                                        PocketDriveDirectory
-                                            .BACKUPS,
+                                        PocketDriveDirectory.BACKUPS,
                                     fileName = fileName,
                                     mimeType =
                                         "application/json",
@@ -91,8 +90,7 @@ class PocketPcProfileBackup(
                 val backupUri =
                     storage
                         .pocketDirectoryUri(
-                            PocketDriveDirectory
-                                .BACKUPS
+                            PocketDriveDirectory.BACKUPS
                         )
                         .getOrThrow()
 
