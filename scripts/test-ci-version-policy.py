@@ -12,9 +12,9 @@ ANDROID_CI = ROOT / ".github" / "workflows" / "android-ci.yml"
 WINDOWS_CI = ROOT / ".github" / "workflows" / "windows-local-build-harness.yml"
 
 STALE_VERSION_PATTERNS = (
-    r"0[.]1[.]0-alpha(?:1[0-9])\b",
-    r"PocketPC-alpha(?:1[0-9])\b",
-    r"PocketPC-v0[.]1-alpha(?:1[0-9])\b",
+    r"0[.]1[.]0-alpha(?:1[0-9]|20)\b",
+    r"PocketPC-alpha(?:1[0-9]|20)\b",
+    r"PocketPC-v0[.]1-alpha(?:1[0-9]|20)\b",
 )
 
 
@@ -62,6 +62,7 @@ def main() -> int:
         "POCKETPC_VERSION_NAME",
         "POCKETPC_VERSION_CODE",
         "scripts/test-desktop-mode-policy.py",
+        "scripts/test-update-feed-policy.py",
         "scripts/test-powershell51-compat.py",
         "scripts/test-device-evidence-bundle-verifier.py",
         ':app:testDebugUnitTest :app:lintDebug :app:assembleDebug',
@@ -72,6 +73,7 @@ def main() -> int:
 
     required_windows = (
         "scripts/test-desktop-mode-policy.py",
+        "scripts/test-update-feed-policy.py",
         "scripts/test-powershell51-compat.py",
         "scripts/test-device-evidence-bundle-verifier.py",
         "scripts/test-physical-validation-record-verifier.py",
