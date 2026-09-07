@@ -737,6 +737,11 @@ class PocketPcUpdater(
                         callback.intentSender
                     )
                 } catch (error: Throwable) {
+                    prefs.edit()
+                        .remove(
+                            KEY_INSTALL_ATTEMPT_DOWNLOAD_ID
+                        )
+                        .apply()
                     runCatching {
                         installer.abandonSession(
                             sessionId
