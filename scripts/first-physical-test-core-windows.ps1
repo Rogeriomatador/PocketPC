@@ -229,6 +229,11 @@ if ($physical.nativeHostLoaded -ne $true) {
     throw "Native Runtime Host nao carregou."
 }
 
+$runtimeLinkSemanticsReady = $false
+if ($physical.PSObject.Properties.Name -contains "runtimeLinkSemanticsReady") {
+    $runtimeLinkSemanticsReady = [bool]$physical.runtimeLinkSemanticsReady
+}
+
 $finalRecord = [ordered]@{
     schemaVersion = 1
     classification = "POCKETPC_FIRST_PHYSICAL_TEST_VERIFIED"
@@ -247,6 +252,8 @@ $finalRecord = [ordered]@{
     apkSha256 = [string]$buildRecord.apk.sha256
     evidenceBundleSha256 = [string]$physical.bundleSha256
     filesystemCriticalPassed = [bool]$physical.filesystemCriticalPassed
+    hostFilesystemCriticalPassed = [bool]$physical.filesystemCriticalPassed
+    runtimeLinkSemanticsReady = [bool]$runtimeLinkSemanticsReady
     nativeHostLoaded = [bool]$physical.nativeHostLoaded
     appOpened = $true
     substrateState = [string]$physical.substrateState
@@ -325,7 +332,8 @@ Write-Host "====================================================" -ForegroundCol
 Write-Host "Commit       : $commit"
 Write-Host "APK SHA-256  : $($buildRecord.apk.sha256)"
 Write-Host "Bundle SHA   : $($physical.bundleSha256)"
-Write-Host "Filesystem   : PASS"
+Write-Host "Host fs      : PASS"
+Write-Host ("Linux links  : {0}" -f $(if ($runtimeLinkSemanticsReady) { "READY" } else { "BLOCKED" }))
 Write-Host "Native host  : PASS"
 Write-Host "App opened   : PASS"
 Write-Host "prootReady   : $($physical.prootReady)"
