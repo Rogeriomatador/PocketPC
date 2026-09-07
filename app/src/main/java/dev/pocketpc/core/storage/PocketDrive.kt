@@ -60,6 +60,30 @@ fun pocketPath(
         }
     }
 
+fun sanitizePocketImportedFileName(
+    raw: String,
+): String {
+    val cleaned =
+        raw.trim()
+            .map { char ->
+                when {
+                    char == '/' || char == '\\' ->
+                        '_'
+                    char.code < 32 ->
+                        '_'
+                    else ->
+                        char
+                }
+            }
+            .joinToString("")
+            .trim()
+            .trimEnd('.')
+
+    return cleaned
+        .ifBlank { "download" }
+        .take(180)
+}
+
 fun classifyPocketFile(name: String): PocketFileClass {
     val extension =
         name.substringAfterLast(
