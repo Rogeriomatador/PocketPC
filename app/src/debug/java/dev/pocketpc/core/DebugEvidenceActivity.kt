@@ -85,7 +85,7 @@ class DebugEvidenceActivity : ComponentActivity() {
         writeAtomic(
             File(automationRoot, "automation-state.json"),
             JSONObject()
-                .put("schemaVersion", 1)
+                .put("schemaVersion", 2)
                 .put("state", "RUNNING")
                 .put("versionName", BuildConfig.VERSION_NAME)
                 .put("sourceRevision", BuildConfig.POCKETPC_SOURCE_REVISION)
@@ -147,7 +147,19 @@ class DebugEvidenceActivity : ComponentActivity() {
             .put("bundleSha256", bundle.bundleSha256)
             .put("evidenceSha256", evidence.outputSha256)
             .put(
+                "hostFilesystemCriticalPassed",
+                evidence.filesystem.hostCriticalPassed,
+            )
+            .put(
+                "runtimeLinkSemanticsReady",
+                evidence.filesystem.runtimeLinkSemanticsReady,
+            )
+            .put(
                 "filesystemCriticalPassed",
+                evidence.filesystem.hostCriticalPassed,
+            )
+            .put(
+                "allFilesystemCapabilitiesPassed",
                 evidence.filesystem.allCriticalPassed,
             )
             .put(
