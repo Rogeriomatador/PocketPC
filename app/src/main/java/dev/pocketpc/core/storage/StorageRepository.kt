@@ -248,46 +248,65 @@ class StorageRepository(private val context: Context) {
                         parent,
                         cleanName,
                     )
-                val target =
-                    checkNotNull(
-                        parent.createFile(
-                            mimeType
-                                ?.takeIf {
-                                    it.isNotBlank()
-                                }
-                                ?: "application/octet-stream",
-                            finalName,
+                val temporaryName =
+                    ".pocketpc-part-" +
+                        System.nanoTime() +
+                        "-" +
+                        finalName
+                var target: DocumentFile? = null
+
+                try {
+                    target =
+                        checkNotNull(
+                            parent.createFile(
+                                mimeType
+                                    ?.takeIf {
+                                        it.isNotBlank()
+                                    }
+                                    ?: "application/octet-stream",
+                                temporaryName,
+                            )
+                        ) {
+                            "O provedor recusou criar o arquivo temporário."
+                        }
+
+                    context.contentResolver
+                        .openOutputStream(
+                            target.uri,
+                            "w",
                         )
-                    ) {
-                        "O provedor recusou criar o arquivo " +
-                            finalName
+                        ?.use { output ->
+                            source.copyTo(
+                                output,
+                                bufferSize = 256 * 1024,
+                            )
+                            output.flush()
+                        }
+                        ?: error(
+                            "Não foi possível abrir o destino " +
+                                "para escrita."
+                        )
+
+                    check(target.renameTo(finalName)) {
+                        "O download foi gravado, mas o provedor " +
+                            "recusou finalizar o nome do arquivo."
                     }
 
-                context.contentResolver
-                    .openOutputStream(
-                        target.uri,
-                        "w",
+                    StorageEntry(
+                        name = target.name ?: finalName,
+                        uri = target.uri.toString(),
+                        directory = false,
+                        size = target.length(),
+                        mimeType = target.type ?: mimeType,
+                        lastModified =
+                            target.lastModified(),
                     )
-                    ?.use { output ->
-                        source.copyTo(
-                            output,
-                            bufferSize = 256 * 1024,
-                        )
+                } catch (error: Throwable) {
+                    runCatching {
+                        target?.delete()
                     }
-                    ?: error(
-                        "Não foi possível abrir o destino " +
-                            "para escrita."
-                    )
-
-                StorageEntry(
-                    name = target.name ?: finalName,
-                    uri = target.uri.toString(),
-                    directory = false,
-                    size = target.length(),
-                    mimeType = target.type ?: mimeType,
-                    lastModified =
-                        target.lastModified(),
-                )
+                    throw error
+                }
             }
         }
 
