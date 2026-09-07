@@ -11,9 +11,9 @@ The host is a Compose-based desktop shell with:
 - taskbar, Start menu and original app icons;
 - PocketPC internal windows;
 - freeform drag/resize, minimize/maximize and left/right snap;
-- Browser, Files, Terminal, Downloads, Displays, Personalization, Runtimes,
-  System and Performance;
-- persistent theme, wallpaper and taskbar pin preferences;
+- Browser, Files, Terminal, Downloads, Store, Control Center, Displays,
+  Personalization, Runtimes, System and Performance;
+- persistent theme, wallpaper, taskbar pins and freeform window geometry;
 - input/peripheral monitoring.
 
 Internal PocketPC applications run inside PocketPC Compose windows.
@@ -28,6 +28,7 @@ PocketPC probes public Android capabilities:
 
 - FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
 - FEATURE_FREEFORM_WINDOW_MANAGEMENT;
+- FEATURE_PC;
 - DisplayManager public/presentation displays.
 
 When supported, PocketPC can request:
@@ -46,6 +47,7 @@ Input is treated as a first-class desktop capability:
 - touch long-press;
 - mouse primary/secondary interaction;
 - hover/pointer cursor;
+- visible keyboard focus;
 - keyboard shortcuts;
 - gamepad/joystick presence.
 
@@ -92,8 +94,8 @@ debug evidence -> evidence bundle -> chain verification -> physical record ->
 MainActivity launch -> final record.
 
 Alpha 19 device evidence schema records desktop state including orientation, logical
-size, Android desktop capability advertisements, connected display counts and connected
-input-device counts.
+size, Android desktop capability advertisements (including FEATURE_PC), connected
+display counts and connected input-device counts.
 
 Landscape is a host-desktop gate. Freeform, external displays and peripheral counts are
 capabilities/state, not mandatory PASS conditions.
