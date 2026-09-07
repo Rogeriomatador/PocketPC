@@ -135,6 +135,22 @@ def main() -> int:
                     "duplicated, or truncated"
                 )
 
+            for sentinel in (
+                "desktopOrientationLandscape",
+                "desktopFreeformAdvertised",
+                "secondaryDisplayActivitiesAdvertised",
+                "externalDisplayCount",
+                "presentationDisplayCount",
+                "mouseCount",
+                "keyboardCount",
+                "gamepadCount",
+            ):
+                if sentinel not in text:
+                    failures.append(
+                        "first physical core is missing Alpha 19 desktop "
+                        f"evidence sentinel: {sentinel}"
+                    )
+
             paren = brace = bracket = 0
             for number, line in enumerate(text.splitlines(), start=1):
                 in_single = False
@@ -348,6 +364,15 @@ def main() -> int:
                 "Host filesystem critical",
                 "Linux runtime link semantics",
                 "runtimeLinkSemanticsReady",
+                "==> Desktop mode evidence",
+                "desktopOrientationLandscape",
+                "desktopFreeformAdvertised",
+                "secondaryDisplayActivitiesAdvertised",
+                "externalDisplayCount",
+                "presentationDisplayCount",
+                "mouseCount",
+                "keyboardCount",
+                "gamepadCount",
             ):
                 if sentinel not in text:
                     failures.append(
