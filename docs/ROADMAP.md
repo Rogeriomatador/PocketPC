@@ -1,55 +1,44 @@
 # Roadmap
 
-## 0.1.0-alpha18 — usable pocket desktop foundation
+## 0.1.0-alpha19 — Desktop Mode Foundation
 
 ### Implemented source
 
-- integrated WebView-based browser as a PocketPC desktop app;
-- Google home/search plus direct URL navigation;
-- back/forward/reload/home controls;
-- experimental desktop-site mode;
-- DownloadManager-backed downloads;
-- direct Android Downloads entry point;
-- browser navigation policy tests;
-- detailed filesystem capability output in the Windows physical validator;
-- detailed filesystem evidence in the debug automation result.
+- landscape/immersive desktop host;
+- persistent taskbar with pinned and active apps;
+- original PocketPC icon tiles;
+- Start menu and desktop context menu;
+- long-press plus secondary mouse support;
+- global keyboard shortcuts;
+- mouse/keyboard/gamepad detection;
+- installed Android app/game launcher;
+- optional external-display activity launch with fallback;
+- persistent static/animated wallpaper presets;
+- Desktop Mode build policy self-test.
 
-### Physical evidence carried from Alpha 17
+### Current evidence
 
-- strict Windows build: PASS;
-- process-capture self-test: PASS;
-- preflight: PASS;
-- physical ADB selection: PASS;
-- APK install: PASS;
+Alpha 19 has not yet been built or run on the physical device after these changes.
+Do not classify it as SOFTWARE TEST or PHYSICAL PASS yet.
+
+Historical physical evidence:
+- ADB install: PASS;
 - installed APK hash: PASS;
 - MainActivity launch: PASS;
 - relative/absolute symlink: PASS;
-- hardlink: FAIL / AccessDeniedException on physical Android app-private storage;
+- hardlink: FAIL / AccessDeniedException;
 - NOFOLLOW cleanup: PASS;
-- external target preservation: PASS;
-- Android host filesystem gate: PASS under the Alpha 18 split policy;
-- Linux link semantics: BLOCKED until hardlink semantics are implemented without relying on denied host hardlinks;
-- Alpha 17 complete physical chain: INCOMPLETE under the previous all-capabilities gate.
+- external target preservation: PASS.
 
-### Next engineering gates
+### Next milestones
 
-1. physically validate the Alpha 18 split filesystem policy on the POCO;
-2. physically validate Alpha 18 browser, downloads, Files, Terminal and window behavior;
-3. design Linux hardlink semantics that do not assume Android host hardlink creation;
-4. improve desktop state persistence, window resizing, keyboard/mouse behavior and multi-window workflows;
-5. add a richer downloads/files experience inside PocketPC;
-6. only after the host-app chain is solid, continue the separately gated Linux/PRoot execution work.
-
-## Long-term PC direction
-
-PocketPC should become a phone-optimized personal-computing environment rather than a visual desktop mock:
-
-- web browsing and downloads;
-- files and removable/cloud-backed storage through Android-supported APIs;
-- keyboard, mouse and large-screen ergonomics;
-- persistent app/window state;
-- terminal and Linux ARM runtime when the execution substrate is approved;
-- package/application management;
-- performance/resource controls;
-- future graphics acceleration research;
-- clear Android sandbox/security boundaries rather than pretending to have unrestricted PC privileges.
+1. build and physically validate Alpha 19;
+2. validate landscape/immersive behavior on the POCO;
+3. validate mouse right-click, keyboard shortcuts and gamepad detection;
+4. validate installed app/game discovery and launch;
+5. validate an external monitor when one is available;
+6. add custom image wallpaper and richer animated/live wallpapers;
+7. add true window resizing/snapping and persistent window geometry;
+8. add hover states, wheel scrolling polish and configurable keybindings;
+9. investigate game-specific desktop input compatibility without spoofing unsupported PC identity;
+10. continue Linux/runtime work behind its separate evidence gates.
