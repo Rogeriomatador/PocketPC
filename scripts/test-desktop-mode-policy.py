@@ -182,6 +182,13 @@ CHECKS = {
         "anyConfirmedInputMarksDesktopInputAsObserved",
         "optimizedRatingDoesNotFabricateInputEvidence",
     ),
+    "scripts/test-desktop-enum-coverage.py": (
+        "DESKTOP_ENUM_COVERAGE_OK",
+        "DesktopApp values missing PocketPcApp window handler",
+        "DesktopApp values missing AppIconTile Canvas case",
+        "DesktopCommand values missing PocketPcApp handler",
+        "defaultDesktopShortcuts",
+    ),
     "scripts/test-device-chain-verifier.py": (
         '"schemaVersion": 4',
         '"orientationLandscape": True',
