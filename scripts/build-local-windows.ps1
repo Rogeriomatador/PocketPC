@@ -391,7 +391,8 @@ function Invoke-PythonPolicyChecks {
         "scripts\test-first-physical-test-record-verifier.py",
         "scripts\test-preflight-record-verifier.py",
         "scripts\test-failure-triage-verifier.py",
-        "scripts\test-powershell51-compat.py"
+        "scripts\test-powershell51-compat.py",
+        "scripts\test-desktop-mode-policy.py"
     )
 
     $oldPocketPcReadelf = $env:POCKETPC_READELF
