@@ -380,6 +380,7 @@ function Invoke-PythonPolicyChecks {
     $readelf = Resolve-NdkReadelf $SdkRoot
     $scripts = @(
         "scripts\verify-android-build-lock.py",
+        "scripts\test-gitignore-policy.py",
         "scripts\test-proot-artifact-policy.py",
         "scripts\verify-proot-approval.py",
         "scripts\test-device-evidence-bundle-verifier.py",
@@ -564,24 +565,13 @@ try {
 
     Push-Location $repoRoot
     try {
-        Write-Step "Executando unit tests"
+        Write-Step "Executando testes, Android lint e montagem do APK"
         Invoke-Native $gradleInfo.Executable @(
             "--no-daemon",
             "--stacktrace",
-            ":app:testDebugUnitTest"
-        )
-
-        Write-Step "Executando Android lint"
-        Invoke-Native $gradleInfo.Executable @(
-            "--no-daemon",
-            "--stacktrace",
-            ":app:lintDebug"
-        )
-
-        Write-Step "Montando APK debug"
-        Invoke-Native $gradleInfo.Executable @(
-            "--no-daemon",
-            "--stacktrace",
+            "--continue",
+            ":app:testDebugUnitTest",
+            ":app:lintDebug",
             ":app:assembleDebug"
         )
     }

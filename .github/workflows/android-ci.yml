@@ -68,6 +68,9 @@ jobs:
       - name: Verify Android build lock
         run: python3 scripts/verify-android-build-lock.py
 
+      - name: Verify generated-file ignore policy
+        run: python3 scripts/test-gitignore-policy.py
+
       - name: Validate PRoot policy JSON
         run: |
           python3 -m json.tool third_party/proot/LOCK.json >/dev/null
@@ -132,14 +135,10 @@ jobs:
             }
           }
 
-      - name: Unit tests
-        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
-
-      - name: Android lint
-        run: gradle --no-daemon --stacktrace :app:lintDebug
-
-      - name: Assemble debug APK
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Unit tests, Android lint, and assemble debug APK
+        run: >-
+          gradle --no-daemon --stacktrace --continue
+          :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
       - name: Record APK build identity
         run: |

@@ -7,6 +7,8 @@ on:
       - "scripts/build-local-windows.ps1"
       - "scripts/verify-local-build-record.py"
       - "scripts/test-local-build-record-verifier.py"
+      - "scripts/test-gitignore-policy.py"
+      - ".gitignore"
       - "app/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"
@@ -57,6 +59,9 @@ jobs:
 
       - name: Device install verifier self-test
         run: python scripts/test-device-install-record-verifier.py
+
+      - name: Generated-file ignore policy self-test
+        run: python scripts/test-gitignore-policy.py
 
       - name: Full device-chain verifier self-test
         run: python scripts/test-device-chain-verifier.py

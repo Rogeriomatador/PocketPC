@@ -1,8 +1,36 @@
+# Gradle and Kotlin local state
 .gradle/
-.idea/
-local.properties
+.kotlin/
 build/
 **/build/
+
+# Android Studio and local Android configuration
+.idea/
+.vscode/
 *.iml
-.DS_Store
+local.properties
+captures/
+**/captures/
+
+# Android native build intermediates
+.cxx/
+**/.cxx/
+.externalNativeBuild/
+**/.externalNativeBuild/
+
+# PocketPC local build, installation, and evidence output
 local-build/
+
+# Python caches created by policy checks
+__pycache__/
+*.py[cod]
+
+# Local signing material and diagnostics
+keystore.properties
+*.jks
+*.keystore
+*.hprof
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db

@@ -95,7 +95,6 @@ try {
     & $coreScript @argsMap
 }
 catch {
-    $original = $_
     $message = $_.Exception.Message
 
     Write-Host ""
@@ -126,5 +125,8 @@ catch {
         )
     }
 
-    throw $original
+    Write-Host ""
+    Write-Host "ERRO ORIGINAL:" -ForegroundColor Red
+    Write-Host $message -ForegroundColor Red
+    exit 1
 }
