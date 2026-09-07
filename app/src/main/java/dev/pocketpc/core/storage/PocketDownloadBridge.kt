@@ -1,8 +1,12 @@
 package dev.pocketpc.core.storage
 
 import android.app.DownloadManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.FileInputStream
 
@@ -45,6 +49,53 @@ class PocketDownloadRegistry(
 
     private companion object {
         const val KEY_IDS = "download-ids"
+    }
+}
+
+class PocketDownloadReceiver :
+    BroadcastReceiver() {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
+        if (
+            intent.action !=
+            DownloadManager.ACTION_DOWNLOAD_COMPLETE
+        ) {
+            return
+        }
+
+        val downloadId =
+            intent.getLongExtra(
+                DownloadManager.EXTRA_DOWNLOAD_ID,
+                -1L,
+            )
+        if (downloadId < 0L) return
+
+        val appContext =
+            context.applicationContext
+        val registry =
+            PocketDownloadRegistry(appContext)
+        if (downloadId !in registry.ids()) {
+            return
+        }
+
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO)
+            .launch {
+                try {
+                    PocketDownloadImporter
+                        .importReady(
+                            context = appContext,
+                            storage =
+                                StorageRepository(
+                                    appContext
+                                ),
+                        )
+                } finally {
+                    pending.finish()
+                }
+            }
     }
 }
 
