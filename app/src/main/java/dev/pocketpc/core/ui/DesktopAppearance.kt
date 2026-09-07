@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +23,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -75,8 +78,9 @@ class DesktopAppearanceState(context: Context) {
     private val preferences =
         context.getSharedPreferences("pocketpc-desktop", Context.MODE_PRIVATE)
 
-    var wallpaper: WallpaperPreset =
+    var wallpaper by mutableStateOf(
         WallpaperPreset.fromKey(preferences.getString("wallpaper", null))
+    )
         private set
 
     fun selectWallpaper(preset: WallpaperPreset) {
@@ -152,8 +156,7 @@ fun PersonalizationApp(
                                 preset = preset,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .width(160.dp)
-                                    .padding(bottom = 40.dp),
+                                    .height(88.dp),
                             )
                             Text(preset.label)
                             Text(if (preset.animated) "ANIMADO" else "ESTATICO")
