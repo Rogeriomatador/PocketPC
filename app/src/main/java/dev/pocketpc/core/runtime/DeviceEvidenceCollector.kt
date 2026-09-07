@@ -1,7 +1,12 @@
 package dev.pocketpc.core.runtime
 
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Build
+import dev.pocketpc.core.desktop.DesktopCapabilityProbe
+import dev.pocketpc.core.desktop.DesktopCapabilitySnapshot
+import dev.pocketpc.core.desktop.DesktopPeripheralProbe
+import dev.pocketpc.core.desktop.PeripheralSnapshot
 import dev.pocketpc.core.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,6 +23,11 @@ data class DeviceEvidenceReport(
     val androidApi: Int,
     val abis: List<String>,
     val filesystem: FilesystemEvidence,
+    val desktopCapabilities: DesktopCapabilitySnapshot,
+    val peripherals: PeripheralSnapshot,
+    val orientationLandscape: Boolean,
+    val screenWidthDp: Int,
+    val screenHeightDp: Int,
     val nativeHostLoaded: Boolean,
     val nativeHostProbe: String,
     val substrateState: String,
@@ -50,13 +60,18 @@ object DeviceEvidenceCollector {
             val filesystem = FilesystemEvidenceProbe.run(
                 File(context.cacheDir, "pocketpc-selftest")
             )
+            val desktopCapabilities = DesktopCapabilityProbe.inspect(context)
+            val peripherals = DesktopPeripheralProbe.inspect(context)
+            val configuration = context.resources.configuration
+            val orientationLandscape =
+                configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
             val identity = BuildIdentityCollector.collect(context)
             val generated = Instant.now().toString()
             val output = File(evidenceRoot, "device-evidence-latest.json")
             val shaFile = File(evidenceRoot, "device-evidence-latest.sha256")
 
             val json = JSONObject()
-                .put("schemaVersion", 3)
+                .put("schemaVersion", 4)
                 .put("pocketPcVersion", BuildConfig.VERSION_NAME)
                 .put("generatedAtUtc", generated)
                 .put("buildIdentity", BuildIdentityCollector.toJson(identity))
@@ -67,6 +82,84 @@ object DeviceEvidenceCollector {
                         .put("model", Build.MODEL)
                         .put("androidApi", Build.VERSION.SDK_INT)
                         .put("abis", JSONArray(Build.SUPPORTED_ABIS.toList())),
+                )
+                .put(
+                    "desktop",
+                    JSONObject()
+                        .put(
+                            "orientationLandscape",
+                            orientationLandscape,
+                        )
+                        .put(
+                            "screenWidthDp",
+                            configuration.screenWidthDp,
+                        )
+                        .put(
+                            "screenHeightDp",
+                            configuration.screenHeightDp,
+                        )
+                        .put(
+                            "secondaryDisplayActivities",
+                            desktopCapabilities.secondaryDisplayActivities,
+                        )
+                        .put(
+                            "freeformWindowManagement",
+                            desktopCapabilities.freeformWindowManagement,
+                        )
+                        .put(
+                            "externalDisplayCount",
+                            desktopCapabilities.externalDisplayCount,
+                        )
+                        .put(
+                            "presentationDisplayCount",
+                            desktopCapabilities.presentationDisplayCount,
+                        )
+                        .put(
+                            "peripherals",
+                            JSONObject()
+                                .put("mouseCount", peripherals.mouseCount)
+                                .put(
+                                    "keyboardCount",
+                                    peripherals.keyboardCount,
+                                )
+                                .put(
+                                    "gamepadCount",
+                                    peripherals.gamepadCount,
+                                ),
+                        )
+                        .put(
+                            "externalDisplays",
+                            JSONArray().apply {
+                                desktopCapabilities.externalDisplays.forEach {
+                                    display ->
+                                    put(
+                                        JSONObject()
+                                            .put(
+                                                "displayId",
+                                                display.displayId,
+                                            )
+                                            .put("name", display.name)
+                                            .put(
+                                                "widthPx",
+                                                display.widthPx,
+                                            )
+                                            .put(
+                                                "heightPx",
+                                                display.heightPx,
+                                            )
+                                            .put(
+                                                "refreshRateHz",
+                                                display.refreshRateHz,
+                                            )
+                                            .put(
+                                                "presentation",
+                                                display.presentation,
+                                            )
+                                            .put("state", display.state)
+                                    )
+                                }
+                            },
+                        ),
                 )
                 .put(
                     "filesystem",
@@ -150,6 +243,11 @@ object DeviceEvidenceCollector {
                 androidApi = Build.VERSION.SDK_INT,
                 abis = Build.SUPPORTED_ABIS.toList(),
                 filesystem = filesystem,
+                desktopCapabilities = desktopCapabilities,
+                peripherals = peripherals,
+                orientationLandscape = orientationLandscape,
+                screenWidthDp = configuration.screenWidthDp,
+                screenHeightDp = configuration.screenHeightDp,
                 nativeHostLoaded = nativeHost.loaded,
                 nativeHostProbe = nativeHost.probe,
                 substrateState = substrate.state,
