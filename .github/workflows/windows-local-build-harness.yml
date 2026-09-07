@@ -10,6 +10,8 @@ on:
       - "scripts/test-gitignore-policy.py"
       - "scripts/test-desktop-mode-policy.py"
       - "scripts/test-ci-version-policy.py"
+      - "scripts/test-update-feed-policy.py"
+      - "updates/stable.json"
       - "scripts/test-powershell51-compat.py"
       - "scripts/verify-device-evidence-bundle.py"
       - "scripts/test-device-evidence-bundle-verifier.py"
@@ -77,6 +79,9 @@ jobs:
 
       - name: CI version evidence policy
         run: python scripts/test-ci-version-policy.py
+
+      - name: PocketPC update feed policy
+        run: python scripts/test-update-feed-policy.py
 
       - name: PowerShell 5.1 compatibility smoke
         run: python scripts/test-powershell51-compat.py
