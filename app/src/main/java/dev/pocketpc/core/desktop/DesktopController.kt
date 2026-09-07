@@ -115,11 +115,19 @@ class DesktopController(
     }
 
     fun snapActiveLeft() {
-        snapActive(WindowSnap.LEFT)
+        activeWindow?.let { snapLeft(it.id) }
     }
 
     fun snapActiveRight() {
-        snapActive(WindowSnap.RIGHT)
+        activeWindow?.let { snapRight(it.id) }
+    }
+
+    fun snapLeft(id: String) {
+        snap(id, WindowSnap.LEFT)
+    }
+
+    fun snapRight(id: String) {
+        snap(id, WindowSnap.RIGHT)
     }
 
     fun restoreActiveSnap() {
@@ -137,16 +145,14 @@ class DesktopController(
         }
     }
 
-    private fun snapActive(snap: WindowSnap) {
-        activeWindow?.let { window ->
-            mutate(window.id) {
-                it.copy(
-                    snap = snap,
-                    maximized = false,
-                    minimized = false,
-                    zIndex = allocateZ(),
-                )
-            }
+    private fun snap(id: String, snap: WindowSnap) {
+        mutate(id) {
+            it.copy(
+                snap = snap,
+                maximized = false,
+                minimized = false,
+                zIndex = allocateZ(),
+            )
         }
     }
 
