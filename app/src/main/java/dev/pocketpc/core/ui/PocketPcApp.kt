@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.pocketpc.core.BuildConfig
 import dev.pocketpc.core.desktop.DesktopApp
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.DesktopWindow
@@ -113,6 +114,7 @@ fun PocketPcApp() {
             .forEach { window ->
                 DesktopWindowView(window = window, desktop = desktop) {
                     when (window.app) {
+                        DesktopApp.BROWSER -> BrowserApp()
                         DesktopApp.FILES -> FilesApp(
                             repository = storage,
                             rootUri = storageRoot,
@@ -232,7 +234,7 @@ private fun Taskbar(desktop: DesktopController, modifier: Modifier = Modifier) {
                 }
             }
 
-            Text("α17", fontSize = 12.sp)
+            Text(BuildConfig.VERSION_NAME.substringAfterLast("-"), fontSize = 12.sp)
         }
     }
 }
@@ -246,7 +248,7 @@ private fun StartMenu(desktop: DesktopController, modifier: Modifier = Modifier)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("PocketPC", style = MaterialTheme.typography.titleLarge)
-            Text("0.1.0-alpha17 • automatic failure triage", style = MaterialTheme.typography.bodySmall)
+            Text(BuildConfig.VERSION_NAME + " • pocket desktop", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
             DesktopApp.entries.forEach { app ->
                 TextButton(
