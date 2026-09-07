@@ -162,6 +162,17 @@ fun ResearchLabApp() {
                     .label,
             )
             ValueRow(
+                "Perfil anunciado",
+                current.advertisedRemoteStreamProfile
+                    .label,
+            )
+            Text(
+                "Perfil anunciado pelo codec; não é benchmark de FPS/latência.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+            )
+            ValueRow(
                 "Encoders detectados",
                 current.encoders.size
                     .toString(),
@@ -192,6 +203,20 @@ fun ResearchLabApp() {
                                 ?.let {
                                     append(" • vendor")
                                 }
+                            if (codec.supports1080p60) {
+                                append(" • 1080p60")
+                            } else if (codec.supports720p60) {
+                                append(" • 720p60")
+                            }
+                            if (codec.supports1440p60) {
+                                append(" • 1440p60")
+                            }
+                            if (codec.supports4k30) {
+                                append(" • 4K30")
+                            }
+                            if (codec.intraRefresh) {
+                                append(" • intra-refresh")
+                            }
                         },
                     )
                 }
