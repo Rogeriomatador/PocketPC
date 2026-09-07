@@ -316,6 +316,34 @@ def main() -> int:
                         f"{sentinel}"
                     )
 
+        if path.name == "diagnose-device-filesystem-windows.ps1":
+            required_diagnostic_sentinels = (
+                "DIAGNOSTIC_ONLY_NOT_A_GATE",
+                "process-capture-windows.ps1",
+                "Invoke-PocketPcProcessCapture",
+                "Relative symlink",
+                "Absolute symlink",
+                "Hardlink",
+                "NOFOLLOW cleanup",
+                "External target preserved",
+            )
+            for sentinel in required_diagnostic_sentinels:
+                if sentinel not in text:
+                    failures.append(
+                        "Windows filesystem diagnostic is missing sentinel: "
+                        f"{sentinel}"
+                    )
+            if "Start-Process" in text:
+                failures.append(
+                    "Windows filesystem diagnostic must use shared process capture"
+                )
+
+        if path.name == "validate-device-windows.ps1":
+            if "==> Device filesystem evidence" not in text:
+                failures.append(
+                    "Windows physical validator must expose per-capability filesystem evidence"
+                )
+
         if path.name == "doctor-windows.ps1":
             marker = "# POCKETPC_DOCTOR_EOF"
             if text.count(marker) != 1:
