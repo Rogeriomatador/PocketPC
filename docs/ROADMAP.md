@@ -17,14 +17,22 @@
 
 - stable update feed;
 - automatic feed check on PocketPC launch;
+- periodic six-hour WorkManager scheduling;
 - Este PC > Atualizações;
 - DownloadManager APK transport;
 - SHA-256 verification;
 - package/version verification;
+- embedded source-revision verification;
 - installed/candidate signing-certificate compatibility check;
 - Android unknown-source permission flow;
+- PackageInstaller session staging;
+- best-effort USER_ACTION_NOT_REQUIRED request;
+- automatic verified-install preference;
+- fallback to Android confirmation when the platform requires it;
+- duplicate installer-session protection;
+- fail-closed signed-release publisher workflow;
 - fail-closed unpublished Alpha 21 feed;
-- signed artifact publication: BLOCKED until stable signing infrastructure exists.
+- signed artifact publication: BLOCKED until compatible long-lived signing secrets exist.
 
 ### Implemented in source
 
