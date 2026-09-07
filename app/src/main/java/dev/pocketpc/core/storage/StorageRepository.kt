@@ -86,6 +86,7 @@ class StorageRepository(private val context: Context) {
             checkNotNull(parent.createDirectory(cleanName)) {
                 "O provedor de arquivos recusou criar a pasta."
             }
+            Unit
         }
     }
 
