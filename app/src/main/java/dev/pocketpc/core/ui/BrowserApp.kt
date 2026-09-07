@@ -261,8 +261,12 @@ fun BrowserApp(session: BrowserSessionState) {
         onDispose {
             webView?.apply {
                 stopLoading()
-                webChromeClient = null
-                webViewClient = null
+                setDownloadListener(null)
+                // Android's Kotlin API models WebViewClient as non-null.
+                // Replace callbacks with inert clients before destroy() so
+                // they no longer retain Compose state.
+                webChromeClient = WebChromeClient()
+                webViewClient = WebViewClient()
                 destroy()
             }
             webView = null
