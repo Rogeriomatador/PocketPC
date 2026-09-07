@@ -16,6 +16,7 @@ import dev.pocketpc.core.update.PocketPcInstallResult
 import dev.pocketpc.core.update.PocketPcUpdateCheck
 import dev.pocketpc.core.update.PocketPcUpdateDownload
 import dev.pocketpc.core.update.PocketPcUpdater
+import dev.pocketpc.core.update.shouldAutoInstallUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -763,30 +764,36 @@ fun PocketPcUpdateAutoCheck(
         suspend fun attemptAutomaticInstall(
             download: PocketPcUpdateDownload,
         ): Boolean {
-            if (
-                !updater.autoInstallVerifiedEnabled()
-            ) {
-                return false
-            }
-
-            if (
-                !updater.canRequestPackageInstalls()
-            ) {
-                onAttentionChanged(
-                    PocketPcUpdateAttention.READY
-                )
-                Toast.makeText(
-                    context,
-                    "Update verificado. Autorize uma vez o PocketPC em “Instalar apps desconhecidos” para permitir atualização sem PC.",
-                    Toast.LENGTH_LONG,
-                ).show()
-                return false
-            }
-
-            if (
+            val enabled =
+                updater.autoInstallVerifiedEnabled()
+            val canInstall =
+                updater.canRequestPackageInstalls()
+            val alreadyAttempted =
                 updater.installAttemptedForPending()
+
+            if (
+                !shouldAutoInstallUpdate(
+                    enabled = enabled,
+                    verified = true,
+                    canInstallPackages = canInstall,
+                    alreadyAttempted =
+                        alreadyAttempted,
+                )
             ) {
-                return true
+                if (
+                    enabled &&
+                    !canInstall
+                ) {
+                    onAttentionChanged(
+                        PocketPcUpdateAttention.READY
+                    )
+                    Toast.makeText(
+                        context,
+                        "Update verificado. Autorize uma vez o PocketPC em “Instalar apps desconhecidos” para permitir atualização sem PC.",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                return alreadyAttempted
             }
 
             var committed = false
