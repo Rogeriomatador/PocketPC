@@ -290,6 +290,7 @@ def main() -> int:
                     for field in (
                         "secondaryDisplayActivities",
                         "freeformWindowManagement",
+                        "pcHardwareType",
                     ):
                         if not isinstance(desktop.get(field), bool):
                             failures.append(
