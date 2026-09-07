@@ -156,7 +156,10 @@ object PocketDownloadImporter {
                                 }
                             }
 
-                        result.onSuccess {
+                        result.onSuccess { entry ->
+                            PocketPcPackageRegistry(
+                                context
+                            ).record(entry)
                             manager.remove(downloadId)
                             registry.remove(downloadId)
                             imported++
