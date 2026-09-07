@@ -11,7 +11,7 @@ class DesktopPinStore(context: Context) {
 
     fun load(): List<DesktopApp> {
         val raw = preferences.getString(KEY, null)
-            ?: return defaultPins()
+            ?: return defaultDesktopPins()
 
         if (raw.isBlank()) {
             return emptyList()
@@ -26,7 +26,7 @@ class DesktopPinStore(context: Context) {
             }
             .distinct()
 
-        return if (parsed.isEmpty()) defaultPins() else parsed
+        return if (parsed.isEmpty()) defaultDesktopPins() else parsed
     }
 
     fun save(apps: List<DesktopApp>) {
@@ -38,13 +38,5 @@ class DesktopPinStore(context: Context) {
 
     companion object {
         private const val KEY = "pinned_apps"
-
-        fun defaultPins(): List<DesktopApp> =
-            listOf(
-                DesktopApp.FILES,
-                DesktopApp.BROWSER,
-                DesktopApp.TERMINAL,
-                DesktopApp.APPS,
-            )
     }
 }
