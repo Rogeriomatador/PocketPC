@@ -62,4 +62,22 @@ class PocketDriveTest {
                 .map { it.folderName },
         )
     }
+
+    @Test
+    fun sanitizesDownloadedNamesWithoutChangingPackageType() {
+        assertEquals(
+            "Roblox_PlayerInstaller.exe",
+            sanitizePocketImportedFileName(
+                "Roblox/PlayerInstaller.exe"
+            ),
+        )
+        assertEquals(
+            PocketFileClass.PC_INSTALLER,
+            classifyPocketFile(
+                sanitizePocketImportedFileName(
+                    "Roblox/PlayerInstaller.exe"
+                )
+            ),
+        )
+    }
 }
