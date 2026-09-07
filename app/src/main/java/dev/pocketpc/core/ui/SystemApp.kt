@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import dev.pocketpc.core.BuildConfig
 import dev.pocketpc.core.runtime.DeviceEvidenceCollector
 import dev.pocketpc.core.runtime.DeviceEvidenceReport
 import dev.pocketpc.core.runtime.EvidenceBundleManager
@@ -68,8 +69,10 @@ fun SystemApp(
         Text("Sistema", style = MaterialTheme.typography.titleMedium)
 
         Section("PocketPC") {
-            ValueRow("Versão", "0.1.0-alpha17")
+            ValueRow("Versão", BuildConfig.VERSION_NAME)
             ValueRow("Desktop shell", "IMPLEMENTED")
+            ValueRow("Navegador + Google", "IMPLEMENTED / NOT DEVICE VALIDATED")
+            ValueRow("Downloads web", "IMPLEMENTED / NOT DEVICE VALIDATED")
             ValueRow(
                 "Arquivos SAF",
                 if (storageConfigured) "IMPLEMENTED / CONFIGURED" else "IMPLEMENTED",
@@ -82,10 +85,10 @@ fun SystemApp(
             ValueRow("Device evidence harness", "IMPLEMENTED / USER-RUN TEST")
             ValueRow("Evidence bundle", "IMPLEMENTED / EXPORTABLE")
             ValueRow("Local Windows builder", "IMPLEMENTED / EXECUTION PENDING")
-            ValueRow("Device install gate", "IMPLEMENTED / ADB EXECUTION PENDING")
-            ValueRow("Automated physical runner", "DEBUG ONLY / EXECUTION PENDING")
-            ValueRow("One-command physical test", "IMPLEMENTED / WINDOWS EXECUTION PENDING")
-            ValueRow("Windows preflight doctor", "IMPLEMENTED / EXECUTION PENDING")
+            ValueRow("Device install gate", "IMPLEMENTED / ALPHA17 PHYSICAL PASS")
+            ValueRow("Automated physical runner", "DEBUG ONLY / ALPHA17 FILESYSTEM GATE FAIL")
+            ValueRow("One-command physical test", "IMPLEMENTED / INCOMPLETE")
+            ValueRow("Windows preflight doctor", "IMPLEMENTED / ALPHA17 PASS")
             ValueRow("Failure triage pack", "IMPLEMENTED / AUTO ON FAILURE")
             ValueRow(
                 "Native Runtime Host",
