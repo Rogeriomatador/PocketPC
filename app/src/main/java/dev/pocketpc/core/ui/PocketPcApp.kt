@@ -33,6 +33,8 @@ import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.DesktopPeripheralMonitor
 import dev.pocketpc.core.desktop.DesktopPinStore
 import dev.pocketpc.core.desktop.DesktopWindow
+import dev.pocketpc.core.desktop.DesktopWindowLayoutStore
+import dev.pocketpc.core.desktop.WindowGeometry
 import dev.pocketpc.core.desktop.WindowSnap
 import dev.pocketpc.core.runtime.ExecutionSubstrateProbe
 import dev.pocketpc.core.runtime.NativeRuntimeHost
@@ -52,6 +54,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val appContext = context.applicationContext
     val scope = rememberCoroutineScope()
     val pinStore = remember { DesktopPinStore(appContext) }
+    val windowLayoutStore = remember { DesktopWindowLayoutStore(appContext) }
     val desktop = remember {
         DesktopController(
             initialPinnedApps = pinStore.load(),
@@ -213,6 +216,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 DesktopWindowView(
                     window = window,
                     desktop = desktop,
+                    layoutStore = windowLayoutStore,
                     modifier = Modifier.align(alignment),
                 ) {
                     when (window.app) {
@@ -322,18 +326,10 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
 private fun DesktopWindowView(
     window: DesktopWindow,
     desktop: DesktopController,
+    layoutStore: DesktopWindowLayoutStore,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    var x by remember(window.id) {
-        mutableFloatStateOf(90f + (window.zIndex % 3) * 32f)
-    }
-    var y by remember(window.id) {
-        mutableFloatStateOf(86f + (window.zIndex % 3) * 24f)
-    }
-    var widthFraction by remember(window.id) { mutableFloatStateOf(0.72f) }
-    var heightFraction by remember(window.id) { mutableFloatStateOf(0.70f) }
-
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val screenWidthPx =
@@ -342,6 +338,41 @@ private fun DesktopWindowView(
     val screenHeightPx =
         with(density) { configuration.screenHeightDp.dp.toPx() }
             .coerceAtLeast(1f)
+
+    val savedGeometry = remember(window.app) {
+        layoutStore.load(window.app)
+    }
+
+    var x by remember(window.id) {
+        mutableFloatStateOf(
+            savedGeometry?.xFraction?.times(screenWidthPx)
+                ?: (90f + (window.zIndex % 3) * 32f)
+        )
+    }
+    var y by remember(window.id) {
+        mutableFloatStateOf(
+            savedGeometry?.yFraction?.times(screenHeightPx)
+                ?: (86f + (window.zIndex % 3) * 24f)
+        )
+    }
+    var widthFraction by remember(window.id) {
+        mutableFloatStateOf(savedGeometry?.widthFraction ?: 0.72f)
+    }
+    var heightFraction by remember(window.id) {
+        mutableFloatStateOf(savedGeometry?.heightFraction ?: 0.70f)
+    }
+
+    fun persistGeometry() {
+        layoutStore.save(
+            app = window.app,
+            geometry = WindowGeometry(
+                xFraction = (x / screenWidthPx).coerceIn(0f, 0.85f),
+                yFraction = (y / screenHeightPx).coerceIn(0f, 0.80f),
+                widthFraction = widthFraction,
+                heightFraction = heightFraction,
+            ),
+        )
+    }
 
     val windowModifier =
         when {
@@ -406,11 +437,19 @@ private fun DesktopWindowView(
                                 detectDragGestures(
                                     onDragStart = {
                                         desktop.focus(window.id)
-                                    }
+                                    },
+                                    onDragEnd = { persistGeometry() },
+                                    onDragCancel = { persistGeometry() },
                                 ) { change, drag ->
                                     change.consume()
-                                    x = (x + drag.x).coerceAtLeast(0f)
-                                    y = (y + drag.y).coerceAtLeast(0f)
+                                    x = (x + drag.x).coerceIn(
+                                        0f,
+                                        screenWidthPx * 0.85f,
+                                    )
+                                    y = (y + drag.y).coerceIn(
+                                        0f,
+                                        screenHeightPx * 0.80f,
+                                    )
                                 }
                             }
                         }
@@ -467,7 +506,10 @@ private fun DesktopWindowView(
                         .size(30.dp)
                         .pointerHoverIcon(PointerIcon.Crosshair)
                         .pointerInput(window.id) {
-                            detectDragGestures { change, drag ->
+                            detectDragGestures(
+                                onDragEnd = { persistGeometry() },
+                                onDragCancel = { persistGeometry() },
+                            ) { change, drag ->
                                 change.consume()
                                 widthFraction =
                                     (
