@@ -479,13 +479,10 @@ class PocketPcUpdater(
                         META_SOURCE_REVISION
                     ).orEmpty()
                 val archivePinned =
-                    archiveMetadata.getString(
-                        META_SOURCE_REVISION_PINNED
-                    ).orEmpty()
-                        .equals(
-                            "true",
-                            ignoreCase = true,
-                        )
+                    archiveMetadata.getBoolean(
+                        META_SOURCE_REVISION_PINNED,
+                        false,
+                    )
 
                 require(archivePinned) {
                     "APK foi compilado sem revisão Git fixada."
