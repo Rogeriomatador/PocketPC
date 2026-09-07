@@ -133,6 +133,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                     desktop.closeStartMenu()
                     desktop.closeContextMenu()
                 }
+                DesktopCommand.SNAP_LEFT -> desktop.snapActiveLeft()
+                DesktopCommand.SNAP_RIGHT -> desktop.snapActiveRight()
             }
         }
     }
