@@ -228,6 +228,9 @@ if ($physical.filesystemCriticalPassed -ne $true) {
 if ($physical.nativeHostLoaded -ne $true) {
     throw "Native Runtime Host nao carregou."
 }
+if ($physical.desktopOrientationLandscape -ne $true) {
+    throw "Desktop host nao foi validado em landscape."
+}
 
 $runtimeLinkSemanticsReady = $false
 if ($physical.PSObject.Properties.Name -contains "runtimeLinkSemanticsReady") {
@@ -254,6 +257,14 @@ $finalRecord = [ordered]@{
     filesystemCriticalPassed = [bool]$physical.filesystemCriticalPassed
     hostFilesystemCriticalPassed = [bool]$physical.filesystemCriticalPassed
     runtimeLinkSemanticsReady = [bool]$runtimeLinkSemanticsReady
+    desktopOrientationLandscape = [bool]$physical.desktopOrientationLandscape
+    desktopFreeformAdvertised = [bool]$physical.desktopFreeformAdvertised
+    secondaryDisplayActivitiesAdvertised = [bool]$physical.secondaryDisplayActivitiesAdvertised
+    externalDisplayCount = [int]$physical.externalDisplayCount
+    presentationDisplayCount = [int]$physical.presentationDisplayCount
+    mouseCount = [int]$physical.mouseCount
+    keyboardCount = [int]$physical.keyboardCount
+    gamepadCount = [int]$physical.gamepadCount
     nativeHostLoaded = [bool]$physical.nativeHostLoaded
     appOpened = $true
     substrateState = [string]$physical.substrateState
@@ -332,8 +343,11 @@ Write-Host "====================================================" -ForegroundCol
 Write-Host "Commit       : $commit"
 Write-Host "APK SHA-256  : $($buildRecord.apk.sha256)"
 Write-Host "Bundle SHA   : $($physical.bundleSha256)"
+Write-Host "Landscape    : PASS"
 Write-Host "Host fs      : PASS"
 Write-Host ("Linux links  : {0}" -f $(if ($runtimeLinkSemanticsReady) { "READY" } else { "BLOCKED" }))
+Write-Host ("Displays     : {0} external / {1} presentation" -f [int]$physical.externalDisplayCount, [int]$physical.presentationDisplayCount)
+Write-Host ("Input        : mouse={0} keyboard={1} gamepad={2}" -f [int]$physical.mouseCount, [int]$physical.keyboardCount, [int]$physical.gamepadCount)
 Write-Host "Native host  : PASS"
 Write-Host "App opened   : PASS"
 Write-Host "prootReady   : $($physical.prootReady)"
