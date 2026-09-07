@@ -12,9 +12,9 @@ ANDROID_CI = ROOT / ".github" / "workflows" / "android-ci.yml"
 WINDOWS_CI = ROOT / ".github" / "workflows" / "windows-local-build-harness.yml"
 
 STALE_VERSION_PATTERNS = (
-    r"0[.]1[.]0-alpha(?:1[0-8])\b",
-    r"PocketPC-alpha(?:1[0-8])\b",
-    r"PocketPC-v0[.]1-alpha(?:1[0-8])\b",
+    r"0[.]1[.]0-alpha(?:1[0-9])\b",
+    r"PocketPC-alpha(?:1[0-9])\b",
+    r"PocketPC-v0[.]1-alpha(?:1[0-9])\b",
 )
 
 
@@ -43,7 +43,7 @@ def main() -> int:
         for pattern in STALE_VERSION_PATTERNS:
             if re.search(pattern, text):
                 failures.append(
-                    f"{label} contains stale pre-alpha19 version reference: {pattern}"
+                    f"{label} contains stale pre-alpha20 version reference: {pattern}"
                 )
 
     android_text = (
