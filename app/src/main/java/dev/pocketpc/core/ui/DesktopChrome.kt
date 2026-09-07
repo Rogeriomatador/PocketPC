@@ -36,6 +36,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -551,6 +553,9 @@ fun AppIconTile(
 private fun PocketPcStartLogo(
     size: Int,
 ) {
+    val logoColor =
+        MaterialTheme.colorScheme.onPrimaryContainer
+
     Surface(
         modifier = Modifier.size(size.dp),
         shape = RoundedCornerShape(
@@ -567,9 +572,7 @@ private fun PocketPcStartLogo(
             val gap = this.size.minDimension * 0.12f
             val tile =
                 (this.size.minDimension - gap) / 2f
-            val color =
-                MaterialTheme.colorScheme
-                    .onPrimaryContainer
+            val color = logoColor
 
             drawRoundRect(
                 color = color,
