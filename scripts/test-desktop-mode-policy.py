@@ -12,6 +12,10 @@ CHECKS = {
         "DesktopCommand.CYCLE_WINDOWS",
         "DesktopCommand.OPEN_DESKTOP_CONTEXT",
         "MotionEvent.BUTTON_SECONDARY",
+        "onKeyShortcut(",
+        "onKeyDown(",
+        "onGenericMotionEvent(",
+        "addOnUnhandledKeyEventListener",
         "BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE",
     ),
     "app/src/main/AndroidManifest.xml": (
@@ -70,6 +74,19 @@ def main() -> int:
             continue
 
         text = path.read_text(encoding="utf-8-sig")
+        if relative.endswith("MainActivity.kt"):
+            for forbidden in (
+                "override fun dispatchKeyEvent(",
+                "override fun dispatchGenericMotionEvent(",
+                "super.dispatchKeyEvent(",
+                "super.dispatchGenericMotionEvent(",
+            ):
+                if forbidden in text:
+                    failures.append(
+                        "MainActivity must use public Activity/View input callbacks; "
+                        f"forbidden: {forbidden}"
+                    )
+
         if (
             relative.endswith("DesktopPeripheralMonitor.kt")
             and ".mapNotNull" in text
