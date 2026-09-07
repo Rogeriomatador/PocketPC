@@ -18,7 +18,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +34,7 @@ import dev.pocketpc.core.desktop.DesktopCapabilityMonitor
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.DesktopPeripheralMonitor
 import dev.pocketpc.core.desktop.DesktopWindow
+import dev.pocketpc.core.desktop.WindowSnap
 import dev.pocketpc.core.runtime.ExecutionSubstrateProbe
 import dev.pocketpc.core.runtime.NativeRuntimeHost
 import dev.pocketpc.core.runtime.RootfsLinkManager
@@ -167,7 +172,18 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             .filterNot { it.minimized }
             .sortedBy { it.zIndex }
             .forEach { window ->
-                DesktopWindowView(window = window, desktop = desktop) {
+                val alignment =
+                    when (window.snap) {
+                        WindowSnap.LEFT -> Alignment.CenterStart
+                        WindowSnap.RIGHT -> Alignment.CenterEnd
+                        WindowSnap.NONE -> Alignment.TopStart
+                    }
+
+                DesktopWindowView(
+                    window = window,
+                    desktop = desktop,
+                    modifier = Modifier.align(alignment),
+                ) {
                     when (window.app) {
                         DesktopApp.BROWSER -> BrowserApp(browserSession)
                         DesktopApp.FILES -> FilesApp(
@@ -345,59 +361,169 @@ private fun StartMenu(desktop: DesktopController, modifier: Modifier = Modifier)
 private fun DesktopWindowView(
     window: DesktopWindow,
     desktop: DesktopController,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    var x by remember(window.id) { mutableFloatStateOf(90f + (window.zIndex % 3) * 32f) }
-    var y by remember(window.id) { mutableFloatStateOf(86f + (window.zIndex % 3) * 24f) }
-
-    val windowModifier = if (window.maximized) {
-        Modifier.fillMaxSize().padding(bottom = 56.dp)
-    } else {
-        Modifier
-            .widthIn(min = 300.dp, max = 900.dp)
-            .heightIn(min = 260.dp, max = 660.dp)
-            .fillMaxWidth(0.82f)
-            .fillMaxHeight(0.72f)
-            .offset { IntOffset(x.roundToInt(), y.roundToInt()) }
+    var x by remember(window.id) {
+        mutableFloatStateOf(90f + (window.zIndex % 3) * 32f)
     }
+    var y by remember(window.id) {
+        mutableFloatStateOf(86f + (window.zIndex % 3) * 24f)
+    }
+    var widthFraction by remember(window.id) { mutableFloatStateOf(0.72f) }
+    var heightFraction by remember(window.id) { mutableFloatStateOf(0.70f) }
+
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenWidthPx =
+        with(density) { configuration.screenWidthDp.dp.toPx() }
+            .coerceAtLeast(1f)
+    val screenHeightPx =
+        with(density) { configuration.screenHeightDp.dp.toPx() }
+            .coerceAtLeast(1f)
+
+    val windowModifier =
+        when {
+            window.maximized ->
+                modifier
+                    .fillMaxSize()
+                    .padding(bottom = 58.dp)
+
+            window.snap != WindowSnap.NONE ->
+                modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.5f)
+                    .padding(bottom = 58.dp)
+
+            else ->
+                modifier
+                    .widthIn(min = 300.dp, max = 1200.dp)
+                    .heightIn(min = 240.dp, max = 900.dp)
+                    .fillMaxWidth(widthFraction)
+                    .fillMaxHeight(heightFraction)
+                    .offset {
+                        IntOffset(
+                            x.roundToInt(),
+                            y.roundToInt(),
+                        )
+                    }
+        }
 
     Surface(
         modifier = windowModifier.clickable(
             indication = null,
-            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+            interactionSource = remember {
+                androidx.compose.foundation.interaction.MutableInteractionSource()
+            },
         ) { desktop.focus(window.id) },
-        shape = RoundedCornerShape(if (window.maximized) 0.dp else 14.dp),
+        shape = RoundedCornerShape(
+            if (window.maximized || window.snap != WindowSnap.NONE) {
+                0.dp
+            } else {
+                14.dp
+            }
+        ),
         shadowElevation = 14.dp,
         tonalElevation = 5.dp,
     ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .pointerInput(window.id, window.maximized) {
-                        if (!window.maximized) {
-                            detectDragGestures(onDragStart = { desktop.focus(window.id) }) { change, drag ->
-                                change.consume()
-                                x = (x + drag.x).coerceAtLeast(0f)
-                                y = (y + drag.y).coerceAtLeast(0f)
+        Box {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .pointerInput(
+                            window.id,
+                            window.maximized,
+                            window.snap,
+                        ) {
+                            if (
+                                !window.maximized &&
+                                window.snap == WindowSnap.NONE
+                            ) {
+                                detectDragGestures(
+                                    onDragStart = {
+                                        desktop.focus(window.id)
+                                    }
+                                ) { change, drag ->
+                                    change.consume()
+                                    x = (x + drag.x).coerceAtLeast(0f)
+                                    y = (y + drag.y).coerceAtLeast(0f)
+                                }
                             }
                         }
+                        .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(window.title, modifier = Modifier.weight(1f))
+                    TextButton(
+                        onClick = { desktop.minimize(window.id) }
+                    ) {
+                        Text("—")
                     }
-                    .padding(horizontal = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(window.title, modifier = Modifier.weight(1f))
-                TextButton(onClick = { desktop.minimize(window.id) }) { Text("—") }
-                TextButton(onClick = { desktop.toggleMaximize(window.id) }) {
-                    Text(if (window.maximized) "▣" else "□")
+                    TextButton(
+                        onClick = {
+                            if (window.snap != WindowSnap.NONE) {
+                                desktop.restoreSnap(window.id)
+                            } else {
+                                desktop.toggleMaximize(window.id)
+                            }
+                        }
+                    ) {
+                        Text(
+                            when {
+                                window.snap != WindowSnap.NONE -> "↙"
+                                window.maximized -> "▣"
+                                else -> "□"
+                            }
+                        )
+                    }
+                    TextButton(
+                        onClick = { desktop.close(window.id) }
+                    ) {
+                        Text("×")
+                    }
                 }
-                TextButton(onClick = { desktop.close(window.id) }) { Text("×") }
+
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    content()
+                }
             }
 
-            Box(Modifier.fillMaxSize().padding(16.dp)) {
-                content()
+            if (
+                !window.maximized &&
+                window.snap == WindowSnap.NONE
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(30.dp)
+                        .pointerHoverIcon(PointerIcon.Crosshair)
+                        .pointerInput(window.id) {
+                            detectDragGestures { change, drag ->
+                                change.consume()
+                                widthFraction =
+                                    (
+                                        widthFraction +
+                                            drag.x / screenWidthPx
+                                    ).coerceIn(0.38f, 0.95f)
+                                heightFraction =
+                                    (
+                                        heightFraction +
+                                            drag.y / screenHeightPx
+                                    ).coerceIn(0.42f, 0.92f)
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("◢", fontSize = 14.sp)
+                }
             }
         }
     }
