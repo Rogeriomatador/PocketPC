@@ -508,11 +508,21 @@ internal fun browserTarget(raw: String): String {
     return "https://www.google.com/search?q=$query"
 }
 
-internal fun desktopUserAgent(base: String): String =
-    base
-        .replace("; wv", "")
-        .replace(" Mobile ", " ")
-        .replace(" Mobile Safari", " Safari")
+internal fun desktopUserAgent(base: String): String {
+    val chromeVersion =
+        Regex("""Chrome/([0-9.]+)""")
+            .find(base)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.takeIf { it.isNotBlank() }
+            ?: "150.0.0.0"
+
+    return (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/$chromeVersion Safari/537.36"
+        )
+}
 
 private fun enqueueDownload(
     context: Context,
