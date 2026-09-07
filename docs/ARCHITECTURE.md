@@ -1,4 +1,4 @@
-# PocketPC Architecture — Alpha 20
+# PocketPC Architecture — Alpha 21
 
 PocketPC is split into two evidence domains:
 
@@ -24,7 +24,44 @@ PocketPC internal applications render inside PocketPC windows. Third-party Andro
 applications are launched as Android activities/tasks; PocketPC does not use unsupported
 cross-app embedding and does not claim they are native PocketPC windows.
 
-## 2. Window contract
+## 2. Logical storage volumes
+
+PocketPC now distinguishes host Android storage from its PC namespace.
+
+### C: PocketPC System
+
+C: is backed by app-private storage and is reserved for data that benefits from direct,
+low-overhead filesystem access:
+
+- runtime state;
+- package/runtime metadata;
+- hot caches;
+- temporary files;
+- future shader/translation caches.
+
+### P: PocketDrive
+
+P: is backed by the user-selected persisted SAF tree and holds durable user-facing
+content:
+
+- Desktop;
+- Documents;
+- Downloads;
+- Apps;
+- Games;
+- Projects;
+- Pictures;
+- Videos;
+- Music;
+- Shared.
+
+Browser downloads use Android DownloadManager for transport reliability and are
+registered in a persistent PocketPC import queue. Completed files are streamed into
+P:\Downloads while a PocketPC session is active; unfinished import state is retried on
+a later session. PC-installer classification is metadata only and is not execution
+evidence.
+
+## 3. Window contract
 
 Every internal DesktopApp owns a DesktopWindowSpec:
 
@@ -45,7 +82,7 @@ dimensions and reserved taskbar space. Saved Alpha 20 geometry uses
 Half-screen snap is only offered when half of the logical display can satisfy the
 application minimum width.
 
-## 3. Integrated applications
+## 4. Integrated applications
 
 ### Browser
 
@@ -88,7 +125,7 @@ considered a separate monitor unless Android actually exposes a display.
 Shows PocketPC process/UI telemetry and advisory governor state. Metrics are not labeled
 as third-party game FPS or global GPU utilization.
 
-## 4. Android desktop cooperation
+## 5. Android desktop cooperation
 
 PocketPC probes public Android capabilities including:
 
@@ -105,7 +142,7 @@ When Android advertises support, app launch can request:
 These are requests, not guarantees. Unsupported/rejected external launch paths fall back
 without being counted as PASS evidence.
 
-## 5. Input
+## 6. Input
 
 Supported host interaction paths include:
 
@@ -118,7 +155,7 @@ Supported host interaction paths include:
 
 Public Activity/View input callbacks are used.
 
-## 6. Persistence
+## 7. Persistence
 
 App-private preferences store:
 
@@ -132,7 +169,7 @@ App-private preferences store:
 Browser tab/WebView state is currently session-scoped rather than a persistent browser
 database across complete process death.
 
-## 7. Physical evidence pipeline
+## 8. Physical evidence pipeline
 
 Windows flow:
 
@@ -143,9 +180,9 @@ MainActivity launch -> final record.
 Desktop device evidence records orientation, logical size, Android desktop capability
 advertisements, display counts and physical input-device counts.
 
-Alpha 20 has not yet completed this pipeline.
+Alpha 21 has not yet completed this pipeline.
 
-## 8. Runtime/filesystem boundary
+## 9. Runtime/filesystem boundary
 
 On the current Xiaomi Android host, physical diagnostics established safe host
 filesystem behaviors while direct host hardlink creation was denied.
