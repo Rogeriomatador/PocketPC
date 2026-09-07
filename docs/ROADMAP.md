@@ -13,6 +13,19 @@
 - PC installer vs Android package classification;
 - Alpha 20 remains the latest physically validated baseline.
 
+### Self-update bootstrap
+
+- stable update feed;
+- automatic feed check on PocketPC launch;
+- Este PC > Atualizações;
+- DownloadManager APK transport;
+- SHA-256 verification;
+- package/version verification;
+- installed/candidate signing-certificate compatibility check;
+- Android unknown-source permission flow;
+- fail-closed unpublished Alpha 21 feed;
+- signed artifact publication: BLOCKED until stable signing infrastructure exists.
+
 ### Implemented in source
 
 #### Desktop UX
@@ -67,7 +80,7 @@
 5. Require JVM unit tests to PASS.
 6. Require Android lint to PASS.
 7. Require APK assembly to PASS.
-8. Install and hash-verify the exact Alpha 20 APK on the physical POCO.
+8. Install and hash-verify the exact Alpha 21 APK on the physical POCO.
 9. Validate the redesigned shell manually:
    - Browser tabs/content area;
    - Explorer layout and real SAF operations;
@@ -79,10 +92,13 @@
    - Store;
    - Displays;
    - Performance.
-10. Record mouse/keyboard/gamepad/external-display evidence only when physically
+10. Validate Este PC > Atualizações with the unpublished bootstrap feed.
+11. Record mouse/keyboard/gamepad/external-display evidence only when physically
     observed.
 
-Until steps 2–10 actually execute, Alpha 21 SOFTWARE/PHYSICAL remain NOT_EXECUTED.
+Until steps 2–11 actually execute, Alpha 21 SOFTWARE/PHYSICAL remain NOT_EXECUTED.
+Automatic remote delivery remains separately BLOCKED until a stable signed APK is
+published.
 
 ## Next desktop milestones
 
