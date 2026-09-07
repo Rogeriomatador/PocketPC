@@ -14,6 +14,7 @@ UPDATER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" /
 CENTER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "UpdateCenterApp.kt"
 SYSTEM = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "SystemApp.kt"
 SHELL = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "PocketPcApp.kt"
+AUTO_TEST = ROOT / "app" / "src" / "test" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdaterPolicyTest.kt"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 REVISION_RE = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -87,6 +88,13 @@ def main() -> int:
             "ACTION_MANAGE_UNKNOWN_APP_SOURCES",
             "getUriForDownloadedFile",
             "GET_SIGNING_CERTIFICATES",
+            "autoCheckEnabled",
+            "autoDownloadUnmeteredEnabled",
+            "shouldRunAutomaticCheck",
+            "NET_CAPABILITY_NOT_METERED",
+            "KEY_VERIFIED_DOWNLOAD_ID",
+            "AUTO_CHECK_INTERVAL_MS",
+            "shouldRunUpdateCheck",
         ),
         CENTER: (
             "Verificar agora",
@@ -95,6 +103,17 @@ def main() -> int:
             "Instalar",
             "Fail-closed",
             "PocketPcUpdateAutoCheck",
+            "Verificar automaticamente",
+            "Baixar automaticamente",
+            "isPendingDownloadVerified",
+            "verifyPendingDownload",
+        ),
+        AUTO_TEST: (
+            "firstAutomaticCheckRunsImmediately",
+            "disabledAutomaticCheckNeverRuns",
+            "automaticCheckIsThrottledInsideInterval",
+            "automaticCheckRunsAtIntervalBoundary",
+            "clockRollbackDoesNotBlockUpdatesForever",
         ),
         SYSTEM: (
             'UPDATES("Atualizações")',
