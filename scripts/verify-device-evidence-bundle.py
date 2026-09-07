@@ -266,6 +266,94 @@ def main() -> int:
                         "build identity versionName"
                     )
 
+                evidence_schema = evidence_json.get("schemaVersion")
+                version_name = str(identity.get("versionName", ""))
+                requires_desktop = (
+                    isinstance(evidence_schema, int)
+                    and not isinstance(evidence_schema, bool)
+                    and evidence_schema >= 4
+                ) or version_name.startswith("0.1.0-alpha19")
+
+                if requires_desktop:
+                    desktop = evidence_json.get("desktop")
+                    if not isinstance(desktop, dict):
+                        failures.append(
+                            "alpha19 device evidence desktop must be an object"
+                        )
+                        desktop = {}
+
+                    if desktop.get("orientationLandscape") is not True:
+                        failures.append(
+                            "alpha19 desktop orientation is not landscape"
+                        )
+
+                    for field in (
+                        "secondaryDisplayActivities",
+                        "freeformWindowManagement",
+                    ):
+                        if not isinstance(desktop.get(field), bool):
+                            failures.append(
+                                f"alpha19 desktop {field} must be boolean"
+                            )
+
+                    for field in (
+                        "screenWidthDp",
+                        "screenHeightDp",
+                        "externalDisplayCount",
+                        "presentationDisplayCount",
+                    ):
+                        value = desktop.get(field)
+                        if (
+                            not isinstance(value, int)
+                            or isinstance(value, bool)
+                            or value < 0
+                        ):
+                            failures.append(
+                                f"alpha19 desktop {field} must be "
+                                "a non-negative integer"
+                            )
+
+                    peripherals = desktop.get("peripherals")
+                    if not isinstance(peripherals, dict):
+                        failures.append(
+                            "alpha19 desktop peripherals must be an object"
+                        )
+                        peripherals = {}
+
+                    for field in (
+                        "mouseCount",
+                        "keyboardCount",
+                        "gamepadCount",
+                    ):
+                        value = peripherals.get(field)
+                        if (
+                            not isinstance(value, int)
+                            or isinstance(value, bool)
+                            or value < 0
+                        ):
+                            failures.append(
+                                f"alpha19 peripherals {field} must be "
+                                "a non-negative integer"
+                            )
+
+                    displays = desktop.get("externalDisplays")
+                    if not isinstance(displays, list):
+                        failures.append(
+                            "alpha19 externalDisplays must be an array"
+                        )
+                        displays = []
+
+                    count = desktop.get("externalDisplayCount")
+                    if (
+                        isinstance(count, int)
+                        and not isinstance(count, bool)
+                        and count != len(displays)
+                    ):
+                        failures.append(
+                            "alpha19 externalDisplayCount differs from "
+                            "externalDisplays length"
+                        )
+
                 revision = str(identity.get("sourceRevision", ""))
                 pinned = identity.get("sourceRevisionPinned")
 
