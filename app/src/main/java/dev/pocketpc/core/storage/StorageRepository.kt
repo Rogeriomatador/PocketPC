@@ -207,6 +207,16 @@ class StorageRepository(private val context: Context) {
             check(document.renameTo(cleanName)) {
                 "O provedor de arquivos recusou renomear o item."
             }
+
+            PocketPcPackageRegistry(context)
+                .update(
+                    oldUri = entry.uri,
+                    entry =
+                        entry.copy(
+                            name = cleanName,
+                        ),
+                )
+            Unit
         }
     }
 
@@ -221,6 +231,9 @@ class StorageRepository(private val context: Context) {
                 check(document.delete()) {
                     "O provedor de arquivos recusou excluir o item."
                 }
+                PocketPcPackageRegistry(context)
+                    .remove(entry.uri)
+                Unit
             }
         }
 
