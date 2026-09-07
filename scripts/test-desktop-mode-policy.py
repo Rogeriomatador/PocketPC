@@ -43,7 +43,7 @@ CHECKS = {
         "DesktopApp.APPS -> InstalledAppsApp(desktopCapabilities)",
         "DesktopApp.DOWNLOADS -> DownloadsApp(storage, storageRoot)",
         "PocketDownloadImporter.importReady",
-        "PocketPcUpdateAutoCheck()",
+        "PocketPcUpdateAutoCheck(",
         "DesktopApp.STORE -> StoreApp()",
         "DesktopApp.CONTROL_CENTER -> ControlCenterApp()",
         "DesktopApp.DISPLAYS -> DisplaysApp(desktopCapabilities)",
