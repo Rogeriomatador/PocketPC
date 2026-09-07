@@ -529,6 +529,9 @@ fun UpdateCenterApp() {
                                             .SESSION_COMMITTED ->
                                             "Atualização entregue ao instalador do Android. Se a plataforma permitir, será aplicada sem outra ação."
                                         PocketPcInstallResult
+                                            .SESSION_ALREADY_PENDING ->
+                                            "Esta atualização já foi entregue ao Android e está aguardando conclusão."
+                                        PocketPcInstallResult
                                             .NEEDS_UNKNOWN_SOURCE_PERMISSION ->
                                             "Autorize o PocketPC a instalar atualizações e volte aqui."
                                     }
