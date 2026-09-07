@@ -13,6 +13,7 @@ data class DesktopWindow(
 )
 
 enum class DesktopApp(val label: String, val glyph: String) {
+    BROWSER("Navegador", "WWW"),
     FILES("Arquivos", "▣"),
     TERMINAL("Terminal", ">_"),
     RUNTIMES("Runtimes", "⬡"),
