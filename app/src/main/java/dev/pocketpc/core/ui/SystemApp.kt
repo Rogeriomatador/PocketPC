@@ -434,6 +434,32 @@ private fun OverviewTab(
         )
     }
 
+    InfoSection("Unidades") {
+        ValueRow(
+            "C: PocketPC System",
+            "Privado • runtime/cache/sistema",
+        )
+        ValueRow(
+            "P: PocketDrive",
+            if (storageConfigured) {
+                "Conectado • dados persistentes"
+            } else {
+                "Não conectado"
+            },
+        )
+        Text(
+            "C: e P: são volumes lógicos do PocketPC. " +
+                "Se P: estiver no armazenamento interno do telefone, " +
+                "eles podem compartilhar o mesmo chip físico, mas " +
+                "continuam separados por finalidade e política de acesso.",
+            style =
+                MaterialTheme.typography.bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant,
+        )
+    }
+
     InfoSection("Energia e rede") {
         ValueRow(
             "Bateria",
