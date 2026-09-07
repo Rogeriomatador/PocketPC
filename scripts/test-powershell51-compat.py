@@ -343,6 +343,17 @@ def main() -> int:
                 failures.append(
                     "Windows physical validator must expose per-capability filesystem evidence"
                 )
+            for sentinel in (
+                "--require-host-filesystem-pass",
+                "Host filesystem critical",
+                "Linux runtime link semantics",
+                "runtimeLinkSemanticsReady",
+            ):
+                if sentinel not in text:
+                    failures.append(
+                        "Windows physical validator is missing split filesystem gate "
+                        f"sentinel: {sentinel}"
+                    )
 
         if path.name == "doctor-windows.ps1":
             marker = "# POCKETPC_DOCTOR_EOF"
