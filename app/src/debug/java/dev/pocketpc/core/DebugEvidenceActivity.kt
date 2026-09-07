@@ -180,6 +180,10 @@ class DebugEvidenceActivity : ComponentActivity() {
                         evidence.desktopCapabilities.freeformWindowManagement,
                     )
                     .put(
+                        "pcHardwareType",
+                        evidence.desktopCapabilities.pcHardwareType,
+                    )
+                    .put(
                         "externalDisplayCount",
                         evidence.desktopCapabilities.externalDisplayCount,
                     )
