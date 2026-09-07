@@ -44,6 +44,7 @@ def make_bundle(path: pathlib.Path, tamper: bool = False) -> None:
                 "screenHeightDp": 412,
                 "secondaryDisplayActivities": True,
                 "freeformWindowManagement": False,
+                "pcHardwareType": False,
                 "externalDisplayCount": 0,
                 "presentationDisplayCount": 0,
                 "peripherals": {
