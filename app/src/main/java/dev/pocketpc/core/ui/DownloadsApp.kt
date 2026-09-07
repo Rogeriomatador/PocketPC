@@ -15,6 +15,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.pocketpc.core.storage.PocketDriveDirectory
+import dev.pocketpc.core.storage.PocketFileClass
+import dev.pocketpc.core.storage.StorageEntry
+import dev.pocketpc.core.storage.StorageRepository
+import dev.pocketpc.core.storage.classifyPocketFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -29,7 +34,10 @@ private data class PocketDownload(
 )
 
 @Composable
-fun DownloadsApp() {
+fun DownloadsApp(
+    repository: StorageRepository,
+    rootUri: String?,
+) {
     val context = LocalContext.current
     val manager =
         remember {
@@ -38,8 +46,13 @@ fun DownloadsApp() {
             ) as DownloadManager
         }
 
-    var downloads by remember {
+    var activeDownloads by remember {
         mutableStateOf<List<PocketDownload>>(
+            emptyList()
+        )
+    }
+    var pocketFiles by remember {
+        mutableStateOf<List<StorageEntry>>(
             emptyList()
         )
     }
@@ -50,32 +63,66 @@ fun DownloadsApp() {
         mutableIntStateOf(0)
     }
 
-    LaunchedEffect(refreshToken) {
+    LaunchedEffect(
+        refreshToken,
+        rootUri,
+    ) {
         while (true) {
-            downloads =
+            activeDownloads =
                 withContext(Dispatchers.IO) {
                     queryDownloads(manager)
                 }
+
+            pocketFiles =
+                if (rootUri != null) {
+                    repository
+                        .pocketDirectoryUri(
+                            PocketDriveDirectory.DOWNLOADS
+                        )
+                        .getOrNull()
+                        ?.let { uri ->
+                            repository
+                                .list(uri)
+                                .getOrNull()
+                                ?.entries
+                                .orEmpty()
+                        }
+                        .orEmpty()
+                } else {
+                    emptyList()
+                }
+
             delay(2_000)
         }
     }
 
     Column(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement =
+            Arrangement.spacedBy(8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment =
+                Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
                     "Downloads",
-                    style = MaterialTheme.typography.titleLarge,
+                    style =
+                        MaterialTheme.typography.titleLarge,
                 )
                 Text(
-                    "Arquivos baixados pelo PocketPC",
-                    style = MaterialTheme.typography.bodySmall,
+                    if (rootUri != null) {
+                        "Destino padrão: P:\\Downloads"
+                    } else {
+                        "PocketDrive ainda não conectado"
+                    },
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
                 )
             }
 
@@ -100,93 +147,249 @@ fun DownloadsApp() {
                     }
                 },
             ) {
-                Text("Gerenciador Android")
+                Text("Fila Android")
             }
         }
-
-        HorizontalDivider()
 
         statusMessage?.let {
             Text(
                 it,
-                style = MaterialTheme.typography.bodySmall,
+                style =
+                    MaterialTheme.typography.bodySmall,
             )
         }
 
-        if (downloads.isEmpty()) {
+        HorizontalDivider()
+
+        if (
+            activeDownloads.isEmpty() &&
+            pocketFiles.isEmpty()
+        ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    "Nenhum download do PocketPC encontrado.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    if (rootUri != null) {
+                        "P:\\Downloads está vazio."
+                    } else {
+                        "Conecte um PocketDrive para usar " +
+                            "o armazenamento do PC."
+                    },
+                    style =
+                        MaterialTheme.typography.bodyMedium,
                 )
             }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(5.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(5.dp),
             ) {
-                items(
-                    items = downloads,
-                    key = { it.id },
-                ) { item ->
-                    DownloadRow(
-                        item = item,
-                        onOpen = {
-                            val uri =
-                                manager.getUriForDownloadedFile(
-                                    item.id
-                                )
-                            if (uri == null) {
-                                statusMessage =
-                                    "O arquivo ainda não está disponível."
-                            } else {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(
-                                            Intent.ACTION_VIEW
-                                        ).apply {
-                                            setDataAndType(
-                                                uri,
-                                                manager
-                                                    .getMimeTypeForDownloadedFile(
-                                                        item.id
-                                                    )
-                                                    ?: item.mimeType
-                                                    ?: "*/*",
-                                            )
-                                            addFlags(
-                                                Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                            )
-                                            addFlags(
-                                                Intent.FLAG_ACTIVITY_NEW_TASK
-                                            )
-                                        }
-                                    )
-                                }.onFailure { error ->
+                if (activeDownloads.isNotEmpty()) {
+                    item {
+                        DownloadSectionHeader(
+                            title = "Em andamento",
+                            subtitle =
+                                "DownloadManager → PocketDrive",
+                        )
+                    }
+
+                    items(
+                        items = activeDownloads,
+                        key = { "active-${it.id}" },
+                    ) { item ->
+                        DownloadRow(
+                            item = item,
+                            onOpen = {
+                                val uri =
+                                    manager
+                                        .getUriForDownloadedFile(
+                                            item.id
+                                        )
+                                if (uri == null) {
                                     statusMessage =
-                                        "Falha ao abrir: " +
-                                            (
-                                                error.message
-                                                    ?: error.javaClass.simpleName
-                                            )
-                                }
-                            }
-                        },
-                        onRemove = {
-                            val removed =
-                                manager.remove(item.id)
-                            statusMessage =
-                                if (removed > 0) {
-                                    "Download removido da lista."
+                                        "O arquivo ainda não está disponível."
                                 } else {
-                                    "Não foi possível remover o download."
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(
+                                                Intent.ACTION_VIEW
+                                            ).apply {
+                                                setDataAndType(
+                                                    uri,
+                                                    manager
+                                                        .getMimeTypeForDownloadedFile(
+                                                            item.id
+                                                        )
+                                                        ?: item.mimeType
+                                                        ?: "*/*",
+                                                )
+                                                addFlags(
+                                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                                )
+                                                addFlags(
+                                                    Intent.FLAG_ACTIVITY_NEW_TASK
+                                                )
+                                            }
+                                        )
+                                    }.onFailure { error ->
+                                        statusMessage =
+                                            "Falha ao abrir: " +
+                                                (
+                                                    error.message
+                                                        ?: error
+                                                            .javaClass
+                                                            .simpleName
+                                                    )
+                                    }
                                 }
-                            refreshToken++
+                            },
+                            onRemove = {
+                                val removed =
+                                    manager.remove(item.id)
+                                statusMessage =
+                                    if (removed > 0) {
+                                        "Download cancelado/removido."
+                                    } else {
+                                        "Não foi possível remover o download."
+                                    }
+                                refreshToken++
+                            },
+                        )
+                    }
+                }
+
+                if (pocketFiles.isNotEmpty()) {
+                    item {
+                        DownloadSectionHeader(
+                            title = "P:\\Downloads",
+                            subtitle =
+                                "${pocketFiles.size} item(ns) persistentes",
+                        )
+                    }
+
+                    items(
+                        items = pocketFiles,
+                        key = { "drive-${it.uri}" },
+                    ) { entry ->
+                        PocketDriveDownloadRow(
+                            entry = entry,
+                            onOpen = {
+                                if (!entry.directory) {
+                                    repository
+                                        .openFile(entry)
+                                        .onFailure { error ->
+                                            statusMessage =
+                                                error.message
+                                                    ?: "Falha ao abrir."
+                                        }
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadSectionHeader(
+    title: String,
+    subtitle: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                top = 6.dp,
+                bottom = 2.dp,
+            ),
+        horizontalArrangement =
+            Arrangement.SpaceBetween,
+        verticalAlignment =
+            Alignment.CenterVertically,
+    ) {
+        Text(
+            title,
+            style =
+                MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            subtitle,
+            fontSize = 8.sp,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun PocketDriveDownloadRow(
+    entry: StorageEntry,
+    onOpen: () -> Unit,
+) {
+    val fileClass =
+        if (entry.directory) {
+            PocketFileClass.GENERIC
+        } else {
+            classifyPocketFile(entry.name)
+        }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 1.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment =
+                Alignment.CenterVertically,
+            horizontalArrangement =
+                Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                when (fileClass) {
+                    PocketFileClass.PC_INSTALLER -> "PC"
+                    PocketFileClass.ANDROID_PACKAGE -> "APK"
+                    PocketFileClass.ARCHIVE -> "ZIP"
+                    PocketFileClass.DISK_IMAGE -> "IMG"
+                    PocketFileClass.GENERIC -> "↓"
+                },
+                fontSize = 11.sp,
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(
+                    entry.name,
+                    maxLines = 1,
+                    overflow =
+                        TextOverflow.Ellipsis,
+                )
+                Text(
+                    pocketFileClassLabel(
+                        fileClass
+                    ) +
+                        if (!entry.directory) {
+                            " • " +
+                                formatBytes(entry.size)
+                        } else {
+                            ""
                         },
-                    )
+                    fontSize = 9.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                )
+            }
+
+            if (!entry.directory) {
+                Button(onClick = onOpen) {
+                    Text("Abrir")
                 }
             }
         }
@@ -216,47 +419,62 @@ private fun DownloadRow(
     ) {
         Row(
             modifier = Modifier.padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment =
+                Alignment.CenterVertically,
+            horizontalArrangement =
+                Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                "↓",
-                fontSize = 22.sp,
-            )
+            Text("↓", fontSize = 22.sp)
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(3.dp),
             ) {
                 Text(
-                    item.title.ifBlank { "Download" },
+                    item.title.ifBlank {
+                        "Download"
+                    },
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow =
+                        TextOverflow.Ellipsis,
                 )
                 Text(
                     downloadStatusLabel(item.status),
                     fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
                 )
 
                 if (
-                    item.status == DownloadManager.STATUS_RUNNING &&
+                    item.status ==
+                        DownloadManager.STATUS_RUNNING &&
                     progress != null
                 ) {
                     LinearProgressIndicator(
                         progress = { progress },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier.fillMaxWidth(),
                     )
                 }
 
                 Text(
                     when {
                         item.totalBytes > 0L ->
-                            "${formatBytes(item.bytesDownloaded)} / " +
-                                formatBytes(item.totalBytes)
+                            formatBytes(
+                                item.bytesDownloaded
+                            ) +
+                                " / " +
+                                formatBytes(
+                                    item.totalBytes
+                                )
                         item.bytesDownloaded > 0L ->
-                            formatBytes(item.bytesDownloaded)
-                        else -> "Tamanho desconhecido"
+                            formatBytes(
+                                item.bytesDownloaded
+                            )
+                        else ->
+                            "Tamanho desconhecido"
                     },
                     fontSize = 9.sp,
                 )
@@ -281,23 +499,33 @@ private fun DownloadRow(
 private fun queryDownloads(
     manager: DownloadManager,
 ): List<PocketDownload> {
-    val result = mutableListOf<PocketDownload>()
-    val cursor = manager.query(DownloadManager.Query())
+    val result =
+        mutableListOf<PocketDownload>()
+    val cursor =
+        manager.query(DownloadManager.Query())
 
     cursor?.use {
         val idIndex =
-            it.getColumnIndex(DownloadManager.COLUMN_ID)
+            it.getColumnIndex(
+                DownloadManager.COLUMN_ID
+            )
         val titleIndex =
-            it.getColumnIndex(DownloadManager.COLUMN_TITLE)
+            it.getColumnIndex(
+                DownloadManager.COLUMN_TITLE
+            )
         val statusIndex =
-            it.getColumnIndex(DownloadManager.COLUMN_STATUS)
+            it.getColumnIndex(
+                DownloadManager.COLUMN_STATUS
+            )
         val downloadedIndex =
             it.getColumnIndex(
-                DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR
+                DownloadManager
+                    .COLUMN_BYTES_DOWNLOADED_SO_FAR
             )
         val totalIndex =
             it.getColumnIndex(
-                DownloadManager.COLUMN_TOTAL_SIZE_BYTES
+                DownloadManager
+                    .COLUMN_TOTAL_SIZE_BYTES
             )
         val mimeIndex =
             it.getColumnIndex(
@@ -312,34 +540,41 @@ private fun queryDownloads(
                 continue
             }
 
-            result += PocketDownload(
-                id = it.getLong(idIndex),
-                title =
-                    if (titleIndex >= 0) {
-                        it.getString(titleIndex).orEmpty()
-                    } else {
-                        "Download"
-                    },
-                status = it.getInt(statusIndex),
-                bytesDownloaded =
-                    if (downloadedIndex >= 0) {
-                        it.getLong(downloadedIndex)
-                    } else {
-                        0L
-                    },
-                totalBytes =
-                    if (totalIndex >= 0) {
-                        it.getLong(totalIndex)
-                    } else {
-                        -1L
-                    },
-                mimeType =
-                    if (mimeIndex >= 0) {
-                        it.getString(mimeIndex)
-                    } else {
-                        null
-                    },
-            )
+            result +=
+                PocketDownload(
+                    id = it.getLong(idIndex),
+                    title =
+                        if (titleIndex >= 0) {
+                            it.getString(titleIndex)
+                                .orEmpty()
+                        } else {
+                            "Download"
+                        },
+                    status =
+                        it.getInt(statusIndex),
+                    bytesDownloaded =
+                        if (
+                            downloadedIndex >= 0
+                        ) {
+                            it.getLong(
+                                downloadedIndex
+                            )
+                        } else {
+                            0L
+                        },
+                    totalBytes =
+                        if (totalIndex >= 0) {
+                            it.getLong(totalIndex)
+                        } else {
+                            -1L
+                        },
+                    mimeType =
+                        if (mimeIndex >= 0) {
+                            it.getString(mimeIndex)
+                        } else {
+                            null
+                        },
+                )
         }
     }
 
@@ -357,9 +592,25 @@ private fun downloadStatusLabel(
         DownloadManager.STATUS_PAUSED ->
             "Pausado"
         DownloadManager.STATUS_SUCCESSFUL ->
-            "Concluído"
+            "Concluído / importando"
         DownloadManager.STATUS_FAILED ->
             "Falhou"
         else ->
             "Status desconhecido"
+    }
+
+private fun pocketFileClassLabel(
+    fileClass: PocketFileClass,
+): String =
+    when (fileClass) {
+        PocketFileClass.PC_INSTALLER ->
+            "Pacote de PC"
+        PocketFileClass.ANDROID_PACKAGE ->
+            "Pacote Android"
+        PocketFileClass.ARCHIVE ->
+            "Arquivo compactado"
+        PocketFileClass.DISK_IMAGE ->
+            "Imagem de disco"
+        PocketFileClass.GENERIC ->
+            "Arquivo"
     }
