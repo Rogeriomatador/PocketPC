@@ -45,3 +45,16 @@ fun defaultDesktopPins(): List<DesktopApp> =
         DesktopApp.TERMINAL,
         DesktopApp.APPS,
     )
+
+
+fun defaultDesktopShortcuts(): List<DesktopApp> =
+    listOf(
+        DesktopApp.BROWSER,
+        DesktopApp.FILES,
+        DesktopApp.APPS,
+        DesktopApp.STORE,
+        DesktopApp.CONTROL_CENTER,
+        DesktopApp.DOWNLOADS,
+        DesktopApp.PERSONALIZATION,
+        DesktopApp.SYSTEM,
+    )
