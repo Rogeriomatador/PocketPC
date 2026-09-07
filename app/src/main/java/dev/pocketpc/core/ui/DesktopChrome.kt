@@ -608,13 +608,19 @@ fun TaskbarV2(
                 }
             }
 
-            DesktopSystemTray(peripherals)
+            DesktopSystemTray(
+                peripherals = peripherals,
+                onClick = { desktop.open(DesktopApp.CONTROL_CENTER) },
+            )
         }
     }
 }
 
 @Composable
-private fun DesktopSystemTray(peripherals: PeripheralSnapshot) {
+private fun DesktopSystemTray(
+    peripherals: PeripheralSnapshot,
+    onClick: () -> Unit,
+) {
     val context = LocalContext.current
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     var battery by remember { mutableIntStateOf(readBatteryPercent(context)) }
@@ -634,6 +640,10 @@ private fun DesktopSystemTray(peripherals: PeripheralSnapshot) {
     }
 
     Row(
+        modifier = Modifier
+            .pointerHoverIcon(PointerIcon.Hand)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
