@@ -182,6 +182,11 @@ CHECKS = {
         "anyConfirmedInputMarksDesktopInputAsObserved",
         "optimizedRatingDoesNotFabricateInputEvidence",
     ),
+    "scripts/build-local-windows.ps1": (
+        "scripts\\test-desktop-mode-policy.py",
+        "scripts\\test-desktop-enum-coverage.py",
+        "scripts\\test-ci-version-policy.py",
+    ),
     "scripts/test-desktop-enum-coverage.py": (
         "DESKTOP_ENUM_COVERAGE_OK",
         "DesktopApp values missing PocketPcApp window handler",
