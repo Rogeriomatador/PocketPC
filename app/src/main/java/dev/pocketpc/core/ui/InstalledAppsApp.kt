@@ -5,7 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Rect
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,7 +41,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -428,41 +437,10 @@ fun InstalledAppsApp(
                             verticalArrangement =
                                 Arrangement.spacedBy(5.dp),
                         ) {
-                            Surface(
-                                modifier = Modifier
-                                    .size(38.dp),
-                                shape =
-                                    androidx.compose.foundation
-                                        .shape
-                                        .RoundedCornerShape(
-                                            10.dp
-                                        ),
-                                color =
-                                    if (app.isGame) {
-                                        MaterialTheme
-                                            .colorScheme
-                                            .tertiaryContainer
-                                    } else {
-                                        MaterialTheme
-                                            .colorScheme
-                                            .primaryContainer
-                                    },
-                            ) {
-                                Box(
-                                    contentAlignment =
-                                        Alignment.Center,
-                                ) {
-                                    Text(
-                                        app.label
-                                            .take(1)
-                                            .uppercase(),
-                                        style =
-                                            MaterialTheme
-                                                .typography
-                                                .titleMedium,
-                                    )
-                                }
-                            }
+                            AndroidAppIcon(
+                                app = app,
+                                modifier = Modifier.size(42.dp),
+                            )
 
                             Text(
                                 app.label,
@@ -516,6 +494,109 @@ fun InstalledAppsApp(
             }
         }
     }
+}
+
+@Composable
+private fun AndroidAppIcon(
+    app: LaunchableAndroidApp,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(
+        initialValue = null,
+        key1 = app.packageName,
+    ) {
+        value =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    drawableToBitmap(
+                        context.packageManager
+                            .getApplicationIcon(
+                                app.packageName
+                            )
+                    ).asImageBitmap()
+                }.getOrNull()
+            }
+    }
+
+    Surface(
+        modifier = modifier,
+        shape =
+            androidx.compose.foundation.shape
+                .RoundedCornerShape(11.dp),
+        color =
+            if (app.isGame) {
+                MaterialTheme.colorScheme
+                    .tertiaryContainer
+            } else {
+                MaterialTheme.colorScheme
+                    .primaryContainer
+            },
+    ) {
+        val image = bitmap
+        if (image != null) {
+            Image(
+                bitmap = image,
+                contentDescription = app.label,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(3.dp),
+                contentScale = ContentScale.Fit,
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    app.label
+                        .take(1)
+                        .uppercase(),
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                )
+            }
+        }
+    }
+}
+
+private fun drawableToBitmap(
+    drawable: Drawable,
+): Bitmap {
+    if (
+        drawable is BitmapDrawable &&
+        drawable.bitmap != null
+    ) {
+        return drawable.bitmap
+    }
+
+    val width =
+        drawable.intrinsicWidth
+            .takeIf { it > 0 }
+            ?.coerceAtMost(256)
+            ?: 96
+    val height =
+        drawable.intrinsicHeight
+            .takeIf { it > 0 }
+            ?.coerceAtMost(256)
+            ?: 96
+
+    val bitmap =
+        Bitmap.createBitmap(
+            width,
+            height,
+            Bitmap.Config.ARGB_8888,
+        )
+    val canvas = Canvas(bitmap)
+    drawable.setBounds(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+    )
+    drawable.draw(canvas)
+    return bitmap
 }
 
 @Composable
