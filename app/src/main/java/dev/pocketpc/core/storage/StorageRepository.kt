@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class StorageRepository(private val context: Context) {
     private val prefs = context.getSharedPreferences("pocketpc-storage", Context.MODE_PRIVATE)
@@ -33,6 +34,105 @@ class StorageRepository(private val context: Context) {
     fun clearRoot() {
         rootUriString?.let(Uri::parse)?.let(::releasePersistedPermission)
         rootUriString = null
+        prefs.edit().remove(KEY_DRIVE_SCHEMA_VERSION).apply()
+    }
+
+    suspend fun ensurePocketDrive(
+        rootUri: String = requireNotNull(rootUriString) {
+            "Nenhuma unidade PocketDrive foi configurada."
+        },
+    ): Result<PocketDriveMount> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val root = resolveDirectory(rootUri)
+                check(root.canWrite()) {
+                    "A pasta escolhida não permite escrita. " +
+                        "Escolha uma pasta gravável para o PocketDrive."
+                }
+
+                val directories =
+                    PocketDriveDirectory.entries
+                        .associateWith { directory ->
+                            val existing =
+                                root.findFile(
+                                    directory.folderName
+                                )
+                            val folder =
+                                when {
+                                    existing == null ->
+                                        checkNotNull(
+                                            root.createDirectory(
+                                                directory.folderName
+                                            )
+                                        ) {
+                                            "Não foi possível criar " +
+                                                directory.folderName
+                                        }
+
+                                    existing.isDirectory ->
+                                        existing
+
+                                    else ->
+                                        error(
+                                            "Existe um arquivo chamado " +
+                                                directory.folderName +
+                                                " onde o PocketDrive " +
+                                                "precisa de uma pasta."
+                                        )
+                                }
+
+                            folder.uri.toString()
+                        }
+
+                prefs.edit()
+                    .putInt(
+                        KEY_DRIVE_SCHEMA_VERSION,
+                        POCKET_DRIVE_SCHEMA_VERSION,
+                    )
+                    .apply()
+
+                PocketDriveMount(
+                    rootUri = root.uri.toString(),
+                    directories = directories,
+                )
+            }
+        }
+
+    suspend fun pocketDirectoryUri(
+        directory: PocketDriveDirectory,
+    ): Result<String> =
+        ensurePocketDrive().mapCatching { mount ->
+            requireNotNull(mount.uriFor(directory)) {
+                "Diretório lógico indisponível: " +
+                    directory.displayName
+            }
+        }
+
+    fun systemVolume(): PocketSystemVolume {
+        val root =
+            File(
+                context.filesDir,
+                "pocketpc-system",
+            ).apply { mkdirs() }
+        val runtime =
+            File(root, "runtime").apply { mkdirs() }
+        val packages =
+            File(root, "packages").apply { mkdirs() }
+        val cache =
+            File(
+                context.cacheDir,
+                "pocketpc-system",
+            ).apply { mkdirs() }
+        val temporary =
+            File(cache, "temp").apply { mkdirs() }
+
+        return PocketSystemVolume(
+            rootPath = root.absolutePath,
+            cachePath = cache.absolutePath,
+            runtimePath = runtime.absolutePath,
+            packagesPath = packages.absolutePath,
+            temporaryPath = temporary.absolutePath,
+        )
     }
 
     private fun releasePersistedPermission(uri: Uri) {
@@ -156,6 +256,8 @@ class StorageRepository(private val context: Context) {
 
     companion object {
         private const val KEY_ROOT_URI = "root-uri"
+        private const val KEY_DRIVE_SCHEMA_VERSION =
+            "pocket-drive-schema-version"
     }
 }
 
