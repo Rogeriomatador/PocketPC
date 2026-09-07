@@ -10,6 +10,8 @@ on:
       - "toolchains/android-build-lock.json"
       - "scripts/prepare-update-feed.py"
       - "scripts/test-update-feed-policy.py"
+      - "scripts/verify-bootstrap-signer.py"
+      - "updates/bootstrap-signer.json"
       - ".github/workflows/publish-update.yml"
   workflow_dispatch:
 
@@ -160,7 +162,23 @@ jobs:
               out.write(f"apk_name={output.name}\n")
           PY
 
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner"             verify --verbose --print-certs             "${{ steps.identity.outputs.apk }}"
+          APK_PATH="${{ steps.identity.outputs.apk }}"
+          APK_SIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+
+          "$APK_SIGNER" verify --verbose --print-certs "$APK_PATH"
+
+          SIGNER_SHA="$(
+            "$APK_SIGNER" verify --print-certs "$APK_PATH" |
+              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
+              head -n 1
+          )"
+
+          if [ -z "$SIGNER_SHA" ]; then
+            echo "PUBLISH_UPDATE_FAILED_SIGNER_DIGEST_MISSING" >&2
+            exit 1
+          fi
+
+          python3 scripts/verify-bootstrap-signer.py             --signer-sha256 "$SIGNER_SHA"
 
       - name: Publish immutable GitHub Release
         if: steps.gate.outputs.publish == 'true'
