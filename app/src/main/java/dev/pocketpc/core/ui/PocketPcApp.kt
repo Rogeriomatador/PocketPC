@@ -8,9 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,7 +25,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.pocketpc.core.BuildConfig
 import dev.pocketpc.core.desktop.DesktopApp
 import dev.pocketpc.core.desktop.DesktopCommand
 import dev.pocketpc.core.desktop.DesktopCapabilityMonitor
@@ -273,87 +270,6 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             peripherals = peripherals,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
-    }
-}
-
-@Composable
-private fun DesktopIcons(desktop: DesktopController) {
-    Column(
-        modifier = Modifier.padding(start = 18.dp, top = 52.dp, bottom = 72.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        DesktopApp.entries.forEach { app ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .width(82.dp)
-                    .clickable { desktop.open(app) }
-                    .padding(vertical = 3.dp),
-            ) {
-                Text(app.glyph, fontSize = 25.sp)
-                Text(app.label, fontSize = 11.sp, maxLines = 1)
-            }
-        }
-    }
-}
-
-@Composable
-private fun Taskbar(desktop: DesktopController, modifier: Modifier = Modifier) {
-    Surface(
-        tonalElevation = 8.dp,
-        modifier = modifier.fillMaxWidth().height(56.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Button(
-                onClick = desktop::toggleStartMenu,
-                contentPadding = PaddingValues(horizontal = 14.dp),
-            ) {
-                Text("PC")
-            }
-
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                desktop.windows.sortedBy { it.zIndex }.forEach { window ->
-                    AssistChip(
-                        onClick = { desktop.open(window.app) },
-                        label = { Text(if (window.minimized) "${window.title} ↓" else window.title) },
-                    )
-                }
-            }
-
-            Text(BuildConfig.VERSION_NAME.substringAfterLast("-"), fontSize = 12.sp)
-        }
-    }
-}
-
-@Composable
-private fun StartMenu(desktop: DesktopController, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.width(300.dp),
-        shape = RoundedCornerShape(18.dp),
-        tonalElevation = 12.dp,
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("PocketPC", style = MaterialTheme.typography.titleLarge)
-            Text(BuildConfig.VERSION_NAME + " • pocket desktop", style = MaterialTheme.typography.bodySmall)
-            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-            DesktopApp.entries.forEach { app ->
-                TextButton(
-                    onClick = { desktop.open(app) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("${app.glyph}  ${app.label}", modifier = Modifier.fillMaxWidth())
-                }
-            }
-        }
     }
 }
 
