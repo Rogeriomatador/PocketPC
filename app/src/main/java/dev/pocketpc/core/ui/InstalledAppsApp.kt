@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import dev.pocketpc.core.desktop.DesktopCapabilitySnapshot
+import dev.pocketpc.core.desktop.DesktopLaunchPolicy
 import dev.pocketpc.core.desktop.GameCompatibilityProfile
 import dev.pocketpc.core.desktop.GameCompatibilityStore
 import dev.pocketpc.core.desktop.GameDesktopRating
@@ -198,20 +199,25 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
 
-                            val requestedDisplay =
-                                if (preferExternal) externalDisplayId else null
+                            val launchPlan = DesktopLaunchPolicy.plan(
+                                capabilities = capabilities,
+                                preferExternal = preferExternal,
+                                preferWindowed = preferWindowed,
+                            )
 
                             val result = runCatching {
-                                val useFreeform =
-                                    preferWindowed &&
-                                        capabilities.freeformWindowManagement
                                 val options =
-                                    if (requestedDisplay != null || useFreeform) {
+                                    if (
+                                        launchPlan.usesExternalDisplay ||
+                                        launchPlan.usesDesktopWindowing
+                                    ) {
                                         buildDesktopLaunchOptions(
                                             context = context,
                                             capabilities = capabilities,
-                                            requestedDisplayId = requestedDisplay,
-                                            useFreeformBounds = useFreeform,
+                                            requestedDisplayId =
+                                                launchPlan.requestedDisplayId,
+                                            useFreeformBounds =
+                                                launchPlan.useFreeformBounds,
                                         )
                                     } else {
                                         null
@@ -228,11 +234,12 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
 
                                 status =
                                     when {
-                                        requestedDisplay != null && useFreeform ->
+                                        launchPlan.usesExternalDisplay &&
+                                            launchPlan.usesDesktopWindowing ->
                                             "Aberto no monitor externo com pedido de janela: ${app.label}"
-                                        requestedDisplay != null ->
+                                        launchPlan.usesExternalDisplay ->
                                             "Aberto no monitor externo: ${app.label}"
-                                        useFreeform ->
+                                        launchPlan.usesDesktopWindowing ->
                                             "Aberto com pedido de janela livre: ${app.label}"
                                         else ->
                                             "Aberto: ${app.label}"
@@ -240,7 +247,7 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                             }
 
                             result.onFailure { externalError ->
-                                if (requestedDisplay != null) {
+                                if (launchPlan.usesExternalDisplay) {
                                     runCatching {
                                         context.startActivity(launchIntent)
                                     }.onSuccess {
