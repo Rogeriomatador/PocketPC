@@ -15,15 +15,17 @@ Implemented in source:
 - bottom taskbar with pinned/open/active app state;
 - taskbar pins persisted across restarts, including an intentionally empty pin list;
 - original PocketPC Canvas icons;
-- Start/launcher menu;
+- searchable, landscape-safe Start/launcher menu;
+- uncluttered default desktop shortcuts with the full app catalog in Start;
 - movable, minimizable and maximizable PocketPC windows;
 - resizable freeform PocketPC windows;
+- per-app freeform position/size persisted as resolution-independent geometry;
 - left/right half-screen snap;
 - Meta+Left / Meta+Right snap shortcuts;
 - Show Desktop and window cycling;
 - touch long-press and secondary-mouse context menus;
 - exact Compose secondary-click routing on icons/taskbar/desktop;
-- hover feedback and pointer cursors;
+- hover feedback, pointer cursors and visible keyboard focus;
 - Escape menu dismissal;
 - Android Keyboard Shortcuts Helper integration.
 
@@ -35,8 +37,8 @@ Implemented in source:
 - persisted wallpaper selection without broad storage permission.
 
 ### Apps and games
-- integrated Browser, Files, Terminal, Downloads, Displays, Personalization,
-  Runtimes, System and Performance windows;
+- integrated Browser, Files, Terminal, Downloads, Store, Control Center,
+  Displays, Personalization, Runtimes, System and Performance windows;
 - launcher for installed Android applications;
 - Android game classification using ApplicationInfo.CATEGORY_GAME;
 - persistent per-game desktop compatibility profiles;
@@ -59,6 +61,9 @@ A rating never fabricates input evidence.
 - public/presentation display discovery;
 - FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS detection;
 - FEATURE_FREEFORM_WINDOW_MANAGEMENT detection;
+- FEATURE_PC detection;
+- optional android.hardware.type.pc declaration with required=false for raw
+  desktop-style pointer behavior on PC-like Android environments;
 - ActivityOptions.setLaunchDisplayId when a compatible external display exists;
 - ActivityOptions.setLaunchBounds when Android advertises freeform window support;
 - safe fallback to the current display when an external launch is rejected;
@@ -97,6 +102,7 @@ The physical runner now records:
 - desktop landscape state;
 - logical screen size;
 - Android freeform capability advertisement;
+- Android PC hardware-type advertisement;
 - secondary-display activity capability;
 - external/presentation display counts;
 - mouse/keyboard/gamepad counts;
