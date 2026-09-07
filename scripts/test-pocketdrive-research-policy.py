@@ -9,6 +9,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 CHECKS = {
     "app/src/main/AndroidManifest.xml": (
         "android.permission.REQUEST_INSTALL_PACKAGES",
+        "com.termux.permission.RUN_COMMAND",
+        'android:name="com.termux"',
+        'android:name="moe.shizuku.privileged.api"',
         ".storage.PocketDownloadReceiver",
         "android.intent.action.DOWNLOAD_COMPLETE",
         'android:exported="false"',
@@ -71,6 +74,12 @@ CHECKS = {
         "FEATURE_WIFI_DIRECT",
         "FEATURE_WIFI_AWARE",
         "choosePreferredRemoteCodec",
+        "unknownSourceInstallAllowed",
+        "termuxInstalled",
+        "termuxRunCommandPermissionGranted",
+        "shizukuInstalled",
+        '"com.termux"',
+        '"moe.shizuku.privileged.api"',
     ),
     "app/src/main/java/dev/pocketpc/core/ui/ResearchLabApp.kt": (
         "Laboratório PocketPC",
@@ -82,6 +91,10 @@ CHECKS = {
         "Encoder HW + Surface",
         "CREATE_VIRTUAL_DEVICE",
         "Hipótese: monitor remoto PocketPC",
+        "Bridges locais / shell",
+        "Termux RUN_COMMAND",
+        "Shizuku",
+        "AGUARDANDO AUTORIZAÇÃO",
         "NÃO é um desktop remoto validado",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/SystemApp.kt": (
@@ -101,6 +114,16 @@ CHECKS = {
         "ignoresSoftwareOnlyCodecForRemotePreference",
         "reportsNoneWithoutConfirmedHardwareEncoder",
     ),
+    "scripts/termux-install-published.sh": (
+        "POCKETPC_ON_DEVICE_NO_PUBLISHED_APK",
+        "POCKETPC_APK_DOWNLOAD_REJECTED",
+        "POCKETPC_APK_VERIFIED_INSTALLER_REQUESTED",
+        "sha256sum",
+        "published",
+        "apkSha256",
+        "termux-open",
+        "does not bypass the package installer or signature checks",
+    ),
     "scripts/termux-on-device-preflight.sh": (
         "DIAGNOSTIC_ONLY_NOT_A_BUILD",
         "TERMUX_FULL_BUILD_CANDIDATE_NOT_EXECUTED",
@@ -119,6 +142,12 @@ FORBIDDEN = {
         "assembleDebug",
         "adb install",
         "pm install",
+    ),
+    "scripts/termux-install-published.sh": (
+        "pm install",
+        "adb install",
+        "--ignore-checks",
+        "--bypass",
     ),
 }
 
