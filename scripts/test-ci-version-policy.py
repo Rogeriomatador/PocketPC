@@ -63,6 +63,7 @@ def main() -> int:
         "POCKETPC_VERSION_CODE",
         "scripts/test-desktop-mode-policy.py",
         "scripts/test-update-feed-policy.py",
+        "scripts/test-pocketdrive-research-policy.py",
         "scripts/test-powershell51-compat.py",
         "scripts/test-device-evidence-bundle-verifier.py",
         ':app:testDebugUnitTest :app:lintDebug :app:assembleDebug',
@@ -74,6 +75,7 @@ def main() -> int:
     required_windows = (
         "scripts/test-desktop-mode-policy.py",
         "scripts/test-update-feed-policy.py",
+        "scripts/test-pocketdrive-research-policy.py",
         "scripts/test-powershell51-compat.py",
         "scripts/test-device-evidence-bundle-verifier.py",
         "scripts/test-physical-validation-record-verifier.py",
