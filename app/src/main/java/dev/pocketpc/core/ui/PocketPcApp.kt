@@ -86,8 +86,17 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val sample by telemetry.sample.collectAsStateWithLifecycle()
     val peripherals by peripheralMonitor.state.collectAsStateWithLifecycle()
     val desktopCapabilities by capabilityMonitor.state.collectAsStateWithLifecycle()
+    var updateAttention by remember {
+        mutableStateOf(
+            PocketPcUpdateAttention.NONE
+        )
+    }
 
-    PocketPcUpdateAutoCheck()
+    PocketPcUpdateAutoCheck(
+        onAttentionChanged = {
+            updateAttention = it
+        }
+    )
 
     var storageRoot by rememberSaveable { mutableStateOf(storage.rootUriString) }
     var storagePickerError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -344,6 +353,10 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
         TaskbarV2(
             desktop = desktop,
             peripherals = peripherals,
+            updateAttention = updateAttention,
+            onUpdateClick = {
+                desktop.open(DesktopApp.SYSTEM)
+            },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
