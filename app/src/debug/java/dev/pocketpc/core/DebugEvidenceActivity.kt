@@ -150,6 +150,30 @@ class DebugEvidenceActivity : ComponentActivity() {
                 "filesystemCriticalPassed",
                 evidence.filesystem.allCriticalPassed,
             )
+            .put(
+                "filesystem",
+                JSONObject()
+                    .put(
+                        "relativeSymlink",
+                        capabilityJson(evidence.filesystem.relativeSymlink),
+                    )
+                    .put(
+                        "absoluteSymlink",
+                        capabilityJson(evidence.filesystem.absoluteSymlink),
+                    )
+                    .put(
+                        "hardlink",
+                        capabilityJson(evidence.filesystem.hardlink),
+                    )
+                    .put(
+                        "noFollowCleanup",
+                        capabilityJson(evidence.filesystem.noFollowCleanup),
+                    )
+                    .put(
+                        "externalTargetPreserved",
+                        capabilityJson(evidence.filesystem.externalTargetPreserved),
+                    ),
+            )
             .put("nativeHostLoaded", evidence.nativeHostLoaded)
             .put("substrateState", evidence.substrateState)
             .put("prootReady", evidence.prootReady)
@@ -180,6 +204,13 @@ class DebugEvidenceActivity : ComponentActivity() {
         }
         throw error
     }
+
+    private fun capabilityJson(
+        capability: dev.pocketpc.core.runtime.CapabilityEvidence,
+    ): JSONObject =
+        JSONObject()
+            .put("passed", capability.passed)
+            .put("detail", capability.detail)
 
     private fun copyAtomic(source: File, target: File) {
         require(source.isFile) { "Source file missing: ${source.name}" }
