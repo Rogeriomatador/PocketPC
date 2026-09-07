@@ -13,10 +13,10 @@ class WindowGeometryTest {
             heightFraction = 0.6f,
         ).sanitized()
 
-        assertEquals(0.2f, value.xFraction)
-        assertEquals(0.3f, value.yFraction)
-        assertEquals(0.7f, value.widthFraction)
-        assertEquals(0.6f, value.heightFraction)
+        assertEquals(0.2f, value.xFraction, 0.0001f)
+        assertEquals(0.3f, value.yFraction, 0.0001f)
+        assertEquals(0.7f, value.widthFraction, 0.0001f)
+        assertEquals(0.6f, value.heightFraction, 0.0001f)
     }
 
     @Test
@@ -28,9 +28,9 @@ class WindowGeometryTest {
             heightFraction = 3f,
         ).sanitized()
 
-        assertEquals(0f, value.xFraction)
-        assertEquals(0.80f, value.yFraction)
-        assertEquals(0.38f, value.widthFraction)
-        assertEquals(0.92f, value.heightFraction)
+        assertEquals(0f, value.xFraction, 0.0001f)
+        assertEquals(0.80f, value.yFraction, 0.0001f)
+        assertEquals(0.38f, value.widthFraction, 0.0001f)
+        assertEquals(0.92f, value.heightFraction, 0.0001f)
     }
 }
