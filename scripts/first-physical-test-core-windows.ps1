@@ -260,6 +260,7 @@ $finalRecord = [ordered]@{
     desktopOrientationLandscape = [bool]$physical.desktopOrientationLandscape
     desktopFreeformAdvertised = [bool]$physical.desktopFreeformAdvertised
     secondaryDisplayActivitiesAdvertised = [bool]$physical.secondaryDisplayActivitiesAdvertised
+    androidPcHardwareAdvertised = [bool]$physical.androidPcHardwareAdvertised
     externalDisplayCount = [int]$physical.externalDisplayCount
     presentationDisplayCount = [int]$physical.presentationDisplayCount
     mouseCount = [int]$physical.mouseCount
@@ -344,6 +345,7 @@ Write-Host "Commit       : $commit"
 Write-Host "APK SHA-256  : $($buildRecord.apk.sha256)"
 Write-Host "Bundle SHA   : $($physical.bundleSha256)"
 Write-Host "Landscape    : PASS"
+Write-Host ("PC hardware  : {0}" -f $(if ($physical.androidPcHardwareAdvertised) { "ADVERTISED" } else { "NOT_ADVERTISED" }))
 Write-Host "Host fs      : PASS"
 Write-Host ("Linux links  : {0}" -f $(if ($runtimeLinkSemanticsReady) { "READY" } else { "BLOCKED" }))
 Write-Host ("Displays     : {0} external / {1} presentation" -f [int]$physical.externalDisplayCount, [int]$physical.presentationDisplayCount)
