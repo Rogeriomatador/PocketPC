@@ -134,7 +134,7 @@ class DebugEvidenceActivity : ComponentActivity() {
         copyAtomic(evidence.outputFile, exportedEvidence)
 
         val result = JSONObject()
-            .put("schemaVersion", 1)
+            .put("schemaVersion", 2)
             .put("state", "PASS")
             .put("versionName", bundle.buildIdentity.versionName)
             .put("versionCode", bundle.buildIdentity.versionCode)
@@ -201,7 +201,7 @@ class DebugEvidenceActivity : ComponentActivity() {
             val automationRoot = File(externalRoot, "automation-evidence")
             automationRoot.mkdirs()
             val result = JSONObject()
-                .put("schemaVersion", 1)
+                .put("schemaVersion", 2)
                 .put("state", "FAIL")
                 .put("versionName", BuildConfig.VERSION_NAME)
                 .put("sourceRevision", BuildConfig.POCKETPC_SOURCE_REVISION)
