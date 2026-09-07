@@ -6,7 +6,8 @@ param(
     [switch]$AllowEmulator,
     [switch]$AllowUnpinnedBuild,
     [switch]$RequireInstalledApkHash,
-    [int]$InstallTimeoutSeconds = 180
+    [int]$InstallTimeoutSeconds = 180,
+    [int]$AdbCommandTimeoutSeconds = 20
 )
 
 Set-StrictMode -Version Latest
@@ -15,9 +16,97 @@ $ErrorActionPreference = "Stop"
 if ($InstallTimeoutSeconds -lt 15 -or $InstallTimeoutSeconds -gt 1800) {
     throw "InstallTimeoutSeconds deve ficar entre 15 e 1800 segundos."
 }
+if ($AdbCommandTimeoutSeconds -lt 5 -or $AdbCommandTimeoutSeconds -gt 300) {
+    throw "AdbCommandTimeoutSeconds deve ficar entre 5 e 300 segundos."
+}
 
 function Write-GateStep([string]$Text) {
     Write-Host ("[Device Install] {0}" -f $Text) -ForegroundColor Cyan
+}
+
+function Invoke-AdbCaptureWithTimeout {
+    param(
+        [Parameter(Mandatory=$true)][string]$Adb,
+        [Parameter(Mandatory=$true)][string[]]$Arguments,
+        [Parameter(Mandatory=$true)][string]$Operation,
+        [Parameter(Mandatory=$true)][int]$TimeoutSeconds,
+        [switch]$AllowFailure
+    )
+
+    $stdoutPath = [IO.Path]::GetTempFileName()
+    $stderrPath = [IO.Path]::GetTempFileName()
+    $process = $null
+
+    try {
+        $quotedArguments = @(
+            foreach ($argument in $Arguments) {
+                if ($argument -match '[\s"]') {
+                    '"' + $argument.Replace('"', '\"') + '"'
+                } else {
+                    $argument
+                }
+            }
+        )
+        $argumentLine = $quotedArguments -join " "
+
+        $process = Start-Process `
+            -FilePath $Adb `
+            -ArgumentList $argumentLine `
+            -NoNewWindow `
+            -PassThru `
+            -RedirectStandardOutput $stdoutPath `
+            -RedirectStandardError $stderrPath
+
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            try { $process.Kill() } catch {}
+            try { [void]$process.WaitForExit(5000) } catch {}
+            throw (
+                "$Operation excedeu o timeout de $TimeoutSeconds segundos. " +
+                "O ADB ou o aparelho deixou de responder."
+            )
+        }
+
+        $process.WaitForExit()
+        $stdoutText = if (Test-Path $stdoutPath -PathType Leaf) {
+            (Get-Content $stdoutPath -Raw).Trim()
+        } else {
+            ""
+        }
+        $stderrText = if (Test-Path $stderrPath -PathType Leaf) {
+            (Get-Content $stderrPath -Raw).Trim()
+        } else {
+            ""
+        }
+
+        $parts = New-Object System.Collections.Generic.List[string]
+        if (-not [string]::IsNullOrWhiteSpace($stdoutText)) {
+            $parts.Add($stdoutText)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
+            $parts.Add($stderrText)
+        }
+        $combinedText = ($parts -join [Environment]::NewLine).Trim()
+
+        if ($process.ExitCode -ne 0 -and -not $AllowFailure) {
+            throw (
+                "$Operation falhou com exit code $($process.ExitCode)." +
+                [Environment]::NewLine +
+                $combinedText
+            )
+        }
+
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Text = $combinedText
+        }
+    }
+    finally {
+        Remove-Item -Force $stdoutPath -ErrorAction SilentlyContinue
+        Remove-Item -Force $stderrPath -ErrorAction SilentlyContinue
+        if ($process) {
+            $process.Dispose()
+        }
+    }
 }
 
 function Invoke-AdbInstallWithTimeout {
@@ -143,12 +232,20 @@ function Resolve-Sdk([string]$Explicit) {
 
 function Select-AdbDevice([string]$Adb, [string]$RequestedSerial, [bool]$EmulatorAllowed) {
     if ($RequestedSerial) {
-        $state = Invoke-NativeCapture $Adb @("-s", $RequestedSerial, "get-state")
+        $state = Invoke-AdbCaptureWithTimeout `
+            -Adb $Adb `
+            -Arguments @("-s", $RequestedSerial, "get-state") `
+            -Operation "adb get-state" `
+            -TimeoutSeconds $AdbCommandTimeoutSeconds
         if ($state.Text.Trim() -ne "device") { throw "Dispositivo solicitado não está autorizado/online." }
         return $RequestedSerial
     }
 
-    $devices = Invoke-NativeCapture $Adb @("devices")
+    $devices = Invoke-AdbCaptureWithTimeout `
+        -Adb $Adb `
+        -Arguments @("devices") `
+        -Operation "adb devices" `
+        -TimeoutSeconds $AdbCommandTimeoutSeconds
     $candidates = New-Object System.Collections.Generic.List[string]
     foreach ($line in ($devices.Text -split "`r?`n")) {
         if ($line -match '^(?<serial>[^\s]+)\s+device$') {
@@ -231,17 +328,49 @@ $serialHash = Get-Sha256Text $serial
 
 Write-GateStep "Lendo identidade, API e ABI do aparelho"
 
-function AdbShell([string[]]$Args) {
-    return Invoke-NativeCapture $adb (@("-s", $serial, "shell") + $Args)
+function AdbShell {
+    param(
+        [Parameter(Mandatory=$true)][string[]]$ShellArguments,
+        [Parameter(Mandatory=$true)][string]$Operation
+    )
+
+    return Invoke-AdbCaptureWithTimeout `
+        -Adb $adb `
+        -Arguments (@("-s", $serial, "shell") + $ShellArguments) `
+        -Operation $Operation `
+        -TimeoutSeconds $AdbCommandTimeoutSeconds
 }
 
-$manufacturer = (AdbShell @("getprop", "ro.product.manufacturer")).Text.Trim()
-$model = (AdbShell @("getprop", "ro.product.model")).Text.Trim()
-$sdk = [int]((AdbShell @("getprop", "ro.build.version.sdk")).Text.Trim())
-$abisText = (AdbShell @("getprop", "ro.product.cpu.abilist")).Text.Trim()
+Write-GateStep "Lendo fabricante"
+$manufacturer = (AdbShell `
+    -ShellArguments @("getprop", "ro.product.manufacturer") `
+    -Operation "adb shell getprop ro.product.manufacturer").Text.Trim()
+
+Write-GateStep "Lendo modelo"
+$model = (AdbShell `
+    -ShellArguments @("getprop", "ro.product.model") `
+    -Operation "adb shell getprop ro.product.model").Text.Trim()
+
+Write-GateStep "Lendo Android API"
+$sdk = [int]((AdbShell `
+    -ShellArguments @("getprop", "ro.build.version.sdk") `
+    -Operation "adb shell getprop ro.build.version.sdk").Text.Trim())
+
+Write-GateStep "Lendo ABI"
+$abisText = (AdbShell `
+    -ShellArguments @("getprop", "ro.product.cpu.abilist") `
+    -Operation "adb shell getprop ro.product.cpu.abilist").Text.Trim()
 $abis = @($abisText -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-$qemu = (AdbShell @("getprop", "ro.kernel.qemu")).Text.Trim()
-$fingerprint = (AdbShell @("getprop", "ro.build.fingerprint")).Text.Trim()
+
+Write-GateStep "Verificando indicador de emulador"
+$qemu = (AdbShell `
+    -ShellArguments @("getprop", "ro.kernel.qemu") `
+    -Operation "adb shell getprop ro.kernel.qemu").Text.Trim()
+
+Write-GateStep "Lendo build fingerprint"
+$fingerprint = (AdbShell `
+    -ShellArguments @("getprop", "ro.build.fingerprint") `
+    -Operation "adb shell getprop ro.build.fingerprint").Text.Trim()
 
 if (-not $AllowEmulator -and $qemu -eq "1") { throw "Emulador recusado; use -AllowEmulator se for intencional." }
 if ($abis -notcontains "arm64-v8a") { throw "Device Install Gate exige arm64-v8a neste estágio." }
@@ -257,11 +386,15 @@ if ($install.Text -notmatch 'Success') { throw "adb install não retornou Succes
 Write-GateStep "APK instalado; verificando pacote e versão"
 
 $packageName = [string]$record.app.packageName
-$pmPath = (AdbShell @("pm", "path", $packageName)).Text.Trim()
+$pmPath = (AdbShell `
+    -ShellArguments @("pm", "path", $packageName) `
+    -Operation "adb shell pm path").Text.Trim()
 if ($pmPath -notmatch '^package:(?<path>.+)$') { throw "pm path não confirmou o pacote instalado." }
 $remoteApkPath = $Matches.path.Trim()
 
-$dump = (AdbShell @("dumpsys", "package", $packageName)).Text
+$dump = (AdbShell `
+    -ShellArguments @("dumpsys", "package", $packageName) `
+    -Operation "adb shell dumpsys package").Text
 $versionNameMatch = [regex]::Match($dump, '(?m)^\s*versionName=(?<value>\S+)\s*$')
 $versionCodeMatch = [regex]::Match($dump, '(?m)^\s*versionCode=(?<value>\d+)')
 if (-not $versionNameMatch.Success -or -not $versionCodeMatch.Success) { throw "Não foi possível ler versão instalada." }
@@ -272,11 +405,15 @@ if ($installedVersionCode -ne [long]$record.app.versionCode) { throw "versionCod
 
 Write-GateStep "Abrindo MainActivity e confirmando processo"
 
-$launch = AdbShell @("am", "start", "-W", "-S", "-n", "$packageName/.MainActivity")
+$launch = AdbShell `
+    -ShellArguments @("am", "start", "-W", "-S", "-n", "$packageName/.MainActivity") `
+    -Operation "adb shell am start MainActivity"
 $launchOk = $launch.Text -match '(?m)^Status:\s*ok\s*$'
 if (-not $launchOk) { throw ("Activity launch não confirmou Status: ok." + [Environment]::NewLine + $launch.Text) }
 
-$pidText = (AdbShell @("pidof", $packageName)).Text.Trim()
+$pidText = (AdbShell `
+    -ShellArguments @("pidof", $packageName) `
+    -Operation "adb shell pidof").Text.Trim()
 $appPid = if ($pidText -match '^\d+(\s+\d+)*$') { $pidText } else { $null }
 
 Write-GateStep "Comparando hash do APK instalado quando permitido pelo Android"
@@ -288,7 +425,12 @@ $tempRoot = Join-Path $env:TEMP "PocketPC-device-install"
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 $pulledApk = Join-Path $tempRoot "installed-base-$([Guid]::NewGuid().ToString('N')).apk"
 try {
-    $pull = Invoke-NativeCapture $adb @("-s", $serial, "pull", $remoteApkPath, $pulledApk) -AllowFailure
+    $pull = Invoke-AdbCaptureWithTimeout `
+        -Adb $adb `
+        -Arguments @("-s", $serial, "pull", $remoteApkPath, $pulledApk) `
+        -Operation "adb pull installed APK" `
+        -TimeoutSeconds ([Math]::Max($AdbCommandTimeoutSeconds, 60)) `
+        -AllowFailure
     if ($pull.ExitCode -eq 0 -and (Test-Path $pulledApk -PathType Leaf)) {
         $installedApkSha256 = (Get-FileHash $pulledApk -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($installedApkSha256 -eq $apkHash) { $pullStatus = "PASS" } else { $pullStatus = "HASH_MISMATCH" }
