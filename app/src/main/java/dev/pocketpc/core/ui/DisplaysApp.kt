@@ -2,108 +2,299 @@ package dev.pocketpc.core.ui
 
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.pocketpc.core.desktop.DesktopCapabilitySnapshot
 import java.util.Locale
 
 @Composable
-fun DisplaysApp(capabilities: DesktopCapabilitySnapshot) {
+fun DisplaysApp(
+    capabilities: DesktopCapabilitySnapshot,
+) {
     val context = LocalContext.current
 
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(
+                rememberScrollState()
+            ),
+        verticalArrangement =
+            Arrangement.spacedBy(10.dp),
     ) {
-        Text("Telas e desktop externo")
-        Text(
-            "PocketPC observa apenas displays que o Android realmente expoe. " +
-                "Transmitir a tela nao garante uma sessao desktop separada."
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment =
+                Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Telas",
+                    style =
+                        MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    "Monitores e capacidades que o Android realmente expõe",
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                )
+            }
 
-        ValueRow(
-            "Activities em display secundario",
-            if (capabilities.secondaryDisplayActivities) {
-                "SUPPORTED"
-            } else {
-                "NOT ADVERTISED"
-            },
-        )
-        ValueRow(
-            "Displays externos",
-            capabilities.externalDisplayCount.toString(),
-        )
-        ValueRow(
-            "Presentation displays",
-            capabilities.presentationDisplayCount.toString(),
-        )
-
-        capabilities.externalDisplays.forEach { display ->
-            HorizontalDivider()
-            Text("Display #${display.displayId}: ${display.name}")
-            Text(
-                "${display.widthPx}x${display.heightPx} • " +
-                    String.format(
-                        Locale.ROOT,
-                        "%.1f Hz",
-                        display.refreshRateHz,
+            AssistChip(
+                onClick = {},
+                label = {
+                    Text(
+                        if (
+                            capabilities
+                                .externalDisplayCount > 0
+                        ) {
+                            "${capabilities.externalDisplayCount} externa(s)"
+                        } else {
+                            "Tela principal"
+                        },
+                        fontSize = 9.sp,
                     )
+                },
             )
-            Text(
-                if (display.presentation) {
-                    "Presentation display: SIM"
-                } else {
-                    "Presentation display: NAO"
-                }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.spacedBy(8.dp),
+        ) {
+            DisplayCapabilityCard(
+                title = "Janela livre",
+                value =
+                    if (
+                        capabilities
+                            .freeformWindowManagement
+                    ) {
+                        "Disponível"
+                    } else {
+                        "Não anunciada"
+                    },
+                modifier = Modifier.weight(1f),
+            )
+            DisplayCapabilityCard(
+                title = "Display secundário",
+                value =
+                    if (
+                        capabilities
+                            .secondaryDisplayActivities
+                    ) {
+                        "Disponível"
+                    } else {
+                        "Não anunciado"
+                    },
+                modifier = Modifier.weight(1f),
+            )
+            DisplayCapabilityCard(
+                title = "Android PC",
+                value =
+                    if (capabilities.pcHardwareType) {
+                        "Anunciado"
+                    } else {
+                        "Não anunciado"
+                    },
+                modifier = Modifier.weight(1f),
             )
         }
 
         HorizontalDivider()
 
-        Button(
-            onClick = {
-                openSettingsSafely(
-                    context = context,
-                    primaryAction = Settings.ACTION_CAST_SETTINGS,
-                )
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Abrir Transmitir / Wi-Fi Display")
+        Text(
+            "Displays detectados",
+            style =
+                MaterialTheme.typography.titleSmall,
+        )
+
+        if (capabilities.externalDisplays.isEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                tonalElevation = 1.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        "Nenhum monitor externo separado",
+                        style =
+                            MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        "Uma transmissão pode ser apenas espelhamento. " +
+                            "O PocketPC só conta um monitor quando o Android " +
+                            "o expõe como Display separado.",
+                        style =
+                            MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        } else {
+            capabilities.externalDisplays
+                .forEach { display ->
+                    Surface(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        shape =
+                            RoundedCornerShape(14.dp),
+                        tonalElevation = 1.dp,
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(12.dp),
+                            verticalAlignment =
+                                Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "▣",
+                                fontSize = 28.sp,
+                            )
+                            Spacer(
+                                Modifier.width(10.dp)
+                            )
+                            Column(
+                                Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    display.name,
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .titleSmall,
+                                )
+                                Text(
+                                    "${display.widthPx}×" +
+                                        "${display.heightPx} • " +
+                                        String.format(
+                                            Locale.ROOT,
+                                            "%.1f Hz",
+                                            display.refreshRateHz,
+                                        ),
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall,
+                                )
+                            }
+                            Column(
+                                horizontalAlignment =
+                                    Alignment.End,
+                            ) {
+                                Text(
+                                    "Display #${display.displayId}",
+                                    fontSize = 9.sp,
+                                )
+                                Text(
+                                    if (display.presentation) {
+                                        "Presentation"
+                                    } else {
+                                        "Externo"
+                                    },
+                                    fontSize = 9.sp,
+                                )
+                            }
+                        }
+                    }
+                }
         }
 
-        OutlinedButton(
-            onClick = {
-                openSettingsSafely(
-                    context = context,
-                    primaryAction = Settings.ACTION_BLUETOOTH_SETTINGS,
-                )
-            },
+        HorizontalDivider()
+
+        Row(
             modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.spacedBy(8.dp),
         ) {
-            Text("Abrir Bluetooth")
+            Button(
+                onClick = {
+                    openSettingsSafely(
+                        context = context,
+                        primaryAction =
+                            Settings.ACTION_CAST_SETTINGS,
+                    )
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Transmitir / Wi-Fi Display")
+            }
+
+            OutlinedButton(
+                onClick = {
+                    openSettingsSafely(
+                        context = context,
+                        primaryAction =
+                            Settings.ACTION_BLUETOOTH_SETTINGS,
+                    )
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Bluetooth")
+            }
         }
 
         Text(
-            if (capabilities.preferredExternalDisplayId != null) {
-                "Um display externo foi detectado. O launcher de Aplicativos " +
-                    "pode tentar abrir apps nele quando permitido pelo Android."
+            if (
+                capabilities
+                    .preferredExternalDisplayId != null
+            ) {
+                "Há um display externo elegível. O launcher de Aplicativos " +
+                    "pode solicitar ao Android que apps sejam abertos nele."
             } else {
-                "Nenhum display externo foi detectado agora. Em aparelhos sem " +
-                    "video USB-C, tente Wi-Fi Display e volte aqui para observar " +
-                    "se o sistema criou um display separado."
-            }
+                "Sem display externo elegível agora. O PocketPC continuará " +
+                    "usando a tela atual e não marcará suporte externo como PASS."
+            },
+            style =
+                MaterialTheme.typography.bodySmall,
         )
+    }
+}
+
+@Composable
+private fun DisplayCapabilityCard(
+    title: String,
+    value: String,
+    modifier: Modifier,
+) {
+    Surface(
+        modifier = modifier.heightIn(min = 70.dp),
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 2.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                title,
+                fontSize = 9.sp,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant,
+            )
+            Text(
+                value,
+                style =
+                    MaterialTheme.typography.titleSmall,
+            )
+        }
     }
 }
 
@@ -113,12 +304,18 @@ private fun openSettingsSafely(
 ) {
     val primary = Intent(primaryAction)
     val chosen =
-        if (primary.resolveActivity(context.packageManager) != null) {
+        if (
+            primary.resolveActivity(
+                context.packageManager
+            ) != null
+        ) {
             primary
         } else {
             Intent(Settings.ACTION_SETTINGS)
         }
 
-    chosen.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    chosen.addFlags(
+        Intent.FLAG_ACTIVITY_NEW_TASK
+    )
     context.startActivity(chosen)
 }
