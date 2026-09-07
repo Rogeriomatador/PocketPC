@@ -1,11 +1,16 @@
 package dev.pocketpc.core.ui
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,13 +28,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 enum class DesktopThemeMode(
     val key: String,
@@ -102,6 +114,11 @@ class DesktopAppearanceState(context: Context) {
     )
         private set
 
+    var customWallpaperUri by mutableStateOf(
+        preferences.getString("custom_wallpaper_uri", null)
+    )
+        private set
+
     fun selectTheme(mode: DesktopThemeMode) {
         themeMode = mode
         preferences.edit().putString("theme", mode.key).apply()
@@ -109,13 +126,32 @@ class DesktopAppearanceState(context: Context) {
 
     fun selectWallpaper(preset: WallpaperPreset) {
         wallpaper = preset
-        preferences.edit().putString("wallpaper", preset.key).apply()
+        customWallpaperUri = null
+        preferences.edit()
+            .putString("wallpaper", preset.key)
+            .remove("custom_wallpaper_uri")
+            .apply()
+    }
+
+    fun selectCustomWallpaper(uri: String) {
+        customWallpaperUri = uri
+        preferences.edit()
+            .putString("custom_wallpaper_uri", uri)
+            .apply()
+    }
+
+    fun clearCustomWallpaper() {
+        customWallpaperUri = null
+        preferences.edit()
+            .remove("custom_wallpaper_uri")
+            .apply()
     }
 }
 
 @Composable
 fun DesktopWallpaper(
     preset: WallpaperPreset,
+    customUri: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val animatedMotion =
@@ -137,6 +173,23 @@ fun DesktopWallpaper(
         }
 
     val colors = preset.colors.map { argb -> Color(argb) }
+    val context = LocalContext.current
+    val customBitmap by produceState<ImageBitmap?>(
+        initialValue = null,
+        key1 = customUri,
+    ) {
+        value =
+            if (customUri.isNullOrBlank()) {
+                null
+            } else {
+                withContext(Dispatchers.IO) {
+                    decodeWallpaperBitmap(
+                        context = context,
+                        uri = Uri.parse(customUri),
+                    )
+                }
+            }
+    }
 
     Box(
         modifier = modifier.background(
@@ -149,15 +202,62 @@ fun DesktopWallpaper(
                 ),
             )
         )
-    )
+    ) {
+        customBitmap?.let { bitmap ->
+            Image(
+                bitmap = bitmap,
+                contentDescription = "Papel de parede personalizado",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        }
+    }
 }
+
+private fun decodeWallpaperBitmap(
+    context: Context,
+    uri: Uri,
+): ImageBitmap? =
+    runCatching {
+        val bitmap =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val source =
+                    ImageDecoder.createSource(
+                        context.contentResolver,
+                        uri,
+                    )
+                ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                    val maxDimension =
+                        maxOf(info.size.width, info.size.height)
+                    if (maxDimension > 4096) {
+                        val scale = 4096f / maxDimension.toFloat()
+                        decoder.setTargetSize(
+                            (info.size.width * scale).toInt()
+                                .coerceAtLeast(1),
+                            (info.size.height * scale).toInt()
+                                .coerceAtLeast(1),
+                        )
+                    }
+                }
+            } else {
+                context.contentResolver.openInputStream(uri).use { input ->
+                    requireNotNull(input)
+                    BitmapFactory.decodeStream(input)
+                }
+            }
+
+        requireNotNull(bitmap).asImageBitmap()
+    }.getOrNull()
 
 @Composable
 fun PersonalizationApp(
     selected: WallpaperPreset,
+    customUri: String?,
     themeMode: DesktopThemeMode,
     onSelect: (WallpaperPreset) -> Unit,
     onThemeSelect: (DesktopThemeMode) -> Unit,
+    onChooseCustom: () -> Unit,
+    onClearCustom: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -196,6 +296,29 @@ fun PersonalizationApp(
 
         Text("Papel de parede")
 
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                onClick = onChooseCustom,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Escolher imagem")
+            }
+            OutlinedButton(
+                onClick = onClearCustom,
+                enabled = customUri != null,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Usar preset")
+            }
+        }
+
+        customUri?.let {
+            Text("Imagem personalizada em uso")
+        }
+
         WallpaperPreset.entries.chunked(2).forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -219,7 +342,7 @@ fun PersonalizationApp(
                             )
                             Text(preset.label)
                             Text(if (preset.animated) "ANIMADO" else "ESTATICO")
-                            if (preset == selected) {
+                            if (preset == selected && customUri == null) {
                                 Button(onClick = {}, enabled = false) { Text("Em uso") }
                             } else {
                                 OutlinedButton(onClick = { onSelect(preset) }) {
