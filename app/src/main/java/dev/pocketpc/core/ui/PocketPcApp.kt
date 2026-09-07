@@ -88,6 +88,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val peripherals by peripheralMonitor.state.collectAsStateWithLifecycle()
     val desktopCapabilities by capabilityMonitor.state.collectAsStateWithLifecycle()
 
+    PocketPcUpdateAutoCheck()
+
     var storageRoot by rememberSaveable { mutableStateOf(storage.rootUriString) }
     var storagePickerError by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeManifestUri by rememberSaveable { mutableStateOf<String?>(null) }
