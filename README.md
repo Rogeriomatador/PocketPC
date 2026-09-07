@@ -43,10 +43,18 @@ Alpha 21 also introduces the first PocketPC Update Center:
 - verifies HTTPS feed metadata, APK SHA-256, package name, versionCode and signing
   certificate compatibility before enabling installation;
 - routes unknown-source authorization through Android system settings when required;
+- schedules reliable background checks with WorkManager;
+- stages verified APKs through PackageInstaller rather than a generic file-open intent;
+- requests no-user-action installation when Android permits it;
+- falls back to the Android confirmation flow when the platform requires user action;
 - never treats a mismatched/unverified APK as an update.
 
 The current Alpha 21 feed is intentionally `published=false`. Automatic delivery is
 therefore **BLOCKED** until a correctly signed APK is hosted and the feed is activated.
+
+A fail-closed GitHub Actions publisher is now implemented for that future steady-state
+path. It only publishes when a long-lived compatible signing identity is supplied as
+protected secrets; the signing private key is never stored in the repository.
 
 The updater does not embed a signing private key. A long-lived signing key must be
 configured outside the repository before server-built releases can safely update an
