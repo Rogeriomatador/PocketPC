@@ -19,6 +19,16 @@ data class DesktopWindow(
     val zIndex: Int = 0,
 )
 
+data class DesktopWindowSpec(
+    val defaultWidthFraction: Float,
+    val defaultHeightFraction: Float,
+    val minWidthDp: Int,
+    val minHeightDp: Int,
+    val maxWidthFraction: Float = 0.96f,
+    val maxHeightFraction: Float = 0.92f,
+    val contentPaddingDp: Int = 12,
+)
+
 enum class DesktopApp(
     val label: String,
     val glyph: String,
@@ -37,6 +47,48 @@ enum class DesktopApp(
     SYSTEM("Sistema", "SYS", 0xFF607D8B),
     PERFORMANCE("Desempenho", "FPS", 0xFF00A86B),
 }
+
+fun DesktopApp.windowSpec(): DesktopWindowSpec =
+    when (this) {
+        DesktopApp.BROWSER ->
+            DesktopWindowSpec(
+                defaultWidthFraction = 0.94f,
+                defaultHeightFraction = 0.88f,
+                minWidthDp = 560,
+                minHeightDp = 320,
+                maxWidthFraction = 1.0f,
+                maxHeightFraction = 1.0f,
+                contentPaddingDp = 0,
+            )
+        DesktopApp.FILES ->
+            DesktopWindowSpec(
+                defaultWidthFraction = 0.82f,
+                defaultHeightFraction = 0.80f,
+                minWidthDp = 520,
+                minHeightDp = 320,
+                contentPaddingDp = 0,
+            )
+        DesktopApp.TERMINAL ->
+            DesktopWindowSpec(0.72f, 0.70f, 420, 280, contentPaddingDp = 8)
+        DesktopApp.APPS ->
+            DesktopWindowSpec(0.80f, 0.80f, 540, 330, contentPaddingDp = 10)
+        DesktopApp.DOWNLOADS ->
+            DesktopWindowSpec(0.60f, 0.56f, 420, 260)
+        DesktopApp.STORE ->
+            DesktopWindowSpec(0.72f, 0.72f, 480, 300)
+        DesktopApp.CONTROL_CENTER ->
+            DesktopWindowSpec(0.62f, 0.62f, 470, 290, contentPaddingDp = 12)
+        DesktopApp.DISPLAYS ->
+            DesktopWindowSpec(0.66f, 0.68f, 460, 300)
+        DesktopApp.PERSONALIZATION ->
+            DesktopWindowSpec(0.78f, 0.82f, 520, 330)
+        DesktopApp.RUNTIMES ->
+            DesktopWindowSpec(0.78f, 0.82f, 520, 330)
+        DesktopApp.SYSTEM ->
+            DesktopWindowSpec(0.84f, 0.84f, 560, 340, contentPaddingDp = 10)
+        DesktopApp.PERFORMANCE ->
+            DesktopWindowSpec(0.60f, 0.64f, 420, 280)
+    }
 
 fun defaultDesktopPins(): List<DesktopApp> =
     listOf(
