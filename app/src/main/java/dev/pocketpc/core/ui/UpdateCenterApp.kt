@@ -1,7 +1,12 @@
 package dev.pocketpc.core.ui
 
+import android.Manifest
 import android.app.DownloadManager
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -47,6 +52,22 @@ fun UpdateCenterApp() {
             )
         }
     val scope = rememberCoroutineScope()
+
+    var notificationsAllowed by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT <
+                Build.VERSION_CODES.TIRAMISU ||
+                context.checkSelfPermission(
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val notificationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            notificationsAllowed = granted
+        }
 
     var check by remember {
         mutableStateOf<PocketPcUpdateCheck?>(
@@ -342,6 +363,67 @@ fun UpdateCenterApp() {
                                 )
                         },
                     )
+                }
+
+                if (
+                    Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.TIRAMISU
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment =
+                            Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            Modifier.weight(1f)
+                        ) {
+                            Text(
+                                "Aviso de confirmação",
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodyMedium,
+                            )
+                            Text(
+                                if (notificationsAllowed) {
+                                    "Permitido. Se o Android exigir ação, o PocketPC pode mostrar um aviso de instalação."
+                                } else {
+                                    "Bloqueado. Em segundo plano, uma confirmação exigida pelo Android pode não aparecer."
+                                },
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onSurfaceVariant,
+                            )
+                        }
+
+                        if (notificationsAllowed) {
+                            AssistChip(
+                                onClick = {},
+                                label = {
+                                    Text(
+                                        "Ativo",
+                                        fontSize = 9.sp,
+                                    )
+                                },
+                            )
+                        } else {
+                            OutlinedButton(
+                                onClick = {
+                                    notificationPermissionLauncher
+                                        .launch(
+                                            Manifest.permission
+                                                .POST_NOTIFICATIONS
+                                        )
+                                },
+                            ) {
+                                Text("Permitir")
+                            }
+                        }
+                    }
                 }
             }
         }
