@@ -644,6 +644,9 @@ private fun PocketPcStartButton(
 fun TaskbarV2(
     desktop: DesktopController,
     peripherals: PeripheralSnapshot,
+    updateAttention: PocketPcUpdateAttention =
+        PocketPcUpdateAttention.NONE,
+    onUpdateClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val apps = remember(desktop.pinnedApps.toList(), desktop.windows.toList()) {
@@ -737,11 +740,86 @@ fun TaskbarV2(
                 }
             }
 
+            if (
+                updateAttention !=
+                    PocketPcUpdateAttention.NONE
+            ) {
+                UpdateAttentionChip(
+                    state = updateAttention,
+                    onClick = onUpdateClick,
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+
             DesktopSystemTray(
                 peripherals = peripherals,
-                onClick = { desktop.open(DesktopApp.CONTROL_CENTER) },
+                onClick = {
+                    desktop.open(
+                        DesktopApp.CONTROL_CENTER
+                    )
+                },
             )
         }
+    }
+}
+
+@Composable
+private fun UpdateAttentionChip(
+    state: PocketPcUpdateAttention,
+    onClick: () -> Unit,
+) {
+    val label =
+        when (state) {
+            PocketPcUpdateAttention.NONE -> ""
+            PocketPcUpdateAttention.AVAILABLE -> "UPD"
+            PocketPcUpdateAttention.DOWNLOADING -> "↓"
+            PocketPcUpdateAttention.READY -> "UPD ✓"
+            PocketPcUpdateAttention.BLOCKED -> "UPD !"
+        }
+
+    val container =
+        when (state) {
+            PocketPcUpdateAttention.READY ->
+                MaterialTheme.colorScheme
+                    .primaryContainer
+            PocketPcUpdateAttention.BLOCKED ->
+                MaterialTheme.colorScheme
+                    .errorContainer
+            else ->
+                MaterialTheme.colorScheme
+                    .secondaryContainer
+        }
+
+    val content =
+        when (state) {
+            PocketPcUpdateAttention.READY ->
+                MaterialTheme.colorScheme
+                    .onPrimaryContainer
+            PocketPcUpdateAttention.BLOCKED ->
+                MaterialTheme.colorScheme
+                    .onErrorContainer
+            else ->
+                MaterialTheme.colorScheme
+                    .onSecondaryContainer
+        }
+
+    Surface(
+        modifier = Modifier
+            .pointerHoverIcon(PointerIcon.Hand)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(10.dp),
+        color = container,
+        tonalElevation = 3.dp,
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(
+                horizontal = 8.dp,
+                vertical = 6.dp,
+            ),
+            color = content,
+            fontSize = 8.sp,
+        )
     }
 }
 
