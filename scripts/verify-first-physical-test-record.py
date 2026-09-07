@@ -150,6 +150,27 @@ def main() -> int:
         failures.append("final runtimeLinkSemanticsReady must be boolean")
     if final.get("nativeHostLoaded") is not True:
         failures.append("final native host gate is not PASS")
+    if final.get("desktopOrientationLandscape") is not True:
+        failures.append("final desktop orientation is not landscape")
+
+    for field in (
+        "desktopFreeformAdvertised",
+        "secondaryDisplayActivitiesAdvertised",
+    ):
+        if not isinstance(final.get(field), bool):
+            failures.append(f"final {field} must be boolean")
+
+    for field in (
+        "externalDisplayCount",
+        "presentationDisplayCount",
+        "mouseCount",
+        "keyboardCount",
+        "gamepadCount",
+    ):
+        value = final.get(field)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            failures.append(f"final {field} must be a non-negative integer")
+
     if final.get("appOpened") is not True:
         failures.append("final app-open gate is not PASS")
     if physical_record.get("filesystemCriticalPassed") is not True:
@@ -176,6 +197,25 @@ def main() -> int:
         failures.append("final runtime link readiness differs from physical record")
     if physical_record.get("nativeHostLoaded") is not True:
         failures.append("physical record native host gate is not PASS")
+    if physical_record.get("desktopOrientationLandscape") is not True:
+        failures.append("physical record desktop orientation is not landscape")
+
+    desktop_fields = (
+        "desktopOrientationLandscape",
+        "desktopFreeformAdvertised",
+        "secondaryDisplayActivitiesAdvertised",
+        "externalDisplayCount",
+        "presentationDisplayCount",
+        "mouseCount",
+        "keyboardCount",
+        "gamepadCount",
+    )
+    for field in desktop_fields:
+        if final.get(field) != physical_record.get(field):
+            failures.append(
+                f"final {field} differs from physical record"
+            )
+
     if physical_record.get("classification") != "PHYSICAL_DEVICE_CHAIN_VERIFIED":
         failures.append("physical record classification is not verified")
 
