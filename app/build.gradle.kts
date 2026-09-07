@@ -39,6 +39,13 @@ android {
             pocketPcSourceRevisionPinned.toString(),
         )
 
+        manifestPlaceholders[
+            "pocketPcSourceRevision"
+        ] = pocketPcSourceRevision
+        manifestPlaceholders[
+            "pocketPcSourceRevisionPinned"
+        ] = pocketPcSourceRevisionPinned.toString()
+
         externalNativeBuild {
             cmake {
                 cppFlags += "-std=c++20"
