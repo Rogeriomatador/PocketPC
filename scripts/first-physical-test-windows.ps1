@@ -12,6 +12,30 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Invoke-NativeCapture {
+    param(
+        [Parameter(Mandatory=$true)][string]$FilePath,
+        [string[]]$Arguments = @()
+    )
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    $output = @()
+    $nativeExitCode = $null
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = & $FilePath @Arguments 2>&1
+        $nativeExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    return [pscustomobject]@{
+        ExitCode = $nativeExitCode
+        Text = (($output | Out-String).Trim())
+    }
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $lockPath = Join-Path $repoRoot "toolchains\android-build-lock.json"
 $lock = Get-Content $lockPath -Raw | ConvertFrom-Json
@@ -19,9 +43,14 @@ $lock = Get-Content $lockPath -Raw | ConvertFrom-Json
 $git = (Get-Command git -ErrorAction SilentlyContinue)
 $commit = $null
 if ($git) {
-    $resolved = & $git.Source -C $repoRoot rev-parse HEAD 2>&1 | Out-String
-    if ($LASTEXITCODE -eq 0 -and $resolved.Trim() -match '^[0-9a-fA-F]{40}$') {
-        $commit = $resolved.Trim().ToLowerInvariant()
+    $resolved = Invoke-NativeCapture $git.Source @(
+        "-C",
+        $repoRoot,
+        "rev-parse",
+        "HEAD"
+    )
+    if ($resolved.ExitCode -eq 0 -and $resolved.Text -match '^[0-9a-fA-F]{40}$') {
+        $commit = $resolved.Text.ToLowerInvariant()
     }
 }
 

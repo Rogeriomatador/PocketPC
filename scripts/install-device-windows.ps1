@@ -168,7 +168,7 @@ $launchOk = $launch.Text -match '(?m)^Status:\s*ok\s*$'
 if (-not $launchOk) { throw ("Activity launch não confirmou Status: ok." + [Environment]::NewLine + $launch.Text) }
 
 $pidText = (AdbShell @("pidof", $packageName)).Text.Trim()
-$pid = if ($pidText -match '^\d+(\s+\d+)*$') { $pidText } else { $null }
+$appPid = if ($pidText -match '^\d+(\s+\d+)*$') { $pidText } else { $null }
 
 $pullStatus = "UNAVAILABLE"
 $installedApkSha256 = $null
@@ -234,7 +234,7 @@ $installRecord = [ordered]@{
     launch = [ordered]@{
         activity = "$packageName/.MainActivity"
         status = "PASS"
-        pid = $pid
+        pid = $appPid
         outputFile = "activity-launch.txt"
     }
 }

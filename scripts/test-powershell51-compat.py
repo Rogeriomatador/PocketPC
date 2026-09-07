@@ -8,6 +8,32 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 LEADING_LOGICAL = re.compile(r"^\s*-(and|or)\b", re.IGNORECASE)
+READONLY_AUTOMATIC_VARIABLES = (
+    "HOME",
+    "Host",
+    "PID",
+    "PSCommandPath",
+    "PSHOME",
+    "PSScriptRoot",
+    "PSVersionTable",
+    "PWD",
+    "ShellId",
+)
+READONLY_NAME = "(?:" + "|".join(READONLY_AUTOMATIC_VARIABLES) + ")"
+READONLY_ASSIGNMENT = re.compile(
+    rf"(?im)^\s*\${READONLY_NAME}\s*=",
+)
+READONLY_TYPED_DECLARATION = re.compile(
+    rf"(?i)\[[^\]\r\n]+\]\s*\${READONLY_NAME}\b",
+)
+READONLY_LOOP_DECLARATION = re.compile(
+    rf"(?i)\bforeach\s*\(\s*\${READONLY_NAME}\s+in\b",
+)
+SAFE_NATIVE_CAPTURE = re.compile(
+    r"^\s*\$(?:output|result)\s*=\s*&\s*\$FilePath\s+@Arguments\s+2>&1\s*$",
+    re.IGNORECASE,
+)
+LEGACY_SMART_QUOTE_BYTES = frozenset((0x91, 0x92, 0x93, 0x94))
 
 
 def main() -> int:
@@ -18,7 +44,20 @@ def main() -> int:
         failures.append("no PowerShell scripts found")
 
     for path in ps1_files:
-        text = path.read_text(encoding="utf-8")
+        raw = path.read_bytes()
+        text = raw.decode("utf-8")
+        relative = path.relative_to(ROOT)
+
+        if not raw.startswith(b"\xef\xbb\xbf"):
+            for offset, byte in enumerate(raw):
+                if byte in LEGACY_SMART_QUOTE_BYTES:
+                    number = raw[:offset].count(b"\n") + 1
+                    failures.append(
+                        f"{relative}:{number}: UTF-8 without BOM contains byte "
+                        f"0x{byte:02x}, which Windows PowerShell 5.1 can decode "
+                        "as a smart quote"
+                    )
+                    break
 
         if "New-Object System.Collections.Generic.List[object]" in text:
             failures.append(
@@ -37,23 +76,42 @@ def main() -> int:
                 "use System.Diagnostics.Process"
             )
 
-        if re.search(r"\[string\]\$Home\b", text, re.IGNORECASE):
+        if (
+            READONLY_ASSIGNMENT.search(text)
+            or READONLY_TYPED_DECLARATION.search(text)
+            or READONLY_LOOP_DECLARATION.search(text)
+        ):
             failures.append(
-                f"{path.relative_to(ROOT)}: do not use $Home as a parameter; "
-                "PowerShell $HOME is a readonly automatic variable"
+                f"{relative}: do not declare or assign a readonly PowerShell "
+                "automatic variable"
             )
 
-        if re.search(r"(?im)^\s*\$pid\s*=", text):
-            failures.append(
-                f"{path.relative_to(ROOT)}: do not assign to $pid; "
-                "PowerShell $PID is a readonly automatic variable"
-            )
-        for number, line in enumerate(text.splitlines(), start=1):
+        lines = text.splitlines()
+        for index, line in enumerate(lines):
+            number = index + 1
             if LEADING_LOGICAL.search(line):
                 failures.append(
-                    f"{path.relative_to(ROOT)}:{number}: "
+                    f"{relative}:{number}: "
                     "logical operator starts a continuation line"
                 )
+
+            if "2>&1" in line:
+                before = "\n".join(lines[max(0, index - 8) : index])
+                after = "\n".join(lines[index + 1 : index + 10])
+                if not SAFE_NATIVE_CAPTURE.fullmatch(line):
+                    failures.append(
+                        f"{relative}:{number}: native stderr capture must use "
+                        "the guarded Invoke-NativeCapture pattern"
+                    )
+                elif (
+                    '$ErrorActionPreference = "Continue"' not in before
+                    or "$LASTEXITCODE" not in after
+                    or "$ErrorActionPreference = $previousErrorActionPreference" not in after
+                ):
+                    failures.append(
+                        f"{relative}:{number}: native stderr capture is missing "
+                        "ErrorActionPreference/exit-code guards"
+                    )
 
         if path.name == "first-physical-test-core-windows.ps1":
             marker = "# POCKETPC_FIRST_PHYSICAL_TEST_CORE_EOF"
@@ -67,6 +125,13 @@ def main() -> int:
             except UnicodeEncodeError:
                 failures.append(
                     "first physical core must remain ASCII-only for Windows PowerShell 5.1"
+                )
+
+            commit_regex = "$commit -notmatch '^[0-9a-fA-F]{40}$'"
+            if text.count(commit_regex) != 1:
+                failures.append(
+                    "first physical core Git commit regex sentinel is missing, "
+                    "duplicated, or truncated"
                 )
 
             paren = brace = bracket = 0

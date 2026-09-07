@@ -130,7 +130,9 @@ def main() -> int:
             raise SystemExit("valid final physical record was rejected")
 
         build_record = build / "local-build-record.json"
-        build_record.write_bytes(build_record.read_bytes() + b"tampered")
+        # Change the file hash while preserving valid JSON so this exercise
+        # reaches the verifier's authenticated-record mismatch branch.
+        build_record.write_bytes(build_record.read_bytes() + b"\n")
         bad = run(build, physical, commit)
         if bad.returncode == 0:
             raise SystemExit("tampered build record unexpectedly passed")
