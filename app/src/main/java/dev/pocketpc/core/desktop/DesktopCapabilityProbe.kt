@@ -20,6 +20,7 @@ data class DesktopDisplayInfo(
 
 data class DesktopCapabilitySnapshot(
     val secondaryDisplayActivities: Boolean,
+    val freeformWindowManagement: Boolean,
     val externalDisplays: List<DesktopDisplayInfo>,
 ) {
     val externalDisplayCount: Int
@@ -66,6 +67,10 @@ object DesktopCapabilityProbe {
             secondaryDisplayActivities =
                 packageManager.hasSystemFeature(
                     PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS
+                ),
+            freeformWindowManagement =
+                packageManager.hasSystemFeature(
+                    PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT
                 ),
             externalDisplays = displays,
         )
