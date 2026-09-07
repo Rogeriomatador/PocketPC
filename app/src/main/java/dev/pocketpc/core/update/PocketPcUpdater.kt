@@ -13,6 +13,7 @@ import dev.pocketpc.core.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -124,12 +125,7 @@ class PocketPcUpdater(
             }
 
             val updateDir =
-                File(
-                    appContext.getExternalFilesDir(
-                        Environment.DIRECTORY_DOWNLOADS
-                    ),
-                    "updates",
-                ).apply { mkdirs() }
+                updateDirectory()
 
             val file =
                 File(
@@ -237,12 +233,7 @@ class PocketPcUpdater(
 
             val file =
                 File(
-                    File(
-                        appContext.getExternalFilesDir(
-                            Environment.DIRECTORY_DOWNLOADS
-                        ),
-                        "updates",
-                    ),
+                    updateDirectory(),
                     "PocketPC-" +
                         manifest.versionName +
                         ".apk",
@@ -436,15 +427,30 @@ class PocketPcUpdater(
             val bytes =
                 connection.inputStream
                     .use { input ->
-                        input.readNBytes(
-                            MAX_MANIFEST_BYTES
-                        )
+                        val output =
+                            ByteArrayOutputStream()
+                        val buffer =
+                            ByteArray(4 * 1024)
+                        var total = 0
+                        while (true) {
+                            val count =
+                                input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            require(
+                                total <=
+                                    MAX_MANIFEST_BYTES
+                            ) {
+                                "Manifesto de atualização é grande demais."
+                            }
+                            output.write(
+                                buffer,
+                                0,
+                                count,
+                            )
+                        }
+                        output.toByteArray()
                     }
-            require(
-                bytes.size < MAX_MANIFEST_BYTES
-            ) {
-                "Manifesto de atualização é grande demais."
-            }
 
             return parseManifest(
                 bytes.toString(
@@ -596,10 +602,32 @@ class PocketPcUpdater(
                     )
                     .joinToString("") {
                         byte ->
-                        "%02x".format(byte)
+                        "%02x".format(
+                            byte.toInt() and 0xff
+                        )
                     }
             }
             .toSet()
+    }
+
+    private fun updateDirectory(): File {
+        val externalDownloads =
+            requireNotNull(
+                appContext.getExternalFilesDir(
+                    Environment.DIRECTORY_DOWNLOADS
+                )
+            ) {
+                "Armazenamento de atualização indisponível."
+            }
+
+        return File(
+            externalDownloads,
+            "updates",
+        ).apply {
+            check(exists() || mkdirs()) {
+                "Não foi possível preparar a pasta de atualização."
+            }
+        }
     }
 
     companion object {
