@@ -15,6 +15,8 @@ import dev.pocketpc.core.BuildConfig
 import dev.pocketpc.core.update.PocketPcInstallResult
 import dev.pocketpc.core.update.PocketPcUpdateCheck
 import dev.pocketpc.core.update.PocketPcUpdateDownload
+import dev.pocketpc.core.storage.PocketPcProfileBackup
+import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.update.PocketPcUpdater
 import dev.pocketpc.core.update.shouldAutoInstallUpdate
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +31,19 @@ fun UpdateCenterApp() {
         remember {
             PocketPcUpdater(
                 context.applicationContext
+            )
+        }
+    val storage =
+        remember {
+            StorageRepository(
+                context.applicationContext
+            )
+        }
+    val profileBackup =
+        remember {
+            PocketPcProfileBackup(
+                context = context.applicationContext,
+                storage = storage,
             )
         }
     val scope = rememberCoroutineScope()
@@ -327,6 +342,109 @@ fun UpdateCenterApp() {
                                 )
                         },
                     )
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            tonalElevation = 1.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    "Perfil e migração",
+                    style =
+                        MaterialTheme.typography
+                            .titleSmall,
+                )
+                Text(
+                    if (storage.rootUriString != null) {
+                        "Salva tema, pins, geometria das janelas e perfis de jogos em P:\\Backups."
+                    } else {
+                        "Conecte o PocketDrive para criar um backup fora do C: interno."
+                    },
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedButton(
+                        enabled =
+                            !busy &&
+                                storage.rootUriString != null,
+                        onClick = {
+                            busy = true
+                            scope.launch {
+                                profileBackup.create()
+                                    .onSuccess { backup ->
+                                        status =
+                                            "Backup criado em P:\\Backups: " +
+                                                backup.entry.name +
+                                                " (" +
+                                                backup.keys +
+                                                " configuração(ões))."
+                                    }
+                                    .onFailure { error ->
+                                        status =
+                                            "Falha no backup: " +
+                                                (
+                                                    error.message
+                                                        ?: error.javaClass
+                                                            .simpleName
+                                                    )
+                                    }
+                                busy = false
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Criar backup em P:")
+                    }
+
+                    OutlinedButton(
+                        enabled =
+                            !busy &&
+                                storage.rootUriString != null,
+                        onClick = {
+                            busy = true
+                            scope.launch {
+                                profileBackup
+                                    .restoreLatest()
+                                    .onSuccess { restored ->
+                                        status =
+                                            "Perfil restaurado de " +
+                                                restored.fileName +
+                                                ". Reabra o PocketPC para aplicar tudo."
+                                    }
+                                    .onFailure { error ->
+                                        status =
+                                            "Falha ao restaurar: " +
+                                                (
+                                                    error.message
+                                                        ?: error.javaClass
+                                                            .simpleName
+                                                    )
+                                    }
+                                busy = false
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Restaurar último")
+                    }
                 }
             }
         }
