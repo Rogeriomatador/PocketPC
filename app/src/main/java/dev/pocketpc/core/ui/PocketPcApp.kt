@@ -381,21 +381,31 @@ private fun DesktopWindowView(
         )
     }
     var x by remember(window.id) {
-        val centered =
-            ((1f - widthFraction) * screenWidthPx / 2f)
-                .coerceAtLeast(0f)
+        val requested =
+            spec.defaultXFraction * screenWidthPx
+        val maxX =
+            (
+                screenWidthPx -
+                    screenWidthPx * widthFraction
+            ).coerceAtLeast(0f)
         mutableFloatStateOf(
-            savedGeometry?.xFraction?.times(screenWidthPx)
-                ?: centered
+            savedGeometry?.xFraction
+                ?.times(screenWidthPx)
+                ?: requested.coerceIn(0f, maxX)
         )
     }
     var y by remember(window.id) {
-        val centered =
-            ((1f - heightFraction) * workspaceHeightPx / 2f)
-                .coerceAtLeast(0f)
+        val requested =
+            spec.defaultYFraction * workspaceHeightPx
+        val maxY =
+            (
+                workspaceHeightPx -
+                    workspaceHeightPx * heightFraction
+            ).coerceAtLeast(0f)
         mutableFloatStateOf(
-            savedGeometry?.yFraction?.times(workspaceHeightPx)
-                ?: centered
+            savedGeometry?.yFraction
+                ?.times(workspaceHeightPx)
+                ?: requested.coerceIn(0f, maxY)
         )
     }
 
