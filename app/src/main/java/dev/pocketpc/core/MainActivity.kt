@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
         if (
             event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS &&
-            event.buttonState and MotionEvent.BUTTON_SECONDARY != 0 &&
+            event.buttonState.and(MotionEvent.BUTTON_SECONDARY) != 0 &&
             desktopCommands.tryEmit(DesktopCommand.OPEN_DESKTOP_CONTEXT)
         ) {
             return true
