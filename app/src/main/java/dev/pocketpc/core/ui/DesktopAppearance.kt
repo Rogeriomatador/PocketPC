@@ -94,18 +94,24 @@ fun DesktopWallpaper(
     preset: WallpaperPreset,
     modifier: Modifier = Modifier,
 ) {
-    val transition = rememberInfiniteTransition(label = "PocketPCWallpaper")
-    val motion by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 12_000),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "wallpaperMotion",
-    )
+    val animatedMotion =
+        if (preset.animated) {
+            val transition =
+                rememberInfiniteTransition(label = "PocketPCWallpaper")
+            val motion by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 12_000),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "wallpaperMotion",
+            )
+            motion
+        } else {
+            0.35f
+        }
 
-    val animatedMotion = if (preset.animated) motion else 0.35f
     val colors = preset.colors.map { argb -> Color(argb) }
 
     Box(
