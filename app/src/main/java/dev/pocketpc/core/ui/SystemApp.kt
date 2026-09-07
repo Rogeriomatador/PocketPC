@@ -5,11 +5,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.pocketpc.core.BuildConfig
 import dev.pocketpc.core.desktop.DesktopCapabilitySnapshot
 import dev.pocketpc.core.runtime.DeviceEvidenceCollector
@@ -20,6 +23,16 @@ import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.NativeHostStatus
 import dev.pocketpc.core.system.SystemSnapshot
 import kotlinx.coroutines.launch
+import java.util.Locale
+
+private enum class PcInfoTab(
+    val label: String,
+) {
+    OVERVIEW("Visão geral"),
+    HARDWARE("Hardware"),
+    DESKTOP("Desktop"),
+    DIAGNOSTICS("Diagnóstico"),
+}
 
 @Composable
 fun SystemApp(
@@ -29,363 +42,887 @@ fun SystemApp(
     substrate: ExecutionSubstrateStatus,
     desktopCapabilities: DesktopCapabilitySnapshot,
 ) {
-    val localContext = LocalContext.current
-    val context = localContext.applicationContext
+    val context =
+        androidx.compose.ui.platform.LocalContext.current
+            .applicationContext
     val scope = rememberCoroutineScope()
 
-    var evidence by remember { mutableStateOf<DeviceEvidenceReport?>(null) }
-    var bundle by remember { mutableStateOf<EvidenceBundleReport?>(null) }
-    var evidenceStatus by remember { mutableStateOf<String?>(null) }
-    var evidenceBusy by remember { mutableStateOf(false) }
+    var tabName by rememberSaveable {
+        mutableStateOf(PcInfoTab.OVERVIEW.name)
+    }
+    val tab =
+        PcInfoTab.entries.firstOrNull {
+            it.name == tabName
+        } ?: PcInfoTab.OVERVIEW
 
-    val exportBundle = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/zip"),
-    ) { uri ->
-        val current = bundle
-        if (uri != null && current != null) {
-            evidenceBusy = true
-            evidenceStatus = "EVIDENCE_BUNDLE_EXPORTING"
-            scope.launch {
-                EvidenceBundleManager.exportToUri(
-                    context = context,
-                    bundle = current,
-                    destination = uri,
+    var evidence by remember {
+        mutableStateOf<DeviceEvidenceReport?>(null)
+    }
+    var bundle by remember {
+        mutableStateOf<EvidenceBundleReport?>(null)
+    }
+    var evidenceStatus by remember {
+        mutableStateOf<String?>(null)
+    }
+    var evidenceBusy by remember {
+        mutableStateOf(false)
+    }
+
+    val exportBundle =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument(
+                "application/zip"
+            ),
+        ) { uri ->
+            val current = bundle
+            if (uri != null && current != null) {
+                evidenceBusy = true
+                evidenceStatus =
+                    "EVIDENCE_BUNDLE_EXPORTING"
+                scope.launch {
+                    EvidenceBundleManager.exportToUri(
+                        context = context,
+                        bundle = current,
+                        destination = uri,
+                    )
+                        .onSuccess {
+                            evidenceStatus =
+                                "EVIDENCE_BUNDLE_EXPORTED"
+                        }
+                        .onFailure { error ->
+                            evidenceStatus =
+                                "EVIDENCE_BUNDLE_EXPORT_FAILED: " +
+                                    (
+                                        error.message
+                                            ?: error.javaClass.simpleName
+                                    )
+                        }
+                    evidenceBusy = false
+                }
+            }
+        }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        PcHeader(snapshot)
+
+        PcSummaryCards(snapshot)
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement =
+                Arrangement.spacedBy(6.dp),
+        ) {
+            PcInfoTab.entries.forEach { item ->
+                FilterChip(
+                    selected = tab == item,
+                    onClick = {
+                        tabName = item.name
+                    },
+                    label = {
+                        Text(
+                            item.label,
+                            fontSize = 10.sp,
+                        )
+                    },
                 )
-                    .onSuccess {
-                        evidenceStatus = "EVIDENCE_BUNDLE_EXPORTED"
-                    }
-                    .onFailure { error ->
+            }
+        }
+
+        HorizontalDivider()
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(
+                    rememberScrollState()
+                )
+                .padding(12.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(10.dp),
+        ) {
+            when (tab) {
+                PcInfoTab.OVERVIEW ->
+                    OverviewTab(
+                        snapshot = snapshot,
+                        storageConfigured =
+                            storageConfigured,
+                        nativeHost = nativeHost,
+                        substrate = substrate,
+                    )
+
+                PcInfoTab.HARDWARE ->
+                    HardwareTab(snapshot)
+
+                PcInfoTab.DESKTOP ->
+                    DesktopTab(
+                        snapshot = snapshot,
+                        capabilities =
+                            desktopCapabilities,
+                    )
+
+                PcInfoTab.DIAGNOSTICS ->
+                    DiagnosticsTab(
+                        context = context,
+                        scope = scope,
+                        snapshot = snapshot,
+                        nativeHost = nativeHost,
+                        substrate = substrate,
+                        evidence = evidence,
+                        bundle = bundle,
                         evidenceStatus =
-                            "EVIDENCE_BUNDLE_EXPORT_FAILED: " +
-                                (error.message ?: error.javaClass.simpleName)
-                    }
-                evidenceBusy = false
+                            evidenceStatus,
+                        evidenceBusy =
+                            evidenceBusy,
+                        onEvidenceBusy = {
+                            evidenceBusy = it
+                        },
+                        onEvidence = {
+                            evidence = it
+                        },
+                        onBundle = {
+                            bundle = it
+                        },
+                        onStatus = {
+                            evidenceStatus = it
+                        },
+                        onExport = { report ->
+                            val revision =
+                                report.buildIdentity
+                                    .sourceRevision
+                                    .let {
+                                        if (
+                                            report.buildIdentity
+                                                .sourceRevisionPinned
+                                        ) {
+                                            it.take(12)
+                                        } else {
+                                            "local"
+                                        }
+                                    }
+                            exportBundle.launch(
+                                "PocketPC-" +
+                                    "${report.buildIdentity.versionName}-" +
+                                    "$revision-evidence.zip"
+                            )
+                        },
+                    )
             }
         }
     }
+}
 
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+@Composable
+private fun PcHeader(
+    snapshot: SystemSnapshot,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = 14.dp,
+                vertical = 10.dp,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Sistema", style = MaterialTheme.typography.titleMedium)
-
-        Section("PocketPC") {
-            ValueRow("Versão", BuildConfig.VERSION_NAME)
-            ValueRow("Desktop shell", "IMPLEMENTED / ALPHA19")
-            ValueRow("Landscape imersivo", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow("Mouse/teclado/gamepad", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow("Launcher de apps Android", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow("Monitor externo launch", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow("Menu contextual", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow("Wallpapers animados", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow("Navegador + Google", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow("Downloads web", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow(
-                "Arquivos SAF",
-                if (storageConfigured) "IMPLEMENTED / CONFIGURED" else "IMPLEMENTED",
-            )
-            ValueRow("Local Android shell", "IMPLEMENTED")
-            ValueRow("Runtime staging", "IMPLEMENTED")
-            ValueRow("Safe rootfs install", "IMPLEMENTED")
-            ValueRow("Guest link semantics", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow("NOFOLLOW cleanup", "IMPLEMENTED")
-            ValueRow("Device evidence harness", "IMPLEMENTED / USER-RUN TEST")
-            ValueRow("Evidence bundle", "IMPLEMENTED / EXPORTABLE")
-            ValueRow("Local Windows builder", "IMPLEMENTED")
-            ValueRow("Device install gate", "IMPLEMENTED / ALPHA17 PHYSICAL PASS")
-            ValueRow("Automated physical runner", "DEBUG ONLY / ALPHA19 NOT_EXECUTED")
-            ValueRow("One-command physical test", "IMPLEMENTED / ALPHA19 NOT_EXECUTED")
-            ValueRow("Windows preflight doctor", "IMPLEMENTED / ALPHA17 PASS")
-            ValueRow("Failure triage pack", "IMPLEMENTED / AUTO ON FAILURE")
-            ValueRow(
-                "Native Runtime Host",
-                if (nativeHost.loaded) "IMPLEMENTED / LOADED" else "IMPLEMENTED / LOAD FAILED",
-            )
-            ValueRow("Execution substrate", substrate.state)
-            ValueRow(
-                "Approval manifest",
-                if (substrate.artifactContractApproved) "APPROVED" else "LOCKED / NOT APPROVED",
-            )
-            ValueRow(
-                "Policy digests",
-                if (substrate.policyDigestsVerified) "VERIFIED" else "NOT VERIFIED",
-            )
-            ValueRow(
-                "Artifact hashes",
-                if (substrate.artifactIntegrityVerified) "ATTESTED" else "NOT ATTESTED",
-            )
-            ValueRow("Native Vulkan probe", "IMPLEMENTED / NOT DEVICE VALIDATED")
-            ValueRow("Bind/env policy", "IMPLEMENTED / EXECUTION DISABLED")
-            ValueRow("Process supervisor", "IMPLEMENTED / ONE-SHOT FOUNDATION")
-            ValueRow("Linux ARM execution", "DESIGN / NOT IMPLEMENTED")
-            ValueRow("Windows x86/x64", "DESIGN / PLANNED")
-            ValueRow("vGPU", "DESIGN / PLANNED")
-        }
-
-        Section("Desktop / monitores") {
-            ValueRow(
-                "Activities em monitor secundario",
-                if (desktopCapabilities.secondaryDisplayActivities) {
-                    "SUPPORTED"
-                } else {
-                    "NOT ADVERTISED"
-                },
-            )
-            ValueRow(
-                "Freeform window management",
-                if (desktopCapabilities.freeformWindowManagement) {
-                    "SUPPORTED"
-                } else {
-                    "NOT ADVERTISED"
-                },
-            )
-            ValueRow(
-                "Android PC hardware type",
-                if (desktopCapabilities.pcHardwareType) {
-                    "ADVERTISED"
-                } else {
-                    "NOT ADVERTISED"
-                },
-            )
-            ValueRow(
-                "Monitores externos",
-                desktopCapabilities.externalDisplayCount.toString(),
-            )
-            ValueRow(
-                "Presentation displays",
-                desktopCapabilities.presentationDisplayCount.toString(),
-            )
-            desktopCapabilities.externalDisplays.forEach { display ->
-                ValueRow(
-                    "Display #${display.displayId}",
-                    "${display.name} • ${display.widthPx}x${display.heightPx} • " +
-                        String.format(java.util.Locale.ROOT, "%.1f Hz", display.refreshRateHz),
-                )
-            }
-        }
-
-        Section("Dispositivo") {
-            ValueRow("Fabricante", snapshot.manufacturer)
-            ValueRow("Modelo", snapshot.model)
-            ValueRow("Android", "${snapshot.androidVersion} (API ${snapshot.apiLevel})")
-            ValueRow("ABIs", snapshot.abis.joinToString())
-            ValueRow("CPU lógica", snapshot.cpuCores.toString())
-            ValueRow("OpenGL ES", snapshot.glEsVersion)
-            ValueRow(
-                "Partição /data",
-                "${formatBytes(snapshot.internalFreeBytes)} livres / " +
-                    formatBytes(snapshot.internalTotalBytes),
-            )
-        }
-
-        Section("Teste do dispositivo") {
+        Column(
+            modifier = Modifier.weight(1f),
+        ) {
             Text(
-                "Teste local e não destrutivo: usa somente diretórios privados temporários, " +
-                    "não executa PRoot e não requer root.",
-                style = MaterialTheme.typography.bodySmall,
+                "Este PC",
+                style =
+                    MaterialTheme.typography.headlineSmall,
             )
+            Text(
+                "${snapshot.manufacturer} ${snapshot.model} • " +
+                    "PocketPC ${BuildConfig.VERSION_NAME}",
+                style =
+                    MaterialTheme.typography.bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant,
+            )
+        }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    enabled = !evidenceBusy,
-                    onClick = {
-                        evidenceBusy = true
-                        evidence = null
-                        bundle = null
-                        evidenceStatus = "DEVICE_EVIDENCE_RUNNING"
+        AssistChip(
+            onClick = {},
+            label = {
+                Text(
+                    snapshot.networkTransport,
+                    fontSize = 10.sp,
+                )
+            },
+        )
+    }
+}
 
-                        scope.launch {
-                            DeviceEvidenceCollector.collectAndPersist(
+@Composable
+private fun PcSummaryCards(
+    snapshot: SystemSnapshot,
+) {
+    val usedStorage =
+        (
+            snapshot.internalTotalBytes -
+                snapshot.internalFreeBytes
+        ).coerceAtLeast(0L)
+    val usedRam =
+        (
+            snapshot.totalRamBytes -
+                snapshot.availableRamBytes
+        ).coerceAtLeast(0L)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = 10.dp,
+                vertical = 4.dp,
+            ),
+        horizontalArrangement =
+            Arrangement.spacedBy(8.dp),
+    ) {
+        PcStatCard(
+            title = "Processador",
+            value = snapshot.socModel,
+            detail =
+                "${snapshot.cpuCores} núcleos lógicos",
+            modifier = Modifier.weight(1f),
+        )
+        PcStatCard(
+            title = "Memória",
+            value = formatBytes(
+                snapshot.totalRamBytes
+            ),
+            detail =
+                "${formatBytes(usedRam)} em uso",
+            modifier = Modifier.weight(1f),
+        )
+        PcStatCard(
+            title = "Armazenamento",
+            value = formatBytes(
+                snapshot.internalTotalBytes
+            ),
+            detail =
+                "${formatBytes(usedStorage)} em uso",
+            modifier = Modifier.weight(1f),
+        )
+        PcStatCard(
+            title = "Tela",
+            value =
+                "${snapshot.displayWidthPx}×" +
+                    "${snapshot.displayHeightPx}",
+            detail =
+                String.format(
+                    Locale.ROOT,
+                    "%.0f Hz",
+                    snapshot.refreshRateHz,
+                ),
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun PcStatCard(
+    title: String,
+    value: String,
+    detail: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .heightIn(min = 76.dp),
+        shape = RoundedCornerShape(14.dp),
+        tonalElevation = 2.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                title,
+                fontSize = 10.sp,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant,
+            )
+            Text(
+                value,
+                style =
+                    MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+            )
+            Text(
+                detail,
+                fontSize = 9.sp,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun OverviewTab(
+    snapshot: SystemSnapshot,
+    storageConfigured: Boolean,
+    nativeHost: NativeHostStatus,
+    substrate: ExecutionSubstrateStatus,
+) {
+    InfoSection("Sistema") {
+        ValueRow(
+            "PocketPC",
+            BuildConfig.VERSION_NAME,
+        )
+        ValueRow(
+            "Android",
+            "${snapshot.androidVersion} " +
+                "(API ${snapshot.apiLevel})",
+        )
+        ValueRow(
+            "Patch de segurança",
+            snapshot.securityPatch,
+        )
+        ValueRow(
+            "Kernel",
+            snapshot.kernelVersion,
+        )
+    }
+
+    InfoSection("Recursos") {
+        ValueRow(
+            "Explorador",
+            if (storageConfigured) {
+                "Conectado"
+            } else {
+                "Aguardando pasta"
+            },
+        )
+        ValueRow(
+            "Navegador",
+            "Abas + modo desktop + downloads",
+        )
+        ValueRow(
+            "Entrada desktop",
+            "Mouse • teclado • gamepad",
+        )
+        ValueRow(
+            "Runtime nativo",
+            if (nativeHost.loaded) {
+                "Carregado"
+            } else {
+                "Indisponível"
+            },
+        )
+        ValueRow(
+            "Linux ARM",
+            if (
+                substrate.artifactContractApproved &&
+                substrate.policyDigestsVerified &&
+                substrate.artifactIntegrityVerified
+            ) {
+                "Staging aprovado"
+            } else {
+                "Bloqueado por gates"
+            },
+        )
+    }
+
+    InfoSection("Energia e rede") {
+        ValueRow(
+            "Bateria",
+            "${snapshot.batteryPercent}%",
+        )
+        ValueRow(
+            "Temperatura",
+            snapshot.batteryTemperatureC
+                ?.let {
+                    String.format(
+                        Locale.ROOT,
+                        "%.1f °C",
+                        it,
+                    )
+                }
+                ?: "indisponível",
+        )
+        ValueRow(
+            "Rede",
+            snapshot.networkTransport,
+        )
+    }
+}
+
+@Composable
+private fun HardwareTab(
+    snapshot: SystemSnapshot,
+) {
+    InfoSection("Processador") {
+        ValueRow(
+            "SoC",
+            snapshot.socModel,
+        )
+        ValueRow(
+            "Fabricante do SoC",
+            snapshot.socManufacturer,
+        )
+        ValueRow(
+            "Núcleos lógicos",
+            snapshot.cpuCores.toString(),
+        )
+        ValueRow(
+            "Hardware",
+            snapshot.hardware,
+        )
+        ValueRow(
+            "Board",
+            snapshot.board,
+        )
+        ValueRow(
+            "Arquitetura",
+            snapshot.abis.joinToString(),
+        )
+    }
+
+    InfoSection("Memória") {
+        ValueRow(
+            "RAM total",
+            formatBytes(snapshot.totalRamBytes),
+        )
+        ValueRow(
+            "RAM disponível",
+            formatBytes(
+                snapshot.availableRamBytes
+            ),
+        )
+    }
+
+    InfoSection("Armazenamento interno") {
+        ValueRow(
+            "Total",
+            formatBytes(
+                snapshot.internalTotalBytes
+            ),
+        )
+        ValueRow(
+            "Livre",
+            formatBytes(
+                snapshot.internalFreeBytes
+            ),
+        )
+    }
+
+    InfoSection("Tela") {
+        ValueRow(
+            "Resolução",
+            "${snapshot.displayWidthPx} × " +
+                "${snapshot.displayHeightPx}",
+        )
+        ValueRow(
+            "Densidade",
+            "${snapshot.densityDpi} dpi",
+        )
+        ValueRow(
+            "Atualização",
+            String.format(
+                Locale.ROOT,
+                "%.1f Hz",
+                snapshot.refreshRateHz,
+            ),
+        )
+    }
+
+    InfoSection("Gráficos") {
+        ValueRow(
+            "OpenGL ES",
+            snapshot.glEsVersion,
+        )
+        ValueRow(
+            "Vulkan",
+            if (snapshot.vulkanFeatures.isEmpty()) {
+                "Não anunciado"
+            } else {
+                "${snapshot.vulkanFeatures.size} feature(s)"
+            },
+        )
+        snapshot.vulkanFeatures.forEach {
+            Text(
+                it,
+                style =
+                    MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DesktopTab(
+    snapshot: SystemSnapshot,
+    capabilities: DesktopCapabilitySnapshot,
+) {
+    InfoSection("Modo desktop") {
+        ValueRow(
+            "Landscape",
+            "Ativo pelo PocketPC",
+        )
+        ValueRow(
+            "Freeform Android",
+            if (
+                capabilities.freeformWindowManagement
+            ) {
+                "SUPPORTED"
+            } else {
+                "NOT ADVERTISED"
+            },
+        )
+        ValueRow(
+            "Activities em display secundário",
+            if (
+                capabilities.secondaryDisplayActivities
+            ) {
+                "SUPPORTED"
+            } else {
+                "NOT ADVERTISED"
+            },
+        )
+        ValueRow(
+            "Android PC hardware type",
+            if (capabilities.pcHardwareType) {
+                "ADVERTISED"
+            } else {
+                "NOT ADVERTISED"
+            },
+        )
+    }
+
+    InfoSection("Tela principal") {
+        ValueRow(
+            "Resolução",
+            "${snapshot.displayWidthPx} × " +
+                "${snapshot.displayHeightPx}",
+        )
+        ValueRow(
+            "Atualização",
+            String.format(
+                Locale.ROOT,
+                "%.1f Hz",
+                snapshot.refreshRateHz,
+            ),
+        )
+    }
+
+    InfoSection("Displays conectados") {
+        ValueRow(
+            "Externos",
+            capabilities.externalDisplayCount
+                .toString(),
+        )
+        ValueRow(
+            "Presentation",
+            capabilities.presentationDisplayCount
+                .toString(),
+        )
+
+        capabilities.externalDisplays.forEach {
+            display ->
+            ValueRow(
+                "#${display.displayId} ${display.name}",
+                "${display.widthPx}×" +
+                    "${display.heightPx} • " +
+                    String.format(
+                        Locale.ROOT,
+                        "%.1f Hz",
+                        display.refreshRateHz,
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticsTab(
+    context: android.content.Context,
+    scope: kotlinx.coroutines.CoroutineScope,
+    snapshot: SystemSnapshot,
+    nativeHost: NativeHostStatus,
+    substrate: ExecutionSubstrateStatus,
+    evidence: DeviceEvidenceReport?,
+    bundle: EvidenceBundleReport?,
+    evidenceStatus: String?,
+    evidenceBusy: Boolean,
+    onEvidenceBusy: (Boolean) -> Unit,
+    onEvidence: (DeviceEvidenceReport?) -> Unit,
+    onBundle: (EvidenceBundleReport?) -> Unit,
+    onStatus: (String?) -> Unit,
+    onExport: (EvidenceBundleReport) -> Unit,
+) {
+    InfoSection("Evidence do dispositivo") {
+        Text(
+            "Teste local e não destrutivo. Não executa PRoot e não requer root.",
+            style =
+                MaterialTheme.typography.bodySmall,
+        )
+
+        Row(
+            horizontalArrangement =
+                Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                enabled = !evidenceBusy,
+                onClick = {
+                    onEvidenceBusy(true)
+                    onEvidence(null)
+                    onBundle(null)
+                    onStatus(
+                        "DEVICE_EVIDENCE_RUNNING"
+                    )
+
+                    scope.launch {
+                        DeviceEvidenceCollector
+                            .collectAndPersist(
                                 context = context,
                                 nativeHost = nativeHost,
                                 substrate = substrate,
                             )
-                                .onSuccess { report ->
-                                    evidence = report
-                                    evidenceStatus = if (report.filesystem.hostCriticalPassed) {
+                            .onSuccess { report ->
+                                onEvidence(report)
+                                onStatus(
+                                    if (
+                                        report.filesystem
+                                            .hostCriticalPassed
+                                    ) {
                                         "DEVICE_HOST_FILESYSTEM_PASS"
                                     } else {
                                         "DEVICE_HOST_FILESYSTEM_FAIL"
                                     }
+                                )
 
-                                    EvidenceBundleManager.create(context, report)
-                                        .onSuccess { created ->
-                                            bundle = created
-                                            evidenceStatus =
-                                                if (report.filesystem.hostCriticalPassed) {
-                                                    "DEVICE_EVIDENCE_BUNDLE_READY"
-                                                } else {
-                                                    "DEVICE_EVIDENCE_BUNDLE_READY_WITH_HOST_FAILURES"
-                                                }
-                                        }
-                                        .onFailure { error ->
-                                            evidenceStatus =
-                                                "EVIDENCE_BUNDLE_CREATE_FAILED: " +
-                                                    (error.message ?: error.javaClass.simpleName)
-                                        }
-                                }
-                                .onFailure { error ->
-                                    evidenceStatus =
-                                        "DEVICE_EVIDENCE_FAILED: " +
-                                            (error.message ?: error.javaClass.simpleName)
-                                }
-                            evidenceBusy = false
-                        }
-                    },
-                ) {
-                    Text("Executar teste")
-                }
-
-                OutlinedButton(
-                    enabled = !evidenceBusy && bundle != null,
-                    onClick = {
-                        val current = bundle ?: return@OutlinedButton
-                        val revision = current.buildIdentity.sourceRevision
-                            .let { if (current.buildIdentity.sourceRevisionPinned) it.take(12) else "local" }
-                        exportBundle.launch(
-                            "PocketPC-${current.buildIdentity.versionName}-$revision-evidence.zip"
-                        )
-                    },
-                ) {
-                    Text("Exportar bundle")
-                }
+                                EvidenceBundleManager
+                                    .create(
+                                        context,
+                                        report,
+                                    )
+                                    .onSuccess {
+                                        created ->
+                                        onBundle(created)
+                                        onStatus(
+                                            "DEVICE_EVIDENCE_BUNDLE_READY"
+                                        )
+                                    }
+                                    .onFailure { error ->
+                                        onStatus(
+                                            "EVIDENCE_BUNDLE_CREATE_FAILED: " +
+                                                (
+                                                    error.message
+                                                        ?: error.javaClass.simpleName
+                                                )
+                                        )
+                                    }
+                            }
+                            .onFailure { error ->
+                                onStatus(
+                                    "DEVICE_EVIDENCE_FAILED: " +
+                                        (
+                                            error.message
+                                                ?: error.javaClass.simpleName
+                                        )
+                                )
+                            }
+                        onEvidenceBusy(false)
+                    }
+                },
+            ) {
+                Text("Executar teste")
             }
 
-            if (evidenceBusy) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
-            }
-
-            evidenceStatus?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall)
-            }
-
-            evidence?.let { report ->
-                ValueRow("Symlink relativo", passLabel(report.filesystem.relativeSymlink.passed))
-                ValueRow("Symlink absoluto", passLabel(report.filesystem.absoluteSymlink.passed))
-                ValueRow("Hardlink", passLabel(report.filesystem.hardlink.passed))
-                ValueRow("NOFOLLOW cleanup", passLabel(report.filesystem.noFollowCleanup.passed))
-                ValueRow(
-                    "Alvo externo preservado",
-                    passLabel(report.filesystem.externalTargetPreserved.passed),
-                )
-                ValueRow(
-                    "Host filesystem",
-                    if (report.filesystem.hostCriticalPassed) "PASS" else "FAIL / REVIEW",
-                )
-                ValueRow(
-                    "Linux link semantics",
-                    if (report.filesystem.runtimeLinkSemanticsReady) {
-                        "READY"
-                    } else {
-                        "BLOCKED / HARDLINK OR HOST CAPABILITY"
-                    },
-                )
-                ValueRow(
-                    "Todas capacidades",
-                    if (report.filesystem.allCriticalPassed) "PASS" else "PARTIAL",
-                )
-                ValueRow("Substrate attested", if (report.prootReady) "YES" else "NO")
-                ValueRow(
-                    "Source revision",
-                    if (report.buildIdentity.sourceRevisionPinned) {
-                        report.buildIdentity.sourceRevision.take(12)
-                    } else {
-                        "LOCAL_UNPINNED"
-                    },
-                )
-                ValueRow(
-                    "Assinaturas APK",
-                    report.buildIdentity.signingCertificateSha256.size.toString(),
-                )
-                Text(
-                    "Evidence interno: ${report.outputFile.path}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Text(
-                    "Evidence SHA-256: ${report.outputSha256}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            bundle?.let { report ->
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                ValueRow("Bundle entries", report.entryCount.toString())
-                ValueRow(
-                    "Build pinned",
-                    if (report.buildIdentity.sourceRevisionPinned) "YES" else "NO",
-                )
-                Text(
-                    "Bundle SHA-256: ${report.bundleSha256}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            OutlinedButton(
+                enabled =
+                    !evidenceBusy && bundle != null,
+                onClick = {
+                    bundle?.let(onExport)
+                },
+            ) {
+                Text("Exportar bundle")
             }
         }
 
-        Section("Runtime host") {
-            Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
-            Text(
-                "nativeLibraryDir: ${nativeHost.nativeLibraryDir}",
-                style = MaterialTheme.typography.bodySmall,
+        if (evidenceBusy) {
+            LinearProgressIndicator(
+                Modifier.fillMaxWidth()
             )
-            Text("substrate: ${substrate.state}", style = MaterialTheme.typography.bodySmall)
-
-            substrate.approvalErrors.forEach { error ->
-                Text(
-                    "approval: $error",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            substrate.components.forEach { component ->
-                Text(
-                    "${component.fileName}: exists=${component.exists}, exec=${component.executable}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
         }
 
-        Section("Vulkan — PackageManager") {
-            if (snapshot.vulkanFeatures.isEmpty()) {
-                Text(
-                    "Nenhuma feature Vulkan foi exposta pelo PackageManager.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+        evidenceStatus?.let {
+            Text(
+                it,
+                style =
+                    MaterialTheme.typography.bodySmall,
+            )
+        }
+
+        evidence?.let { report ->
+            ValueRow(
+                "Symlink relativo",
+                passLabel(
+                    report.filesystem
+                        .relativeSymlink.passed
+                ),
+            )
+            ValueRow(
+                "Symlink absoluto",
+                passLabel(
+                    report.filesystem
+                        .absoluteSymlink.passed
+                ),
+            )
+            ValueRow(
+                "Hardlink",
+                passLabel(
+                    report.filesystem.hardlink.passed
+                ),
+            )
+            ValueRow(
+                "Host filesystem",
+                if (
+                    report.filesystem
+                        .hostCriticalPassed
+                ) {
+                    "PASS"
+                } else {
+                    "FAIL / REVIEW"
+                },
+            )
+            ValueRow(
+                "Linux links",
+                if (
+                    report.filesystem
+                        .runtimeLinkSemanticsReady
+                ) {
+                    "READY"
+                } else {
+                    "BLOCKED"
+                },
+            )
+        }
+
+        bundle?.let {
+            ValueRow(
+                "Bundle entries",
+                it.entryCount.toString(),
+            )
+            Text(
+                "SHA-256: ${it.bundleSha256}",
+                style =
+                    MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+
+    InfoSection("Runtime host") {
+        ValueRow(
+            "Native host",
+            if (nativeHost.loaded) {
+                "LOADED"
             } else {
-                snapshot.vulkanFeatures.forEach {
-                    Text(it, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
+                "LOAD FAILED"
+            },
+        )
+        ValueRow(
+            "Execution substrate",
+            substrate.state,
+        )
+        ValueRow(
+            "Approval",
+            if (
+                substrate.artifactContractApproved
+            ) {
+                "APPROVED"
+            } else {
+                "LOCKED"
+            },
+        )
+        Text(
+            nativeHost.probe,
+            style =
+                MaterialTheme.typography.bodySmall,
+        )
+    }
 
-        Section("Vulkan — NDK probe") {
-            Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
+    InfoSection("Gráficos / NDK") {
+        ValueRow(
+            "OpenGL ES",
+            snapshot.glEsVersion,
+        )
+        Text(
+            nativeHost.graphicsProbe,
+            style =
+                MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            "O probe enumera capacidades. Não valida vGPU nem mede FPS.",
+            style =
+                MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+@Composable
+private fun InfoSection(
+    title: String,
+    body: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        tonalElevation = 1.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(6.dp),
+        ) {
             Text(
-                "Este probe apenas enumera capacidades. " +
-                    "Ele não renderiza, não mede FPS e não valida uma vGPU.",
-                style = MaterialTheme.typography.bodySmall,
+                title,
+                style =
+                    MaterialTheme.typography.titleSmall,
             )
+            HorizontalDivider()
+            body()
         }
     }
 }
 
-private fun passLabel(value: Boolean): String = if (value) "PASS" else "FAIL"
+private fun passLabel(
+    value: Boolean,
+): String =
+    if (value) "PASS" else "FAIL"
 
 @Composable
-private fun Section(title: String, body: @Composable ColumnScope.() -> Unit) {
-    Text(
-        title,
-        style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(top = 6.dp),
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp), content = body)
-}
-
-@Composable
-internal fun ValueRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, modifier = Modifier.weight(0.42f))
-        Text(value, modifier = Modifier.weight(0.58f))
+internal fun ValueRow(
+    label: String,
+    value: String,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement =
+            Arrangement.SpaceBetween,
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(0.42f),
+            style =
+                MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            value,
+            modifier = Modifier.weight(0.58f),
+            style =
+                MaterialTheme.typography.bodySmall,
+        )
     }
 }
