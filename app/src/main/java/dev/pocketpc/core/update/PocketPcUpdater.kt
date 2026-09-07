@@ -717,13 +717,23 @@ class PocketPcUpdater(
                                 verified.id,
                             )
                         }
+                    val callbackFlags =
+                        PendingIntent.FLAG_UPDATE_CURRENT or
+                            if (
+                                Build.VERSION.SDK_INT >=
+                                Build.VERSION_CODES.S
+                            ) {
+                                PendingIntent.FLAG_MUTABLE
+                            } else {
+                                0
+                            }
+
                     val callback =
                         PendingIntent.getBroadcast(
                             appContext,
                             sessionId,
                             callbackIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT or
-                                PendingIntent.FLAG_MUTABLE,
+                            callbackFlags,
                         )
 
                     prefs.edit()
