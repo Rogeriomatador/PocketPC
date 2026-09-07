@@ -56,6 +56,8 @@ CHECKS = {
         "heightFraction",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DesktopChrome.kt": (
+        "import androidx.compose.foundation.clickable",
+        "awaitPointerEventScope {",
         "Fixar na barra de tarefas",
         "Mostrar area de trabalho",
         "DesktopSystemTray",
@@ -87,6 +89,10 @@ CHECKS = {
         "pocketpc-desktop",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/ControlCenterApp.kt": (
+        "Build.VERSION.SDK_INT",
+        "Build.VERSION_CODES.TIRAMISU",
+        "Settings.ACTION_ALL_APPS_NOTIFICATION_SETTINGS",
+        "openNotificationsSetting",
         "Settings.ACTION_WIFI_SETTINGS",
         "Settings.ACTION_BLUETOOTH_SETTINGS",
         "Settings.ACTION_SOUND_SETTINGS",
@@ -268,6 +274,25 @@ def main() -> int:
                 "DesktopPeripheralMonitor must not mapNotNull over primitive "
                 "Android device-id arrays"
             )
+
+        if relative.endswith("ControlCenterApp.kt"):
+            if "Settings.ACTION_NOTIFICATION_SETTINGS" in text:
+                failures.append(
+                    "ControlCenter must not use nonexistent "
+                    "Settings.ACTION_NOTIFICATION_SETTINGS"
+                )
+
+        if relative.endswith("DesktopChrome.kt"):
+            if (
+                "import androidx.compose.ui.input.pointer."
+                "awaitPointerEventScope" in text
+            ):
+                failures.append(
+                    "DesktopChrome must call PointerInputScope."
+                    "awaitPointerEventScope without importing a nonexistent "
+                    "top-level symbol"
+                )
+
         for sentinel in sentinels:
             if sentinel not in text:
                 failures.append(f"{relative}: missing sentinel: {sentinel}")
