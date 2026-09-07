@@ -33,6 +33,7 @@ CHECKS = {
         "DesktopContextMenu(",
         "DesktopApp.APPS -> InstalledAppsApp()",
         "DesktopApp.DOWNLOADS -> DownloadsApp()",
+        "DesktopApp.DISPLAYS -> DisplaysApp(desktopCapabilities)",
         "DesktopApp.PERSONALIZATION -> PersonalizationApp(",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DesktopChrome.kt": (
@@ -51,6 +52,12 @@ CHECKS = {
         "NEON",
         "animated = true",
         "pocketpc-desktop",
+    ),
+    "app/src/main/java/dev/pocketpc/core/ui/DisplaysApp.kt": (
+        "Settings.ACTION_CAST_SETTINGS",
+        "DesktopCapabilitySnapshot",
+        "preferredExternalDisplayId",
+        "Abrir Transmitir / Wi-Fi Display",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/InstalledAppsApp.kt": (
         "queryLaunchableApps",
