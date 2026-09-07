@@ -183,7 +183,17 @@ def create_bundle(
             "abis": ["arm64-v8a", "armeabi-v7a"],
         },
         "filesystem": {
-            "allCriticalPassed": True,
+            "hostCriticalPassed": True,
+            "runtimeLinkSemanticsReady": False,
+            "allCriticalPassed": False,
+            "relativeSymlink": {"passed": True, "detail": "ok"},
+            "absoluteSymlink": {"passed": True, "detail": "ok"},
+            "hardlink": {
+                "passed": False,
+                "detail": "AccessDeniedException: synthetic Android policy",
+            },
+            "noFollowCleanup": {"passed": True, "detail": "ok"},
+            "externalTargetPreserved": {"passed": True, "detail": "ok"},
         },
         "nativeHost": {
             "loaded": True,
@@ -283,7 +293,7 @@ def run(
             "--expected-commit",
             commit,
             "--require-installed-apk-hash",
-            "--require-filesystem-pass",
+            "--require-host-filesystem-pass",
             "--require-native-host",
         ],
         stdout=subprocess.PIPE,
