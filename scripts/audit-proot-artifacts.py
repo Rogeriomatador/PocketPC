@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -53,12 +54,30 @@ def elf_header(path: pathlib.Path) -> dict[str, Any]:
     }
 
 
-def readelf_tool() -> str:
+def readelf_tool(explicit: pathlib.Path | None = None) -> str:
+    configured = explicit
+    configured_by = "--readelf"
+    if configured is None:
+        configured_value = os.environ.get("POCKETPC_READELF")
+        if configured_value:
+            configured = pathlib.Path(configured_value)
+            configured_by = "POCKETPC_READELF"
+
+    if configured is not None:
+        configured = configured.expanduser()
+        if not configured.is_file():
+            raise RuntimeError(
+                f"readelf configured by {configured_by} was not found: {configured}"
+            )
+        return str(configured.resolve())
+
     for candidate in ("llvm-readelf", "readelf"):
         found = shutil.which(candidate)
         if found:
             return found
-    raise RuntimeError("llvm-readelf/readelf not found")
+    raise RuntimeError(
+        "llvm-readelf/readelf not found; pass --readelf or set POCKETPC_READELF"
+    )
 
 
 def dynamic_info(path: pathlib.Path, tool: str) -> dict[str, Any]:
@@ -173,7 +192,7 @@ def audit(args: argparse.Namespace) -> int:
         raise SystemExit(f"artifact directory does not exist: {artifact_dir}")
 
     roles, failures = resolve_roles(artifact_dir, contract)
-    tool = readelf_tool()
+    tool = readelf_tool(args.readelf)
     policy = contract["elfPolicy"]
     target = contract["target"]
     report: dict[str, Any] = {
@@ -286,6 +305,14 @@ def parse_args() -> argparse.Namespace:
         "--report",
         type=pathlib.Path,
         required=True,
+    )
+    parser.add_argument(
+        "--readelf",
+        type=pathlib.Path,
+        help=(
+            "Explicit llvm-readelf/readelf executable. If omitted, "
+            "POCKETPC_READELF and then PATH are checked."
+        ),
     )
     return parser.parse_args()
 

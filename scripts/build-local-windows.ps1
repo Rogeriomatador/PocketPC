@@ -236,6 +236,37 @@ Se as licenças ainda não estiverem aceitas, use também -AcceptAndroidLicenses
     }
 }
 
+function Resolve-NdkReadelf {
+    param([string]$SdkRoot)
+
+    $prebuiltRoot = Join-Path $SdkRoot "ndk\$NdkVersion\toolchains\llvm\prebuilt"
+    if (-not (Test-Path $prebuiltRoot -PathType Container)) {
+        throw "Toolchain LLVM do NDK pinado não encontrado: $prebuiltRoot"
+    }
+
+    $preferred = Join-Path $prebuiltRoot "windows-x86_64\bin\llvm-readelf.exe"
+    if (Test-Path $preferred -PathType Leaf) {
+        return (Resolve-Path $preferred).Path
+    }
+
+    $candidate = Get-ChildItem $prebuiltRoot -Directory |
+        Sort-Object Name |
+        ForEach-Object {
+            Join-Path $_.FullName "bin\llvm-readelf.exe"
+        } |
+        Where-Object { Test-Path $_ -PathType Leaf } |
+        Select-Object -First 1
+
+    if ($candidate) {
+        return (Resolve-Path $candidate).Path
+    }
+
+    throw (
+        "llvm-readelf.exe não encontrado no NDK pinado $NdkVersion. " +
+        "Reinstale o componente ndk;$NdkVersion em $SdkRoot."
+    )
+}
+
 function Ensure-Gradle {
     $toolBase = if ($env:LOCALAPPDATA) {
         Join-Path $env:LOCALAPPDATA "PocketPC\toolchains"
@@ -302,7 +333,10 @@ function Ensure-Gradle {
 }
 
 function Invoke-PythonPolicyChecks {
-    param([string]$RepoRoot)
+    param(
+        [string]$RepoRoot,
+        [string]$SdkRoot
+    )
 
     $python = $null
     $prefixArgs = @()
@@ -343,6 +377,7 @@ function Invoke-PythonPolicyChecks {
         return "SKIPPED_NO_PYTHON"
     }
 
+    $readelf = Resolve-NdkReadelf $SdkRoot
     $scripts = @(
         "scripts\verify-android-build-lock.py",
         "scripts\test-proot-artifact-policy.py",
@@ -358,9 +393,16 @@ function Invoke-PythonPolicyChecks {
         "scripts\test-powershell51-compat.py"
     )
 
-    foreach ($relative in $scripts) {
-        Write-Step "Policy check: $relative"
-        Invoke-Native $python ($prefixArgs + @(Join-Path $RepoRoot $relative))
+    $oldPocketPcReadelf = $env:POCKETPC_READELF
+    try {
+        $env:POCKETPC_READELF = $readelf
+        foreach ($relative in $scripts) {
+            Write-Step "Policy check: $relative"
+            Invoke-Native $python ($prefixArgs + @(Join-Path $RepoRoot $relative))
+        }
+    }
+    finally {
+        $env:POCKETPC_READELF = $oldPocketPcReadelf
     }
 
     return "PASS"
@@ -507,7 +549,7 @@ Write-Step "Rejeitando substrate PRoot não aprovado"
 Assert-NoUnapprovedSubstrateBinaries $repoRoot
 
 Write-Step "Executando policy checks Python quando disponíveis"
-$pythonPolicyState = Invoke-PythonPolicyChecks $repoRoot
+$pythonPolicyState = Invoke-PythonPolicyChecks $repoRoot $sdkRoot
 
 $oldJavaHome = $env:JAVA_HOME
 $oldAndroidSdkRoot = $env:ANDROID_SDK_ROOT

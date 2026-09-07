@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import struct
 import subprocess
@@ -72,6 +73,15 @@ def main() -> int:
             raise SystemExit("structurally valid AArch64 artifacts did not pass ELF checks")
 
         parsed = json.loads(good_report.read_text(encoding="utf-8"))
+        configured_readelf = os.environ.get("POCKETPC_READELF")
+        if configured_readelf:
+            expected_readelf = pathlib.Path(configured_readelf).resolve()
+            reported_readelf = pathlib.Path(parsed["readelf"]).resolve()
+            if reported_readelf != expected_readelf:
+                raise SystemExit(
+                    "auditor ignored POCKETPC_READELF: "
+                    f"expected {expected_readelf}, got {reported_readelf}"
+                )
         if parsed["status"] != "ELF_VALID_ANDROID_PACKAGING_BLOCKED":
             raise SystemExit(f"expected Android packaging blocker, got: {parsed['status']}")
         if not parsed.get("androidPackagingBlockers"):
