@@ -133,6 +133,15 @@ CHECKS = {
         "anyConfirmedInputMarksDesktopInputAsObserved",
         "optimizedRatingDoesNotFabricateInputEvidence",
     ),
+    "scripts/test-device-chain-verifier.py": (
+        '"schemaVersion": 4',
+        '"orientationLandscape": True',
+        '"freeformWindowManagement": False',
+        '"externalDisplayCount": 0',
+        '"mouseCount": 1',
+        '"keyboardCount": 1',
+        '"gamepadCount": 0',
+    ),
     "app/src/main/java/dev/pocketpc/core/runtime/DeviceEvidenceCollector.kt": (
         '"schemaVersion", 4',
         '"desktop"',
