@@ -1,0 +1,316 @@
+package dev.pocketpc.core.ui
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.pocketpc.core.research.PocketPcResearchProbe
+import dev.pocketpc.core.research.PocketPcResearchReport
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+@Composable
+fun ResearchLabApp() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var report by remember {
+        mutableStateOf<PocketPcResearchReport?>(
+            null
+        )
+    }
+    var running by remember {
+        mutableStateOf(false)
+    }
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(
+                rememberScrollState()
+            ),
+        verticalArrangement =
+            Arrangement.spacedBy(10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment =
+                Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Laboratório PocketPC",
+                    style =
+                        MaterialTheme.typography
+                            .titleLarge,
+                )
+                Text(
+                    "Probes públicos e não destrutivos para descobrir " +
+                        "capacidades reais do aparelho.",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                )
+            }
+
+            Button(
+                enabled = !running,
+                onClick = {
+                    running = true
+                    error = null
+                    scope.launch {
+                        runCatching {
+                            withContext(
+                                Dispatchers.Default
+                            ) {
+                                PocketPcResearchProbe
+                                    .collect(
+                                        context
+                                    )
+                            }
+                        }
+                            .onSuccess {
+                                report = it
+                            }
+                            .onFailure {
+                                error =
+                                    it.message
+                                        ?: it.javaClass
+                                            .simpleName
+                            }
+                        running = false
+                    }
+                },
+            ) {
+                Text("Executar laboratório")
+            }
+        }
+
+        if (running) {
+            LinearProgressIndicator(
+                Modifier.fillMaxWidth()
+            )
+        }
+
+        error?.let {
+            Text(
+                "Falha: $it",
+                color =
+                    MaterialTheme.colorScheme.error,
+            )
+        }
+
+        val current = report
+
+        if (current == null) {
+            ResearchCard(
+                title = "Nada executado ainda",
+            ) {
+                Text(
+                    "O laboratório não marca suporte como PASS " +
+                        "até um probe real rodar no aparelho.",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                )
+            }
+            return@Column
+        }
+
+        ResearchCard(
+            title = "Virtual Display privado",
+        ) {
+            ValueRow(
+                "Resultado",
+                if (
+                    current.virtualDisplay.created
+                ) {
+                    "PASS"
+                } else {
+                    "FAIL / indisponível"
+                },
+            )
+            ValueRow(
+                "Display ID temporário",
+                current.virtualDisplay
+                    .displayId
+                    ?.toString()
+                    ?: "—",
+            )
+            Text(
+                current.virtualDisplay.detail,
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+            )
+        }
+
+        ResearchCard(
+            title = "Encoders para desktop remoto",
+        ) {
+            ValueRow(
+                "Preferido",
+                current.preferredRemoteCodec
+                    .label,
+            )
+            ValueRow(
+                "Encoders detectados",
+                current.encoders.size
+                    .toString(),
+            )
+
+            current.encoders
+                .take(12)
+                .forEach { codec ->
+                    ValueRow(
+                        codec.mimeType,
+                        buildString {
+                            append(codec.name)
+                            codec.hardwareAccelerated
+                                ?.let {
+                                    append(
+                                        if (it) {
+                                            " • HW"
+                                        } else {
+                                            " • SW"
+                                        }
+                                    )
+                                }
+                            codec.vendor
+                                ?.takeIf { it }
+                                ?.let {
+                                    append(" • vendor")
+                                }
+                        },
+                    )
+                }
+
+            if (current.encoders.size > 12) {
+                Text(
+                    "+ ${current.encoders.size - 12} " +
+                        "encoder(s)",
+                    fontSize = 9.sp,
+                )
+            }
+        }
+
+        ResearchCard(
+            title = "Conectividade direta",
+        ) {
+            ValueRow(
+                "Wi‑Fi Direct",
+                passOrNotAdvertised(
+                    current.wifiDirect
+                ),
+            )
+            ValueRow(
+                "Wi‑Fi Aware",
+                passOrNotAdvertised(
+                    current.wifiAware
+                ),
+            )
+            ValueRow(
+                "Android PC feature",
+                passOrNotAdvertised(
+                    current.pcHardwareType
+                ),
+            )
+        }
+
+        ResearchCard(
+            title = "Hipótese: monitor remoto PocketPC",
+        ) {
+            val promising =
+                current
+                    .remoteDesktopFoundationPromising
+
+            ValueRow(
+                "Fundação técnica",
+                if (promising) {
+                    "PROMISSORA"
+                } else {
+                    "AINDA INCOMPLETA"
+                },
+            )
+
+            Text(
+                if (promising) {
+                    "O aparelho confirmou VirtualDisplay de conteúdo " +
+                        "próprio, encoder de vídeo por hardware e pelo menos " +
+                        "uma tecnologia P2P. Isso justifica implementar um " +
+                        "protótipo de segunda tela PocketPC transmitida, " +
+                        "mas ainda NÃO é um desktop remoto validado."
+                } else {
+                    "Uma ou mais bases ainda não foram confirmadas. " +
+                        "Nenhum suporte remoto é inferido."
+                },
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+            )
+        }
+
+        ResearchCard(
+            title = "Limites preservados",
+        ) {
+            Text(
+                "Este teste não injeta eventos em outros apps, não usa " +
+                    "interfaces privadas, não cria uma VM privilegiada e " +
+                    "não afirma que apps Windows funcionam.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResearchCard(
+    title: String,
+    body: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        tonalElevation = 1.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                title,
+                style =
+                    MaterialTheme.typography
+                        .titleSmall,
+            )
+            HorizontalDivider()
+            body()
+        }
+    }
+}
+
+private fun passOrNotAdvertised(
+    value: Boolean,
+): String =
+    if (value) {
+        "ADVERTISED"
+    } else {
+        "NOT ADVERTISED"
+    }
