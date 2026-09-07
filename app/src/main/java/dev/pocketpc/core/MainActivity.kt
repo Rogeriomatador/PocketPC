@@ -4,6 +4,9 @@ import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.KeyboardShortcutGroup
+import android.view.KeyboardShortcutInfo
+import android.view.Menu
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
@@ -68,6 +71,49 @@ class MainActivity : ComponentActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
+    override fun onProvideKeyboardShortcuts(
+        data: MutableList<KeyboardShortcutGroup>,
+        menu: Menu?,
+        deviceId: Int,
+    ) {
+        data += KeyboardShortcutGroup(
+            "PocketPC Desktop",
+            listOf(
+                KeyboardShortcutInfo(
+                    "Arquivos",
+                    KeyEvent.KEYCODE_E,
+                    KeyEvent.META_META_ON,
+                ),
+                KeyboardShortcutInfo(
+                    "Navegador",
+                    KeyEvent.KEYCODE_B,
+                    KeyEvent.META_META_ON,
+                ),
+                KeyboardShortcutInfo(
+                    "Mostrar area de trabalho",
+                    KeyEvent.KEYCODE_D,
+                    KeyEvent.META_META_ON,
+                ),
+                KeyboardShortcutInfo(
+                    "Terminal",
+                    KeyEvent.KEYCODE_T,
+                    KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
+                ),
+                KeyboardShortcutInfo(
+                    "Alternar janelas",
+                    KeyEvent.KEYCODE_TAB,
+                    KeyEvent.META_ALT_ON,
+                ),
+                KeyboardShortcutInfo(
+                    "Fechar janela ativa",
+                    KeyEvent.KEYCODE_F4,
+                    KeyEvent.META_ALT_ON,
+                ),
+            ),
+        )
+        super.onProvideKeyboardShortcuts(data, menu, deviceId)
+    }
+
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         if (
             event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS &&
@@ -111,6 +157,9 @@ class MainActivity : ComponentActivity() {
 
             event.isCtrlPressed && event.keyCode == KeyEvent.KEYCODE_SPACE ->
                 DesktopCommand.TOGGLE_START
+
+            event.keyCode == KeyEvent.KEYCODE_ESCAPE ->
+                DesktopCommand.DISMISS_OVERLAYS
 
             else -> null
         }
