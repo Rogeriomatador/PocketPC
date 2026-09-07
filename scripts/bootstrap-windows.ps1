@@ -71,7 +71,30 @@ function Test-Jdk17([string]$JdkHome) {
         return $false
     }
 
-    $version = & $java -version 2>&1 | Out-String
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $java
+    $startInfo.Arguments = "-version"
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+
+    if (-not $process.Start()) {
+        return $false
+    }
+
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+
+    if ($process.ExitCode -ne 0) {
+        return $false
+    }
+
+    $version = $stdout + [Environment]::NewLine + $stderr
     return ($version -match 'version\s+"17[.]')
 }
 

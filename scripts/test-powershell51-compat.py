@@ -31,6 +31,12 @@ def main() -> int:
                 "use ToArray()"
             )
 
+        if "& $java -version 2>&1" in text:
+            failures.append(
+                f"{path.relative_to(ROOT)}: do not capture java -version with 2>&1 under Stop; "
+                "use System.Diagnostics.Process"
+            )
+
         if re.search(r"\[string\]\$Home\b", text, re.IGNORECASE):
             failures.append(
                 f"{path.relative_to(ROOT)}: do not use $Home as a parameter; "
