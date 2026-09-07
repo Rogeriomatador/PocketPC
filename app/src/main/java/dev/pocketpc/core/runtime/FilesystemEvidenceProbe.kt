@@ -16,6 +16,8 @@ data class FilesystemEvidence(
     val hardlink: CapabilityEvidence,
     val noFollowCleanup: CapabilityEvidence,
     val externalTargetPreserved: CapabilityEvidence,
+    val hostCriticalPassed: Boolean,
+    val runtimeLinkSemanticsReady: Boolean,
     val allCriticalPassed: Boolean,
 )
 
@@ -95,7 +97,18 @@ object FilesystemEvidenceProbe {
         SafeTreeOps.deleteNoFollow(root)
         SafeTreeOps.deleteNoFollow(external)
 
-        val critical = listOf(
+        // The Android host desktop does not require hard-link creation.
+        // Linux/rootfs semantics do. Keep those gates separate so a real
+        // platform limitation never becomes either a false host failure or
+        // a false Linux-runtime pass.
+        val hostCritical = listOf(
+            relative,
+            absolute,
+            cleanup,
+            preserved,
+        ).all { it.passed }
+        val runtimeLinksReady = hostCritical && hardlink.passed
+        val allCapabilities = listOf(
             relative,
             absolute,
             hardlink,
@@ -109,7 +122,9 @@ object FilesystemEvidenceProbe {
             hardlink = hardlink,
             noFollowCleanup = cleanup,
             externalTargetPreserved = preserved,
-            allCriticalPassed = critical,
+            hostCriticalPassed = hostCritical,
+            runtimeLinkSemanticsReady = runtimeLinksReady,
+            allCriticalPassed = allCapabilities,
         )
     }
 }
