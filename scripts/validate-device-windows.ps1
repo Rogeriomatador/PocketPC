@@ -47,6 +47,12 @@ function Invoke-NativeCapture {
     }
 }
 
+$processCaptureScript = Join-Path $PSScriptRoot "process-capture-windows.ps1"
+if (-not (Test-Path $processCaptureScript -PathType Leaf)) {
+    throw "process-capture-windows.ps1 ausente."
+}
+. $processCaptureScript
+
 function Invoke-AdbCaptureWithTimeout {
     param(
         [Parameter(Mandatory=$true)][string]$Adb,
@@ -56,80 +62,17 @@ function Invoke-AdbCaptureWithTimeout {
         [switch]$AllowFailure
     )
 
-    $stdoutPath = [IO.Path]::GetTempFileName()
-    $stderrPath = [IO.Path]::GetTempFileName()
-    $process = $null
-
-    try {
-        $quotedArguments = @(
-            foreach ($argument in $Arguments) {
-                if ($argument -match '[\s"]') {
-                    '"' + $argument.Replace('"', '\"') + '"'
-                } else {
-                    $argument
-                }
-            }
-        )
-        $argumentLine = $quotedArguments -join " "
-
-        $process = Start-Process `
-            -FilePath $Adb `
-            -ArgumentList $argumentLine `
-            -NoNewWindow `
-            -PassThru `
-            -RedirectStandardOutput $stdoutPath `
-            -RedirectStandardError $stderrPath
-
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            try { $process.Kill() } catch {}
-            try { [void]$process.WaitForExit(5000) } catch {}
-            throw (
-                "$Operation excedeu o timeout de $TimeoutSeconds segundos. " +
-                "O ADB ou o aparelho deixou de responder."
-            )
-        }
-
-        $process.WaitForExit()
-        $stdoutText = if (Test-Path $stdoutPath -PathType Leaf) {
-            [IO.File]::ReadAllText($stdoutPath).Trim()
-        } else {
-            ""
-        }
-        $stderrText = if (Test-Path $stderrPath -PathType Leaf) {
-            [IO.File]::ReadAllText($stderrPath).Trim()
-        } else {
-            ""
-        }
-
-        $parts = New-Object System.Collections.Generic.List[string]
-        if (-not [string]::IsNullOrWhiteSpace($stdoutText)) {
-            $parts.Add($stdoutText)
-        }
-        if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
-            $parts.Add($stderrText)
-        }
-        $combinedText = ($parts -join [Environment]::NewLine).Trim()
-
-        if ($process.ExitCode -ne 0 -and -not $AllowFailure) {
-            throw (
-                "$Operation falhou com exit code $($process.ExitCode)." +
-                [Environment]::NewLine +
-                $combinedText
-            )
-        }
-
-        return [pscustomobject]@{
-            ExitCode = $process.ExitCode
-            Text = $combinedText
-        }
+    $captureArgs = @{
+        FilePath = $Adb
+        Arguments = $Arguments
+        Operation = $Operation
+        TimeoutSeconds = $TimeoutSeconds
     }
-    finally {
-        Remove-Item -Force $stdoutPath -ErrorAction SilentlyContinue
-        Remove-Item -Force $stderrPath -ErrorAction SilentlyContinue
-        if ($process) {
-            $process.Dispose()
-        }
+    if ($AllowFailure) {
+        $captureArgs.AllowFailure = $true
     }
+
+    return Invoke-PocketPcProcessCapture @captureArgs
 }
 
 function Resolve-Python3 {
