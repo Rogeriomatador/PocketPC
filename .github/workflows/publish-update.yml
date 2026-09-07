@@ -1,0 +1,214 @@
+name: PocketPC Publish Update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "updates/stable.json"
+      - "toolchains/android-build-lock.json"
+      - "scripts/prepare-update-feed.py"
+      - "scripts/test-update-feed-policy.py"
+      - ".github/workflows/publish-update.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pocketpc-publish-update
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether publishing is possible
+        id: gate
+        env:
+          KEYSTORE_B64: ${{ secrets.POCKETPC_SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.POCKETPC_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.POCKETPC_SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.POCKETPC_SIGNING_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          feed = json.loads(
+              Path("updates/stable.json").read_text(encoding="utf-8")
+          )
+          required = (
+              os.environ.get("KEYSTORE_B64", ""),
+              os.environ.get("STORE_PASSWORD", ""),
+              os.environ.get("KEY_ALIAS", ""),
+              os.environ.get("KEY_PASSWORD", ""),
+          )
+
+          if feed.get("published") is True:
+              print("PUBLISH_UPDATE_SKIPPED_ALREADY_PUBLISHED")
+              publish = False
+          elif not all(required):
+              print("PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED")
+              publish = False
+          else:
+              print("PUBLISH_UPDATE_READY")
+              publish = True
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"publish={'true' if publish else 'false'}\n")
+          PY
+
+      - name: Setup Java 17
+        if: steps.gate.outputs.publish == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        if: steps.gate.outputs.publish == 'true'
+        uses: android-actions/setup-android@v3
+
+      - name: Install pinned Android toolchain
+        if: steps.gate.outputs.publish == 'true'
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager             "platform-tools"             "platforms;android-37"             "build-tools;36.0.0"             "ndk;29.0.14206865"             "cmake;3.22.1"
+
+      - name: Setup pinned Gradle
+        if: steps.gate.outputs.publish == 'true'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Materialize signing key
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.POCKETPC_SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          destination = Path(os.environ["RUNNER_TEMP"]) / "pocketpc-release.jks"
+          destination.write_bytes(
+              base64.b64decode(os.environ["KEYSTORE_B64"], validate=True)
+          )
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"POCKETPC_SIGNING_STORE_FILE={destination}\n")
+          PY
+
+      - name: Run fail-closed source policies
+        if: steps.gate.outputs.publish == 'true'
+        run: |
+          python3 scripts/verify-android-build-lock.py
+          python3 scripts/test-desktop-mode-policy.py
+          python3 scripts/test-desktop-enum-coverage.py
+          python3 scripts/test-ci-version-policy.py
+          python3 scripts/test-update-feed-policy.py
+
+      - name: Build and test signed release
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          POCKETPC_SOURCE_REVISION: ${{ github.sha }}
+          POCKETPC_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETPC_SIGNING_STORE_PASSWORD }}
+          POCKETPC_SIGNING_KEY_ALIAS: ${{ secrets.POCKETPC_SIGNING_KEY_ALIAS }}
+          POCKETPC_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETPC_SIGNING_KEY_PASSWORD }}
+        run: |
+          gradle --no-daemon             :app:testDebugUnitTest             :app:lintDebug             :app:assembleRelease
+
+      - name: Verify signed APK and derive release identity
+        if: steps.gate.outputs.publish == 'true'
+        id: identity
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          lock = json.loads(
+              Path("toolchains/android-build-lock.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          version = lock["app"]["versionName"]
+          apk = Path("app/build/outputs/apk/release/app-release.apk")
+          if not apk.is_file() or apk.stat().st_size <= 0:
+              raise SystemExit("signed release APK not produced")
+
+          output = Path("app/build/outputs/apk/release") / (
+              f"PocketPC-{version}.apk"
+          )
+          shutil.copy2(apk, output)
+
+          tag = f"v{version}"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"version={version}\n")
+              out.write(f"tag={tag}\n")
+              out.write(f"apk={output}\n")
+              out.write(f"apk_name={output.name}\n")
+          PY
+
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner"             verify --verbose --print-certs             "${{ steps.identity.outputs.apk }}"
+
+      - name: Publish immutable GitHub Release
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.identity.outputs.tag }}
+          VERSION: ${{ steps.identity.outputs.version }}
+          APK: ${{ steps.identity.outputs.apk }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to overwrite." >&2
+            exit 1
+          fi
+
+          gh release create "$TAG" "$APK"             --target "$GITHUB_SHA"             --title "PocketPC $VERSION"             --notes "Signed PocketPC update built from $GITHUB_SHA"             --prerelease
+
+      - name: Render and validate published stable feed
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.identity.outputs.version }}
+          TAG: ${{ steps.identity.outputs.tag }}
+          APK: ${{ steps.identity.outputs.apk }}
+          APK_NAME: ${{ steps.identity.outputs.apk_name }}
+        run: |
+          APK_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+
+          python3 scripts/prepare-update-feed.py             --apk "$APK"             --apk-url "$APK_URL"             --source-revision "$GITHUB_SHA"             --notes "PocketPC $VERSION"             --publish
+
+          python3 scripts/test-update-feed-policy.py
+
+      - name: Publish feed to main
+        if: steps.gate.outputs.publish == 'true'
+        run: |
+          git config user.name "PocketPC Release Bot"
+          git config user.email "pocketpc-release@users.noreply.github.com"
+          git add updates/stable.json
+
+          if git diff --cached --quiet; then
+            echo "Published feed is already current."
+            exit 0
+          fi
+
+          git commit -m "release: publish stable feed ${{ steps.identity.outputs.version }} [skip ci]"
+          git push origin HEAD:main
+
+      - name: Report blocked signing bootstrap
+        if: steps.gate.outputs.publish != 'true'
+        run: |
+          echo "PocketPC release publication did not run."
+          echo "This is expected while stable signing secrets are not configured"
+          echo "or when the current stable feed is already published."
