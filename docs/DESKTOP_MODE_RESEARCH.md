@@ -167,3 +167,39 @@ identity, not Samsung API compatibility or Samsung branding.
 11. Add custom image wallpapers and efficient live wallpapers.
 12. Add phone-as-touchpad mode for an external PocketPC desktop session.
 13. Add per-game desktop compatibility profiles.
+
+
+## Current physical device: POCO X7 5G / 24095PCADG
+
+The physical test device reports model 24095PCADG. Xiaomi's official POCO X7 FAQ
+states:
+
+- USB interface: Type-C, USB 2.0;
+- OTG: supported;
+- wired video output: not supported;
+- Wi-Fi Display: supported.
+
+Official Xiaomi sources:
+
+- https://www.mi.com/global/support/faq/details/KA-521447/
+- https://www.mi.com/global/support/faq/details/KA-524823/
+- https://www.mi.com/global/support/faq/details/KA-524672/
+
+### Test consequence
+
+For this exact device, a normal USB-C-to-HDMI cable must not be treated as an expected
+PocketPC external-display path.
+
+The current-device priorities are:
+
+1. PocketPC landscape desktop on the phone.
+2. Xiaomi/Android Wi-Fi Display and cast experiments.
+3. Observe whether HyperOS exposes a wireless target as a distinct DisplayManager
+   display or only mirrors the phone.
+4. If a distinct public/presentation display appears, test PocketPC activity launch
+   onto that display.
+5. Research a PocketPC wireless receiver / MediaProjection path only as a separate
+   feature, with explicit user consent and latency measurements.
+
+The generic external-display code remains useful for other Android devices that expose
+wired or wireless public displays.
