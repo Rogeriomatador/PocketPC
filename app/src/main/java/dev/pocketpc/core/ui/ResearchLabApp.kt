@@ -184,6 +184,9 @@ fun ResearchLabApp() {
                                         }
                                     )
                                 }
+                            if (codec.surfaceInput) {
+                                append(" • Surface")
+                            }
                             codec.vendor
                                 ?.takeIf { it }
                                 ?.let {
@@ -200,6 +203,91 @@ fun ResearchLabApp() {
                     fontSize = 9.sp,
                 )
             }
+        }
+
+        ResearchCard(
+            title = "Pipeline gráfico sem cópia pela CPU",
+        ) {
+            ValueRow(
+                "HardwareBuffer",
+                when {
+                    current.hardwareBuffer.allocated ->
+                        "ALLOCATED"
+                    current.hardwareBuffer.supported ->
+                        "SUPPORTED / ALLOCATION FAILED"
+                    else ->
+                        "NOT SUPPORTED"
+                },
+            )
+            ValueRow(
+                "Encoder HW + Surface",
+                if (
+                    current
+                        .hardwareSurfaceEncoderAvailable
+                ) {
+                    "DISPONÍVEL"
+                } else {
+                    "NÃO CONFIRMADO"
+                },
+            )
+            Text(
+                current.hardwareBuffer.detail,
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+            )
+        }
+
+        ResearchCard(
+            title = "Virtual Device / Companion",
+        ) {
+            ValueRow(
+                "Companion setup",
+                passOrNotAdvertised(
+                    current.companionDeviceSetup
+                ),
+            )
+            ValueRow(
+                "VirtualDeviceManager",
+                if (
+                    current
+                        .virtualDeviceManagerAvailable
+                ) {
+                    "SERVICE AVAILABLE"
+                } else {
+                    "SERVICE UNAVAILABLE"
+                },
+            )
+            ValueRow(
+                "CREATE_VIRTUAL_DEVICE",
+                if (
+                    current
+                        .createVirtualDevicePermissionGranted
+                ) {
+                    "GRANTED"
+                } else {
+                    "NOT GRANTED"
+                },
+            )
+            ValueRow(
+                "Computer Control",
+                if (
+                    current
+                        .computerControlPermissionGranted
+                ) {
+                    "GRANTED"
+                } else {
+                    "NOT GRANTED"
+                },
+            )
+            Text(
+                "O serviço pode existir no sistema sem o PocketPC " +
+                    "ter a função privilegiada necessária para criar " +
+                    "um VirtualDevice confiável.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+            )
         }
 
         ResearchCard(
