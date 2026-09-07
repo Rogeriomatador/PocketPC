@@ -57,6 +57,7 @@ class PocketDriveTest {
                 "Videos",
                 "Music",
                 "Shared",
+                "Backups",
             ),
             PocketDriveDirectory.entries
                 .map { it.folderName },
