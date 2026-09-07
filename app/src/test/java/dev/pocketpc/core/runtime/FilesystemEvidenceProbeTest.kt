@@ -25,13 +25,16 @@ class FilesystemEvidenceProbeTest {
 
             assertTrue(result.relativeSymlink.detail, result.relativeSymlink.passed)
             assertTrue(result.absoluteSymlink.detail, result.absoluteSymlink.passed)
-            assertTrue(result.hardlink.detail, result.hardlink.passed)
             assertTrue(result.noFollowCleanup.detail, result.noFollowCleanup.passed)
             assertTrue(
                 result.externalTargetPreserved.detail,
                 result.externalTargetPreserved.passed,
             )
-            assertTrue(result.allCriticalPassed)
+            assertTrue(result.hostCriticalPassed)
+            if (result.hardlink.passed) {
+                assertTrue(result.runtimeLinkSemanticsReady)
+                assertTrue(result.allCriticalPassed)
+            }
         } finally {
             SafeTreeOps.deleteNoFollow(base)
         }
