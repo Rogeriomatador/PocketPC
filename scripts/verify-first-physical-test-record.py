@@ -156,6 +156,7 @@ def main() -> int:
     for field in (
         "desktopFreeformAdvertised",
         "secondaryDisplayActivitiesAdvertised",
+        "androidPcHardwareAdvertised",
     ):
         if not isinstance(final.get(field), bool):
             failures.append(f"final {field} must be boolean")
@@ -204,6 +205,7 @@ def main() -> int:
         "desktopOrientationLandscape",
         "desktopFreeformAdvertised",
         "secondaryDisplayActivitiesAdvertised",
+        "androidPcHardwareAdvertised",
         "externalDisplayCount",
         "presentationDisplayCount",
         "mouseCount",
