@@ -2,58 +2,139 @@
 
 ## Goal
 
-After one bootstrap installation, PocketPC should be able to discover future versions,
-download them without PC/ADB commands, verify them and hand the verified APK to Android
-for an in-place update.
+After one signed bootstrap installation, PocketPC should be able to discover future
+versions, download them without PC/ADB commands, verify them and request an in-place
+self-update using Android's package installer.
 
-## Standard Android boundary
+The intended steady-state path is:
 
-PocketPC is not a privileged/system installer. On a normal sideloaded phone it cannot
-silently replace its own APK. The app can automate discovery, download and verification,
-but Android controls unknown-source authorization and final package-install consent.
+```text
+main
+  -> signed release build
+  -> immutable HTTPS APK
+  -> stable.json
+  -> WorkManager check on phone
+  -> DownloadManager
+  -> SHA-256 / package / version / source revision / signing checks
+  -> PackageInstaller session
+  -> automatic install when Android permits
+     OR one Android confirmation when the platform requires it
+```
 
-## Alpha 21 bootstrap
+## Android boundary
 
-Alpha 20 is the current physically verified installed baseline.
+PocketPC is not a privileged/system package manager.
 
-Alpha 21 adds:
+Alpha 21 uses `PackageInstaller.SessionParams` and, on Android versions that expose
+it, requests `USER_ACTION_NOT_REQUIRED`. It also declares
+`UPDATE_PACKAGES_WITHOUT_USER_ACTION`.
 
-1. startup update-feed check;
+This is **best-effort automatic installation**, not a promise that every Android OEM
+will install silently. Android can still return `STATUS_PENDING_USER_ACTION`; when
+that happens PocketPC follows the system confirmation flow.
+
+PocketPC never bypasses Android package-signing or installation security.
+
+## Alpha 21 implementation
+
+Implemented in source:
+
+1. stable feed at `updates/stable.json`;
 2. Este PC > Atualizações;
-3. stable JSON feed at `updates/stable.json`;
-4. background APK download through DownloadManager;
-5. SHA-256 verification;
-6. package-name/versionCode verification;
-7. signing-certificate compatibility verification;
-8. Android package-installer handoff.
+3. launch-time update check;
+4. periodic WorkManager check every six hours;
+5. automatic download on unmetered network when enabled;
+6. DownloadManager transport;
+7. HTTPS-only published APK URL;
+8. SHA-256 verification;
+9. package-name verification;
+10. versionCode freshness verification;
+11. embedded Git source-revision verification;
+12. installed/candidate signing-certificate compatibility verification;
+13. unknown-source authorization flow;
+14. automatic verified-install preference;
+15. PackageInstaller session staging;
+16. duplicate-install-attempt protection;
+17. result receiver for success/failure/pending user action;
+18. fallback to Android confirmation when required.
 
-The Alpha 21 feed remains `published=false` until a signed artifact exists.
+The current Alpha 21 stable feed remains `published=false`. Therefore no remote APK is
+currently advertised to installed devices.
 
-## Signing
+## Signing and release publication
 
-Android only permits an in-place package update when the new APK is signed by a
-compatible signing identity.
+Android only permits an in-place update when the candidate APK has a compatible signing
+identity.
 
-Do not commit a keystore/private key to this repository.
+PocketPC now contains a fail-closed GitHub Actions publisher:
 
-For a fully automatic source -> build -> release -> phone path, a stable signing key
-must be stored in a secure release system (for example a protected CI secret or Play
-App Signing) and the release artifact must be published over HTTPS.
+`.github/workflows/publish-update.yml`
 
-Until that infrastructure is configured:
+It is designed to:
+
+- refuse publication when signing secrets are absent;
+- materialize a keystore only inside the CI runner;
+- run PocketPC source policies;
+- build/test/lint a release APK;
+- embed the exact Git source revision;
+- verify the signed APK with `apksigner`;
+- create an immutable GitHub Release asset;
+- generate `stable.json` from the real APK SHA-256;
+- validate the feed before publishing it.
+
+Expected protected secrets:
+
+- `POCKETPC_SIGNING_KEYSTORE_BASE64`
+- `POCKETPC_SIGNING_STORE_PASSWORD`
+- `POCKETPC_SIGNING_KEY_ALIAS`
+- `POCKETPC_SIGNING_KEY_PASSWORD`
+
+No private signing key is committed to the repository.
+
+Until a compatible long-lived signing identity is configured:
 
 - updater source: IMPLEMENTED;
-- remote signed release publication: BLOCKED;
-- silent installation on ordinary Android: NOT_SUPPORTED_BY_PLATFORM.
+- WorkManager scheduling: IMPLEMENTED;
+- PackageInstaller staging: IMPLEMENTED;
+- signed remote release publication: BLOCKED;
+- Alpha 21 software test: NOT_EXECUTED;
+- Alpha 21 physical auto-update: NOT_EXECUTED.
+
+## Current Alpha 20 installation and signing migration
+
+The physically validated Alpha 20 APK was installed before the long-lived release
+publisher existed.
+
+A future release APK can update Alpha 20 in-place only if its signing identity is
+compatible with the currently installed APK.
+
+If a new long-lived release key is different, Android will not accept it as an in-place
+update without an approved signing-key migration. PocketPC must not work around this by
+weakening signature checks.
+
+This means one bootstrap/signing transition may still be required before the desired
+steady state of “ChatGPT/repository changes -> phone updates itself” can be reached.
 
 ## Data preservation
 
-An in-place update with the same package/signing identity preserves app-private PocketPC
-state.
+For normal in-place updates with the same compatible signing identity:
 
-P: PocketDrive is additionally external to the app-private C: volume, so user-facing
-files remain separated from the application package lifecycle.
+- app-private `C:` state remains;
+- external `P:` PocketDrive remains;
+- browser downloads already imported to `P:Downloads` remain.
 
-A signing-key migration that forces uninstall/reinstall would risk app-private C: state;
-therefore PocketPC must settle its long-lived signing identity before broad
-distribution.
+If a signing transition ever requires uninstall/reinstall, app-private `C:` state may
+be lost. `P:` is intentionally separate from the APK lifecycle and is therefore the
+preferred home for user data.
+
+## Evidence rule
+
+A source implementation of the updater is not proof that:
+
+- a signed release exists;
+- the stable feed is active;
+- the phone downloaded it;
+- PackageInstaller accepted it;
+- HyperOS completed it without user action.
+
+Those states require real release/build/device evidence.
