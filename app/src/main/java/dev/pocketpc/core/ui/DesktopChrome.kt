@@ -30,6 +30,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,6 +64,7 @@ import dev.pocketpc.core.BuildConfig
 import dev.pocketpc.core.desktop.DesktopApp
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.PeripheralSnapshot
+import dev.pocketpc.core.desktop.defaultDesktopShortcuts
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -77,7 +79,7 @@ fun DesktopIconsV2(
         modifier = modifier.width(220.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        DesktopApp.entries.chunked(2).forEach { rowApps ->
+        defaultDesktopShortcuts().chunked(2).forEach { rowApps ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -671,6 +673,19 @@ fun StartMenuV2(
     peripherals: PeripheralSnapshot,
     modifier: Modifier = Modifier,
 ) {
+    var query by remember { mutableStateOf("") }
+    val visibleApps = remember(query) {
+        val normalized = query.trim()
+        if (normalized.isBlank()) {
+            DesktopApp.entries
+        } else {
+            DesktopApp.entries.filter { app ->
+                app.label.contains(normalized, ignoreCase = true) ||
+                    app.name.contains(normalized, ignoreCase = true)
+            }
+        }
+    }
+
     Surface(
         modifier = modifier.width(360.dp),
         shape = RoundedCornerShape(20.dp),
@@ -693,7 +708,15 @@ fun StartMenuV2(
             )
             HorizontalDivider()
 
-            DesktopApp.entries.chunked(3).forEach { rowApps ->
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Pesquisar") },
+            )
+
+            visibleApps.chunked(3).forEach { rowApps ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
