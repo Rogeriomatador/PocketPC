@@ -12,6 +12,31 @@ val pocketPcSourceRevision = providers.environmentVariable("GITHUB_SHA")
 val pocketPcSourceRevisionPinned =
     Regex("^[0-9a-fA-F]{40}$").matches(pocketPcSourceRevision)
 
+val pocketPcSigningStoreFile =
+    providers.environmentVariable(
+        "POCKETPC_SIGNING_STORE_FILE"
+    ).orNull
+val pocketPcSigningStorePassword =
+    providers.environmentVariable(
+        "POCKETPC_SIGNING_STORE_PASSWORD"
+    ).orNull
+val pocketPcSigningKeyAlias =
+    providers.environmentVariable(
+        "POCKETPC_SIGNING_KEY_ALIAS"
+    ).orNull
+val pocketPcSigningKeyPassword =
+    providers.environmentVariable(
+        "POCKETPC_SIGNING_KEY_PASSWORD"
+    ).orNull
+
+val pocketPcReleaseSigningConfigured =
+    listOf(
+        pocketPcSigningStoreFile,
+        pocketPcSigningStorePassword,
+        pocketPcSigningKeyAlias,
+        pocketPcSigningKeyPassword,
+    ).all { !it.isNullOrBlank() }
+
 android {
     namespace = "dev.pocketpc.core"
     compileSdk = 37
@@ -50,6 +75,35 @@ android {
             cmake {
                 cppFlags += "-std=c++20"
             }
+        }
+    }
+
+    signingConfigs {
+        if (pocketPcReleaseSigningConfigured) {
+            create("pocketPcRelease") {
+                storeFile =
+                    file(
+                        requireNotNull(
+                            pocketPcSigningStoreFile
+                        )
+                    )
+                storePassword =
+                    pocketPcSigningStorePassword
+                keyAlias =
+                    pocketPcSigningKeyAlias
+                keyPassword =
+                    pocketPcSigningKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig =
+                signingConfigs.findByName(
+                    "pocketPcRelease"
+                )
         }
     }
 
