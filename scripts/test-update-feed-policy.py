@@ -11,6 +11,7 @@ LOCK = ROOT / "toolchains" / "android-build-lock.json"
 FEED = ROOT / "updates" / "stable.json"
 MANIFEST = ROOT / "app" / "src" / "main" / "AndroidManifest.xml"
 UPDATER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdater.kt"
+INSTALL_RECEIVER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcInstallReceiver.kt"
 CENTER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "UpdateCenterApp.kt"
 SYSTEM = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "SystemApp.kt"
 SHELL = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "PocketPcApp.kt"
@@ -78,6 +79,8 @@ def main() -> int:
     required = {
         MANIFEST: (
             "android.permission.REQUEST_INSTALL_PACKAGES",
+            "android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION",
+            ".update.PocketPcInstallReceiver",
             "dev.pocketpc.SOURCE_REVISION",
             "dev.pocketpc.SOURCE_REVISION_PINNED",
             "pocketPcSourceRevision",
@@ -93,6 +96,12 @@ def main() -> int:
             "ACTION_MANAGE_UNKNOWN_APP_SOURCES",
             "getUriForDownloadedFile",
             "GET_SIGNING_CERTIFICATES",
+            "PackageInstaller.SessionParams",
+            "USER_ACTION_NOT_REQUIRED",
+            "SESSION_ALREADY_PENDING",
+            "KEY_INSTALL_ATTEMPT_DOWNLOAD_ID",
+            "autoInstallVerifiedEnabled",
+            "setAutoInstallVerifiedEnabled",
             "autoCheckEnabled",
             "autoDownloadUnmeteredEnabled",
             "shouldRunAutomaticCheck",
@@ -117,6 +126,19 @@ def main() -> int:
             "Baixar automaticamente",
             "isPendingDownloadVerified",
             "verifyPendingDownload",
+            "Instalar automaticamente",
+            "autoInstallVerifiedEnabled",
+            "setAutoInstallVerifiedEnabled",
+            "SESSION_COMMITTED",
+            "SESSION_ALREADY_PENDING",
+            "attemptAutomaticInstall",
+        ),
+        INSTALL_RECEIVER: (
+            "PackageInstaller.STATUS_PENDING_USER_ACTION",
+            "Intent.EXTRA_INTENT",
+            "KEY_INSTALL_ATTEMPT_DOWNLOAD_ID",
+            "EXTRA_UPDATE_DOWNLOAD_ID",
+            "PocketPcInstallStatusStore",
         ),
         AUTO_TEST: (
             "firstAutomaticCheckRunsImmediately",
