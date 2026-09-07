@@ -226,8 +226,23 @@ foreach ($check in $checks) {
     ) -ForegroundColor $color
 }
 
-$overall = if ($evidence.filesystem.allCriticalPassed -eq $true) { "PASS" } else { "FAIL" }
+$hostProperty = $evidence.filesystem.PSObject.Properties["hostCriticalPassed"]
+$runtimeProperty = $evidence.filesystem.PSObject.Properties["runtimeLinkSemanticsReady"]
+$hostResult = if ($null -ne $hostProperty) {
+    if ($hostProperty.Value -eq $true) { "PASS" } else { "FAIL" }
+} else {
+    "LEGACY_UNKNOWN"
+}
+$runtimeResult = if ($null -ne $runtimeProperty) {
+    if ($runtimeProperty.Value -eq $true) { "READY" } else { "BLOCKED" }
+} else {
+    if ($evidence.filesystem.hardlink.passed -eq $true) { "READY" } else { "BLOCKED" }
+}
+$allResult = if ($evidence.filesystem.allCriticalPassed -eq $true) { "PASS" } else { "PARTIAL" }
+
 Write-Host ""
-Write-Host ("Filesystem critical result : {0}" -f $overall)
+Write-Host ("Host filesystem result     : {0}" -f $hostResult)
+Write-Host ("Linux link semantics       : {0}" -f $runtimeResult)
+Write-Host ("All capabilities           : {0}" -f $allResult)
 Write-Host ("Output                     : {0}" -f $outputDir)
 Write-Host "Classification              : DIAGNOSTIC_ONLY_NOT_A_GATE"
