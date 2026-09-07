@@ -6,6 +6,13 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
 
+internal const val UPDATE_PREFS_NAME =
+    "pocketpc-updater"
+internal const val KEY_INSTALL_ATTEMPT_DOWNLOAD_ID =
+    "install-attempt-download-id"
+internal const val EXTRA_UPDATE_DOWNLOAD_ID =
+    "dev.pocketpc.core.extra.UPDATE_DOWNLOAD_ID"
+
 data class PocketPcInstallStatus(
     val status: Int,
     val message: String,
@@ -19,7 +26,7 @@ class PocketPcInstallStatusStore(
     private val prefs =
         context.applicationContext
             .getSharedPreferences(
-                "pocketpc-updater",
+                UPDATE_PREFS_NAME,
                 Context.MODE_PRIVATE,
             )
 
@@ -114,6 +121,28 @@ class PocketPcInstallReceiver :
                 message = message,
                 sessionId = sessionId,
             )
+
+        val downloadId =
+            intent.getLongExtra(
+                EXTRA_UPDATE_DOWNLOAD_ID,
+                -1L,
+            )
+
+        if (
+            status < 0 &&
+            downloadId >= 0L
+        ) {
+            context.applicationContext
+                .getSharedPreferences(
+                    UPDATE_PREFS_NAME,
+                    Context.MODE_PRIVATE,
+                )
+                .edit()
+                .remove(
+                    KEY_INSTALL_ATTEMPT_DOWNLOAD_ID
+                )
+                .apply()
+        }
 
         if (
             status ==
