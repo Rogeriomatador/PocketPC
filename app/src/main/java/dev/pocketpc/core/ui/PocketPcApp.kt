@@ -634,6 +634,8 @@ private fun DesktopWindowView(
             }
         }
     }
+}
+
 @Composable
 private fun WindowControlButton(
     label: String,
@@ -672,4 +674,3 @@ private fun WindowControlButton(
     }
 }
 
-}
