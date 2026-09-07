@@ -14,8 +14,6 @@ import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.core.view.ViewCompat
 import dev.pocketpc.core.desktop.DesktopCommand
 import dev.pocketpc.core.ui.PocketPcApp
@@ -42,9 +40,7 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
-                PocketPcApp(commandFlow = desktopCommands)
-            }
+            PocketPcApp(commandFlow = desktopCommands)
         }
     }
 
