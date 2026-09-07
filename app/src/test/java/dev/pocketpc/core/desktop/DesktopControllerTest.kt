@@ -61,4 +61,41 @@ class DesktopControllerTest {
 
         assertTrue(controller.windows.isEmpty())
     }
+
+    @Test
+    fun pinnedAppsCanBeToggled() {
+        val controller = DesktopController()
+
+        assertTrue(DesktopApp.BROWSER in controller.pinnedApps)
+        controller.togglePin(DesktopApp.BROWSER)
+        assertFalse(DesktopApp.BROWSER in controller.pinnedApps)
+        controller.togglePin(DesktopApp.BROWSER)
+        assertTrue(DesktopApp.BROWSER in controller.pinnedApps)
+    }
+
+    @Test
+    fun minimizeAllKeepsWindowsButHidesThem() {
+        val controller = DesktopController()
+        controller.open(DesktopApp.BROWSER)
+        controller.open(DesktopApp.TERMINAL)
+
+        controller.minimizeAll()
+
+        assertEquals(2, controller.windows.size)
+        assertTrue(controller.windows.all { it.minimized })
+    }
+
+    @Test
+    fun closeActiveClosesHighestZWindow() {
+        val controller = DesktopController()
+        controller.open(DesktopApp.FILES)
+        controller.open(DesktopApp.BROWSER)
+
+        assertEquals(DesktopApp.BROWSER, controller.activeWindow?.app)
+
+        controller.closeActive()
+
+        assertEquals(1, controller.windows.size)
+        assertEquals(DesktopApp.FILES, controller.windows.single().app)
+    }
 }
