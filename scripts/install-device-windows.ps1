@@ -5,11 +5,105 @@ param(
     [string]$DeviceSerial,
     [switch]$AllowEmulator,
     [switch]$AllowUnpinnedBuild,
-    [switch]$RequireInstalledApkHash
+    [switch]$RequireInstalledApkHash,
+    [int]$InstallTimeoutSeconds = 180
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ($InstallTimeoutSeconds -lt 15 -or $InstallTimeoutSeconds -gt 1800) {
+    throw "InstallTimeoutSeconds deve ficar entre 15 e 1800 segundos."
+}
+
+function Write-GateStep([string]$Text) {
+    Write-Host ("[Device Install] {0}" -f $Text) -ForegroundColor Cyan
+}
+
+function Invoke-AdbInstallWithTimeout {
+    param(
+        [Parameter(Mandatory=$true)][string]$Adb,
+        [Parameter(Mandatory=$true)][string]$Serial,
+        [Parameter(Mandatory=$true)][string]$ApkPath,
+        [Parameter(Mandatory=$true)][int]$TimeoutSeconds
+    )
+
+    $stdoutPath = [IO.Path]::GetTempFileName()
+    $stderrPath = [IO.Path]::GetTempFileName()
+    $process = $null
+
+    try {
+        $quotedApkPath = '"' + $ApkPath + '"'
+        $argumentList = @(
+            "-s",
+            $Serial,
+            "install",
+            "-r",
+            "-t",
+            "--no-incremental",
+            $quotedApkPath
+        )
+
+        $process = Start-Process `
+            -FilePath $Adb `
+            -ArgumentList $argumentList `
+            -NoNewWindow `
+            -PassThru `
+            -RedirectStandardOutput $stdoutPath `
+            -RedirectStandardError $stderrPath
+
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            try { $process.Kill() } catch {}
+            try { [void]$process.WaitForExit(5000) } catch {}
+            throw (
+                "adb install excedeu o timeout de $TimeoutSeconds segundos. " +
+                "Desbloqueie o aparelho e verifique se existe confirmação de instalação via USB " +
+                "ou alguma restrição de segurança do fabricante."
+            )
+        }
+
+        $process.WaitForExit()
+        $stdoutText = if (Test-Path $stdoutPath -PathType Leaf) {
+            (Get-Content $stdoutPath -Raw).Trim()
+        } else {
+            ""
+        }
+        $stderrText = if (Test-Path $stderrPath -PathType Leaf) {
+            (Get-Content $stderrPath -Raw).Trim()
+        } else {
+            ""
+        }
+
+        $textParts = New-Object System.Collections.Generic.List[string]
+        if (-not [string]::IsNullOrWhiteSpace($stdoutText)) {
+            $textParts.Add($stdoutText)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
+            $textParts.Add($stderrText)
+        }
+        $combinedText = ($textParts -join [Environment]::NewLine).Trim()
+
+        if ($process.ExitCode -ne 0) {
+            throw (
+                "Command failed ($($process.ExitCode)): adb install" +
+                [Environment]::NewLine +
+                $combinedText
+            )
+        }
+
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Text = $combinedText
+        }
+    }
+    finally {
+        Remove-Item -Force $stdoutPath -ErrorAction SilentlyContinue
+        Remove-Item -Force $stderrPath -ErrorAction SilentlyContinue
+        if ($process) {
+            $process.Dispose()
+        }
+    }
+}
 
 function Invoke-NativeCapture {
     param([string]$FilePath, [string[]]$Arguments = @(), [switch]$AllowFailure)
@@ -72,6 +166,8 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $buildRoot = (Resolve-Path $BuildDir).Path
 $recordPath = Join-Path $buildRoot "local-build-record.json"
 
+Write-GateStep "Validando build record e APK local"
+
 $python = $null
 $pythonArgs = @()
 foreach ($candidate in @("python.exe", "python")) {
@@ -120,6 +216,8 @@ if ($verifiedBuild.Text -notmatch 'LOCAL_BUILD_RECORD_OK') {
     throw "verify-local-build-record.py não confirmou o build."
 }
 
+Write-GateStep "Resolvendo ADB e selecionando aparelho"
+
 $sdkRoot = Resolve-Sdk $AndroidSdkRoot
 $adb = Join-Path $sdkRoot "platform-tools\adb.exe"
 if (-not (Test-Path $adb -PathType Leaf)) {
@@ -130,6 +228,8 @@ if (-not (Test-Path $adb -PathType Leaf)) {
 
 $serial = Select-AdbDevice $adb $DeviceSerial $AllowEmulator.IsPresent
 $serialHash = Get-Sha256Text $serial
+
+Write-GateStep "Lendo identidade, API e ABI do aparelho"
 
 function AdbShell([string[]]$Args) {
     return Invoke-NativeCapture $adb (@("-s", $serial, "shell") + $Args)
@@ -146,8 +246,15 @@ $fingerprint = (AdbShell @("getprop", "ro.build.fingerprint")).Text.Trim()
 if (-not $AllowEmulator -and $qemu -eq "1") { throw "Emulador recusado; use -AllowEmulator se for intencional." }
 if ($abis -notcontains "arm64-v8a") { throw "Device Install Gate exige arm64-v8a neste estágio." }
 
-$install = Invoke-NativeCapture $adb @("-s", $serial, "install", "-r", "-t", "--no-incremental", $apkPath)
+Write-GateStep ("Instalando APK via ADB (timeout: {0}s)" -f $InstallTimeoutSeconds)
+$install = Invoke-AdbInstallWithTimeout `
+    -Adb $adb `
+    -Serial $serial `
+    -ApkPath $apkPath `
+    -TimeoutSeconds $InstallTimeoutSeconds
 if ($install.Text -notmatch 'Success') { throw "adb install não retornou Success." }
+
+Write-GateStep "APK instalado; verificando pacote e versão"
 
 $packageName = [string]$record.app.packageName
 $pmPath = (AdbShell @("pm", "path", $packageName)).Text.Trim()
@@ -163,12 +270,16 @@ $installedVersionCode = [long]$versionCodeMatch.Groups['value'].Value
 if ($installedVersionName -ne [string]$record.app.versionName) { throw "versionName instalado divergiu." }
 if ($installedVersionCode -ne [long]$record.app.versionCode) { throw "versionCode instalado divergiu." }
 
+Write-GateStep "Abrindo MainActivity e confirmando processo"
+
 $launch = AdbShell @("am", "start", "-W", "-S", "-n", "$packageName/.MainActivity")
 $launchOk = $launch.Text -match '(?m)^Status:\s*ok\s*$'
 if (-not $launchOk) { throw ("Activity launch não confirmou Status: ok." + [Environment]::NewLine + $launch.Text) }
 
 $pidText = (AdbShell @("pidof", $packageName)).Text.Trim()
 $appPid = if ($pidText -match '^\d+(\s+\d+)*$') { $pidText } else { $null }
+
+Write-GateStep "Comparando hash do APK instalado quando permitido pelo Android"
 
 $pullStatus = "UNAVAILABLE"
 $installedApkSha256 = $null
