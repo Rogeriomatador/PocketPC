@@ -3,6 +3,7 @@ package dev.pocketpc.core.ui
 import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -38,6 +40,7 @@ data class LaunchableAndroidApp(
     val label: String,
     val packageName: String,
     val activityName: String,
+    val isGame: Boolean,
 )
 
 @Composable
@@ -47,21 +50,22 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
     var query by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<String?>(null) }
     var preferExternal by rememberSaveable { mutableStateOf(true) }
+    var gamesOnly by rememberSaveable { mutableStateOf(false) }
     val externalDisplayId = capabilities.preferredExternalDisplayId
 
     LaunchedEffect(Unit) {
         apps = withContext(Dispatchers.IO) { queryLaunchableApps(context) }
     }
 
-    val filtered = remember(apps, query) {
+    val filtered = remember(apps, query, gamesOnly) {
         val normalized = query.trim()
-        if (normalized.isBlank()) {
-            apps
-        } else {
-            apps.filter {
-                it.label.contains(normalized, ignoreCase = true) ||
-                    it.packageName.contains(normalized, ignoreCase = true)
-            }
+        apps.filter { app ->
+            val categoryMatches = !gamesOnly || app.isGame
+            val queryMatches =
+                normalized.isBlank() ||
+                    app.label.contains(normalized, ignoreCase = true) ||
+                    app.packageName.contains(normalized, ignoreCase = true)
+            categoryMatches && queryMatches
         }
     }
 
@@ -102,6 +106,24 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
             singleLine = true,
             label = { Text("Pesquisar aplicativos") },
         )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = !gamesOnly,
+                onClick = { gamesOnly = false },
+                label = { Text("Todos") },
+            )
+            FilterChip(
+                selected = gamesOnly,
+                onClick = { gamesOnly = true },
+                label = { Text("Jogos") },
+            )
+            Text(
+                "${filtered.size} encontrados",
+                modifier = Modifier.align(Alignment.CenterVertically),
+                fontSize = 10.sp,
+            )
+        }
 
         status?.let { Text(it, fontSize = 12.sp) }
         HorizontalDivider()
@@ -174,7 +196,16 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                     )
                     Column(Modifier.weight(1f)) {
                         Text(app.label, maxLines = 1)
-                        Text(app.packageName, fontSize = 10.sp, maxLines = 1)
+                        Text(
+                            if (app.isGame) {
+                                "JOGO ANDROID • entrada desktop depende do jogo"
+                            } else {
+                                "APP ANDROID"
+                            },
+                            fontSize = 9.sp,
+                            maxLines = 1,
+                        )
+                        Text(app.packageName, fontSize = 9.sp, maxLines = 1)
                     }
                 }
             }
@@ -201,6 +232,9 @@ private fun queryLaunchableApps(context: Context): List<LaunchableAndroidApp> {
                 label = label,
                 packageName = info.packageName,
                 activityName = info.name,
+                isGame =
+                    info.applicationInfo.category ==
+                        ApplicationInfo.CATEGORY_GAME,
             )
         }
         .distinctBy { it.packageName to it.activityName }
