@@ -423,7 +423,9 @@ fun BrowserApp(session: BrowserSessionState) {
                             .webViewState(
                                 session.activeTabId
                             )
-                            ?.let(::restoreState)
+                            ?.let { bundle ->
+                                restoreState(bundle)
+                            }
                     if (restored == null) {
                         loadUrl(
                             session.activeTab.url
