@@ -222,6 +222,8 @@ def main() -> int:
                 'Verificando indicador de emulador',
                 'Lendo build fingerprint',
                 'Instalando APK via ADB (timeout: {0}s)',
+                'Xiaomi/HyperOS detectado',
+                'INSTALL_FAILED_USER_RESTRICTED',
             )
             for sentinel in required_install_sentinels:
                 if sentinel not in text:
