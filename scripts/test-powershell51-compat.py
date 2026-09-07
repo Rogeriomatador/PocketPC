@@ -204,10 +204,18 @@ def main() -> int:
         if path.name == "install-device-windows.ps1":
             required_install_sentinels = (
                 "[int]$InstallTimeoutSeconds = 180",
+                "[int]$AdbCommandTimeoutSeconds = 20",
+                "function Invoke-AdbCaptureWithTimeout",
                 "function Invoke-AdbInstallWithTimeout",
                 "Start-Process",
                 "$process.WaitForExit($TimeoutSeconds * 1000)",
                 '[Device Install] {0}',
+                'Lendo fabricante',
+                'Lendo modelo',
+                'Lendo Android API',
+                'Lendo ABI',
+                'Verificando indicador de emulador',
+                'Lendo build fingerprint',
                 'Instalando APK via ADB (timeout: {0}s)',
             )
             for sentinel in required_install_sentinels:
@@ -216,11 +224,17 @@ def main() -> int:
                         "Windows device install gate is missing bounded/progress "
                         f"sentinel: {sentinel}"
                     )
-            if 'Invoke-NativeCapture $adb @("-s", $serial, "install"' in text:
-                failures.append(
-                    "Windows device install gate must not run adb install "
-                    "through the unbounded native capture path"
-                )
+            forbidden_unbounded_adb = (
+                'Invoke-NativeCapture $adb @("-s", $serial, "install"',
+                'Invoke-NativeCapture $adb @("-s", $serial, "pull"',
+                'return Invoke-NativeCapture $adb (@("-s", $serial, "shell")',
+            )
+            for sentinel in forbidden_unbounded_adb:
+                if sentinel in text:
+                    failures.append(
+                        "Windows device install gate still contains an "
+                        f"unbounded ADB path: {sentinel}"
+                    )
 
         if path.name == "doctor-windows.ps1":
             marker = "# POCKETPC_DOCTOR_EOF"
