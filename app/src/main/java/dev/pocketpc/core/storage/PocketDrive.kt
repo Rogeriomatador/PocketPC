@@ -61,28 +61,106 @@ fun pocketPath(
         }
     }
 
-fun sanitizePocketImportedFileName(
+internal fun sanitizePocketImportedFileName(
     raw: String,
 ): String {
-    val cleaned =
-        raw.trim()
-            .map { char ->
-                when {
-                    char == '/' || char == '\\' ->
-                        '_'
-                    char.code < 32 ->
-                        '_'
-                    else ->
-                        char
-                }
-            }
-            .joinToString("")
+    val leaf =
+        raw
+            .substringAfterLast('/')
+            .substringAfterLast('\\')
             .trim()
-            .trimEnd('.')
 
-    return cleaned
-        .ifBlank { "download" }
-        .take(180)
+    val normalized =
+        buildString {
+            leaf.forEach { character ->
+                val forbidden =
+                    character.code < 32 ||
+                        character in
+                            setOf(
+                                '<',
+                                '>',
+                                ':',
+                                '"',
+                                '/',
+                                '\\',
+                                '|',
+                                '?',
+                                '*',
+                            )
+
+                append(
+                    if (forbidden) {
+                        '_'
+                    } else {
+                        character
+                    }
+                )
+            }
+        }
+            .trim()
+            .trimEnd('.', ' ')
+            .take(180)
+
+    val fallback =
+        normalized.ifBlank { "download" }
+
+    val baseName =
+        fallback
+            .substringBefore('.')
+            .uppercase()
+
+    val reserved =
+        baseName in
+            setOf(
+                "CON",
+                "PRN",
+                "AUX",
+                "NUL",
+                "COM1",
+                "COM2",
+                "COM3",
+                "COM4",
+                "COM5",
+                "COM6",
+                "COM7",
+                "COM8",
+                "COM9",
+                "LPT1",
+                "LPT2",
+                "LPT3",
+                "LPT4",
+                "LPT5",
+                "LPT6",
+                "LPT7",
+                "LPT8",
+                "LPT9",
+            )
+
+    return validateStorageName(
+        if (reserved) {
+            "_$fallback"
+        } else {
+            fallback
+        }
+    )
+}
+
+internal fun validateStorageName(
+    raw: String,
+): String {
+    val value = raw.trim()
+    require(value.isNotEmpty()) {
+        "O nome não pode ficar vazio."
+    }
+    require(
+        '/' !in value &&
+            '\\' !in value &&
+            value != "." &&
+            value != ".."
+    ) {
+        "Nome inválido para arquivo ou pasta."
+    }
+    return value
 }
 
 fun classifyPocketFile(name: String): PocketFileClass {
