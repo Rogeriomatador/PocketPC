@@ -46,7 +46,24 @@ fun UpdateCenterApp() {
         mutableStateOf(false)
     }
     var verified by remember {
-        mutableStateOf(false)
+        mutableStateOf(
+            updater.isPendingDownloadVerified()
+        )
+    }
+    var autoCheck by remember {
+        mutableStateOf(
+            updater.autoCheckEnabled()
+        )
+    }
+    var autoDownload by remember {
+        mutableStateOf(
+            updater.autoDownloadUnmeteredEnabled()
+        )
+    }
+    var unmetered by remember {
+        mutableStateOf(
+            updater.isUnmeteredNetwork()
+        )
     }
     var status by remember {
         mutableStateOf<String?>(null)
@@ -54,6 +71,7 @@ fun UpdateCenterApp() {
 
     suspend fun refreshCheck() {
         busy = true
+        unmetered = updater.isUnmeteredNetwork()
         status = "Verificando atualizações..."
         updater.checkForUpdate()
             .onSuccess { result ->
@@ -109,6 +127,8 @@ fun UpdateCenterApp() {
                 }
                     ?: break
             pending = refreshed
+            verified =
+                updater.isPendingDownloadVerified()
 
             if (
                 refreshed.status !=
@@ -159,6 +179,104 @@ fun UpdateCenterApp() {
                 },
             ) {
                 Text("Verificar agora")
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            tonalElevation = 1.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    "Automação",
+                    style =
+                        MaterialTheme.typography.titleSmall,
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.CenterVertically,
+                ) {
+                    Column(
+                        Modifier.weight(1f)
+                    ) {
+                        Text(
+                            "Verificar automaticamente",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodyMedium,
+                        )
+                        Text(
+                            "No máximo uma consulta automática a cada 6 horas.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = autoCheck,
+                        onCheckedChange = { enabled ->
+                            autoCheck = enabled
+                            updater
+                                .setAutoCheckEnabled(
+                                    enabled
+                                )
+                        },
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.CenterVertically,
+                ) {
+                    Column(
+                        Modifier.weight(1f)
+                    ) {
+                        Text(
+                            "Baixar automaticamente",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodyMedium,
+                        )
+                        Text(
+                            if (unmetered) {
+                                "Rede não medida detectada. Updates podem baixar sozinhos."
+                            } else {
+                                "Só baixa sozinho em rede não medida; dados móveis não são usados automaticamente."
+                            },
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = autoDownload,
+                        onCheckedChange = { enabled ->
+                            autoDownload = enabled
+                            updater
+                                .setAutoDownloadUnmeteredEnabled(
+                                    enabled
+                                )
+                        },
+                    )
+                }
             }
         }
 
@@ -578,21 +696,153 @@ fun PocketPcUpdateAutoCheck() {
         }
 
     LaunchedEffect(Unit) {
-        updater.checkForUpdate()
-            .onSuccess { result ->
-                updater.rememberManifest(
-                    result.manifest
-                )
+        suspend fun verifyReadyDownload():
+            Boolean {
+            val pending =
+                updater.queryPendingDownload()
+                    ?: return false
 
-                if (result.updateAvailable) {
+            if (
+                pending.status !=
+                    DownloadManager
+                        .STATUS_SUCCESSFUL
+            ) {
+                return false
+            }
+
+            if (
+                updater.isPendingDownloadVerified()
+            ) {
+                return true
+            }
+
+            updater.verifyPendingDownload()
+                .onSuccess { verified ->
                     Toast.makeText(
                         context,
                         "PocketPC " +
-                            result.manifest.versionName +
-                            " disponível em Este PC > Atualizações.",
+                            verified.manifest.versionName +
+                            " baixado e verificado. " +
+                            "Abra Este PC > Atualizações para instalar.",
                         Toast.LENGTH_LONG,
                     ).show()
                 }
+                .onFailure { error ->
+                    Toast.makeText(
+                        context,
+                        "Atualização baixada foi bloqueada: " +
+                            (
+                                error.message
+                                    ?: error.javaClass
+                                        .simpleName
+                                ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+
+            return updater
+                .isPendingDownloadVerified()
+        }
+
+        verifyReadyDownload()
+
+        var pending =
+            updater.queryPendingDownload()
+
+        if (
+            updater.shouldRunAutomaticCheck()
+        ) {
+            updater.markAutomaticCheck()
+
+            updater.checkForUpdate()
+                .onSuccess { result ->
+                    updater.rememberManifest(
+                        result.manifest
+                    )
+
+                    if (
+                        result.updateAvailable &&
+                        pending == null
+                    ) {
+                        val canAutoDownload =
+                            updater
+                                .autoDownloadUnmeteredEnabled() &&
+                                updater
+                                    .isUnmeteredNetwork()
+
+                        if (canAutoDownload) {
+                            updater.beginDownload(
+                                result.manifest
+                            )
+                                .onSuccess {
+                                    pending =
+                                        updater
+                                            .queryPendingDownload()
+                                    Toast.makeText(
+                                        context,
+                                        "PocketPC " +
+                                            result.manifest
+                                                .versionName +
+                                            " será baixado automaticamente.",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                                .onFailure { error ->
+                                    Toast.makeText(
+                                        context,
+                                        "Update encontrado, mas o download automático falhou: " +
+                                            (
+                                                error.message
+                                                    ?: error
+                                                        .javaClass
+                                                        .simpleName
+                                                ),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "PocketPC " +
+                                    result.manifest
+                                        .versionName +
+                                    " disponível em Este PC > Atualizações.",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    }
+                }
+        }
+
+        var attempts = 0
+        while (
+            pending != null &&
+            attempts < 360
+        ) {
+            val status =
+                pending?.status
+                    ?: break
+
+            if (
+                status ==
+                    DownloadManager.STATUS_SUCCESSFUL
+            ) {
+                verifyReadyDownload()
+                break
             }
+
+            if (
+                status ==
+                    DownloadManager.STATUS_FAILED
+            ) {
+                break
+            }
+
+            delay(5_000)
+            attempts++
+            pending =
+                updater.queryPendingDownload()
+        }
     }
 }
+
