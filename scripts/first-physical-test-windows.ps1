@@ -95,7 +95,19 @@ try {
     & $coreScript @argsMap
 }
 catch {
-    $message = $_.Exception.Message
+    $errorRecord = $_
+    $message = $errorRecord.Exception.Message
+    $detailParts = New-Object System.Collections.Generic.List[string]
+    $detailParts.Add($message)
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$errorRecord.InvocationInfo.PositionMessage)) {
+        $detailParts.Add(([string]$errorRecord.InvocationInfo.PositionMessage).Trim())
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$errorRecord.ScriptStackTrace)) {
+        $detailParts.Add("Script stack:")
+        $detailParts.Add(([string]$errorRecord.ScriptStackTrace).Trim())
+    }
+    $detailedMessage = ($detailParts -join [Environment]::NewLine).Trim()
 
     Write-Host ""
     Write-Host "PocketPC first physical test falhou." -ForegroundColor Red
@@ -106,7 +118,7 @@ catch {
             AndroidSdkRoot = $AndroidSdkRoot
             DeviceSerial = $DeviceSerial
             FailureStage = "FIRST_PHYSICAL_TEST"
-            FailureMessage = $message
+            FailureMessage = $detailedMessage
         }
 
         if ($buildDir -and (Test-Path $buildDir -PathType Container)) {
@@ -127,6 +139,6 @@ catch {
 
     Write-Host ""
     Write-Host "ERRO ORIGINAL:" -ForegroundColor Red
-    Write-Host $message -ForegroundColor Red
+    Write-Host $detailedMessage -ForegroundColor Red
     exit 1
 }
