@@ -1,80 +1,117 @@
 # PocketPC Roadmap
 
-## Alpha 19 — current consolidation target
+## Alpha 20 — current target
 
-### Implemented source
+### Implemented in source
 
-- landscape/immersive desktop shell;
-- persistent taskbar pins;
-- original PocketPC icons;
-- searchable/scrollable Start menu and context menu;
-- right-click, long-press, hover, pointer cursors and keyboard focus;
-- keyboard shortcuts + Android shortcut helper;
-- movable/minimizable/maximizable windows;
-- resizable freeform PocketPC windows;
-- persistent per-app freeform geometry;
-- left/right window snapping with keyboard and touch controls;
-- System / Light / Dark themes;
-- static and animated wallpaper presets;
-- custom SAF image wallpapers;
-- installed Android app/game launcher;
-- Store window with Play Store/web fallback;
-- Control Center with Wi-Fi/Bluetooth/Sound/Display/Keyboard/Notifications/
-  Battery/Cast settings;
-- persistent game compatibility profiles;
-- mouse/keyboard/gamepad detection;
-- Displays control/diagnostics window;
-- event-driven external-display detection;
-- Android secondary-display capability detection;
-- Android freeform-window capability detection;
-- Android FEATURE_PC detection and optional app declaration;
-- launch-display and launch-bounds requests with fallback;
-- Alpha 19 desktop evidence in the physical runner;
-- evidence-bundle verification for the desktop schema;
-- dynamic CI version evidence from the build lock;
-- CI version regression policy.
+#### Desktop UX
+- PocketPC-specific visual theme;
+- compact taskbar, Start launcher and system tray;
+- per-app window sizing/position contracts;
+- calculated drag/resize workspace bounds;
+- left/right snap safety based on application minimum width;
+- v2 persisted window geometry;
+- wallpaper-safe desktop labels.
 
-### Required next gate
+#### Browser
+- compact landscape browser chrome;
+- tab strip;
+- independent per-tab WebView history/state during the PocketPC session;
+- true desktop browser User-Agent mode;
+- downloads and external-open integration.
 
-1. Run the complete Windows build against the latest HEAD.
-2. Require all Python policies and self-tests to PASS.
-3. Require Kotlin compile + unit tests + Android lint + APK assembly to PASS.
-4. Install the exact APK on the physical POCO.
-5. Require physical desktop landscape evidence.
-6. Verify browser/files/terminal/personalization/apps/displays manually.
-7. Record mouse/keyboard/gamepad behavior only when the hardware is actually connected.
-8. Test Wi-Fi Display on the POCO and observe whether HyperOS exposes a distinct
-   DisplayManager display or only mirrors the phone.
+#### Explorer
+- desktop sidebar/toolbar/table/details layout;
+- search;
+- SAF directory navigation;
+- create directory;
+- rename;
+- delete;
+- safe storage-name validation and JVM tests.
 
-No item above is PHYSICAL PASS until the run actually proves it.
+#### Este PC
+- PC-style overview;
+- hardware tab;
+- desktop/display tab;
+- diagnostics tab;
+- SoC, CPU, RAM, storage, display, battery, network, Android and graphics capability
+  information sourced from the device.
 
-## After Alpha 19 physically passes
+#### Apps / games / system utilities
+- adaptive installed-app library;
+- real Android app icons;
+- game classification and persistent tested compatibility profiles;
+- internal DownloadManager view;
+- compact Control Center;
+- Google Play-backed Store workspace;
+- external-display capability workspace;
+- task-manager-style PocketPC performance telemetry.
 
-### Desktop UX
-- persist snap/open-workspace state across full app restarts;
-- richer keyboard navigation beyond current focus support;
-- richer taskbar/system-tray panels;
-- notification center;
-- volume/media/device quick controls;
+### Required Alpha 20 gate
+
+1. Finish static source/policy audit.
+2. Run the complete Windows validation against the exact current HEAD.
+3. Require all policy/self-tests to PASS.
+4. Require Kotlin compile to PASS.
+5. Require JVM unit tests to PASS.
+6. Require Android lint to PASS.
+7. Require APK assembly to PASS.
+8. Install and hash-verify the exact Alpha 20 APK on the physical POCO.
+9. Validate the redesigned shell manually:
+   - Browser tabs/content area;
+   - Explorer layout and real SAF operations;
+   - Este PC hardware values;
+   - Start/taskbar;
+   - Apps library;
+   - Downloads;
+   - Control Center;
+   - Store;
+   - Displays;
+   - Performance.
+10. Record mouse/keyboard/gamepad/external-display evidence only when physically
+    observed.
+
+Until steps 2–10 actually execute, Alpha 20 SOFTWARE/PHYSICAL remain NOT_EXECUTED.
+
+## Next desktop milestones
+
+### Explorer / productivity
+- transactional copy/move/paste;
+- multi-select;
+- keyboard file operations;
 - drag-and-drop;
-- multiple desktop workspaces;
-- better wheel/trackpad gestures.
+- archive operations;
+- richer file-type previews.
+
+### Window manager
+- persist maximized/snap/open-workspace state;
+- multiple desktops/workspaces;
+- taskbar thumbnails;
+- richer window switcher;
+- edge/corner resize handles;
+- keyboard-first focus traversal.
+
+### System
+- notification center;
+- volume/media quick controls;
+- richer network panel;
+- power/session menu;
+- phone-as-touchpad/keyboard mode for external desktop use.
 
 ### External desktop
-- determine real Wi-Fi Display behavior on POCO X7;
-- phone-as-touchpad mode for an external PocketPC session;
-- virtual keyboard mode;
-- generic wired-display testing on other Android devices that support video out;
-- cooperate with Android system desktop windowing where advertised.
+- physically characterize Wi-Fi Display behavior on the POCO X7;
+- distinguish mirroring from a real secondary DisplayManager display;
+- test other Android hardware with wired video output;
+- cooperate with Android system freeform/desktop windowing where advertised.
 
 ### Games
-- build per-package tested compatibility database;
-- distinguish UNTESTED / PLAYABLE / OPTIMIZED / INCOMPATIBLE;
-- validate mouse, keyboard, gamepad and external-display behavior independently;
-- investigate Android-permitted compatibility mapping without injecting into other
-  processes or spoofing unsupported Windows identity.
+- continue per-package compatibility evidence;
+- separately validate mouse, keyboard, controller and external display;
+- investigate Android-permitted input/desktop compatibility approaches without
+  injection, unsupported identity spoofing or fabricated Windows support.
 
 ### Runtime
-- continue Linux/rootfs work behind its independent evidence gates;
-- solve hardlink semantics without pretending Android host hardlinks are available;
-- keep PRoot artifact/provenance approval fail-closed.
+- continue Linux/rootfs work behind independent evidence gates;
+- solve guest hardlink semantics;
+- keep artifact/provenance approval fail-closed;
+- no Windows x86/x64 compatibility claim until a real execution substrate exists.
