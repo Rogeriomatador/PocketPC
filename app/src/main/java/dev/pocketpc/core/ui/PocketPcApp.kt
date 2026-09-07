@@ -129,6 +129,10 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 DesktopCommand.OPEN_TERMINAL -> desktop.open(DesktopApp.TERMINAL)
                 DesktopCommand.OPEN_DESKTOP_CONTEXT ->
                     desktop.openContextMenu(null)
+                DesktopCommand.DISMISS_OVERLAYS -> {
+                    desktop.closeStartMenu()
+                    desktop.closeContextMenu()
+                }
             }
         }
     }
