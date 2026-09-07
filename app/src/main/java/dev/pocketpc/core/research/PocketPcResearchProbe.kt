@@ -9,6 +9,7 @@ import android.media.ImageReader
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.os.Build
+import android.bluetooth.BluetoothManager
 import android.companion.virtual.VirtualDeviceManager
 
 internal const val POCKET_MIME_AV1 = "video/av01"
@@ -78,6 +79,9 @@ data class PocketPcResearchReport(
     val termuxInstalled: Boolean,
     val termuxRunCommandPermissionGranted: Boolean,
     val shizukuInstalled: Boolean,
+    val bluetoothAdapterAvailable: Boolean,
+    val bluetoothConnectPermissionGranted: Boolean,
+    val bluetoothHidDeviceApiCandidate: Boolean,
 ) {
     val hardwareSurfaceEncoderAvailable: Boolean
         get() =
@@ -186,6 +190,28 @@ object PocketPcResearchProbe {
                         packageManager,
                         "rikka.shizuku",
                     ),
+            bluetoothAdapterAvailable =
+                appContext.getSystemService(
+                    BluetoothManager::class.java
+                )?.adapter != null,
+            bluetoothConnectPermissionGranted =
+                if (
+                    Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.S
+                ) {
+                    appContext.checkSelfPermission(
+                        "android.permission.BLUETOOTH_CONNECT"
+                    ) ==
+                        PackageManager.PERMISSION_GRANTED
+                } else {
+                    true
+                },
+            bluetoothHidDeviceApiCandidate =
+                Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.P &&
+                    appContext.getSystemService(
+                        BluetoothManager::class.java
+                    )?.adapter != null,
         )
     }
 
