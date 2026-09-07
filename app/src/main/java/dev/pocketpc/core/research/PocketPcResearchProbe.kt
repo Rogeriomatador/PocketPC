@@ -57,6 +57,10 @@ data class PocketPcResearchReport(
     val virtualDeviceManagerAvailable: Boolean,
     val createVirtualDevicePermissionGranted: Boolean,
     val computerControlPermissionGranted: Boolean,
+    val unknownSourceInstallAllowed: Boolean,
+    val termuxInstalled: Boolean,
+    val termuxRunCommandPermissionGranted: Boolean,
+    val shizukuInstalled: Boolean,
 ) {
     val hardwareSurfaceEncoderAvailable: Boolean
         get() =
@@ -133,8 +137,59 @@ object PocketPcResearchProbe {
                     "android.permission.ACCESS_COMPUTER_CONTROL"
                 ) ==
                     PackageManager.PERMISSION_GRANTED,
+            unknownSourceInstallAllowed =
+                if (
+                    Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.O
+                ) {
+                    packageManager.canRequestPackageInstalls()
+                } else {
+                    true
+                },
+            termuxInstalled =
+                packageInstalled(
+                    packageManager,
+                    "com.termux",
+                ),
+            termuxRunCommandPermissionGranted =
+                appContext.checkSelfPermission(
+                    "com.termux.permission.RUN_COMMAND"
+                ) ==
+                    PackageManager.PERMISSION_GRANTED,
+            shizukuInstalled =
+                packageInstalled(
+                    packageManager,
+                    "moe.shizuku.privileged.api",
+                ) ||
+                    packageInstalled(
+                        packageManager,
+                        "rikka.shizuku",
+                    ),
         )
     }
+
+    private fun packageInstalled(
+        packageManager: PackageManager,
+        packageName: String,
+    ): Boolean =
+        runCatching {
+            if (
+                Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.TIRAMISU
+            ) {
+                packageManager.getApplicationInfo(
+                    packageName,
+                    PackageManager.ApplicationInfoFlags.of(0),
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getApplicationInfo(
+                    packageName,
+                    0,
+                )
+            }
+            true
+        }.getOrDefault(false)
 
     private fun collectVideoEncoders():
         List<ResearchCodec> =
