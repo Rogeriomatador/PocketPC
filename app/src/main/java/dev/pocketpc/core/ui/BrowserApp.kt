@@ -28,6 +28,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.pocketpc.core.storage.PocketDownloadRegistry
+import dev.pocketpc.core.storage.StorageRepository
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -131,7 +133,10 @@ class BrowserSessionState {
 }
 
 @Composable
-fun BrowserApp(session: BrowserSessionState) {
+fun BrowserApp(
+    session: BrowserSessionState,
+    storage: StorageRepository,
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
     var webView by remember { mutableStateOf<WebView?>(null) }
@@ -413,6 +418,7 @@ fun BrowserApp(session: BrowserSessionState) {
                             ->
                             enqueueDownload(
                                 context = activityContext,
+                                storage = storage,
                                 url = url,
                                 userAgent = userAgent,
                                 contentDisposition =
@@ -599,6 +605,7 @@ internal fun desktopUserAgent(base: String): String {
 
 private fun enqueueDownload(
     context: Context,
+    storage: StorageRepository,
     url: String?,
     userAgent: String?,
     contentDisposition: String?,
@@ -650,7 +657,22 @@ private fun enqueueDownload(
                 )
             }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val pocketDriveConfigured =
+            storage.rootUriString != null
+
+        if (pocketDriveConfigured) {
+            request.setDestinationInExternalFilesDir(
+                context,
+                Environment.DIRECTORY_DOWNLOADS,
+                "pocketpc-" +
+                    System.currentTimeMillis() +
+                    "-" +
+                    fileName,
+            )
+        } else if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.Q
+        ) {
             request.setDestinationInExternalPublicDir(
                 Environment.DIRECTORY_DOWNLOADS,
                 fileName,
@@ -667,10 +689,20 @@ private fun enqueueDownload(
             context.getSystemService(
                 Context.DOWNLOAD_SERVICE
             ) as DownloadManager
-        manager.enqueue(request)
+        val downloadId = manager.enqueue(request)
+
+        if (pocketDriveConfigured) {
+            PocketDownloadRegistry(context)
+                .register(downloadId)
+        }
+
         Toast.makeText(
             context,
-            "Download iniciado: $fileName",
+            if (pocketDriveConfigured) {
+                "Download iniciado → P:\\Downloads\\$fileName"
+            } else {
+                "Download iniciado: $fileName"
+            },
             Toast.LENGTH_LONG,
         ).show()
     }.onFailure { error ->
