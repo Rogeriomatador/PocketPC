@@ -10,4 +10,6 @@ enum class DesktopCommand {
     OPEN_TERMINAL,
     OPEN_DESKTOP_CONTEXT,
     DISMISS_OVERLAYS,
+    SNAP_LEFT,
+    SNAP_RIGHT,
 }
