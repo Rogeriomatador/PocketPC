@@ -763,6 +763,75 @@ fun PocketPcUpdateAutoCheck(
         }
 
     LaunchedEffect(Unit) {
+        suspend fun attemptAutomaticInstall(
+            download: PocketPcUpdateDownload,
+        ): Boolean {
+            if (
+                !updater.autoInstallVerifiedEnabled()
+            ) {
+                return false
+            }
+
+            if (
+                !updater.canRequestPackageInstalls()
+            ) {
+                onAttentionChanged(
+                    PocketPcUpdateAttention.READY
+                )
+                Toast.makeText(
+                    context,
+                    "Update verificado. Autorize uma vez o PocketPC em “Instalar apps desconhecidos” para permitir atualização sem PC.",
+                    Toast.LENGTH_LONG,
+                ).show()
+                return false
+            }
+
+            if (
+                updater.installAttemptedForPending()
+            ) {
+                return true
+            }
+
+            var committed = false
+            updater.requestInstall(download)
+                .onSuccess { result ->
+                    when (result) {
+                        PocketPcInstallResult
+                            .SESSION_COMMITTED,
+                        PocketPcInstallResult
+                            .SESSION_ALREADY_PENDING -> {
+                            committed = true
+                            Toast.makeText(
+                                context,
+                                "PocketPC entregou a atualização ao Android. Ela será aplicada automaticamente se a plataforma permitir.",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+
+                        PocketPcInstallResult
+                            .NEEDS_UNKNOWN_SOURCE_PERMISSION ->
+                            Unit
+                    }
+                }
+                .onFailure { error ->
+                    onAttentionChanged(
+                        PocketPcUpdateAttention.BLOCKED
+                    )
+                    Toast.makeText(
+                        context,
+                        "Instalação automática bloqueada: " +
+                            (
+                                error.message
+                                    ?: error.javaClass
+                                        .simpleName
+                                ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+
+            return committed
+        }
+
         suspend fun verifyReadyDownload():
             Boolean {
             val pending =
@@ -783,6 +852,7 @@ fun PocketPcUpdateAutoCheck(
                 onAttentionChanged(
                     PocketPcUpdateAttention.READY
                 )
+                attemptAutomaticInstall(pending)
                 return true
             }
 
@@ -791,14 +861,28 @@ fun PocketPcUpdateAutoCheck(
                     onAttentionChanged(
                         PocketPcUpdateAttention.READY
                     )
+                    val autoInstall =
+                        updater
+                            .autoInstallVerifiedEnabled()
+
                     Toast.makeText(
                         context,
                         "PocketPC " +
                             verified.manifest.versionName +
-                            " baixado e verificado. " +
-                            "Abra Este PC > Atualizações para instalar.",
+                            " baixado e verificado." +
+                            if (autoInstall) {
+                                " Tentando aplicar automaticamente."
+                            } else {
+                                " Abra Este PC > Atualizações para instalar."
+                            },
                         Toast.LENGTH_LONG,
                     ).show()
+
+                    if (autoInstall) {
+                        attemptAutomaticInstall(
+                            verified
+                        )
+                    }
                 }
                 .onFailure { error ->
                     onAttentionChanged(
