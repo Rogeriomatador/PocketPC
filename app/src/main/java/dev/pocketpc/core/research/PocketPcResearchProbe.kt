@@ -21,7 +21,23 @@ data class ResearchCodec(
     val hardwareAccelerated: Boolean?,
     val vendor: Boolean?,
     val surfaceInput: Boolean = false,
+    val supports720p60: Boolean = false,
+    val supports1080p60: Boolean = false,
+    val supports1440p60: Boolean = false,
+    val supports4k30: Boolean = false,
+    val intraRefresh: Boolean = false,
+    val maxAdvertisedBitrate: Int? = null,
 )
+
+enum class AdvertisedRemoteStreamProfile(
+    val label: String,
+) {
+    UHD_4K30("3840×2160 @ 30"),
+    QHD_1440P60("2560×1440 @ 60"),
+    FHD_1080P60("1920×1080 @ 60"),
+    HD_720P60("1280×720 @ 60"),
+    NONE("Nenhum perfil de 60/30 fps anunciado"),
+}
 
 enum class PreferredRemoteCodec(
     val mimeType: String?,
@@ -50,6 +66,7 @@ data class PocketPcResearchReport(
     val hardwareBuffer: HardwareBufferProbeResult,
     val encoders: List<ResearchCodec>,
     val preferredRemoteCodec: PreferredRemoteCodec,
+    val advertisedRemoteStreamProfile: AdvertisedRemoteStreamProfile,
     val wifiDirect: Boolean,
     val wifiAware: Boolean,
     val pcHardwareType: Boolean,
@@ -95,6 +112,10 @@ object PocketPcResearchProbe {
             preferredRemoteCodec =
                 choosePreferredRemoteCodec(
                     encoders
+                ),
+            advertisedRemoteStreamProfile =
+                chooseAdvertisedRemoteStreamProfile(
+                    encoders,
                 ),
             wifiDirect =
                 packageManager.hasSystemFeature(
@@ -227,6 +248,23 @@ object PocketPcResearchProbe {
                                     )
                                 }.getOrNull()
 
+                            val videoCapabilities =
+                                capabilities?.videoCapabilities
+
+                            fun supports(
+                                width: Int,
+                                height: Int,
+                                frameRate: Double,
+                            ): Boolean =
+                                runCatching {
+                                    videoCapabilities
+                                        ?.areSizeAndRateSupported(
+                                            width,
+                                            height,
+                                            frameRate,
+                                        ) == true
+                                }.getOrDefault(false)
+
                             ResearchCodec(
                                 name = info.name,
                                 mimeType =
@@ -257,6 +295,41 @@ object PocketPcResearchProbe {
                                                 .CodecCapabilities
                                                 .COLOR_FormatSurface
                                         ) == true,
+                                supports720p60 =
+                                    supports(
+                                        1280,
+                                        720,
+                                        60.0,
+                                    ),
+                                supports1080p60 =
+                                    supports(
+                                        1920,
+                                        1080,
+                                        60.0,
+                                    ),
+                                supports1440p60 =
+                                    supports(
+                                        2560,
+                                        1440,
+                                        60.0,
+                                    ),
+                                supports4k30 =
+                                    supports(
+                                        3840,
+                                        2160,
+                                        30.0,
+                                    ),
+                                intraRefresh =
+                                    capabilities
+                                        ?.isFeatureSupported(
+                                            MediaCodecInfo
+                                                .CodecCapabilities
+                                                .FEATURE_IntraRefresh
+                                        ) == true,
+                                maxAdvertisedBitrate =
+                                    videoCapabilities
+                                        ?.bitrateRange
+                                        ?.upper,
                             )
                         }
                 }
@@ -468,5 +541,42 @@ internal fun choosePreferredRemoteCodec(
 
         else ->
             PreferredRemoteCodec.NONE
+    }
+}
+
+
+internal fun chooseAdvertisedRemoteStreamProfile(
+    codecs: List<ResearchCodec>,
+): AdvertisedRemoteStreamProfile {
+    val preferred =
+        choosePreferredRemoteCodec(codecs)
+            .mimeType
+            ?: return AdvertisedRemoteStreamProfile.NONE
+
+    val candidates =
+        codecs.filter {
+            it.mimeType.equals(
+                preferred,
+                ignoreCase = true,
+            ) &&
+                it.hardwareAccelerated == true &&
+                it.surfaceInput
+        }
+
+    return when {
+        candidates.any { it.supports4k30 } ->
+            AdvertisedRemoteStreamProfile.UHD_4K30
+
+        candidates.any { it.supports1440p60 } ->
+            AdvertisedRemoteStreamProfile.QHD_1440P60
+
+        candidates.any { it.supports1080p60 } ->
+            AdvertisedRemoteStreamProfile.FHD_1080P60
+
+        candidates.any { it.supports720p60 } ->
+            AdvertisedRemoteStreamProfile.HD_720P60
+
+        else ->
+            AdvertisedRemoteStreamProfile.NONE
     }
 }
