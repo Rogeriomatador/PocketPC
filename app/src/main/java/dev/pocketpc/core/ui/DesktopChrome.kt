@@ -130,11 +130,21 @@ fun DesktopIconsV2(
                     ) {
                         AppIconTile(app = app, size = 48)
                         Spacer(Modifier.height(5.dp))
-                        Text(
-                            text = app.label,
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                        )
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.48f),
+                            shape = RoundedCornerShape(6.dp),
+                        ) {
+                            Text(
+                                text = app.label,
+                                modifier = Modifier.padding(
+                                    horizontal = 5.dp,
+                                    vertical = 2.dp,
+                                ),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }
@@ -678,11 +688,23 @@ private fun DesktopSystemTray(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (peripherals.mouseCount > 0) Text("M", fontSize = 10.sp)
-        if (peripherals.keyboardCount > 0) Text("K", fontSize = 10.sp)
-        if (peripherals.gamepadCount > 0) Text("G", fontSize = 10.sp)
-        Text(if (online) "NET" else "OFF", fontSize = 10.sp)
-        Text("${battery.coerceIn(0, 100)}%", fontSize = 10.sp)
+        if (peripherals.mouseCount > 0) {
+            Text("Mouse", fontSize = 9.sp)
+        }
+        if (peripherals.keyboardCount > 0) {
+            Text("Teclado", fontSize = 9.sp)
+        }
+        if (peripherals.gamepadCount > 0) {
+            Text("Controle", fontSize = 9.sp)
+        }
+        Text(
+            if (online) "Online" else "Offline",
+            fontSize = 9.sp,
+        )
+        Text(
+            "${battery.coerceIn(0, 100)}%",
+            fontSize = 9.sp,
+        )
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 now.format(DateTimeFormatter.ofPattern("HH:mm")),
