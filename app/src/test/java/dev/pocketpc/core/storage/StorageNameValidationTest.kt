@@ -26,4 +26,34 @@ class StorageNameValidationTest {
     fun rejectsParentTraversalName() {
         validateStorageName("..")
     }
+
+    @Test
+    fun sanitizesServerFileNamesForPocketDrive() {
+        assertEquals(
+            "setup_invalid_.exe",
+            sanitizePocketImportedFileName(
+                "../setup:invalid?.exe"
+            ),
+        )
+    }
+
+    @Test
+    fun prefixesWindowsReservedDeviceNames() {
+        assertEquals(
+            "_CON.txt",
+            sanitizePocketImportedFileName(
+                "CON.txt"
+            ),
+        )
+    }
+
+    @Test
+    fun emptyImportedNameGetsStableFallback() {
+        assertEquals(
+            "download",
+            sanitizePocketImportedFileName(
+                "..."
+            ),
+        )
+    }
 }
