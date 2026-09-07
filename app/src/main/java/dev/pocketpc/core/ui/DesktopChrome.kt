@@ -6,6 +6,7 @@ import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -41,7 +42,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -50,6 +55,8 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.pocketpc.core.BuildConfig
@@ -123,21 +130,336 @@ fun AppIconTile(
     active: Boolean = false,
 ) {
     Surface(
-        modifier = Modifier.size(size.dp),
+        modifier = Modifier
+            .size(size.dp)
+            .semantics { contentDescription = app.label },
         shape = RoundedCornerShape((size * 0.24f).dp),
         color = Color(app.accentArgb),
         shadowElevation = if (active) 8.dp else 3.dp,
         tonalElevation = if (active) 7.dp else 1.dp,
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding((size * 0.20f).dp),
         ) {
-            Text(
-                text = app.glyph,
-                color = Color.White,
-                fontSize = (size * 0.25f).sp,
-            )
+            val white = Color.White
+            val line = (this.size.minDimension * 0.09f).coerceAtLeast(1f)
+            val stroke = Stroke(width = line, cap = StrokeCap.Round)
+            val w = this.size.width
+            val h = this.size.height
+            val center = Offset(w / 2f, h / 2f)
+
+            when (app) {
+                DesktopApp.BROWSER -> {
+                    val radius = this.size.minDimension * 0.38f
+                    drawCircle(
+                        color = white,
+                        radius = radius,
+                        center = center,
+                        style = stroke,
+                    )
+                    drawLine(
+                        white,
+                        Offset(center.x - radius, center.y),
+                        Offset(center.x + radius, center.y),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawArc(
+                        color = white,
+                        startAngle = 75f,
+                        sweepAngle = 210f,
+                        useCenter = false,
+                        topLeft = Offset(
+                            center.x - radius * 0.55f,
+                            center.y - radius,
+                        ),
+                        size = Size(radius * 1.10f, radius * 2f),
+                        style = stroke,
+                    )
+                    drawArc(
+                        color = white,
+                        startAngle = 255f,
+                        sweepAngle = 210f,
+                        useCenter = false,
+                        topLeft = Offset(
+                            center.x - radius * 0.55f,
+                            center.y - radius,
+                        ),
+                        size = Size(radius * 1.10f, radius * 2f),
+                        style = stroke,
+                    )
+                }
+
+                DesktopApp.FILES -> {
+                    val top = h * 0.27f
+                    drawRoundRect(
+                        color = white,
+                        topLeft = Offset(w * 0.08f, top),
+                        size = Size(w * 0.84f, h * 0.58f),
+                        cornerRadius =
+                            androidx.compose.ui.geometry.CornerRadius(
+                                w * 0.09f,
+                                w * 0.09f,
+                            ),
+                        style = stroke,
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.15f, top),
+                        Offset(w * 0.39f, h * 0.13f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.39f, h * 0.13f),
+                        Offset(w * 0.58f, h * 0.27f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                }
+
+                DesktopApp.TERMINAL -> {
+                    drawLine(
+                        white,
+                        Offset(w * 0.14f, h * 0.25f),
+                        Offset(w * 0.43f, h * 0.50f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.43f, h * 0.50f),
+                        Offset(w * 0.14f, h * 0.75f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.50f, h * 0.75f),
+                        Offset(w * 0.84f, h * 0.75f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                }
+
+                DesktopApp.APPS -> {
+                    val cell = w * 0.25f
+                    val gap = w * 0.12f
+                    val startX = (w - cell * 2f - gap) / 2f
+                    val startY = (h - cell * 2f - gap) / 2f
+                    repeat(2) { row ->
+                        repeat(2) { column ->
+                            drawRoundRect(
+                                color = white,
+                                topLeft = Offset(
+                                    startX + column * (cell + gap),
+                                    startY + row * (cell + gap),
+                                ),
+                                size = Size(cell, cell),
+                                cornerRadius =
+                                    androidx.compose.ui.geometry.CornerRadius(
+                                        cell * 0.23f,
+                                        cell * 0.23f,
+                                    ),
+                            )
+                        }
+                    }
+                }
+
+                DesktopApp.DOWNLOADS -> {
+                    drawLine(
+                        white,
+                        Offset(center.x, h * 0.12f),
+                        Offset(center.x, h * 0.63f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(center.x, h * 0.63f),
+                        Offset(w * 0.27f, h * 0.43f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(center.x, h * 0.63f),
+                        Offset(w * 0.73f, h * 0.43f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.18f, h * 0.84f),
+                        Offset(w * 0.82f, h * 0.84f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                }
+
+                DesktopApp.DISPLAYS -> {
+                    drawRoundRect(
+                        color = white,
+                        topLeft = Offset(w * 0.08f, h * 0.12f),
+                        size = Size(w * 0.84f, h * 0.58f),
+                        cornerRadius =
+                            androidx.compose.ui.geometry.CornerRadius(
+                                w * 0.06f,
+                                w * 0.06f,
+                            ),
+                        style = stroke,
+                    )
+                    drawLine(
+                        white,
+                        Offset(center.x, h * 0.70f),
+                        Offset(center.x, h * 0.84f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.32f, h * 0.86f),
+                        Offset(w * 0.68f, h * 0.86f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                }
+
+                DesktopApp.PERSONALIZATION -> {
+                    drawRoundRect(
+                        color = white,
+                        topLeft = Offset(w * 0.08f, h * 0.12f),
+                        size = Size(w * 0.84f, h * 0.74f),
+                        cornerRadius =
+                            androidx.compose.ui.geometry.CornerRadius(
+                                w * 0.07f,
+                                w * 0.07f,
+                            ),
+                        style = stroke,
+                    )
+                    drawCircle(
+                        color = white,
+                        radius = w * 0.08f,
+                        center = Offset(w * 0.70f, h * 0.32f),
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.16f, h * 0.76f),
+                        Offset(w * 0.42f, h * 0.48f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.42f, h * 0.48f),
+                        Offset(w * 0.62f, h * 0.68f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.62f, h * 0.68f),
+                        Offset(w * 0.79f, h * 0.53f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                }
+
+                DesktopApp.RUNTIMES -> {
+                    drawCircle(
+                        color = white,
+                        radius = w * 0.34f,
+                        center = center,
+                        style = stroke,
+                    )
+                    drawCircle(
+                        color = white,
+                        radius = w * 0.11f,
+                        center = center,
+                    )
+                    repeat(3) { index ->
+                        val angle =
+                            Math.toRadians((index * 120.0) - 90.0)
+                        val end = Offset(
+                            center.x +
+                                kotlin.math.cos(angle).toFloat() * w * 0.34f,
+                            center.y +
+                                kotlin.math.sin(angle).toFloat() * h * 0.34f,
+                        )
+                        drawLine(
+                            white,
+                            center,
+                            end,
+                            line,
+                            StrokeCap.Round,
+                        )
+                    }
+                }
+
+                DesktopApp.SYSTEM -> {
+                    val radius = w * 0.25f
+                    drawCircle(
+                        color = white,
+                        radius = radius,
+                        center = center,
+                        style = stroke,
+                    )
+                    drawCircle(
+                        color = white,
+                        radius = w * 0.07f,
+                        center = center,
+                    )
+                    repeat(8) { index ->
+                        val angle = Math.toRadians(index * 45.0)
+                        val inner = Offset(
+                            center.x +
+                                kotlin.math.cos(angle).toFloat() * radius,
+                            center.y +
+                                kotlin.math.sin(angle).toFloat() * radius,
+                        )
+                        val outer = Offset(
+                            center.x +
+                                kotlin.math.cos(angle).toFloat() * w * 0.42f,
+                            center.y +
+                                kotlin.math.sin(angle).toFloat() * h * 0.42f,
+                        )
+                        drawLine(
+                            white,
+                            inner,
+                            outer,
+                            line,
+                            StrokeCap.Round,
+                        )
+                    }
+                }
+
+                DesktopApp.PERFORMANCE -> {
+                    drawArc(
+                        color = white,
+                        startAngle = 200f,
+                        sweepAngle = 140f,
+                        useCenter = false,
+                        topLeft = Offset(w * 0.12f, h * 0.18f),
+                        size = Size(w * 0.76f, h * 0.76f),
+                        style = stroke,
+                    )
+                    drawLine(
+                        white,
+                        Offset(center.x, h * 0.65f),
+                        Offset(w * 0.73f, h * 0.34f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawCircle(
+                        color = white,
+                        radius = w * 0.07f,
+                        center = Offset(center.x, h * 0.65f),
+                    )
+                }
+            }
         }
     }
 }
