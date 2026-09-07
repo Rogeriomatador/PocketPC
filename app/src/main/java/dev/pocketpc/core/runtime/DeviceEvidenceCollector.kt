@@ -107,6 +107,10 @@ object DeviceEvidenceCollector {
                             desktopCapabilities.freeformWindowManagement,
                         )
                         .put(
+                            "pcHardwareType",
+                            desktopCapabilities.pcHardwareType,
+                        )
+                        .put(
                             "externalDisplayCount",
                             desktopCapabilities.externalDisplayCount,
                         )
