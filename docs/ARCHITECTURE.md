@@ -1,91 +1,138 @@
-# PocketPC Architecture — Alpha 19
+# PocketPC Architecture — Alpha 20
 
-PocketPC separates the user-facing Android desktop host from the future Linux/runtime
-substrate. A desktop-looking UI is never evidence that the runtime layer works.
+PocketPC is split into two evidence domains:
 
-## 1. Android host desktop
+1. Android desktop host — user-facing desktop shell and Android integration.
+2. Runtime substrate — future Linux/rootfs/native execution work.
 
-The host is a Compose-based desktop shell with:
+A feature being visible in the desktop shell is never evidence that the runtime
+substrate works.
 
-- landscape/immersive Activity;
-- taskbar, Start menu and original app icons;
-- PocketPC internal windows;
-- freeform drag/resize, minimize/maximize and left/right snap;
-- Browser, Files, Terminal, Downloads, Store, Control Center, Displays,
-  Personalization, Runtimes, System and Performance;
-- persistent theme, wallpaper, taskbar pins and freeform window geometry;
-- input/peripheral monitoring.
+## 1. Desktop shell
 
-Internal PocketPC applications run inside PocketPC Compose windows.
+The Android host is a Compose-based landscape/immersive desktop with:
 
-Third-party Android applications are launched as Android activities/tasks. PocketPC
-does not use unsupported cross-app embedding to make arbitrary apps appear inside its
-own windows.
+- wallpaper;
+- desktop shortcuts;
+- Start launcher;
+- taskbar/system tray;
+- internal PocketPC windows;
+- theme/personalization;
+- keyboard/mouse/touch/gamepad awareness.
 
-## 2. Platform-cooperative desktop mode
+PocketPC internal applications render inside PocketPC windows. Third-party Android
+applications are launched as Android activities/tasks; PocketPC does not use unsupported
+cross-app embedding and does not claim they are native PocketPC windows.
 
-PocketPC probes public Android capabilities:
+## 2. Window contract
+
+Every internal DesktopApp owns a DesktopWindowSpec:
+
+- defaultWidthFraction;
+- defaultHeightFraction;
+- minWidthDp;
+- minHeightDp;
+- maxWidthFraction;
+- maxHeightFraction;
+- defaultXFraction;
+- defaultYFraction;
+- contentPaddingDp.
+
+Freeform drag/resize is clamped against the actual workspace, including current window
+dimensions and reserved taskbar space. Saved Alpha 20 geometry uses
+`pocketpc-window-layout-v2`.
+
+Half-screen snap is only offered when half of the logical display can satisfy the
+application minimum width.
+
+## 3. Integrated applications
+
+### Browser
+
+WebView-based browser with compact desktop chrome, tabs, per-tab WebView state,
+DownloadManager and an explicit desktop-browser User-Agent mode.
+
+### Explorer
+
+Storage Access Framework-based file workspace. Current write operations are create
+directory, rename and delete. Copy/move are not exposed until their backend exists.
+
+### Este PC
+
+Separates user-facing hardware/system information from developer/runtime diagnostics.
+Hardware information is collected from Android APIs/Build/ActivityManager/DisplayManager
+and remains the real device hardware identity.
+
+### Apps / games
+
+Launchable Android activities are enumerated through PackageManager. App icons come from
+the installed package. Game classification uses ApplicationInfo.CATEGORY_GAME.
+Compatibility ratings and observed input/display evidence are persisted independently.
+
+### Downloads
+
+Reads DownloadManager state and exposes progress/status/open/remove inside PocketPC.
+
+### Store
+
+Uses Google Play market intents with web fallback. PocketPC does not claim to operate a
+parallel software marketplace.
+
+### Displays
+
+Uses DesktopCapabilitySnapshot / DisplayManager observations. A cast session is not
+considered a separate monitor unless Android actually exposes a display.
+
+### Performance
+
+Shows PocketPC process/UI telemetry and advisory governor state. Metrics are not labeled
+as third-party game FPS or global GPU utilization.
+
+## 4. Android desktop cooperation
+
+PocketPC probes public Android capabilities including:
 
 - FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
 - FEATURE_FREEFORM_WINDOW_MANAGEMENT;
 - FEATURE_PC;
-- DisplayManager public/presentation displays.
+- DisplayManager presentation/external displays.
 
-When supported, PocketPC can request:
+When Android advertises support, app launch can request:
 
 - ActivityOptions.setLaunchDisplayId;
 - ActivityOptions.setLaunchBounds.
 
-These are requests to Android, not guarantees. Rejection/unsupported behavior falls
-back safely and does not become a fabricated PASS.
+These are requests, not guarantees. Unsupported/rejected external launch paths fall back
+without being counted as PASS evidence.
 
-## 3. Desktop input
+## 5. Input
 
-Input is treated as a first-class desktop capability:
+Supported host interaction paths include:
 
 - touch;
 - touch long-press;
-- mouse primary/secondary interaction;
-- hover/pointer cursor;
-- visible keyboard focus;
-- keyboard shortcuts;
+- mouse primary/secondary click;
+- pointer hover/cursor;
+- keyboard shortcuts/focus;
 - gamepad/joystick presence.
 
-Public Activity/View callbacks are used rather than restricted ComponentActivity
-dispatch overrides.
+Public Activity/View input callbacks are used.
 
-## 4. Game compatibility evidence
+## 6. Persistence
 
-PocketPC classifies launchable packages as apps/games and stores an explicit user-tested
-profile for games.
+App-private preferences store:
 
-Compatibility rating:
-- UNTESTED;
-- PLAYABLE;
-- OPTIMIZED;
-- INCOMPATIBLE.
+- theme;
+- wallpaper;
+- custom wallpaper URI;
+- taskbar pins;
+- Alpha 20 per-app freeform geometry;
+- game compatibility profiles.
 
-Evidence booleans are independent:
-- mouse confirmed;
-- keyboard confirmed;
-- gamepad confirmed;
-- external display confirmed.
+Browser tab/WebView state is currently session-scoped rather than a persistent browser
+database across complete process death.
 
-Changing the rating alone never changes those evidence booleans.
-
-## 5. Personalization
-
-Appearance state is persisted in app-private SharedPreferences:
-
-- System / Light / Dark theme;
-- static/animated preset wallpaper;
-- custom SAF wallpaper URI;
-- taskbar pin list.
-
-Custom images are selected with the Android document picker. No broad storage
-permission is required. Large images are downscaled during decode.
-
-## 6. Physical evidence layer
+## 7. Physical evidence pipeline
 
 Windows flow:
 
@@ -93,22 +140,20 @@ preflight -> strict build -> preflight -> APK install -> installed hash verifica
 debug evidence -> evidence bundle -> chain verification -> physical record ->
 MainActivity launch -> final record.
 
-Alpha 19 device evidence schema records desktop state including orientation, logical
-size, Android desktop capability advertisements (including FEATURE_PC), connected
-display counts and connected input-device counts.
+Desktop device evidence records orientation, logical size, Android desktop capability
+advertisements, display counts and physical input-device counts.
 
-Landscape is a host-desktop gate. Freeform, external displays and peripheral counts are
-capabilities/state, not mandatory PASS conditions.
+Alpha 20 has not yet completed this pipeline.
 
-## 7. Filesystem/runtime boundary
+## 8. Runtime/filesystem boundary
 
-Physical evidence on the current Xiaomi showed host hardlink creation denied by Android,
-while the safety-critical host filesystem behaviors needed by PocketPC passed.
+On the current Xiaomi Android host, physical diagnostics established safe host
+filesystem behaviors while direct host hardlink creation was denied.
 
 Therefore:
 
 - Android host filesystem readiness is one gate;
-- Linux/rootfs hardlink semantics are another gate.
+- Linux/rootfs link semantics are a separate gate.
 
-Linux/PRoot remains BLOCKED until its own link/artifact/provenance/runtime requirements
+Linux/PRoot remains blocked until its own artifact, provenance, link and execution gates
 are implemented and physically validated.
