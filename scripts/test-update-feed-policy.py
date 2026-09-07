@@ -15,6 +15,7 @@ CENTER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / 
 SYSTEM = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "SystemApp.kt"
 SHELL = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "PocketPcApp.kt"
 AUTO_TEST = ROOT / "app" / "src" / "test" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdaterPolicyTest.kt"
+PREPARE = ROOT / "scripts" / "prepare-update-feed.py"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 REVISION_RE = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -131,6 +132,15 @@ def main() -> int:
         ),
         SHELL: (
             "PocketPcUpdateAutoCheck()",
+        ),
+        PREPARE: (
+            "UPDATE_FEED_PREPARED",
+            "UNPUBLISHED_FAIL_CLOSED",
+            "hashlib.sha256",
+            "apk URL must be an absolute HTTPS URL",
+            "source revision must be exactly 40 hexadecimal characters",
+            "--publish",
+            '"published": bool(args.publish)',
         ),
     }
 
