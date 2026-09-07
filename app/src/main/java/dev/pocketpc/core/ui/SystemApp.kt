@@ -141,6 +141,14 @@ fun SystemApp(
                 },
             )
             ValueRow(
+                "Android PC hardware type",
+                if (desktopCapabilities.pcHardwareType) {
+                    "ADVERTISED"
+                } else {
+                    "NOT ADVERTISED"
+                },
+            )
+            ValueRow(
                 "Monitores externos",
                 desktopCapabilities.externalDisplayCount.toString(),
             )
