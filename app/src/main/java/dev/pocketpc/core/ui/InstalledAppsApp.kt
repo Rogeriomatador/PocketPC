@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -80,6 +83,37 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                     app.packageName.contains(normalized, ignoreCase = true)
             categoryMatches && queryMatches
         }
+    }
+
+    val editingGame = selectedGame
+    if (editingGame != null) {
+        val profile = remember(editingGame.packageName, profileRevision) {
+            compatibilityStore.load(editingGame.packageName)
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            OutlinedButton(onClick = { selectedGame = null }) {
+                Text("Voltar para aplicativos")
+            }
+            GameCompatibilityEditor(
+                app = editingGame,
+                profile = profile,
+                onSave = { updated ->
+                    compatibilityStore.save(updated)
+                    profileRevision++
+                },
+                onReset = {
+                    compatibilityStore.clear(editingGame.packageName)
+                    profileRevision++
+                },
+                onClose = { selectedGame = null },
+            )
+        }
+        return
     }
 
     Column(
@@ -160,29 +194,12 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
 
         status?.let { Text(it, fontSize = 12.sp) }
 
-        selectedGame?.let { game ->
-            val profile = remember(game.packageName, profileRevision) {
-                compatibilityStore.load(game.packageName)
-            }
-            GameCompatibilityEditor(
-                app = game,
-                profile = profile,
-                onSave = { updated ->
-                    compatibilityStore.save(updated)
-                    profileRevision++
-                },
-                onReset = {
-                    compatibilityStore.clear(game.packageName)
-                    profileRevision++
-                },
-                onClose = { selectedGame = null },
-            )
-        }
-
         HorizontalDivider()
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             items(
