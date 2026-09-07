@@ -31,6 +31,7 @@ private enum class PcInfoTab(
     OVERVIEW("Visão geral"),
     HARDWARE("Hardware"),
     DESKTOP("Desktop"),
+    UPDATES("Atualizações"),
     DIAGNOSTICS("Diagnóstico"),
 }
 
@@ -164,6 +165,9 @@ fun SystemApp(
                         capabilities =
                             desktopCapabilities,
                     )
+
+                PcInfoTab.UPDATES ->
+                    UpdateCenterApp()
 
                 PcInfoTab.DIAGNOSTICS ->
                     DiagnosticsTab(
