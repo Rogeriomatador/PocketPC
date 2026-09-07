@@ -313,6 +313,13 @@ def main() -> int:
                     "top-level symbol"
                 )
 
+        if relative.endswith("InstalledAppsApp.kt"):
+            if "import androidx.compose.foundation.layout.weight" in text:
+                failures.append(
+                    "InstalledAppsApp must use RowScope/ColumnScope weight "
+                    "without importing the internal layout.weight symbol"
+                )
+
         for sentinel in sentinels:
             if sentinel not in text:
                 failures.append(f"{relative}: missing sentinel: {sentinel}")
