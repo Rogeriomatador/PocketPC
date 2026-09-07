@@ -49,6 +49,9 @@ CHECKS = {
         "Monitor externo recusou o launch",
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopPeripheralMonitor.kt": (
+        "inputManager.inputDeviceIds",
+        "inputManager.getInputDevice(deviceId)",
+        "sources.and(source) == source",
         "SOURCE_MOUSE",
         "SOURCE_KEYBOARD",
         "SOURCE_GAMEPAD",
@@ -67,6 +70,14 @@ def main() -> int:
             continue
 
         text = path.read_text(encoding="utf-8-sig")
+        if (
+            relative.endswith("DesktopPeripheralMonitor.kt")
+            and ".mapNotNull" in text
+        ):
+            failures.append(
+                "DesktopPeripheralMonitor must not mapNotNull over primitive "
+                "Android device-id arrays"
+            )
         for sentinel in sentinels:
             if sentinel not in text:
                 failures.append(f"{relative}: missing sentinel: {sentinel}")
