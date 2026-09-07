@@ -217,6 +217,8 @@ def main() -> int:
                 'Verificando indicador de emulador',
                 'Lendo build fingerprint',
                 'Instalando APK via ADB (timeout: {0}s)',
+                "[IO.File]::ReadAllText($stdoutPath).Trim()",
+                "[IO.File]::ReadAllText($stderrPath).Trim()",
             )
             for sentinel in required_install_sentinels:
                 if sentinel not in text:
@@ -228,6 +230,8 @@ def main() -> int:
                 'Invoke-NativeCapture $adb @("-s", $serial, "install"',
                 'Invoke-NativeCapture $adb @("-s", $serial, "pull"',
                 'return Invoke-NativeCapture $adb (@("-s", $serial, "shell")',
+                "(Get-Content $stdoutPath -Raw).Trim()",
+                "(Get-Content $stderrPath -Raw).Trim()",
             )
             for sentinel in forbidden_unbounded_adb:
                 if sentinel in text:
@@ -245,6 +249,8 @@ def main() -> int:
                 'adb shell ls automation-result',
                 'adb pull required evidence',
                 'adb shell am start MainActivity',
+                "[IO.File]::ReadAllText($stdoutPath).Trim()",
+                "[IO.File]::ReadAllText($stderrPath).Trim()",
             )
             for sentinel in required_validate_sentinels:
                 if sentinel not in text:
@@ -257,6 +263,15 @@ def main() -> int:
                     "Windows physical validator must not call ADB through "
                     "the unbounded native capture path"
                 )
+            for sentinel in (
+                "(Get-Content $stdoutPath -Raw).Trim()",
+                "(Get-Content $stderrPath -Raw).Trim()",
+            ):
+                if sentinel in text:
+                    failures.append(
+                        "Windows physical validator must not Trim null output "
+                        f"from an empty redirected ADB stream: {sentinel}"
+                    )
 
         if path.name == "doctor-windows.ps1":
             marker = "# POCKETPC_DOCTOR_EOF"
