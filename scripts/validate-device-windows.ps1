@@ -373,6 +373,14 @@ Write-Host (
     })
 )
 Write-Host (
+    "PC hardware type     : " +
+    $(if ($desktopEvidence.pcHardwareType -eq $true) {
+        "ADVERTISED"
+    } else {
+        "NOT_ADVERTISED"
+    })
+)
+Write-Host (
     "External displays    : {0} (presentation={1})" -f
     [int]$desktopEvidence.externalDisplayCount,
     [int]$desktopEvidence.presentationDisplayCount
@@ -525,6 +533,7 @@ $physicalRecord = [ordered]@{
     desktopOrientationLandscape = [bool]$desktopLandscape
     desktopFreeformAdvertised = [bool]$desktopEvidence.freeformWindowManagement
     secondaryDisplayActivitiesAdvertised = [bool]$desktopEvidence.secondaryDisplayActivities
+    androidPcHardwareAdvertised = [bool]$desktopEvidence.pcHardwareType
     externalDisplayCount = [int]$desktopEvidence.externalDisplayCount
     presentationDisplayCount = [int]$desktopEvidence.presentationDisplayCount
     mouseCount = [int]$desktopEvidence.peripherals.mouseCount
@@ -592,6 +601,7 @@ Write-Host "Classification : PHYSICAL_DEVICE_CHAIN_VERIFIED"
 Write-Host "Source commit  : $expectedCommit"
 Write-Host "Bundle SHA-256 : $bundleHash"
 Write-Host "Landscape      : $desktopLandscape"
+Write-Host "PC hardware    : $($desktopEvidence.pcHardwareType)"
 Write-Host "Host filesystem: $hostFilesystemPassed"
 Write-Host "Linux links    : $runtimeLinksReady"
 Write-Host "Native host    : $($result.nativeHostLoaded)"
