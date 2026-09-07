@@ -18,12 +18,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,6 +38,9 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import dev.pocketpc.core.desktop.DesktopCapabilitySnapshot
+import dev.pocketpc.core.desktop.GameCompatibilityProfile
+import dev.pocketpc.core.desktop.GameCompatibilityStore
+import dev.pocketpc.core.desktop.GameDesktopRating
 
 data class LaunchableAndroidApp(
     val label: String,
@@ -50,6 +55,11 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
     var apps by remember { mutableStateOf<List<LaunchableAndroidApp>>(emptyList()) }
     var query by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<String?>(null) }
+    val compatibilityStore = remember { GameCompatibilityStore(context) }
+    var selectedGame by remember {
+        mutableStateOf<LaunchableAndroidApp?>(null)
+    }
+    var profileRevision by remember { mutableIntStateOf(0) }
     var preferExternal by rememberSaveable { mutableStateOf(true) }
     var preferWindowed by rememberSaveable { mutableStateOf(true) }
     var gamesOnly by rememberSaveable { mutableStateOf(false) }
@@ -148,6 +158,26 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
         }
 
         status?.let { Text(it, fontSize = 12.sp) }
+
+        selectedGame?.let { game ->
+            val profile = remember(game.packageName, profileRevision) {
+                compatibilityStore.load(game.packageName)
+            }
+            GameCompatibilityEditor(
+                app = game,
+                profile = profile,
+                onSave = { updated ->
+                    compatibilityStore.save(updated)
+                    profileRevision++
+                },
+                onReset = {
+                    compatibilityStore.clear(game.packageName)
+                    profileRevision++
+                },
+                onClose = { selectedGame = null },
+            )
+        }
+
         HorizontalDivider()
 
         LazyColumn(
@@ -245,7 +275,10 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                         Text(app.label, maxLines = 1)
                         Text(
                             if (app.isGame) {
-                                "JOGO ANDROID • entrada desktop depende do jogo"
+                                val profile =
+                                    compatibilityStore.load(app.packageName)
+                                "JOGO • ${profile.rating.label} • " +
+                                    "entrada desktop depende do jogo"
                             } else {
                                 "APP ANDROID"
                             },
@@ -254,9 +287,109 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                         )
                         Text(app.packageName, fontSize = 9.sp, maxLines = 1)
                     }
+                    if (app.isGame) {
+                        OutlinedButton(
+                            onClick = { selectedGame = app },
+                        ) {
+                            Text("Perfil", fontSize = 9.sp)
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun GameCompatibilityEditor(
+    app: LaunchableAndroidApp,
+    profile: GameCompatibilityProfile,
+    onSave: (GameCompatibilityProfile) -> Unit,
+    onReset: () -> Unit,
+    onClose: () -> Unit,
+) {
+    var draft by remember(profile) { mutableStateOf(profile) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Text("Perfil desktop: ${app.label}", fontSize = 13.sp)
+        Text(
+            "Este perfil registra apenas o que foi observado/testado. " +
+                "Nao altera o jogo nem injeta entrada.",
+            fontSize = 10.sp,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            GameDesktopRating.entries.forEach { rating ->
+                FilterChip(
+                    selected = draft.rating == rating,
+                    onClick = { draft = draft.copy(rating = rating) },
+                    label = { Text(rating.label, fontSize = 8.sp) },
+                )
+            }
+        }
+
+        ProfileToggle(
+            label = "Mouse confirmado",
+            checked = draft.mouseConfirmed,
+            onCheckedChange = {
+                draft = draft.copy(mouseConfirmed = it)
+            },
+        )
+        ProfileToggle(
+            label = "Teclado confirmado",
+            checked = draft.keyboardConfirmed,
+            onCheckedChange = {
+                draft = draft.copy(keyboardConfirmed = it)
+            },
+        )
+        ProfileToggle(
+            label = "Gamepad confirmado",
+            checked = draft.gamepadConfirmed,
+            onCheckedChange = {
+                draft = draft.copy(gamepadConfirmed = it)
+            },
+        )
+        ProfileToggle(
+            label = "Tela externa confirmada",
+            checked = draft.externalDisplayConfirmed,
+            onCheckedChange = {
+                draft = draft.copy(externalDisplayConfirmed = it)
+            },
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { onSave(draft) }) {
+                Text("Salvar")
+            }
+            OutlinedButton(onClick = onReset) {
+                Text("Resetar")
+            }
+            OutlinedButton(onClick = onClose) {
+                Text("Fechar")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileToggle(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, fontSize = 10.sp)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }
 
