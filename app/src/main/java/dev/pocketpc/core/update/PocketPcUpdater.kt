@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -55,6 +57,13 @@ enum class PocketPcInstallResult {
     NEEDS_UNKNOWN_SOURCE_PERMISSION,
 }
 
+data class PocketPcAutoUpdatePolicy(
+    val autoCheck: Boolean,
+    val autoDownloadUnmetered: Boolean,
+    val unmeteredNetwork: Boolean,
+    val nextAutomaticCheckAfterMillis: Long,
+)
+
 class PocketPcUpdater(
     private val context: Context,
 ) {
@@ -64,6 +73,125 @@ class PocketPcUpdater(
             "pocketpc-updater",
             Context.MODE_PRIVATE,
         )
+
+    fun autoCheckEnabled(): Boolean =
+        prefs.getBoolean(
+            KEY_AUTO_CHECK,
+            true,
+        )
+
+    fun setAutoCheckEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_AUTO_CHECK, enabled)
+            .apply()
+    }
+
+    fun autoDownloadUnmeteredEnabled(): Boolean =
+        prefs.getBoolean(
+            KEY_AUTO_DOWNLOAD_UNMETERED,
+            true,
+        )
+
+    fun setAutoDownloadUnmeteredEnabled(
+        enabled: Boolean,
+    ) {
+        prefs.edit()
+            .putBoolean(
+                KEY_AUTO_DOWNLOAD_UNMETERED,
+                enabled,
+            )
+            .apply()
+    }
+
+    fun lastAutomaticCheckMillis(): Long =
+        prefs.getLong(
+            KEY_LAST_AUTO_CHECK,
+            0L,
+        )
+
+    fun shouldRunAutomaticCheck(
+        nowMillis: Long =
+            System.currentTimeMillis(),
+    ): Boolean =
+        shouldRunUpdateCheck(
+            enabled = autoCheckEnabled(),
+            lastCheckMillis =
+                lastAutomaticCheckMillis(),
+            nowMillis = nowMillis,
+            intervalMillis =
+                AUTO_CHECK_INTERVAL_MS,
+        )
+
+    fun markAutomaticCheck(
+        nowMillis: Long =
+            System.currentTimeMillis(),
+    ) {
+        prefs.edit()
+            .putLong(
+                KEY_LAST_AUTO_CHECK,
+                nowMillis,
+            )
+            .apply()
+    }
+
+    fun isUnmeteredNetwork(): Boolean {
+        val connectivity =
+            appContext.getSystemService(
+                Context.CONNECTIVITY_SERVICE
+            ) as ConnectivityManager
+        val network =
+            connectivity.activeNetwork
+                ?: return false
+        val capabilities =
+            connectivity
+                .getNetworkCapabilities(network)
+                ?: return false
+
+        return capabilities.hasCapability(
+            NetworkCapabilities
+                .NET_CAPABILITY_INTERNET
+        ) &&
+            capabilities.hasCapability(
+                NetworkCapabilities
+                    .NET_CAPABILITY_VALIDATED
+            ) &&
+            capabilities.hasCapability(
+                NetworkCapabilities
+                    .NET_CAPABILITY_NOT_METERED
+            )
+    }
+
+    fun automaticPolicy(
+        nowMillis: Long =
+            System.currentTimeMillis(),
+    ): PocketPcAutoUpdatePolicy {
+        val last = lastAutomaticCheckMillis()
+        return PocketPcAutoUpdatePolicy(
+            autoCheck = autoCheckEnabled(),
+            autoDownloadUnmetered =
+                autoDownloadUnmeteredEnabled(),
+            unmeteredNetwork =
+                isUnmeteredNetwork(),
+            nextAutomaticCheckAfterMillis =
+                if (last <= 0L) {
+                    nowMillis
+                } else {
+                    last + AUTO_CHECK_INTERVAL_MS
+                },
+        )
+    }
+
+    fun verifiedDownloadId(): Long? =
+        prefs.getLong(
+            KEY_VERIFIED_DOWNLOAD_ID,
+            -1L,
+        ).takeIf { it >= 0L }
+
+    fun isPendingDownloadVerified(): Boolean {
+        val pending = pendingDownloadId()
+        return pending != null &&
+            pending == verifiedDownloadId()
+    }
 
     suspend fun checkForUpdate():
         Result<PocketPcUpdateCheck> =
@@ -107,6 +235,7 @@ class PocketPcUpdater(
         prefs.edit()
             .remove(KEY_DOWNLOAD_ID)
             .remove(KEY_DOWNLOAD_MANIFEST)
+            .remove(KEY_VERIFIED_DOWNLOAD_ID)
             .apply()
     }
 
@@ -177,6 +306,7 @@ class PocketPcUpdater(
                     KEY_DOWNLOAD_MANIFEST,
                     encodeManifest(manifest),
                 )
+                .remove(KEY_VERIFIED_DOWNLOAD_ID)
                 .apply()
 
             id
@@ -347,6 +477,13 @@ class PocketPcUpdater(
                     "Assinatura do APK não corresponde " +
                         "ao PocketPC instalado."
                 }
+
+                prefs.edit()
+                    .putLong(
+                        KEY_VERIFIED_DOWNLOAD_ID,
+                        pending.id,
+                    )
+                    .apply()
 
                 pending
             }
@@ -668,9 +805,34 @@ class PocketPcUpdater(
             "download-id"
         private const val KEY_DOWNLOAD_MANIFEST =
             "download-manifest"
+        private const val KEY_VERIFIED_DOWNLOAD_ID =
+            "verified-download-id"
+        private const val KEY_AUTO_CHECK =
+            "auto-check"
+        private const val KEY_AUTO_DOWNLOAD_UNMETERED =
+            "auto-download-unmetered"
+        private const val KEY_LAST_AUTO_CHECK =
+            "last-auto-check"
+        private const val AUTO_CHECK_INTERVAL_MS =
+            6L * 60L * 60L * 1000L
         private const val MAX_MANIFEST_BYTES =
             64 * 1024
     }
+}
+
+internal fun shouldRunUpdateCheck(
+    enabled: Boolean,
+    lastCheckMillis: Long,
+    nowMillis: Long,
+    intervalMillis: Long,
+): Boolean {
+    if (!enabled) return false
+    if (intervalMillis <= 0L) return true
+    if (lastCheckMillis <= 0L) return true
+    if (nowMillis < lastCheckMillis) return true
+
+    return nowMillis - lastCheckMillis >=
+        intervalMillis
 }
 
 internal fun parseManifest(
