@@ -109,6 +109,16 @@ class MainActivity : ComponentActivity() {
                     KeyEvent.KEYCODE_F4,
                     KeyEvent.META_ALT_ON,
                 ),
+                KeyboardShortcutInfo(
+                    "Encaixar janela a esquerda",
+                    KeyEvent.KEYCODE_DPAD_LEFT,
+                    KeyEvent.META_META_ON,
+                ),
+                KeyboardShortcutInfo(
+                    "Encaixar janela a direita",
+                    KeyEvent.KEYCODE_DPAD_RIGHT,
+                    KeyEvent.META_META_ON,
+                ),
             ),
         )
         super.onProvideKeyboardShortcuts(data, menu, deviceId)
@@ -157,6 +167,14 @@ class MainActivity : ComponentActivity() {
 
             event.isCtrlPressed && event.keyCode == KeyEvent.KEYCODE_SPACE ->
                 DesktopCommand.TOGGLE_START
+
+            event.isMetaPressed &&
+                event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT ->
+                DesktopCommand.SNAP_LEFT
+
+            event.isMetaPressed &&
+                event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ->
+                DesktopCommand.SNAP_RIGHT
 
             event.keyCode == KeyEvent.KEYCODE_ESCAPE ->
                 DesktopCommand.DISMISS_OVERLAYS
