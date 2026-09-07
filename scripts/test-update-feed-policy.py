@@ -17,6 +17,8 @@ SYSTEM = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / 
 SHELL = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "PocketPcApp.kt"
 AUTO_TEST = ROOT / "app" / "src" / "test" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdaterPolicyTest.kt"
 PREPARE = ROOT / "scripts" / "prepare-update-feed.py"
+PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-update.yml"
+BUILD_GRADLE = ROOT / "app" / "build.gradle.kts"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 REVISION_RE = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -163,6 +165,27 @@ def main() -> int:
             "source revision must be exactly 40 hexadecimal characters",
             "--publish",
             '"published": bool(args.publish)',
+        ),
+        BUILD_GRADLE: (
+            "POCKETPC_SIGNING_STORE_FILE",
+            "POCKETPC_SIGNING_STORE_PASSWORD",
+            "POCKETPC_SIGNING_KEY_ALIAS",
+            "POCKETPC_SIGNING_KEY_PASSWORD",
+            "pocketPcReleaseSigningConfigured",
+            'create("pocketPcRelease")',
+        ),
+        PUBLISH_WORKFLOW: (
+            "PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED",
+            "POCKETPC_SIGNING_KEYSTORE_BASE64",
+            "POCKETPC_SIGNING_STORE_PASSWORD",
+            "POCKETPC_SIGNING_KEY_ALIAS",
+            "POCKETPC_SIGNING_KEY_PASSWORD",
+            ":app:assembleRelease",
+            "apksigner",
+            "gh release create",
+            "scripts/prepare-update-feed.py",
+            "--publish",
+            "git push origin HEAD:main",
         ),
     }
 
