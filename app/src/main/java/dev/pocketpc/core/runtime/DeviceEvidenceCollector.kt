@@ -56,7 +56,7 @@ object DeviceEvidenceCollector {
             val shaFile = File(evidenceRoot, "device-evidence-latest.sha256")
 
             val json = JSONObject()
-                .put("schemaVersion", 2)
+                .put("schemaVersion", 3)
                 .put("pocketPcVersion", BuildConfig.VERSION_NAME)
                 .put("generatedAtUtc", generated)
                 .put("buildIdentity", BuildIdentityCollector.toJson(identity))
@@ -71,6 +71,11 @@ object DeviceEvidenceCollector {
                 .put(
                     "filesystem",
                     JSONObject()
+                        .put("hostCriticalPassed", filesystem.hostCriticalPassed)
+                        .put(
+                            "runtimeLinkSemanticsReady",
+                            filesystem.runtimeLinkSemanticsReady,
+                        )
                         .put("allCriticalPassed", filesystem.allCriticalPassed)
                         .put("relativeSymlink", capability(filesystem.relativeSymlink))
                         .put("absoluteSymlink", capability(filesystem.absoluteSymlink))
