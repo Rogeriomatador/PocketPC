@@ -2,6 +2,12 @@ package dev.pocketpc.core.desktop
 
 import androidx.compose.runtime.Immutable
 
+enum class WindowSnap {
+    NONE,
+    LEFT,
+    RIGHT,
+}
+
 @Immutable
 data class DesktopWindow(
     val id: String,
@@ -9,6 +15,7 @@ data class DesktopWindow(
     val app: DesktopApp,
     val minimized: Boolean = false,
     val maximized: Boolean = false,
+    val snap: WindowSnap = WindowSnap.NONE,
     val zIndex: Int = 0,
 )
 
