@@ -447,9 +447,6 @@ fun UpdateCenterApp() {
                         result.updateAvailable &&
                         pending == null
                     ) {
-                        onAttentionChanged(
-                            PocketPcUpdateAttention.AVAILABLE
-                        )
                         Button(
                             onClick = {
                                 updater.beginDownload(
