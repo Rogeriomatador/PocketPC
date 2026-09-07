@@ -33,6 +33,11 @@ This is **best-effort automatic installation**, not a promise that every Android
 will install silently. Android can still return `STATUS_PENDING_USER_ACTION`; when
 that happens PocketPC follows the system confirmation flow.
 
+Alpha 21 also creates a high-priority update notification when user action is required.
+On Android 13+ the Update Center exposes the `POST_NOTIFICATIONS` permission explicitly.
+The receiver still attempts the immediate confirmation flow when allowed, while the
+notification provides a fallback for OEM/background-activity restrictions.
+
 PocketPC never bypasses Android package-signing or installation security.
 
 ## Alpha 21 implementation
@@ -65,6 +70,19 @@ currently advertised to installed devices.
 
 Android only permits an in-place update when the candidate APK has a compatible signing
 identity.
+
+PocketPC now pins the public SHA-256 certificate fingerprint observed in the physically
+validated Alpha 20 evidence bundle at:
+
+`updates/bootstrap-signer.json`
+
+The release workflow extracts the signer certificate from the candidate APK and runs
+`scripts/verify-bootstrap-signer.py`. Publication fails if the candidate signer does not
+match the physically observed bootstrap identity. This metadata is public certificate
+information only; no private signing key is committed.
+
+Until an explicit signing-lineage migration is designed and validated, the publisher is
+therefore constrained to the Alpha 20 bootstrap signer.
 
 PocketPC now contains a fail-closed GitHub Actions publisher:
 
