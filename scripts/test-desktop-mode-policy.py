@@ -125,7 +125,7 @@ CHECKS = {
         "import androidx.compose.foundation.clickable",
         "awaitPointerEventScope {",
         "Fixar na barra de tarefas",
-        "Mostrar area de trabalho",
+        "Mostrar área de trabalho",
         "DesktopSystemTray",
         "PocketPcStartButton",
         "PocketPcStartLogo",
