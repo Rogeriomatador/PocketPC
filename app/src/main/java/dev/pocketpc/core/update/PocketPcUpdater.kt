@@ -371,6 +371,11 @@ class PocketPcUpdater(
             manifest.versionCode <=
                 BuildConfig.VERSION_CODE
         ) {
+            val manager =
+                appContext.getSystemService(
+                    Context.DOWNLOAD_SERVICE
+                ) as DownloadManager
+            manager.remove(id)
             clearPendingDownload()
             return null
         }
