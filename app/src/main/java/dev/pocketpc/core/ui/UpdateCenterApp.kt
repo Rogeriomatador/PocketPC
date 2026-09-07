@@ -87,13 +87,39 @@ fun UpdateCenterApp() {
     }
 
     LaunchedEffect(
-        updater.pendingDownloadId()
+        pending?.id,
+        pending?.status,
     ) {
+        val current = pending ?: return@LaunchedEffect
+        if (
+            current.status !=
+                DownloadManager.STATUS_PENDING &&
+            current.status !=
+                DownloadManager.STATUS_RUNNING &&
+            current.status !=
+                DownloadManager.STATUS_PAUSED
+        ) {
+            return@LaunchedEffect
+        }
+
         while (true) {
-            pending =
+            val refreshed =
                 withContext(Dispatchers.IO) {
                     updater.queryPendingDownload()
                 }
+                    ?: break
+            pending = refreshed
+
+            if (
+                refreshed.status !=
+                    DownloadManager.STATUS_PENDING &&
+                refreshed.status !=
+                    DownloadManager.STATUS_RUNNING &&
+                refreshed.status !=
+                    DownloadManager.STATUS_PAUSED
+            ) {
+                break
+            }
             delay(1_000)
         }
     }
