@@ -1,9 +1,11 @@
 package dev.pocketpc.core.update
 
 import android.app.DownloadManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -53,7 +55,7 @@ data class PocketPcUpdateDownload(
 )
 
 enum class PocketPcInstallResult {
-    INSTALLER_OPENED,
+    SESSION_COMMITTED,
     NEEDS_UNKNOWN_SOURCE_PERMISSION,
 }
 
@@ -541,61 +543,145 @@ class PocketPcUpdater(
                 }
 
                 if (
-                Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.O &&
-                !appContext.packageManager
-                    .canRequestPackageInstalls()
-            ) {
-                val intent =
-                    Intent(
-                        Settings
-                            .ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        Uri.parse(
-                            "package:" +
-                                appContext.packageName
-                        ),
+                    Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.O &&
+                    !appContext.packageManager
+                        .canRequestPackageInstalls()
+                ) {
+                    val intent =
+                        Intent(
+                            Settings
+                                .ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse(
+                                "package:" +
+                                    appContext.packageName
+                            ),
+                        ).apply {
+                            addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK
+                            )
+                        }
+                    appContext.startActivity(intent)
+                    return@runCatching
+                        PocketPcInstallResult
+                            .NEEDS_UNKNOWN_SOURCE_PERMISSION
+                }
+
+                val downloadManager =
+                    appContext.getSystemService(
+                        Context.DOWNLOAD_SERVICE
+                    ) as DownloadManager
+                val uri =
+                    requireNotNull(
+                        downloadManager
+                            .getUriForDownloadedFile(
+                                verified.id
+                            )
+                    ) {
+                        "O Android não expôs o APK baixado."
+                    }
+
+                val installer =
+                    appContext.packageManager
+                        .packageInstaller
+                val params =
+                    PackageInstaller.SessionParams(
+                        PackageInstaller.SessionParams
+                            .MODE_FULL_INSTALL
                     ).apply {
-                        addFlags(
-                            Intent.FLAG_ACTIVITY_NEW_TASK
+                        setAppPackageName(
+                            appContext.packageName
+                        )
+                        setInstallReason(
+                            PackageManager
+                                .INSTALL_REASON_USER
+                        )
+
+                        if (
+                            Build.VERSION.SDK_INT >=
+                            Build.VERSION_CODES.S
+                        ) {
+                            setRequireUserAction(
+                                PackageInstaller.SessionParams
+                                    .USER_ACTION_NOT_REQUIRED
+                            )
+                        }
+
+                        if (
+                            Build.VERSION.SDK_INT >=
+                            Build.VERSION_CODES.TIRAMISU
+                        ) {
+                            setPackageSource(
+                                PackageInstaller
+                                    .PACKAGE_SOURCE_DOWNLOADED_FILE
+                            )
+                        }
+                    }
+
+                val sessionId =
+                    installer.createSession(params)
+                val session =
+                    installer.openSession(sessionId)
+
+                try {
+                    appContext.contentResolver
+                        .openInputStream(uri)
+                        ?.use { input ->
+                            session.openWrite(
+                                "base.apk",
+                                0L,
+                                -1L,
+                            ).use { output ->
+                                input.copyTo(
+                                    output,
+                                    bufferSize =
+                                        512 * 1024,
+                                )
+                                session.fsync(output)
+                            }
+                        }
+                        ?: error(
+                            "Não foi possível abrir o APK " +
+                                "baixado para instalação."
+                        )
+
+                    PocketPcInstallStatusStore(
+                        appContext
+                    ).clear()
+
+                    val callbackIntent =
+                        Intent(
+                            appContext,
+                            PocketPcInstallReceiver::class.java,
+                        ).apply {
+                            action =
+                                ACTION_INSTALL_STATUS
+                        }
+                    val callback =
+                        PendingIntent.getBroadcast(
+                            appContext,
+                            sessionId,
+                            callbackIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or
+                                PendingIntent.FLAG_MUTABLE,
+                        )
+
+                    session.commit(
+                        callback.intentSender
+                    )
+                } catch (error: Throwable) {
+                    runCatching {
+                        installer.abandonSession(
+                            sessionId
                         )
                     }
-                appContext.startActivity(intent)
-                return@runCatching
-                    PocketPcInstallResult
-                        .NEEDS_UNKNOWN_SOURCE_PERMISSION
-            }
-
-            val manager =
-                appContext.getSystemService(
-                    Context.DOWNLOAD_SERVICE
-                ) as DownloadManager
-            val uri =
-                requireNotNull(
-                    manager.getUriForDownloadedFile(
-                        verified.id
-                    )
-                ) {
-                    "O Android não expôs o APK baixado."
+                    throw error
+                } finally {
+                    session.close()
                 }
 
-            val install =
-                Intent(
-                    Intent.ACTION_VIEW,
-                ).apply {
-                    setDataAndType(
-                        uri,
-                        "application/vnd.android.package-archive",
-                    )
-                    addFlags(
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                    addFlags(
-                        Intent.FLAG_ACTIVITY_NEW_TASK
-                    )
-                }
-
-                appContext.startActivity(install)
-                PocketPcInstallResult.INSTALLER_OPENED
+                PocketPcInstallResult
+                    .SESSION_COMMITTED
             }
         }
 
@@ -842,6 +928,9 @@ class PocketPcUpdater(
     }
 
     companion object {
+        const val ACTION_INSTALL_STATUS =
+            "dev.pocketpc.core.UPDATE_INSTALL_STATUS"
+
         private const val META_SOURCE_REVISION =
             "dev.pocketpc.SOURCE_REVISION"
         private const val META_SOURCE_REVISION_PINNED =
