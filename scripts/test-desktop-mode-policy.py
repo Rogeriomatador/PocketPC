@@ -30,8 +30,6 @@ CHECKS = {
         "android.hardware.type.pc",
         'android:required="false"',
         "android.intent.category.LAUNCHER",
-        ".storage.PocketDownloadReceiver",
-        "android.intent.action.DOWNLOAD_COMPLETE",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/PocketPcApp.kt": (
         "commandFlow: Flow<DesktopCommand>",
@@ -41,6 +39,7 @@ CHECKS = {
         "DesktopContextMenu(",
         "DesktopApp.APPS -> InstalledAppsApp(desktopCapabilities)",
         "DesktopApp.DOWNLOADS -> DownloadsApp(storage, storageRoot)",
+        "PocketDownloadImporter.importReady",
         "DesktopApp.STORE -> StoreApp()",
         "DesktopApp.CONTROL_CENTER -> ControlCenterApp()",
         "DesktopApp.DISPLAYS -> DisplaysApp(desktopCapabilities)",
@@ -103,9 +102,10 @@ CHECKS = {
         "PocketFileClass.ANDROID_PACKAGE",
         "fun pocketPath",
     ),
-    "app/src/main/java/dev/pocketpc/core/storage/PocketDownloadReceiver.kt": (
-        "ACTION_DOWNLOAD_COMPLETE",
+    "app/src/main/java/dev/pocketpc/core/storage/PocketDownloadBridge.kt": (
         "PocketDownloadRegistry",
+        "PocketDownloadImporter",
+        "importReady",
         "importIntoPocketDrive",
         "PocketDriveDirectory.DOWNLOADS",
         "openDownloadedFile",
