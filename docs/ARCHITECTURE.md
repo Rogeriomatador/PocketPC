@@ -1,65 +1,112 @@
-# PocketPC architecture — draft 0.18
+# PocketPC Architecture — Alpha 19
 
-## Product layers
+PocketPC separates the user-facing Android desktop host from the future Linux/runtime
+substrate. A desktop-looking UI is never evidence that the runtime layer works.
 
-PocketPC is split into evidence-gated layers so a desktop-looking UI is never confused with a functioning PC runtime.
+## 1. Android host desktop
 
-### 1. Android host desktop
+The host is a Compose-based desktop shell with:
 
-Implemented source:
+- landscape/immersive Activity;
+- taskbar, Start menu and original app icons;
+- PocketPC internal windows;
+- freeform drag/resize, minimize/maximize and left/right snap;
+- Browser, Files, Terminal, Downloads, Displays, Personalization, Runtimes,
+  System and Performance;
+- persistent theme, wallpaper and taskbar pin preferences;
+- input/peripheral monitoring.
 
-- Compose desktop shell;
-- taskbar/start menu;
-- movable/minimizable/maximizable windows;
-- Files app backed by Storage Access Framework;
-- local Android shell;
-- telemetry/system views;
-- integrated WebView browser;
-- DownloadManager handoff.
+Internal PocketPC applications run inside PocketPC Compose windows.
 
-### 2. Physical evidence layer
+Third-party Android applications are launched as Android activities/tasks. PocketPC
+does not use unsupported cross-app embedding to make arbitrary apps appear inside its
+own windows.
 
-Windows host flow:
+## 2. Platform-cooperative desktop mode
 
-preflight -> strict build -> preflight -> install -> debug evidence -> bundle ->
-cross-verification -> physical record -> final record.
+PocketPC probes public Android capabilities:
 
-A failure preserves structured triage. Alpha 18 additionally exposes each filesystem
-capability result instead of collapsing them into a single boolean.
+- FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
+- FEATURE_FREEFORM_WINDOW_MANAGEMENT;
+- DisplayManager public/presentation displays.
 
-### 3. Runtime layer
+When supported, PocketPC can request:
 
-Runtime staging, safe extraction, metadata and link semantics are implemented source.
-Linux/PRoot execution remains separately gated and disabled until approved artifacts,
-license/source provenance and physical runtime evidence exist.
+- ActivityOptions.setLaunchDisplayId;
+- ActivityOptions.setLaunchBounds.
 
-## Browser architecture
+These are requests to Android, not guarantees. Rejection/unsupported behavior falls
+back safely and does not become a fabricated PASS.
 
-The browser uses the Android System WebView/Chromium provider instead of shipping a
-second browser engine. PocketPC supplies desktop-style controls, navigation policy,
-Google search, optional desktop user-agent behavior and DownloadManager integration.
+## 3. Desktop input
 
-This is intentionally a host capability. It does not imply Linux browser execution or
-Windows application compatibility.
+Input is treated as a first-class desktop capability:
 
-## Evidence status
+- touch;
+- touch long-press;
+- mouse primary/secondary interaction;
+- hover/pointer cursor;
+- keyboard shortcuts;
+- gamepad/joystick presence.
 
-Alpha 17 physically proved APK install, installed hash equality and MainActivity launch.
-Its filesystem critical gate failed, so the complete physical chain remains INCOMPLETE.
-Alpha 18 source changes require a new physical run before any PHYSICAL PASS claim.
+Public Activity/View callbacks are used rather than restricted ComponentActivity
+dispatch overrides.
 
+## 4. Game compatibility evidence
 
-## Android hardlink capability boundary
+PocketPC classifies launchable packages as apps/games and stores an explicit user-tested
+profile for games.
 
-Physical evidence on the current Xiaomi/Android API 36 device showed:
+Compatibility rating:
+- UNTESTED;
+- PLAYABLE;
+- OPTIMIZED;
+- INCOMPATIBLE.
 
-- relative symlink: PASS;
-- absolute symlink: PASS;
-- hardlink creation: DENIED by the host with AccessDeniedException;
-- NOFOLLOW cleanup: PASS;
-- external symlink target preservation: PASS.
+Evidence booleans are independent:
+- mouse confirmed;
+- keyboard confirmed;
+- gamepad confirmed;
+- external display confirmed.
 
-Alpha 18 therefore separates the Android host filesystem gate from Linux/rootfs
-link-semantics readiness. The host desktop may pass without host hardlinks. Linux
-execution remains blocked until hardlink semantics are implemented and validated
-without pretending that the Android host supports Files.createLink().
+Changing the rating alone never changes those evidence booleans.
+
+## 5. Personalization
+
+Appearance state is persisted in app-private SharedPreferences:
+
+- System / Light / Dark theme;
+- static/animated preset wallpaper;
+- custom SAF wallpaper URI;
+- taskbar pin list.
+
+Custom images are selected with the Android document picker. No broad storage
+permission is required. Large images are downscaled during decode.
+
+## 6. Physical evidence layer
+
+Windows flow:
+
+preflight -> strict build -> preflight -> APK install -> installed hash verification ->
+debug evidence -> evidence bundle -> chain verification -> physical record ->
+MainActivity launch -> final record.
+
+Alpha 19 device evidence schema records desktop state including orientation, logical
+size, Android desktop capability advertisements, connected display counts and connected
+input-device counts.
+
+Landscape is a host-desktop gate. Freeform, external displays and peripheral counts are
+capabilities/state, not mandatory PASS conditions.
+
+## 7. Filesystem/runtime boundary
+
+Physical evidence on the current Xiaomi showed host hardlink creation denied by Android,
+while the safety-critical host filesystem behaviors needed by PocketPC passed.
+
+Therefore:
+
+- Android host filesystem readiness is one gate;
+- Linux/rootfs hardlink semantics are another gate.
+
+Linux/PRoot remains BLOCKED until its own link/artifact/provenance/runtime requirements
+are implemented and physically validated.
