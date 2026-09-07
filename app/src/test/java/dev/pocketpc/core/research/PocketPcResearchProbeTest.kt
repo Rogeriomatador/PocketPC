@@ -1,6 +1,5 @@
 package dev.pocketpc.core.research
 
-import android.media.MediaFormat
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -12,7 +11,7 @@ class PocketPcResearchProbeTest {
                 ResearchCodec(
                     name = "hw-avc",
                     mimeType =
-                        MediaFormat.MIMETYPE_VIDEO_AVC,
+                        POCKET_MIME_AVC,
                     hardwareAccelerated = true,
                     vendor = true,
                     surfaceInput = true,
@@ -20,7 +19,7 @@ class PocketPcResearchProbeTest {
                 ResearchCodec(
                     name = "hw-hevc",
                     mimeType =
-                        MediaFormat.MIMETYPE_VIDEO_HEVC,
+                        POCKET_MIME_HEVC,
                     hardwareAccelerated = true,
                     vendor = true,
                     surfaceInput = true,
@@ -28,7 +27,7 @@ class PocketPcResearchProbeTest {
                 ResearchCodec(
                     name = "hw-av1",
                     mimeType =
-                        MediaFormat.MIMETYPE_VIDEO_AV1,
+                        POCKET_MIME_AV1,
                     hardwareAccelerated = true,
                     vendor = true,
                     surfaceInput = true,
@@ -48,7 +47,7 @@ class PocketPcResearchProbeTest {
                 ResearchCodec(
                     name = "sw-av1",
                     mimeType =
-                        MediaFormat.MIMETYPE_VIDEO_AV1,
+                        POCKET_MIME_AV1,
                     hardwareAccelerated = false,
                     vendor = false,
                     surfaceInput = true,
@@ -56,7 +55,7 @@ class PocketPcResearchProbeTest {
                 ResearchCodec(
                     name = "hw-avc",
                     mimeType =
-                        MediaFormat.MIMETYPE_VIDEO_AVC,
+                        POCKET_MIME_AVC,
                     hardwareAccelerated = true,
                     vendor = true,
                     surfaceInput = true,
