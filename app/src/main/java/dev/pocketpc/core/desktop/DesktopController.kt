@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 class DesktopController(
-    initialPinnedApps: List<DesktopApp> = DesktopPinStore.defaultPins(),
+    initialPinnedApps: List<DesktopApp> = defaultDesktopPins(),
     private val onPinnedAppsChanged: ((List<DesktopApp>) -> Unit)? = null,
 ) {
     val windows = mutableStateListOf<DesktopWindow>()
