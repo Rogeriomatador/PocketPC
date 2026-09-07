@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
@@ -40,6 +41,8 @@ data class BrowserTabState(
 
 class BrowserSessionState {
     private var nextTabId = 2L
+    private val webViewStates =
+        mutableMapOf<Long, Bundle>()
 
     val tabs = mutableStateListOf(
         BrowserTabState(
@@ -88,6 +91,20 @@ class BrowserSessionState {
         )
     }
 
+    fun saveWebViewState(
+        tabId: Long,
+        bundle: Bundle,
+    ) {
+        webViewStates[tabId] = Bundle(bundle)
+    }
+
+    fun webViewState(tabId: Long): Bundle? =
+        webViewStates[tabId]?.let(::Bundle)
+
+    fun clearWebViewState(tabId: Long) {
+        webViewStates.remove(tabId)
+    }
+
     fun closeTab(id: Long) {
         val index = tabs.indexOfFirst { it.id == id }
         if (index < 0) return
@@ -103,6 +120,7 @@ class BrowserSessionState {
         }
 
         val wasActive = activeTabId == id
+        clearWebViewState(id)
         tabs.removeAt(index)
         if (wasActive) {
             activeTabId =
@@ -129,10 +147,35 @@ fun BrowserApp(session: BrowserSessionState) {
         webView?.loadUrl(target)
     }
 
+    fun saveActiveWebViewState() {
+        val view = webView ?: return
+        val bundle = Bundle()
+        view.saveState(bundle)
+        session.saveWebViewState(
+            session.activeTabId,
+            bundle,
+        )
+    }
+
+    fun restoreOrLoadTab(
+        view: WebView,
+        tab: BrowserTabState,
+    ) {
+        val restored =
+            session.webViewState(tab.id)
+                ?.let(view::restoreState)
+        if (restored == null) {
+            view.loadUrl(tab.url)
+        }
+    }
+
     fun loadTab(tab: BrowserTabState) {
+        saveActiveWebViewState()
         session.selectTab(tab.id)
         address = tab.url
-        webView?.loadUrl(tab.url)
+        webView?.let { view ->
+            restoreOrLoadTab(view, tab)
+        }
     }
 
     Column(
@@ -142,6 +185,7 @@ fun BrowserApp(session: BrowserSessionState) {
             session = session,
             onSelect = ::loadTab,
             onNewTab = {
+                saveActiveWebViewState()
                 val tab = session.newTab()
                 address = tab.url
                 webView?.loadUrl(tab.url)
@@ -151,7 +195,12 @@ fun BrowserApp(session: BrowserSessionState) {
                 session.closeTab(tab.id)
                 if (closingActive) {
                     address = session.activeTab.url
-                    webView?.loadUrl(session.activeTab.url)
+                    webView?.let { view ->
+                        restoreOrLoadTab(
+                            view,
+                            session.activeTab,
+                        )
+                    }
                 }
             },
         )
@@ -369,7 +418,17 @@ fun BrowserApp(session: BrowserSessionState) {
                         }
                     )
 
-                    loadUrl(session.activeTab.url)
+                    val restored =
+                        session
+                            .webViewState(
+                                session.activeTabId
+                            )
+                            ?.let(::restoreState)
+                    if (restored == null) {
+                        loadUrl(
+                            session.activeTab.url
+                        )
+                    }
                 }
             },
             update = { view ->
@@ -380,6 +439,14 @@ fun BrowserApp(session: BrowserSessionState) {
 
     DisposableEffect(Unit) {
         onDispose {
+            webView?.let { view ->
+                val bundle = Bundle()
+                view.saveState(bundle)
+                session.saveWebViewState(
+                    session.activeTabId,
+                    bundle,
+                )
+            }
             webView?.apply {
                 stopLoading()
                 setDownloadListener(null)
