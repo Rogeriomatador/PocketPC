@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -121,6 +122,11 @@ class DesktopAppearanceState(context: Context) {
     )
         private set
 
+    var showPerformanceHud by mutableStateOf(
+        preferences.getBoolean("performance_hud", false)
+    )
+        private set
+
     fun selectTheme(mode: DesktopThemeMode) {
         themeMode = mode
         preferences.edit().putString("theme", mode.key).apply()
@@ -146,6 +152,13 @@ class DesktopAppearanceState(context: Context) {
         customWallpaperUri = null
         preferences.edit()
             .remove("custom_wallpaper_uri")
+            .apply()
+    }
+
+    fun setPerformanceHud(enabled: Boolean) {
+        showPerformanceHud = enabled
+        preferences.edit()
+            .putBoolean("performance_hud", enabled)
             .apply()
     }
 }
@@ -260,6 +273,8 @@ fun PersonalizationApp(
     onThemeSelect: (DesktopThemeMode) -> Unit,
     onChooseCustom: () -> Unit,
     onClearCustom: () -> Unit,
+    showPerformanceHud: Boolean,
+    onPerformanceHudChange: (Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -296,6 +311,18 @@ fun PersonalizationApp(
                     }
                 }
             }
+        }
+
+        Text("Desktop")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("HUD de desempenho")
+            Switch(
+                checked = showPerformanceHud,
+                onCheckedChange = onPerformanceHudChange,
+            )
         }
 
         Text("Papel de parede")
