@@ -17,6 +17,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import dev.pocketpc.core.desktop.DesktopCommand
 import dev.pocketpc.core.ui.PocketPcApp
+import dev.pocketpc.core.update.PocketPcUpdateScheduler
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 class MainActivity : ComponentActivity() {
@@ -30,6 +31,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        PocketPcUpdateScheduler.schedule(
+            applicationContext
+        )
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         enableEdgeToEdge()
         applyDesktopImmersiveMode()
