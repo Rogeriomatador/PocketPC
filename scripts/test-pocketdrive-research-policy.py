@@ -45,7 +45,8 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt": (
         "PocketDownloadRegistry",
         "setDestinationInExternalFilesDir",
-        "P:\\Downloads",
+        "Download iniciado → P:",
+        "PocketDownloadRegistry(context)",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt": (
         "PocketDriveMount",
