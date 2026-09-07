@@ -3,18 +3,21 @@ package dev.pocketpc.core.research
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.PixelFormat
+import android.hardware.HardwareBuffer
 import android.hardware.display.DisplayManager
 import android.media.ImageReader
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Build
+import android.companion.virtual.VirtualDeviceManager
 
 data class ResearchCodec(
     val name: String,
     val mimeType: String,
     val hardwareAccelerated: Boolean?,
     val vendor: Boolean?,
+    val surfaceInput: Boolean = false,
 )
 
 enum class PreferredRemoteCodec(
@@ -33,17 +36,36 @@ data class VirtualDisplayProbeResult(
     val detail: String,
 )
 
+data class HardwareBufferProbeResult(
+    val supported: Boolean,
+    val allocated: Boolean,
+    val detail: String,
+)
+
 data class PocketPcResearchReport(
     val virtualDisplay: VirtualDisplayProbeResult,
+    val hardwareBuffer: HardwareBufferProbeResult,
     val encoders: List<ResearchCodec>,
     val preferredRemoteCodec: PreferredRemoteCodec,
     val wifiDirect: Boolean,
     val wifiAware: Boolean,
     val pcHardwareType: Boolean,
+    val companionDeviceSetup: Boolean,
+    val virtualDeviceManagerAvailable: Boolean,
+    val createVirtualDevicePermissionGranted: Boolean,
+    val computerControlPermissionGranted: Boolean,
 ) {
+    val hardwareSurfaceEncoderAvailable: Boolean
+        get() =
+            encoders.any {
+                it.hardwareAccelerated == true &&
+                    it.surfaceInput
+            }
+
     val remoteDesktopFoundationPromising: Boolean
         get() =
             virtualDisplay.created &&
+                hardwareSurfaceEncoderAvailable &&
                 preferredRemoteCodec !=
                     PreferredRemoteCodec.NONE &&
                 (wifiDirect || wifiAware)
@@ -60,6 +82,8 @@ object PocketPcResearchProbe {
                 probePrivateVirtualDisplay(
                     appContext
                 ),
+            hardwareBuffer =
+                probeHardwareVideoBuffer(),
             encoders = encoders,
             preferredRemoteCodec =
                 choosePreferredRemoteCodec(
@@ -79,6 +103,33 @@ object PocketPcResearchProbe {
                 packageManager.hasSystemFeature(
                     PackageManager.FEATURE_PC
                 ),
+            companionDeviceSetup =
+                packageManager.hasSystemFeature(
+                    "android.software.companion_device_setup"
+                ),
+            virtualDeviceManagerAvailable =
+                if (
+                    Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+                ) {
+                    runCatching {
+                        appContext.getSystemService(
+                            VirtualDeviceManager::class.java
+                        ) != null
+                    }.getOrDefault(false)
+                } else {
+                    false
+                },
+            createVirtualDevicePermissionGranted =
+                appContext.checkSelfPermission(
+                    "android.permission.CREATE_VIRTUAL_DEVICE"
+                ) ==
+                    PackageManager.PERMISSION_GRANTED,
+            computerControlPermissionGranted =
+                appContext.checkSelfPermission(
+                    "android.permission.ACCESS_COMPUTER_CONTROL"
+                ) ==
+                    PackageManager.PERMISSION_GRANTED,
         )
     }
 
@@ -114,6 +165,13 @@ object PocketPcResearchProbe {
                                 )
                         }
                         .map { type ->
+                            val capabilities =
+                                runCatching {
+                                    info.getCapabilitiesForType(
+                                        type
+                                    )
+                                }.getOrNull()
+
                             ResearchCodec(
                                 name = info.name,
                                 mimeType =
@@ -136,6 +194,14 @@ object PocketPcResearchProbe {
                                     } else {
                                         null
                                     },
+                                surfaceInput =
+                                    capabilities
+                                        ?.colorFormats
+                                        ?.contains(
+                                            MediaCodecInfo
+                                                .CodecCapabilities
+                                                .COLOR_FormatSurface
+                                        ) == true,
                             )
                         }
                 }
@@ -153,6 +219,80 @@ object PocketPcResearchProbe {
                 )
                 .toList()
         }.getOrDefault(emptyList())
+
+    private fun probeHardwareVideoBuffer():
+        HardwareBufferProbeResult {
+        if (
+            Build.VERSION.SDK_INT <
+            Build.VERSION_CODES.Q
+        ) {
+            return HardwareBufferProbeResult(
+                supported = false,
+                allocated = false,
+                detail =
+                    "HardwareBuffer.isSupported exige API 29+.",
+            )
+        }
+
+        val usage =
+            HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or
+                HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE or
+                HardwareBuffer.USAGE_VIDEO_ENCODE
+
+        val supported =
+            runCatching {
+                HardwareBuffer.isSupported(
+                    64,
+                    64,
+                    HardwareBuffer.RGBA_8888,
+                    1,
+                    usage,
+                )
+            }.getOrDefault(false)
+
+        if (!supported) {
+            return HardwareBufferProbeResult(
+                supported = false,
+                allocated = false,
+                detail =
+                    "RGBA8888 GPU→VIDEO_ENCODE não anunciado.",
+            )
+        }
+
+        var buffer: HardwareBuffer? = null
+        return try {
+            buffer =
+                HardwareBuffer.create(
+                    64,
+                    64,
+                    HardwareBuffer.RGBA_8888,
+                    1,
+                    usage,
+                )
+            HardwareBufferProbeResult(
+                supported = true,
+                allocated = true,
+                detail =
+                    "Buffer GPU/encoder alocado e liberado.",
+            )
+        } catch (error: Throwable) {
+            HardwareBufferProbeResult(
+                supported = true,
+                allocated = false,
+                detail =
+                    error.javaClass.simpleName +
+                        ": " +
+                        (
+                            error.message
+                                ?: "alocação falhou"
+                            ),
+            )
+        } finally {
+            runCatching {
+                buffer?.close()
+            }
+        }
+    }
 
     private fun probePrivateVirtualDisplay(
         context: Context,
@@ -253,7 +393,8 @@ internal fun choosePreferredRemoteCodec(
     val hardwareTypes =
         codecs
             .filter {
-                it.hardwareAccelerated == true
+                it.hardwareAccelerated == true &&
+                    it.surfaceInput
             }
             .map {
                 it.mimeType.lowercase()
