@@ -62,6 +62,7 @@ enum class PocketPcInstallResult {
 data class PocketPcAutoUpdatePolicy(
     val autoCheck: Boolean,
     val autoDownloadUnmetered: Boolean,
+    val autoInstallVerified: Boolean,
     val unmeteredNetwork: Boolean,
     val nextAutomaticCheckAfterMillis: Long,
 )
@@ -104,6 +105,29 @@ class PocketPcUpdater(
             )
             .apply()
     }
+
+    fun autoInstallVerifiedEnabled(): Boolean =
+        prefs.getBoolean(
+            KEY_AUTO_INSTALL_VERIFIED,
+            true,
+        )
+
+    fun setAutoInstallVerifiedEnabled(
+        enabled: Boolean,
+    ) {
+        prefs.edit()
+            .putBoolean(
+                KEY_AUTO_INSTALL_VERIFIED,
+                enabled,
+            )
+            .apply()
+    }
+
+    fun canRequestPackageInstalls(): Boolean =
+        Build.VERSION.SDK_INT <
+            Build.VERSION_CODES.O ||
+            appContext.packageManager
+                .canRequestPackageInstalls()
 
     fun lastAutomaticCheckMillis(): Long =
         prefs.getLong(
@@ -172,6 +196,8 @@ class PocketPcUpdater(
             autoCheck = autoCheckEnabled(),
             autoDownloadUnmetered =
                 autoDownloadUnmeteredEnabled(),
+            autoInstallVerified =
+                autoInstallVerifiedEnabled(),
             unmeteredNetwork =
                 isUnmeteredNetwork(),
             nextAutomaticCheckAfterMillis =
@@ -947,6 +973,8 @@ class PocketPcUpdater(
             "auto-check"
         private const val KEY_AUTO_DOWNLOAD_UNMETERED =
             "auto-download-unmetered"
+        private const val KEY_AUTO_INSTALL_VERIFIED =
+            "auto-install-verified"
         private const val KEY_LAST_AUTO_CHECK =
             "last-auto-check"
         private const val AUTO_CHECK_INTERVAL_MS =
