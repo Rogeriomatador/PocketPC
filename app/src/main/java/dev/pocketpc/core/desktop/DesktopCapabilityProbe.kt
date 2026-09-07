@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.display.DisplayManager
 import android.view.Display
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 data class DesktopDisplayInfo(
     val displayId: Int,
@@ -24,6 +27,12 @@ data class DesktopCapabilitySnapshot(
 
     val presentationDisplayCount: Int
         get() = externalDisplays.count { it.presentation }
+
+    val preferredExternalDisplayId: Int?
+        get() = externalDisplays
+            .firstOrNull { it.presentation }
+            ?.displayId
+            ?: externalDisplays.firstOrNull()?.displayId
 }
 
 object DesktopCapabilityProbe {
@@ -60,5 +69,34 @@ object DesktopCapabilityProbe {
                 ),
             externalDisplays = displays,
         )
+    }
+}
+
+class DesktopCapabilityMonitor(context: Context) : DisplayManager.DisplayListener {
+    private val appContext = context.applicationContext
+    private val displayManager =
+        appContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+
+    private val mutableState =
+        MutableStateFlow(DesktopCapabilityProbe.inspect(appContext))
+    val state: StateFlow<DesktopCapabilitySnapshot> = mutableState.asStateFlow()
+
+    fun start() {
+        displayManager.registerDisplayListener(this, null)
+        refresh()
+    }
+
+    fun stop() {
+        displayManager.unregisterDisplayListener(this)
+    }
+
+    override fun onDisplayAdded(displayId: Int) = refresh()
+
+    override fun onDisplayRemoved(displayId: Int) = refresh()
+
+    override fun onDisplayChanged(displayId: Int) = refresh()
+
+    private fun refresh() {
+        mutableState.value = DesktopCapabilityProbe.inspect(appContext)
     }
 }
