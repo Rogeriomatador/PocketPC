@@ -81,7 +81,7 @@ class StorageRepository(private val context: Context) {
         name: String,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val cleanName = validateName(name)
+            val cleanName = validateStorageName(name)
             val parent = resolveDirectory(parentUriString)
             checkNotNull(parent.createDirectory(cleanName)) {
                 "O provedor de arquivos recusou criar a pasta."
@@ -94,7 +94,7 @@ class StorageRepository(private val context: Context) {
         newName: String,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val cleanName = validateName(newName)
+            val cleanName = validateStorageName(newName)
             val document =
                 DocumentFile.fromSingleUri(
                     context,
@@ -153,23 +153,23 @@ class StorageRepository(private val context: Context) {
         return directory
     }
 
-    private fun validateName(raw: String): String {
-        val value = raw.trim()
-        require(value.isNotEmpty()) {
-            "O nome não pode ficar vazio."
-        }
-        require(
-            '/' !in value &&
-                '\\' !in value &&
-                value != "." &&
-                value != ".."
-        ) {
-            "Nome inválido para arquivo ou pasta."
-        }
-        return value
-    }
-
     companion object {
         private const val KEY_ROOT_URI = "root-uri"
     }
+}
+
+internal fun validateStorageName(raw: String): String {
+    val value = raw.trim()
+    require(value.isNotEmpty()) {
+        "O nome não pode ficar vazio."
+    }
+    require(
+        '/' !in value &&
+            '\\' !in value &&
+            value != "." &&
+            value != ".."
+    ) {
+        "Nome inválido para arquivo ou pasta."
+    }
+    return value
 }
