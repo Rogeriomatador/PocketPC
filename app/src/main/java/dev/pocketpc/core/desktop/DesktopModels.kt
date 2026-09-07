@@ -44,7 +44,7 @@ enum class DesktopApp(
     DISPLAYS("Telas", "TV", 0xFF26A69A),
     PERSONALIZATION("Personalizacao", "IMG", 0xFFEC6A5C),
     RUNTIMES("Runtimes", "RT", 0xFF8B5CF6),
-    SYSTEM("Sistema", "SYS", 0xFF607D8B),
+    SYSTEM("Este PC", "SYS", 0xFF607D8B),
     PERFORMANCE("Desempenho", "FPS", 0xFF00A86B),
 }
 
