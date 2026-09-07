@@ -89,6 +89,19 @@ def main() -> int:
 
     if record.get("filesystemCriticalPassed") is not True:
         failures.append("filesystemCriticalPassed is not true")
+    if "hostFilesystemCriticalPassed" in record:
+        if record.get("hostFilesystemCriticalPassed") is not True:
+            failures.append("hostFilesystemCriticalPassed is not true")
+        if (
+            record.get("hostFilesystemCriticalPassed")
+            != record.get("filesystemCriticalPassed")
+        ):
+            failures.append("legacy and host filesystem gates disagree")
+    if "runtimeLinkSemanticsReady" in record and not isinstance(
+        record.get("runtimeLinkSemanticsReady"),
+        bool,
+    ):
+        failures.append("runtimeLinkSemanticsReady must be boolean")
     if record.get("nativeHostLoaded") is not True:
         failures.append("nativeHostLoaded is not true")
 
@@ -110,6 +123,19 @@ def main() -> int:
             failures.append("automation source revision is not pinned")
         if automation.get("filesystemCriticalPassed") is not True:
             failures.append("automation filesystem critical gate is not PASS")
+        if "hostFilesystemCriticalPassed" in automation:
+            if automation.get("hostFilesystemCriticalPassed") is not True:
+                failures.append("automation host filesystem gate is not PASS")
+            if (
+                automation.get("hostFilesystemCriticalPassed")
+                != automation.get("filesystemCriticalPassed")
+            ):
+                failures.append("automation legacy and host filesystem gates disagree")
+        if "runtimeLinkSemanticsReady" in automation and not isinstance(
+            automation.get("runtimeLinkSemanticsReady"),
+            bool,
+        ):
+            failures.append("automation runtimeLinkSemanticsReady must be boolean")
         if automation.get("nativeHostLoaded") is not True:
             failures.append("automation native host is not loaded")
         if (
