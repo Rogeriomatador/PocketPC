@@ -77,6 +77,10 @@ def main() -> int:
     required = {
         MANIFEST: (
             "android.permission.REQUEST_INSTALL_PACKAGES",
+            "dev.pocketpc.SOURCE_REVISION",
+            "dev.pocketpc.SOURCE_REVISION_PINNED",
+            "pocketPcSourceRevision",
+            "pocketPcSourceRevisionPinned",
         ),
         UPDATER: (
             "raw.githubusercontent.com/Rogeriomatador/PocketPC/main/updates/stable.json",
@@ -95,6 +99,11 @@ def main() -> int:
             "KEY_VERIFIED_DOWNLOAD_ID",
             "AUTO_CHECK_INTERVAL_MS",
             "shouldRunUpdateCheck",
+            "META_SOURCE_REVISION",
+            "META_SOURCE_REVISION_PINNED",
+            "GET_META_DATA",
+            "Source revision do APK não corresponde",
+            "APK foi compilado sem revisão Git fixada",
         ),
         CENTER: (
             "Verificar agora",
