@@ -1,47 +1,45 @@
-# PocketPC — 0.1.0-alpha18
+# PocketPC — 0.1.0-alpha19
 
 PocketPC is an experimental Android desktop/runtime project with strict evidence labels.
 
-## Alpha 18 — usable pocket desktop foundation
+## Alpha 19 — Desktop Mode Foundation
 
-Alpha 18 begins the user-facing PC layer while preserving the evidence-gated physical pipeline.
+Alpha 19 advances the Android host toward a DeX-like pocket desktop while keeping
+runtime claims separate from UI/host capabilities.
 
 Implemented in source:
 
-- integrated PocketPC browser window;
-- Google home/search and address navigation;
-- back, forward, reload and home controls;
-- experimental desktop-site user-agent mode;
-- Android DownloadManager integration;
-- direct Downloads entry point;
-- WebView Safe Browsing and restricted file-scheme access;
-- browser navigation unit tests;
-- per-capability physical filesystem diagnostics;
-- Alpha 17 physical install evidence retained as historical evidence.
+- sensor-landscape PocketPC host;
+- immersive system bars with swipe-to-reveal;
+- persistent bottom taskbar with pinned/open app state;
+- custom PocketPC app icon tiles;
+- Start/launcher menu;
+- long-press and secondary-mouse context menu;
+- keyboard shortcuts including Alt+Tab, Alt+F4, Meta+E, Meta+B and Ctrl+Alt+T;
+- physical mouse, keyboard and gamepad detection;
+- Android installed-app/game launcher;
+- external-display launch attempt through ActivityOptions.setLaunchDisplayId with safe fallback;
+- persistent static and animated wallpaper presets;
+- integrated Browser, Files, Terminal, Downloads, Runtimes, System and Performance apps;
+- Desktop Mode policy self-test in the Windows build.
 
-The browser deliberately reuses the device WebView/Chromium implementation instead of bundling a second browser engine. This reduces APK size and memory overhead on phones.
+Important boundary: launching an Android game from PocketPC does not make the game
+become or identify itself as a Windows/PC binary. PocketPC can provide a desktop
+environment, external-display launch and desktop peripherals. Game-specific mouse,
+keyboard and PC-mode behavior still depends on the game and Android platform support.
 
-## Evidence state entering Alpha 18
+## Evidence state
 
-The Alpha 17 run on a physical Xiaomi device proved:
+Historical physical evidence from Alpha 17/18 proved APK install, installed APK hash,
+MainActivity launch and most host filesystem capabilities. Host hardlink creation is
+denied on the tested Android device, so Linux/rootfs hardlink semantics remain blocked.
 
-- Windows process-capture self-test: PASS;
-- strict local build: PASS;
-- preflight before/after build: PASS;
-- authorized physical ADB device: PASS;
-- APK install: PASS;
-- installed APK SHA-256 equals the validated local APK: PASS;
-- MainActivity launch: PASS;
-- relative symlink: PASS;
-- absolute symlink: PASS;
-- hardlink creation: FAIL with AccessDeniedException on the physical Android host;
-- NOFOLLOW cleanup: PASS;
-- external symlink target preservation: PASS;
-- Android host filesystem gate: PASS by Alpha 18 policy;
-- Linux/rootfs hardlink semantics: BLOCKED;
-- full Alpha 17 physical chain: INCOMPLETE under the old all-capabilities gate.
+Alpha 19 source changes are:
 
-Therefore Alpha 18 source is not classified as physically validated until a new build/run proves it.
+- IMPLEMENTED;
+- STATICALLY VALIDATED;
+- SOFTWARE TEST: NOT_EXECUTED;
+- PHYSICAL TEST: NOT_EXECUTED.
 
 ## Normal command
 
@@ -49,18 +47,5 @@ Therefore Alpha 18 source is not classified as physically validated until a new 
 powershell -ExecutionPolicy Bypass -File .\scripts\first-physical-test-windows.ps1
 ```
 
-If it succeeds, the final token remains `POCKETPC_FIRST_PHYSICAL_TEST_OK`.
-If it fails, the failure-triage directory and structured evidence remain the source of truth.
-
-PRoot remains unbundled/unapproved and Linux execution remains disabled.
-
-## PocketPC Windows Setup
-
-For a minimal Windows host setup without Android Studio, download:
-
-- `dist/PocketPC-Windows-Setup.zip` and run `INSTALL.bat`; or
-- `PocketPC-Setup-Windows.bat` as the one-file downloader.
-
-The setup downloads Eclipse Temurin JDK 17 through the official Adoptium API, validates its API-provided SHA-256, downloads the pinned Android Command-line Tools package directly from Google, validates the official SHA-256, installs the Android components listed in `toolchains/android-build-lock.json`, configures user environment variables, and runs the PocketPC Doctor.
-
-Android SDK licenses still require explicit user acceptance.
+A successful run must end with `POCKETPC_FIRST_PHYSICAL_TEST_OK`. PRoot remains
+separately gated and Linux execution remains disabled.
