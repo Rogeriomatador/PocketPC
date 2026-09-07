@@ -110,6 +110,7 @@ class BrowserSessionState {
         if (index < 0) return
 
         if (tabs.size == 1) {
+            clearWebViewState(id)
             tabs[0] = BrowserTabState(
                 id = tabs[0].id,
                 title = "Google",
@@ -165,6 +166,7 @@ fun BrowserApp(session: BrowserSessionState) {
             session.webViewState(tab.id)
                 ?.let(view::restoreState)
         if (restored == null) {
+            view.clearHistory()
             view.loadUrl(tab.url)
         }
     }
@@ -188,7 +190,9 @@ fun BrowserApp(session: BrowserSessionState) {
                 saveActiveWebViewState()
                 val tab = session.newTab()
                 address = tab.url
-                webView?.loadUrl(tab.url)
+                webView?.let { view ->
+                    restoreOrLoadTab(view, tab)
+                }
             },
             onClose = { tab ->
                 val closingActive = session.activeTabId == tab.id
