@@ -51,8 +51,8 @@ android {
         buildConfig = true
     }
 
-    sourceSets.getByName("main").assets.srcDir(
-        rootProject.file("third_party")
+    sourceSets.getByName("main").assets.directories.add(
+        rootProject.file("third_party").absolutePath
     )
 
     packaging {
