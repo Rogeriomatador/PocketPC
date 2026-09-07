@@ -31,6 +31,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+enum class DesktopThemeMode(
+    val key: String,
+    val label: String,
+) {
+    SYSTEM("system", "Sistema"),
+    LIGHT("light", "Claro"),
+    DARK("dark", "Escuro");
+
+    companion object {
+        fun fromKey(key: String?): DesktopThemeMode =
+            entries.firstOrNull { it.key == key } ?: SYSTEM
+    }
+}
+
 enum class WallpaperPreset(
     val key: String,
     val label: String,
@@ -83,6 +97,16 @@ class DesktopAppearanceState(context: Context) {
     )
         private set
 
+    var themeMode by mutableStateOf(
+        DesktopThemeMode.fromKey(preferences.getString("theme", null))
+    )
+        private set
+
+    fun selectTheme(mode: DesktopThemeMode) {
+        themeMode = mode
+        preferences.edit().putString("theme", mode.key).apply()
+    }
+
     fun selectWallpaper(preset: WallpaperPreset) {
         wallpaper = preset
         preferences.edit().putString("wallpaper", preset.key).apply()
@@ -131,7 +155,9 @@ fun DesktopWallpaper(
 @Composable
 fun PersonalizationApp(
     selected: WallpaperPreset,
+    themeMode: DesktopThemeMode,
     onSelect: (WallpaperPreset) -> Unit,
+    onThemeSelect: (DesktopThemeMode) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -142,6 +168,33 @@ fun PersonalizationApp(
             "Escolha o visual do desktop. Os presets animados se movem sem " +
                 "usar video em segundo plano."
         )
+
+        Text("Tema")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DesktopThemeMode.entries.forEach { mode ->
+                if (mode == themeMode) {
+                    Button(
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(mode.label)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { onThemeSelect(mode) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(mode.label)
+                    }
+                }
+            }
+        }
+
+        Text("Papel de parede")
 
         WallpaperPreset.entries.chunked(2).forEach { row ->
             Row(
