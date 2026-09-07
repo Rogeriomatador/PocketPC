@@ -129,7 +129,10 @@ class PocketPcInstallReceiver :
             )
 
         if (
-            status < 0 &&
+            status !=
+                PackageInstaller.STATUS_PENDING_USER_ACTION &&
+            status !=
+                PackageInstaller.STATUS_SUCCESS &&
             downloadId >= 0L
         ) {
             context.applicationContext
