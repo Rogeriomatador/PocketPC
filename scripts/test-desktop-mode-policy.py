@@ -72,6 +72,8 @@ CHECKS = {
         "queryLaunchableApps",
         "DesktopCapabilitySnapshot",
         "setLaunchDisplayId",
+        "setLaunchBounds",
+        "Pedir janela livre do Android",
         "ApplicationInfo.CATEGORY_GAME",
         "entrada desktop depende do jogo",
         "Monitor externo recusou o launch",
@@ -90,6 +92,8 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopCapabilityProbe.kt": (
         "FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS",
+        "FEATURE_FREEFORM_WINDOW_MANAGEMENT",
+        "freeformWindowManagement",
         "DISPLAY_CATEGORY_PRESENTATION",
         "DisplayManager.DisplayListener",
         "preferredExternalDisplayId",
