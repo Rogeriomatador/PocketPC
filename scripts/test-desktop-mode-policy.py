@@ -27,6 +27,8 @@ CHECKS = {
     "app/src/main/AndroidManifest.xml": (
         'android:screenOrientation="sensorLandscape"',
         "android.permission.ACCESS_NETWORK_STATE",
+        "android.hardware.type.pc",
+        'android:required="false"',
         "android.intent.category.LAUNCHER",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/PocketPcApp.kt": (
@@ -170,6 +172,7 @@ CHECKS = {
         '"schemaVersion": 4',
         '"orientationLandscape": True',
         '"freeformWindowManagement": False',
+        '"pcHardwareType": False',
         '"externalDisplayCount": 0',
         '"mouseCount": 1',
         '"keyboardCount": 1',
@@ -180,6 +183,7 @@ CHECKS = {
         '"desktop"',
         '"orientationLandscape"',
         '"freeformWindowManagement"',
+        '"pcHardwareType"',
         '"externalDisplayCount"',
         '"mouseCount"',
         '"keyboardCount"',
@@ -190,6 +194,7 @@ CHECKS = {
         '"desktop"',
         '"orientationLandscape"',
         '"freeformWindowManagement"',
+        '"pcHardwareType"',
         '"externalDisplayCount"',
     ),
     "app/src/debug/AndroidManifest.xml": (
@@ -212,6 +217,8 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopCapabilityProbe.kt": (
         "FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS",
         "FEATURE_FREEFORM_WINDOW_MANAGEMENT",
+        "FEATURE_PC",
+        "pcHardwareType",
         "freeformWindowManagement",
         "DISPLAY_CATEGORY_PRESENTATION",
         "DisplayManager.DisplayListener",
