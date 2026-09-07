@@ -23,8 +23,8 @@ def make_bundle(path: pathlib.Path, tamper: bool = False) -> None:
     identity_obj = {
         "schemaVersion": 1,
         "packageName": "dev.pocketpc.core",
-        "versionName": "0.1.0-alpha11",
-        "versionCode": 11,
+        "versionName": "0.1.0-alpha19",
+        "versionCode": 19,
         "sourceRevision": "LOCAL_UNPINNED",
         "sourceRevisionPinned": False,
         "debug": True,
@@ -35,9 +35,24 @@ def make_bundle(path: pathlib.Path, tamper: bool = False) -> None:
 
     evidence = json.dumps(
         {
-            "schemaVersion": 2,
-            "pocketPcVersion": "0.1.0-alpha11",
+            "schemaVersion": 4,
+            "pocketPcVersion": "0.1.0-alpha19",
             "buildIdentity": identity_obj,
+            "desktop": {
+                "orientationLandscape": True,
+                "screenWidthDp": 915,
+                "screenHeightDp": 412,
+                "secondaryDisplayActivities": True,
+                "freeformWindowManagement": False,
+                "externalDisplayCount": 0,
+                "presentationDisplayCount": 0,
+                "peripherals": {
+                    "mouseCount": 1,
+                    "keyboardCount": 1,
+                    "gamepadCount": 0,
+                },
+                "externalDisplays": [],
+            },
         },
         sort_keys=True,
     ).encode()
@@ -71,8 +86,8 @@ def make_bundle(path: pathlib.Path, tamper: bool = False) -> None:
                 "schemaVersion": 1,
                 "evidenceSha256": sha(evidence),
                 "sourceRevision": "LOCAL_UNPINNED",
-                "versionName": "0.1.0-alpha11",
-                "versionCode": 11,
+                "versionName": "0.1.0-alpha19",
+                "versionCode": 19,
             },
             sort_keys=True,
         ).encode(),
