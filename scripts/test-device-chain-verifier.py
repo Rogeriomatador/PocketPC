@@ -172,7 +172,7 @@ def create_bundle(
     }
 
     evidence = {
-        "schemaVersion": 2,
+        "schemaVersion": 4,
         "pocketPcVersion": app["versionName"],
         "generatedAtUtc": "2026-09-06T00:00:01Z",
         "buildIdentity": identity,
@@ -181,6 +181,21 @@ def create_bundle(
             "model": device_model,
             "androidApi": 37,
             "abis": ["arm64-v8a", "armeabi-v7a"],
+        },
+        "desktop": {
+            "orientationLandscape": True,
+            "screenWidthDp": 915,
+            "screenHeightDp": 412,
+            "secondaryDisplayActivities": True,
+            "freeformWindowManagement": False,
+            "externalDisplayCount": 0,
+            "presentationDisplayCount": 0,
+            "peripherals": {
+                "mouseCount": 1,
+                "keyboardCount": 1,
+                "gamepadCount": 0,
+            },
+            "externalDisplays": [],
         },
         "filesystem": {
             "hostCriticalPassed": True,
