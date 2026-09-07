@@ -7,22 +7,27 @@
 - landscape/immersive desktop shell;
 - persistent taskbar pins;
 - original PocketPC icons;
-- Start menu and context menu;
-- right-click, long-press, hover and pointer cursors;
+- searchable/scrollable Start menu and context menu;
+- right-click, long-press, hover, pointer cursors and keyboard focus;
 - keyboard shortcuts + Android shortcut helper;
 - movable/minimizable/maximizable windows;
 - resizable freeform PocketPC windows;
-- left/right window snapping;
+- persistent per-app freeform geometry;
+- left/right window snapping with keyboard and touch controls;
 - System / Light / Dark themes;
 - static and animated wallpaper presets;
 - custom SAF image wallpapers;
 - installed Android app/game launcher;
+- Store window with Play Store/web fallback;
+- Control Center with Wi-Fi/Bluetooth/Sound/Display/Keyboard/Notifications/
+  Battery/Cast settings;
 - persistent game compatibility profiles;
 - mouse/keyboard/gamepad detection;
 - Displays control/diagnostics window;
 - event-driven external-display detection;
 - Android secondary-display capability detection;
 - Android freeform-window capability detection;
+- Android FEATURE_PC detection and optional app declaration;
 - launch-display and launch-bounds requests with fallback;
 - Alpha 19 desktop evidence in the physical runner;
 - evidence-bundle verification for the desktop schema;
@@ -46,8 +51,8 @@ No item above is PHYSICAL PASS until the run actually proves it.
 ## After Alpha 19 physically passes
 
 ### Desktop UX
-- persist freeform window position/size/snap state;
-- keyboard-focus visualization and full keyboard navigation;
+- persist snap/open-workspace state across full app restarts;
+- richer keyboard navigation beyond current focus support;
 - richer taskbar/system-tray panels;
 - notification center;
 - volume/media/device quick controls;
