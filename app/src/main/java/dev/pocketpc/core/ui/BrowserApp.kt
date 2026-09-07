@@ -14,6 +14,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -64,7 +66,9 @@ fun BrowserApp() {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             OutlinedButton(
@@ -98,6 +102,19 @@ fun BrowserApp() {
                 },
             ) {
                 Text(if (desktopMode) "Desktop ✓" else "Desktop")
+            }
+            OutlinedButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                    }
+                },
+            ) {
+                Text("Downloads")
             }
         }
 
@@ -157,6 +174,9 @@ fun BrowserApp() {
                     settings.domStorageEnabled = true
                     settings.databaseEnabled = true
                     settings.loadsImagesAutomatically = true
+                    settings.safeBrowsingEnabled = true
+                    settings.allowFileAccess = false
+                    settings.allowContentAccess = true
                     settings.mediaPlaybackRequiresUserGesture = true
                     settings.builtInZoomControls = true
                     settings.displayZoomControls = false
@@ -239,7 +259,7 @@ fun BrowserApp() {
     }
 }
 
-private fun browserTarget(raw: String): String {
+internal fun browserTarget(raw: String): String {
     val value = raw.trim()
     if (value.isBlank()) return POCKETPC_HOME
 
@@ -258,7 +278,7 @@ private fun browserTarget(raw: String): String {
     return "https://www.google.com/search?q=$query"
 }
 
-private fun desktopUserAgent(base: String): String =
+internal fun desktopUserAgent(base: String): String =
     base
         .replace("; wv", "")
         .replace(" Mobile ", " ")
