@@ -114,6 +114,7 @@ class PocketPcUpdater(
         manifest: PocketPcUpdateManifest,
     ): Result<Long> =
         runCatching {
+            validateManifest(manifest)
             require(
                 manifest.versionCode >
                     BuildConfig.VERSION_CODE
@@ -194,6 +195,14 @@ class PocketPcUpdater(
                 ?.let(::parseManifestSafely)
                 ?: return null
 
+        if (
+            manifest.versionCode <=
+                BuildConfig.VERSION_CODE
+        ) {
+            clearPendingDownload()
+            return null
+        }
+
         val manager =
             appContext.getSystemService(
                 Context.DOWNLOAD_SERVICE
@@ -260,6 +269,9 @@ class PocketPcUpdater(
                     ) {
                         "Nenhuma atualização pendente."
                     }
+                validateManifest(
+                    pending.manifest
+                )
 
                 require(
                     pending.status ==
@@ -340,12 +352,22 @@ class PocketPcUpdater(
             }
         }
 
-    fun requestInstall(
-        verified:
+    suspend fun requestInstall(
+        requested:
             PocketPcUpdateDownload,
     ): Result<PocketPcInstallResult> =
-        runCatching {
-            if (
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val verified =
+                    verifyPendingDownload()
+                        .getOrThrow()
+                require(
+                    verified.id == requested.id
+                ) {
+                    "O download verificado mudou antes da instalação."
+                }
+
+                if (
                 Build.VERSION.SDK_INT >=
                 Build.VERSION_CODES.O &&
                 !appContext.packageManager
@@ -399,8 +421,9 @@ class PocketPcUpdater(
                     )
                 }
 
-            appContext.startActivity(install)
-            PocketPcInstallResult.INSTALLER_OPENED
+                appContext.startActivity(install)
+                PocketPcInstallResult.INSTALLER_OPENED
+            }
         }
 
     private fun fetchManifest(
@@ -496,6 +519,14 @@ class PocketPcUpdater(
                     )
             ) {
                 "SHA-256 publicado é inválido."
+            }
+            require(
+                manifest.sourceRevision
+                    .matches(
+                        Regex("^[0-9a-fA-F]{40}$")
+                    )
+            ) {
+                "Source revision publicada é inválida."
             }
         }
     }
