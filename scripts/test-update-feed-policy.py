@@ -108,6 +108,7 @@ def main() -> int:
     required = {
         MANIFEST: (
             "android.permission.REQUEST_INSTALL_PACKAGES",
+            "android.permission.POST_NOTIFICATIONS",
             "android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION",
             ".update.PocketPcInstallReceiver",
             "dev.pocketpc.SOURCE_REVISION",
@@ -161,6 +162,9 @@ def main() -> int:
             "SESSION_COMMITTED",
             "SESSION_ALREADY_PENDING",
             "attemptAutomaticInstall",
+            "Manifest.permission.POST_NOTIFICATIONS",
+            "Aviso de confirmação",
+            "notificationPermissionLauncher",
         ),
         INSTALL_RECEIVER: (
             "PackageInstaller.STATUS_PENDING_USER_ACTION",
@@ -168,6 +172,11 @@ def main() -> int:
             "KEY_INSTALL_ATTEMPT_DOWNLOAD_ID",
             "EXTRA_UPDATE_DOWNLOAD_ID",
             "PocketPcInstallStatusStore",
+            "NotificationChannel",
+            "PendingIntent.getActivity",
+            "UPDATE_NOTIFICATION_CHANNEL",
+            "UPDATE_NOTIFICATION_ID",
+            "manager.notify",
         ),
         WORKER: (
             "CoroutineWorker",
