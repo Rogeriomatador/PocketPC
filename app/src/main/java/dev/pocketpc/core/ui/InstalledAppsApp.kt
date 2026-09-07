@@ -4,7 +4,6 @@ import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.hardware.display.DisplayManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,8 +31,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import dev.pocketpc.core.desktop.DesktopCapabilitySnapshot
 
 data class LaunchableAndroidApp(
     val label: String,
@@ -42,23 +41,16 @@ data class LaunchableAndroidApp(
 )
 
 @Composable
-fun InstalledAppsApp() {
+fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
     val context = LocalContext.current
     var apps by remember { mutableStateOf<List<LaunchableAndroidApp>>(emptyList()) }
     var query by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<String?>(null) }
-    var externalDisplayId by remember { mutableStateOf<Int?>(null) }
     var preferExternal by rememberSaveable { mutableStateOf(true) }
+    val externalDisplayId = capabilities.preferredExternalDisplayId
 
     LaunchedEffect(Unit) {
         apps = withContext(Dispatchers.IO) { queryLaunchableApps(context) }
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            externalDisplayId = preferredExternalDisplayId(context)
-            delay(2_000)
-        }
     }
 
     val filtered = remember(apps, query) {
@@ -188,23 +180,6 @@ fun InstalledAppsApp() {
             }
         }
     }
-}
-
-private fun preferredExternalDisplayId(context: Context): Int? {
-    if (
-        !context.packageManager.hasSystemFeature(
-            PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS
-        )
-    ) {
-        return null
-    }
-
-    val displayManager =
-        context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-    return displayManager
-        .getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-        .firstOrNull()
-        ?.displayId
 }
 
 @Suppress("DEPRECATION")
