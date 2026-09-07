@@ -47,7 +47,6 @@ import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.system.collectSystemSnapshot
 import dev.pocketpc.core.telemetry.TelemetryMonitor
 import dev.pocketpc.core.terminal.LocalShellEngine
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlin.math.roundToInt
 
@@ -163,14 +162,11 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     }
 
     LaunchedEffect(storageRoot) {
-        while (true) {
-            if (storageRoot != null) {
-                PocketDownloadImporter.importReady(
-                    context = appContext,
-                    storage = storage,
-                )
-            }
-            delay(3_000)
+        if (storageRoot != null) {
+            PocketDownloadImporter.importReady(
+                context = appContext,
+                storage = storage,
+            )
         }
     }
 
