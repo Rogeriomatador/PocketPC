@@ -314,6 +314,56 @@ fun ResearchLabApp() {
         }
 
         ResearchCard(
+            title = "Bridges locais / shell",
+        ) {
+            ValueRow(
+                "APK externo",
+                if (
+                    current.unknownSourceInstallAllowed
+                ) {
+                    "AUTORIZADO"
+                } else {
+                    "AGUARDANDO AUTORIZAÇÃO"
+                },
+            )
+            ValueRow(
+                "Termux",
+                if (current.termuxInstalled) {
+                    "INSTALADO"
+                } else {
+                    "NÃO DETECTADO"
+                },
+            )
+            ValueRow(
+                "Termux RUN_COMMAND",
+                if (
+                    current
+                        .termuxRunCommandPermissionGranted
+                ) {
+                    "GRANTED"
+                } else {
+                    "NOT GRANTED"
+                },
+            )
+            ValueRow(
+                "Shizuku",
+                if (current.shizukuInstalled) {
+                    "INSTALADO / PERMISSÃO NÃO TESTADA"
+                } else {
+                    "NÃO DETECTADO"
+                },
+            )
+            Text(
+                "Este probe apenas observa pré-requisitos. " +
+                    "Ele não executa comandos no Termux, não solicita " +
+                    "ADB shell e não usa Shizuku automaticamente.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+            )
+        }
+
+        ResearchCard(
             title = "Hipótese: monitor remoto PocketPC",
         ) {
             val promising =
