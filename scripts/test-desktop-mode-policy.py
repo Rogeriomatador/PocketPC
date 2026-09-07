@@ -40,6 +40,10 @@ CHECKS = {
         "Mostrar area de trabalho",
         "DesktopSystemTray",
         "AppIconTile",
+        "desktopSecondaryClick",
+        "isSecondaryPressed",
+        "collectIsHoveredAsState",
+        "pointerHoverIcon(PointerIcon.Hand)",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DesktopAppearance.kt": (
         "WallpaperPreset",
