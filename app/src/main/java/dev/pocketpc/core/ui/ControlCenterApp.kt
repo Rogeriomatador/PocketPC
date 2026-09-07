@@ -2,6 +2,7 @@ package dev.pocketpc.core.ui
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,7 +53,7 @@ fun ControlCenterApp() {
             },
             rightLabel = "Notificacoes",
             rightAction = {
-                openSetting(context, Settings.ACTION_NOTIFICATION_SETTINGS)
+                openNotificationsSetting(context)
             },
         )
         SettingRow(
@@ -99,6 +100,17 @@ private fun SettingRow(
             Text(rightLabel)
         }
     }
+}
+
+private fun openNotificationsSetting(context: Context) {
+    val action =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Settings.ACTION_ALL_APPS_NOTIFICATION_SETTINGS
+        } else {
+            Settings.ACTION_SETTINGS
+        }
+
+    openSetting(context, action)
 }
 
 private fun openSetting(context: Context, action: String) {
