@@ -11,8 +11,10 @@ class DesktopPinStore(context: Context) {
 
     fun load(): List<DesktopApp> {
         val raw = preferences.getString(KEY, null)
-        if (raw.isNullOrBlank()) {
-            return defaultPins()
+            ?: return defaultPins()
+
+        if (raw.isBlank()) {
+            return emptyList()
         }
 
         val parsed = raw
