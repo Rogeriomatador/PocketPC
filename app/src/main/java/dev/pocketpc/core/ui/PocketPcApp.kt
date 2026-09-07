@@ -123,6 +123,16 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
         }
     }
 
+    val wallpaperPicker =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) {
+                persistRead(uri)
+                appearance.selectCustomWallpaper(uri.toString())
+            }
+        }
+
     DisposableEffect(Unit) {
         telemetry.start(scope)
         peripheralMonitor.start()
@@ -169,6 +179,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     ) {
         DesktopWallpaper(
             preset = appearance.wallpaper,
+            customUri = appearance.customWallpaperUri,
             modifier = Modifier
                 .fillMaxSize()
                 .desktopSecondaryClick { desktop.openContextMenu(null) }
@@ -223,9 +234,17 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                         DesktopApp.DISPLAYS -> DisplaysApp(desktopCapabilities)
                         DesktopApp.PERSONALIZATION -> PersonalizationApp(
                             selected = appearance.wallpaper,
+                            customUri = appearance.customWallpaperUri,
                             themeMode = appearance.themeMode,
                             onSelect = appearance::selectWallpaper,
                             onThemeSelect = appearance::selectTheme,
+                            onChooseCustom = {
+                                wallpaperPicker.launch(
+                                    arrayOf("image/*")
+                                )
+                            },
+                            onClearCustom =
+                                appearance::clearCustomWallpaper,
                         )
                         DesktopApp.RUNTIMES -> RuntimeApp(
                             manager = runtimes,
