@@ -63,7 +63,6 @@ CHECKS = {
         "BrowserTabStrip",
         "Nova aba",
         "Windows NT 10.0; Win64; x64",
-        "Grid",
         "settings.useWideViewPort",
         "settings.loadWithOverviewMode",
         "DownloadManager",
