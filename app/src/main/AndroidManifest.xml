@@ -15,14 +15,6 @@
         android:label="PocketPC"
         android:supportsRtl="true"
         android:theme="@style/Theme.PocketPC">
-        <receiver
-            android:name=".storage.PocketDownloadReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
-            </intent-filter>
-        </receiver>
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
