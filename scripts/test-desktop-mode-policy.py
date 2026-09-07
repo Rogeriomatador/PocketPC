@@ -40,6 +40,9 @@ CHECKS = {
         "DesktopApp.DISPLAYS -> DisplaysApp(desktopCapabilities)",
         "DesktopApp.PERSONALIZATION -> PersonalizationApp(",
         "DesktopPinStore",
+        "DesktopWindowLayoutStore",
+        "WindowGeometry",
+        "persistGeometry",
         "customWallpaperUri",
         "DesktopThemeMode.SYSTEM",
         "WindowSnap.LEFT",
@@ -110,6 +113,17 @@ CHECKS = {
         "snapActiveRight",
         "restoreSnap",
         "WindowSnap.NONE",
+    ),
+    "app/src/main/java/dev/pocketpc/core/desktop/DesktopWindowLayoutStore.kt": (
+        "data class WindowGeometry",
+        "fun sanitized()",
+        "pocketpc-window-layout",
+        "widthFraction",
+        "heightFraction",
+    ),
+    "app/src/test/java/dev/pocketpc/core/desktop/WindowGeometryTest.kt": (
+        "validGeometryIsPreserved",
+        "invalidGeometryIsClampedToDesktopBounds",
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopPinStore.kt": (
         "pinned_apps",
