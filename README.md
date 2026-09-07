@@ -1,10 +1,37 @@
-# PocketPC — 0.1.0-alpha20
+# PocketPC — 0.1.0-alpha21
 
 PocketPC is an experimental Android desktop/runtime project whose goal is to turn a
 phone into a practical PC-like workspace while keeping strict evidence boundaries.
 It can cooperate with Android desktop/freeform/display APIs, but it does not pretend
 that Android applications are Windows processes or that unsupported runtime features
 already work.
+
+## Alpha 21 — PocketDrive storage architecture
+
+Alpha 21 separates PocketPC storage into logical volumes instead of treating the
+user-selected Android folder as an unstructured directory.
+
+- `C:` — PocketPC System: app-private, performance-sensitive runtime/cache/package
+  state.
+- `P:` — PocketDrive: the persisted Storage Access Framework tree chosen by the user.
+- standard P: directories: Desktop, Documents, Downloads, Apps, Games, Projects,
+  Pictures, Videos, Music and Shared;
+- Explorer exposes P: shortcuts directly;
+- completed browser downloads are staged through Android DownloadManager and then
+  imported to `P:\Downloads` while PocketPC is active;
+- the pending-import registry survives process restarts, so completed downloads can be
+  resumed on the next PocketPC session;
+- imports stream data instead of buffering complete files in RAM;
+- PocketDrive finalization uses a temporary name and cleanup/rename step to avoid
+  presenting partial files as completed;
+- downloaded `.exe/.msi/.msix/.appx` files are classified as PC installers while
+  Android packages remain separately classified.
+
+Logical C:/P: separation does not claim physically separate flash chips. If P: points
+to the phone's internal shared storage, both volumes may use the same physical device.
+
+Alpha 21 does **not** yet implement Windows execution. Storing a Windows PC installer
+is separate from executing it.
 
 ## Alpha 20 — Desktop UX Overhaul
 
@@ -130,14 +157,14 @@ host filesystem state.
 
 That does not automatically validate every Alpha 19 feature.
 
-### Alpha 20 current HEAD
+### Alpha 21 current HEAD
 
 - DESIGN: advanced;
 - IMPLEMENTED: yes;
 - STATICALLY VALIDATED: ongoing source/policy audit;
-- SOFTWARE TEST: NOT_EXECUTED;
-- INTEGRATION TEST: NOT_EXECUTED;
-- PHYSICAL: NOT_EXECUTED;
+- SOFTWARE TEST: NOT_EXECUTED after Alpha 21 storage changes;
+- INTEGRATION TEST: NOT_EXECUTED after Alpha 21 storage changes;
+- PHYSICAL: NOT_EXECUTED for Alpha 21;
 - Linux/PRoot execution: BLOCKED by its independent runtime/artifact/link gates.
 
 The physical host filesystem evidence remains:
