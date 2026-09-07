@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
     var query by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<String?>(null) }
     var preferExternal by rememberSaveable { mutableStateOf(true) }
+    var preferWindowed by rememberSaveable { mutableStateOf(true) }
     var gamesOnly by rememberSaveable { mutableStateOf(false) }
     val externalDisplayId = capabilities.preferredExternalDisplayId
 
@@ -94,6 +96,26 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                     "Monitor externo detectado: abrir apps nele"
                 } else {
                     "Nenhum monitor externo disponivel"
+                },
+                fontSize = 11.sp,
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Switch(
+                checked = preferWindowed,
+                onCheckedChange = { preferWindowed = it },
+                enabled = capabilities.freeformWindowManagement,
+            )
+            Text(
+                if (capabilities.freeformWindowManagement) {
+                    "Pedir janela livre do Android"
+                } else {
+                    "Freeform do Android nao anunciado"
                 },
                 fontSize = 11.sp,
             )
@@ -150,16 +172,41 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
                                 if (preferExternal) externalDisplayId else null
 
                             val result = runCatching {
-                                if (requestedDisplay != null) {
-                                    val options = ActivityOptions.makeBasic()
-                                        .setLaunchDisplayId(requestedDisplay)
-                                        .toBundle()
-                                    context.startActivity(launchIntent, options)
-                                    status = "Aberto no monitor externo: ${app.label}"
+                                val useFreeform =
+                                    preferWindowed &&
+                                        capabilities.freeformWindowManagement
+                                val options =
+                                    if (requestedDisplay != null || useFreeform) {
+                                        buildDesktopLaunchOptions(
+                                            context = context,
+                                            capabilities = capabilities,
+                                            requestedDisplayId = requestedDisplay,
+                                            useFreeformBounds = useFreeform,
+                                        )
+                                    } else {
+                                        null
+                                    }
+
+                                if (options != null) {
+                                    context.startActivity(
+                                        launchIntent,
+                                        options.toBundle(),
+                                    )
                                 } else {
                                     context.startActivity(launchIntent)
-                                    status = "Aberto: ${app.label}"
                                 }
+
+                                status =
+                                    when {
+                                        requestedDisplay != null && useFreeform ->
+                                            "Aberto no monitor externo com pedido de janela: ${app.label}"
+                                        requestedDisplay != null ->
+                                            "Aberto no monitor externo: ${app.label}"
+                                        useFreeform ->
+                                            "Aberto com pedido de janela livre: ${app.label}"
+                                        else ->
+                                            "Aberto: ${app.label}"
+                                    }
                             }
 
                             result.onFailure { externalError ->
@@ -211,6 +258,51 @@ fun InstalledAppsApp(capabilities: DesktopCapabilitySnapshot) {
             }
         }
     }
+}
+
+private fun buildDesktopLaunchOptions(
+    context: Context,
+    capabilities: DesktopCapabilitySnapshot,
+    requestedDisplayId: Int?,
+    useFreeformBounds: Boolean,
+): ActivityOptions {
+    val options = ActivityOptions.makeBasic()
+
+    if (requestedDisplayId != null) {
+        options.setLaunchDisplayId(requestedDisplayId)
+    }
+
+    if (useFreeformBounds) {
+        val external =
+            requestedDisplayId?.let { displayId ->
+                capabilities.externalDisplays.firstOrNull {
+                    it.displayId == displayId
+                }
+            }
+
+        val width =
+            external?.widthPx
+                ?: context.resources.displayMetrics.widthPixels
+        val height =
+            external?.heightPx
+                ?: context.resources.displayMetrics.heightPixels
+
+        val targetWidth = (width * 0.74f).toInt().coerceAtLeast(1)
+        val targetHeight = (height * 0.78f).toInt().coerceAtLeast(1)
+        val left = ((width - targetWidth) / 2).coerceAtLeast(0)
+        val top = ((height - targetHeight) / 2).coerceAtLeast(0)
+
+        options.setLaunchBounds(
+            Rect(
+                left,
+                top,
+                left + targetWidth,
+                top + targetHeight,
+            )
+        )
+    }
+
+    return options
 }
 
 @Suppress("DEPRECATION")
