@@ -236,6 +236,28 @@ def main() -> int:
                         f"unbounded ADB path: {sentinel}"
                     )
 
+        if path.name == "validate-device-windows.ps1":
+            required_validate_sentinels = (
+                "[int]$AdbCommandTimeoutSeconds = 20",
+                "function Invoke-AdbCaptureWithTimeout",
+                'adb shell rm previous evidence',
+                'adb shell am start DebugEvidenceActivity',
+                'adb shell ls automation-result',
+                'adb pull required evidence',
+                'adb shell am start MainActivity',
+            )
+            for sentinel in required_validate_sentinels:
+                if sentinel not in text:
+                    failures.append(
+                        "Windows physical validator is missing bounded ADB "
+                        f"sentinel: {sentinel}"
+                    )
+            if re.search(r"(?m)^\s*Invoke-NativeCapture\s+\$adb\b", text):
+                failures.append(
+                    "Windows physical validator must not call ADB through "
+                    "the unbounded native capture path"
+                )
+
         if path.name == "doctor-windows.ps1":
             marker = "# POCKETPC_DOCTOR_EOF"
             if text.count(marker) != 1:
