@@ -68,12 +68,12 @@ function Invoke-AdbCaptureWithTimeout {
 
         $process.WaitForExit()
         $stdoutText = if (Test-Path $stdoutPath -PathType Leaf) {
-            (Get-Content $stdoutPath -Raw).Trim()
+            [IO.File]::ReadAllText($stdoutPath).Trim()
         } else {
             ""
         }
         $stderrText = if (Test-Path $stderrPath -PathType Leaf) {
-            (Get-Content $stderrPath -Raw).Trim()
+            [IO.File]::ReadAllText($stderrPath).Trim()
         } else {
             ""
         }
@@ -153,12 +153,12 @@ function Invoke-AdbInstallWithTimeout {
 
         $process.WaitForExit()
         $stdoutText = if (Test-Path $stdoutPath -PathType Leaf) {
-            (Get-Content $stdoutPath -Raw).Trim()
+            [IO.File]::ReadAllText($stdoutPath).Trim()
         } else {
             ""
         }
         $stderrText = if (Test-Path $stderrPath -PathType Leaf) {
-            (Get-Content $stderrPath -Raw).Trim()
+            [IO.File]::ReadAllText($stderrPath).Trim()
         } else {
             ""
         }
