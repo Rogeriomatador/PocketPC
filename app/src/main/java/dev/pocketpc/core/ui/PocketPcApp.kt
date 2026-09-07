@@ -251,6 +251,10 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             },
                             onClearCustom =
                                 appearance::clearCustomWallpaper,
+                            showPerformanceHud =
+                                appearance.showPerformanceHud,
+                            onPerformanceHudChange =
+                                appearance::setPerformanceHud,
                         )
                         DesktopApp.RUNTIMES -> RuntimeApp(
                             manager = runtimes,
@@ -291,10 +295,14 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 }
             }
 
-        PerformanceHud(
-            sample = sample,
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp),
-        )
+        if (appearance.showPerformanceHud) {
+            PerformanceHud(
+                sample = sample,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 10.dp, end = 10.dp),
+            )
+        }
 
         if (desktop.contextMenuOpen) {
             DesktopContextMenu(
