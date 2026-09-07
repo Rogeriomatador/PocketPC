@@ -9,4 +9,5 @@ enum class DesktopCommand {
     OPEN_BROWSER,
     OPEN_TERMINAL,
     OPEN_DESKTOP_CONTEXT,
+    DISMISS_OVERLAYS,
 }
