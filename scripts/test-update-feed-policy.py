@@ -12,9 +12,11 @@ FEED = ROOT / "updates" / "stable.json"
 MANIFEST = ROOT / "app" / "src" / "main" / "AndroidManifest.xml"
 UPDATER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdater.kt"
 INSTALL_RECEIVER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcInstallReceiver.kt"
+WORKER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdateWorker.kt"
 CENTER = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "UpdateCenterApp.kt"
 SYSTEM = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "SystemApp.kt"
 SHELL = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "ui" / "PocketPcApp.kt"
+MAIN_ACTIVITY = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "core" / "MainActivity.kt"
 AUTO_TEST = ROOT / "app" / "src" / "test" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdaterPolicyTest.kt"
 PREPARE = ROOT / "scripts" / "prepare-update-feed.py"
 PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-update.yml"
@@ -142,6 +144,18 @@ def main() -> int:
             "EXTRA_UPDATE_DOWNLOAD_ID",
             "PocketPcInstallStatusStore",
         ),
+        WORKER: (
+            "CoroutineWorker",
+            "PeriodicWorkRequestBuilder",
+            "ExistingPeriodicWorkPolicy.UPDATE",
+            "NetworkType.CONNECTED",
+            "6,",
+            "TimeUnit.HOURS",
+            "PocketPcUpdateScheduler",
+            "shouldAutoInstallUpdate",
+            "verifyPendingDownload",
+            "beginDownload",
+        ),
         AUTO_TEST: (
             "firstAutomaticCheckRunsImmediately",
             "disabledAutomaticCheckNeverRuns",
@@ -157,6 +171,9 @@ def main() -> int:
         SHELL: (
             "PocketPcUpdateAutoCheck()",
         ),
+        MAIN_ACTIVITY: (
+            "PocketPcUpdateScheduler.schedule",
+        ),
         PREPARE: (
             "UPDATE_FEED_PREPARED",
             "UNPUBLISHED_FAIL_CLOSED",
@@ -167,6 +184,7 @@ def main() -> int:
             '"published": bool(args.publish)',
         ),
         BUILD_GRADLE: (
+            'androidx.work:work-runtime:2.11.2',
             "POCKETPC_SIGNING_STORE_FILE",
             "POCKETPC_SIGNING_STORE_PASSWORD",
             "POCKETPC_SIGNING_KEY_ALIAS",
