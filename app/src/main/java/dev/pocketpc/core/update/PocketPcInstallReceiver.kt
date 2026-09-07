@@ -126,6 +126,19 @@ class PocketPcInstallReceiver :
                 sessionId = sessionId,
             )
 
+        if (
+            status !=
+                PackageInstaller.STATUS_PENDING_USER_ACTION
+        ) {
+            val manager =
+                context.getSystemService(
+                    Context.NOTIFICATION_SERVICE
+                ) as NotificationManager
+            manager.cancel(
+                UPDATE_NOTIFICATION_ID
+            )
+        }
+
         val downloadId =
             intent.getLongExtra(
                 EXTRA_UPDATE_DOWNLOAD_ID,
