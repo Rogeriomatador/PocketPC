@@ -5,6 +5,8 @@
             android:name=".DebugEvidenceActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:noHistory="true" />
+            android:noHistory="true"
+            android:resizeableActivity="true"
+            android:screenOrientation="sensorLandscape" />
     </application>
 </manifest>
