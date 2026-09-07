@@ -389,6 +389,49 @@ fun ResearchLabApp() {
         }
 
         ResearchCard(
+            title = "Bluetooth HID / controle remoto",
+        ) {
+            ValueRow(
+                "Adaptador Bluetooth",
+                if (current.bluetoothAdapterAvailable) {
+                    "DISPONÍVEL"
+                } else {
+                    "NÃO DETECTADO"
+                },
+            )
+            ValueRow(
+                "BLUETOOTH_CONNECT",
+                if (
+                    current
+                        .bluetoothConnectPermissionGranted
+                ) {
+                    "GRANTED"
+                } else {
+                    "NOT GRANTED"
+                },
+            )
+            ValueRow(
+                "HID Device API",
+                if (
+                    current
+                        .bluetoothHidDeviceApiCandidate
+                ) {
+                    "API CANDIDATE"
+                } else {
+                    "NOT AVAILABLE"
+                },
+            )
+            Text(
+                "Candidato para transformar o telefone em teclado/mouse " +
+                    "Bluetooth de outro dispositivo. O perfil HID ainda " +
+                    "não foi registrado nem testado fisicamente.",
+                style =
+                    MaterialTheme.typography
+                        .bodySmall,
+            )
+        }
+
+        ResearchCard(
             title = "Hipótese: monitor remoto PocketPC",
         ) {
             val promising =
