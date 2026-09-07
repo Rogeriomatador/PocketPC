@@ -1,5 +1,9 @@
 package dev.pocketpc.core.update
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -174,6 +178,12 @@ class PocketPcInstallReceiver :
                     )
                 }
                 ?.let { userAction ->
+                    postUserActionNotification(
+                        context = context,
+                        confirmation = userAction,
+                        sessionId = sessionId,
+                    )
+
                     runCatching {
                         context.startActivity(
                             userAction
@@ -194,5 +204,69 @@ class PocketPcInstallReceiver :
                     }
                 }
         }
+    }
+}
+
+private const val UPDATE_NOTIFICATION_CHANNEL =
+    "pocketpc-updates"
+private const val UPDATE_NOTIFICATION_ID = 2101
+
+private fun postUserActionNotification(
+    context: Context,
+    confirmation: Intent,
+    sessionId: Int,
+) {
+    val manager =
+        context.getSystemService(
+            Context.NOTIFICATION_SERVICE
+        ) as NotificationManager
+
+    manager.createNotificationChannel(
+        NotificationChannel(
+            UPDATE_NOTIFICATION_CHANNEL,
+            "PocketPC Updates",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description =
+                "Confirmacoes exigidas pelo Android para atualizar o PocketPC."
+        }
+    )
+
+    val flags =
+        PendingIntent.FLAG_UPDATE_CURRENT or
+            PendingIntent.FLAG_IMMUTABLE
+
+    val action =
+        PendingIntent.getActivity(
+            context,
+            sessionId.coerceAtLeast(0),
+            confirmation,
+            flags,
+        )
+
+    val notification =
+        Notification.Builder(
+            context,
+            UPDATE_NOTIFICATION_CHANNEL,
+        )
+            .setSmallIcon(
+                android.R.drawable.stat_sys_download_done
+            )
+            .setContentTitle(
+                "Atualizacao do PocketPC pronta"
+            )
+            .setContentText(
+                "Toque para confirmar a instalacao exigida pelo Android."
+            )
+            .setCategory(Notification.CATEGORY_SYSTEM)
+            .setAutoCancel(true)
+            .setContentIntent(action)
+            .build()
+
+    runCatching {
+        manager.notify(
+            UPDATE_NOTIFICATION_ID,
+            notification,
+        )
     }
 }
