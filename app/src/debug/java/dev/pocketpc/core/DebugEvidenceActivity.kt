@@ -85,7 +85,7 @@ class DebugEvidenceActivity : ComponentActivity() {
         writeAtomic(
             File(automationRoot, "automation-state.json"),
             JSONObject()
-                .put("schemaVersion", 2)
+                .put("schemaVersion", 3)
                 .put("state", "RUNNING")
                 .put("versionName", BuildConfig.VERSION_NAME)
                 .put("sourceRevision", BuildConfig.POCKETPC_SOURCE_REVISION)
@@ -134,7 +134,7 @@ class DebugEvidenceActivity : ComponentActivity() {
         copyAtomic(evidence.outputFile, exportedEvidence)
 
         val result = JSONObject()
-            .put("schemaVersion", 2)
+            .put("schemaVersion", 3)
             .put("state", "PASS")
             .put("versionName", bundle.buildIdentity.versionName)
             .put("versionCode", bundle.buildIdentity.versionCode)
@@ -161,6 +161,44 @@ class DebugEvidenceActivity : ComponentActivity() {
             .put(
                 "allFilesystemCapabilitiesPassed",
                 evidence.filesystem.allCriticalPassed,
+            )
+            .put(
+                "desktop",
+                JSONObject()
+                    .put(
+                        "orientationLandscape",
+                        evidence.orientationLandscape,
+                    )
+                    .put("screenWidthDp", evidence.screenWidthDp)
+                    .put("screenHeightDp", evidence.screenHeightDp)
+                    .put(
+                        "secondaryDisplayActivities",
+                        evidence.desktopCapabilities.secondaryDisplayActivities,
+                    )
+                    .put(
+                        "freeformWindowManagement",
+                        evidence.desktopCapabilities.freeformWindowManagement,
+                    )
+                    .put(
+                        "externalDisplayCount",
+                        evidence.desktopCapabilities.externalDisplayCount,
+                    )
+                    .put(
+                        "presentationDisplayCount",
+                        evidence.desktopCapabilities.presentationDisplayCount,
+                    )
+                    .put(
+                        "mouseCount",
+                        evidence.peripherals.mouseCount,
+                    )
+                    .put(
+                        "keyboardCount",
+                        evidence.peripherals.keyboardCount,
+                    )
+                    .put(
+                        "gamepadCount",
+                        evidence.peripherals.gamepadCount,
+                    ),
             )
             .put(
                 "filesystem",
@@ -201,7 +239,7 @@ class DebugEvidenceActivity : ComponentActivity() {
             val automationRoot = File(externalRoot, "automation-evidence")
             automationRoot.mkdirs()
             val result = JSONObject()
-                .put("schemaVersion", 2)
+                .put("schemaVersion", 3)
                 .put("state", "FAIL")
                 .put("versionName", BuildConfig.VERSION_NAME)
                 .put("sourceRevision", BuildConfig.POCKETPC_SOURCE_REVISION)
