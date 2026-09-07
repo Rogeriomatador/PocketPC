@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.BuildConfig
+import dev.pocketpc.core.desktop.DesktopCapabilitySnapshot
 import dev.pocketpc.core.runtime.DeviceEvidenceCollector
 import dev.pocketpc.core.runtime.DeviceEvidenceReport
 import dev.pocketpc.core.runtime.EvidenceBundleManager
@@ -26,6 +27,7 @@ fun SystemApp(
     storageConfigured: Boolean,
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
+    desktopCapabilities: DesktopCapabilitySnapshot,
 ) {
     val localContext = LocalContext.current
     val context = localContext.applicationContext
@@ -119,6 +121,32 @@ fun SystemApp(
             ValueRow("Linux ARM execution", "DESIGN / NOT IMPLEMENTED")
             ValueRow("Windows x86/x64", "DESIGN / PLANNED")
             ValueRow("vGPU", "DESIGN / PLANNED")
+        }
+
+        Section("Desktop / monitores") {
+            ValueRow(
+                "Activities em monitor secundario",
+                if (desktopCapabilities.secondaryDisplayActivities) {
+                    "SUPPORTED"
+                } else {
+                    "NOT ADVERTISED"
+                },
+            )
+            ValueRow(
+                "Monitores externos",
+                desktopCapabilities.externalDisplayCount.toString(),
+            )
+            ValueRow(
+                "Presentation displays",
+                desktopCapabilities.presentationDisplayCount.toString(),
+            )
+            desktopCapabilities.externalDisplays.forEach { display ->
+                ValueRow(
+                    "Display #${display.displayId}",
+                    "${display.name} • ${display.widthPx}x${display.heightPx} • " +
+                        String.format(java.util.Locale.ROOT, "%.1f Hz", display.refreshRateHz),
+                )
+            }
         }
 
         Section("Dispositivo") {
