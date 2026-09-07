@@ -64,4 +64,52 @@ class PocketPcUpdaterPolicyTest {
             )
         )
     }
+
+    @Test
+    fun autoInstallRequiresAllSafetyConditions() {
+        assertTrue(
+            shouldAutoInstallUpdate(
+                enabled = true,
+                verified = true,
+                canInstallPackages = true,
+                alreadyAttempted = false,
+            )
+        )
+    }
+
+    @Test
+    fun autoInstallRejectsUnverifiedApk() {
+        assertFalse(
+            shouldAutoInstallUpdate(
+                enabled = true,
+                verified = false,
+                canInstallPackages = true,
+                alreadyAttempted = false,
+            )
+        )
+    }
+
+    @Test
+    fun autoInstallRejectsMissingInstallerPermission() {
+        assertFalse(
+            shouldAutoInstallUpdate(
+                enabled = true,
+                verified = true,
+                canInstallPackages = false,
+                alreadyAttempted = false,
+            )
+        )
+    }
+
+    @Test
+    fun autoInstallRejectsDuplicateAttempt() {
+        assertFalse(
+            shouldAutoInstallUpdate(
+                enabled = true,
+                verified = true,
+                canInstallPackages = true,
+                alreadyAttempted = true,
+            )
+        )
+    }
 }
