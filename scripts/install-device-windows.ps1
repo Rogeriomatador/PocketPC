@@ -256,11 +256,44 @@ if (-not $AllowEmulator -and $qemu -eq "1") { throw "Emulador recusado; use -All
 if ($abis -notcontains "arm64-v8a") { throw "Device Install Gate exige arm64-v8a neste estágio." }
 
 Write-GateStep ("Instalando APK via ADB (timeout: {0}s)" -f $InstallTimeoutSeconds)
-$install = Invoke-AdbInstallWithTimeout `
-    -Adb $adb `
-    -Serial $serial `
-    -ApkPath $apkPath `
-    -TimeoutSeconds $InstallTimeoutSeconds
+if ($manufacturer -match '(?i)xiaomi') {
+    Write-Host (
+        "Xiaomi/HyperOS detectado. Observe a tela do celular agora; " +
+        "se aparecer confirmacao de instalacao via USB, autorize-a."
+    ) -ForegroundColor Yellow
+}
+else {
+    Write-Host (
+        "Observe a tela do aparelho durante a instalacao; " +
+        "autorize qualquer confirmacao de instalacao via USB se aparecer."
+    ) -ForegroundColor DarkGray
+}
+
+try {
+    $install = Invoke-AdbInstallWithTimeout `
+        -Adb $adb `
+        -Serial $serial `
+        -ApkPath $apkPath `
+        -TimeoutSeconds $InstallTimeoutSeconds
+}
+catch {
+    $installError = $_.Exception.Message
+    if (
+        $installError -match 'INSTALL_FAILED_USER_RESTRICTED' -or
+        $installError -match '(?i)user restricted' -or
+        $installError -match '(?i)install canceled by user'
+    ) {
+        throw (
+            "O Android recusou a instalacao via USB. " +
+            "No Xiaomi/HyperOS, verifique as Opcoes do desenvolvedor, " +
+            "incluindo a permissao de instalar via USB, mantenha o aparelho " +
+            "desbloqueado e aceite qualquer confirmacao exibida na tela." +
+            [Environment]::NewLine +
+            $installError
+        )
+    }
+    throw
+}
 if ($install.Text -notmatch 'Success') { throw "adb install não retornou Success." }
 
 Write-GateStep "APK instalado; verificando pacote e versão"
