@@ -188,6 +188,7 @@ def create_bundle(
             "screenHeightDp": 412,
             "secondaryDisplayActivities": True,
             "freeformWindowManagement": False,
+            "pcHardwareType": False,
             "externalDisplayCount": 0,
             "presentationDisplayCount": 0,
             "peripherals": {
