@@ -1,46 +1,41 @@
-# PocketPC — 0.1.0-alpha17
+# PocketPC — 0.1.0-alpha18
 
 PocketPC is an experimental Android desktop/runtime project with strict evidence labels.
 
-## Alpha 17 — Automatic Failure Triage
+## Alpha 18 — usable pocket desktop foundation
 
-Alpha 17 keeps the Alpha 16 one-command physical test but wraps it with automatic failure diagnostics.
+Alpha 18 begins the user-facing PC layer while preserving the evidence-gated physical pipeline.
 
-`scripts/first-physical-test-windows.ps1` is the public PowerShell entry point.
+Implemented in source:
 
-For the simplest Windows path, double-click `PocketPC-Test-Windows.bat`. It updates the repository, performs the pinned build, installs and validates the APK on the connected physical device, and leaves PocketPC open for manual testing.
+- integrated PocketPC browser window;
+- Google home/search and address navigation;
+- back, forward, reload and home controls;
+- experimental desktop-site user-agent mode;
+- Android DownloadManager integration;
+- direct Downloads entry point;
+- WebView Safe Browsing and restricted file-scheme access;
+- browser navigation unit tests;
+- per-capability physical filesystem diagnostics;
+- Alpha 17 physical install evidence retained as historical evidence.
 
-The previous Alpha 16 pipeline is preserved as:
+The browser deliberately reuses the device WebView/Chromium implementation instead of bundling a second browser engine. This reduces APK size and memory overhead on phones.
 
-`scripts/first-physical-test-core-windows.ps1`
+## Evidence state entering Alpha 18
 
-If any stage throws, the wrapper preserves the original failure and invokes:
+The Alpha 17 run on a physical Xiaomi device proved:
 
-`scripts/collect-failure-triage-windows.ps1`
+- Windows process-capture self-test: PASS;
+- strict local build: PASS;
+- preflight before/after build: PASS;
+- authorized physical ADB device: PASS;
+- APK install: PASS;
+- installed APK SHA-256 equals the validated local APK: PASS;
+- MainActivity launch: PASS;
+- filesystem critical gate: FAIL / exact capability pending detailed rerun;
+- full physical chain: INCOMPLETE.
 
-The triage pack can capture, when available:
-
-- failure stage/message;
-- exact Git commit and dirty state;
-- preflight records;
-- local build record;
-- APK signing report;
-- device-install record;
-- Activity launch output;
-- automation result;
-- device evidence JSON;
-- bundle/device-chain verification outputs;
-- physical/final validation records;
-- ADB device state;
-- package dumpsys;
-- PocketPC-only logcat when a PID exists;
-- AndroidRuntime crash-only logcat fallback;
-- activity state filtered for `dev.pocketpc.core`;
-- manufacturer/model/API/ABI/fingerprint;
-- SHA-256 of the ADB serial instead of the raw serial;
-- SHA-256 for every captured file.
-
-`triage-record.json` and its sidecar make the diagnostic pack independently verifiable.
+Therefore Alpha 18 source is not classified as physically validated until a new build/run proves it.
 
 ## Normal command
 
@@ -48,9 +43,8 @@ The triage pack can capture, when available:
 powershell -ExecutionPolicy Bypass -File .\scripts\first-physical-test-windows.ps1
 ```
 
-If it succeeds, the final token remains `POCKETPC_FIRST_PHYSICAL_TEST_OK` and the app is reopened on the phone.
-
-If it fails, a `failure-triage` directory is created automatically when possible.
+If it succeeds, the final token remains `POCKETPC_FIRST_PHYSICAL_TEST_OK`.
+If it fails, the failure-triage directory and structured evidence remain the source of truth.
 
 PRoot remains unbundled/unapproved and Linux execution remains disabled.
 
