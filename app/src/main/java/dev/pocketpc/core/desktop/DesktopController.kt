@@ -108,8 +108,43 @@ class DesktopController {
             window.copy(
                 maximized = !window.maximized,
                 minimized = false,
+                snap = WindowSnap.NONE,
                 zIndex = allocateZ(),
             )
+        }
+    }
+
+    fun snapActiveLeft() {
+        snapActive(WindowSnap.LEFT)
+    }
+
+    fun snapActiveRight() {
+        snapActive(WindowSnap.RIGHT)
+    }
+
+    fun restoreActiveSnap() {
+        activeWindow?.let { window ->
+            mutate(window.id) {
+                it.copy(
+                    snap = WindowSnap.NONE,
+                    maximized = false,
+                    minimized = false,
+                    zIndex = allocateZ(),
+                )
+            }
+        }
+    }
+
+    private fun snapActive(snap: WindowSnap) {
+        activeWindow?.let { window ->
+            mutate(window.id) {
+                it.copy(
+                    snap = snap,
+                    maximized = false,
+                    minimized = false,
+                    zIndex = allocateZ(),
+                )
+            }
         }
     }
 
