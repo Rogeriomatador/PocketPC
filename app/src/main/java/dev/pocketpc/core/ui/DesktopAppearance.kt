@@ -106,7 +106,7 @@ fun DesktopWallpaper(
     )
 
     val animatedMotion = if (preset.animated) motion else 0.35f
-    val colors = preset.colors.map(::Color)
+    val colors = preset.colors.map { argb -> Color(argb) }
 
     Box(
         modifier = modifier.background(
@@ -161,7 +161,7 @@ fun PersonalizationApp(
                             Text(preset.label)
                             Text(if (preset.animated) "ANIMADO" else "ESTATICO")
                             if (preset == selected) {
-                                Button(onClick = {}) { Text("Em uso") }
+                                Button(onClick = {}, enabled = false) { Text("Em uso") }
                             } else {
                                 OutlinedButton(onClick = { onSelect(preset) }) {
                                     Text("Aplicar")
