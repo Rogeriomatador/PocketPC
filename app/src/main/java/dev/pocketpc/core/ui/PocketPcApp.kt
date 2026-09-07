@@ -144,6 +144,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             preset = appearance.wallpaper,
             modifier = Modifier
                 .fillMaxSize()
+                .desktopSecondaryClick { desktop.openContextMenu(null) }
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
