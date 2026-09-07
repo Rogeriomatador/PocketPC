@@ -1053,7 +1053,7 @@ fun DesktopContextMenu(
                     )
                 }
             } else {
-                Text("Area de trabalho", modifier = Modifier.padding(10.dp))
+                Text("Área de trabalho", modifier = Modifier.padding(10.dp))
             }
 
             HorizontalDivider()
@@ -1061,19 +1061,19 @@ fun DesktopContextMenu(
                 onClick = { desktop.open(DesktopApp.PERSONALIZATION) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Personalizacao", modifier = Modifier.fillMaxWidth())
+                Text("Personalização", modifier = Modifier.fillMaxWidth())
             }
             TextButton(
                 onClick = { desktop.open(DesktopApp.SYSTEM) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Sistema", modifier = Modifier.fillMaxWidth())
+                Text("Este PC", modifier = Modifier.fillMaxWidth())
             }
             TextButton(
                 onClick = desktop::minimizeAll,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Mostrar area de trabalho", modifier = Modifier.fillMaxWidth())
+                Text("Mostrar área de trabalho", modifier = Modifier.fillMaxWidth())
             }
         }
     }
