@@ -12,7 +12,11 @@ class FilesystemEvidenceProbeTest {
         try {
             val result = FilesystemEvidenceProbe.run(base)
 
-            if (System.getProperty("os.name").startsWith("Windows")) {
+            if (
+                System.getProperty("os.name")
+                    .orEmpty()
+                    .startsWith("Windows", ignoreCase = true)
+            ) {
                 assumeTrue(
                     "Windows host does not permit symbolic links",
                     result.relativeSymlink.passed && result.absoluteSymlink.passed,

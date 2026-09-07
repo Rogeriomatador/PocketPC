@@ -1,8 +1,10 @@
 package dev.pocketpc.core.runtime
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.nio.file.Files
 
 class ProotInvocationPlannerTest {
@@ -23,6 +25,8 @@ class ProotInvocationPlannerTest {
             val rootfs = base.resolve("rootfs").apply { mkdirs() }
             rootfs.resolve("bin").mkdirs()
             rootfs.resolve("bin/sh").writeText("guest-data")
+            val metadata = base.resolve("metadata")
+            writeEntrypointMetadata(metadata)
             val home = base.resolve("home").apply { mkdirs() }
 
             val runtime = InstalledRuntime(
@@ -42,7 +46,7 @@ class ProotInvocationPlannerTest {
                 ),
                 directory = base,
                 rootfsData = rootfs,
-                metadataFile = base.resolve("metadata"),
+                metadataFile = metadata,
                 stats = ExtractionStats(1, 1, 0, 0, 10),
             )
             val substrate = ExecutionSubstrateStatus(
@@ -70,7 +74,7 @@ class ProotInvocationPlannerTest {
             )
 
             assertFalse(plan.ready)
-            assertTrue("EXECUTOR_NOT_ENABLED" in plan.blockers)
+            assertEquals(listOf("EXECUTOR_NOT_ENABLED"), plan.blockers)
             assertTrue(plan.argv.contains("-r"))
             assertTrue(plan.argv.contains("-b"))
             assertTrue(plan.argv.last() == "/bin/sh")
@@ -100,6 +104,8 @@ class ProotInvocationPlannerTest {
             val rootfs = base.resolve("rootfs").apply { mkdirs() }
             rootfs.resolve("bin").mkdirs()
             rootfs.resolve("bin/sh").writeText("guest-data")
+            val metadata = base.resolve("metadata")
+            writeEntrypointMetadata(metadata)
             val readonly = base.resolve("readonly").apply { mkdirs() }
 
             val runtime = InstalledRuntime(
@@ -119,7 +125,7 @@ class ProotInvocationPlannerTest {
                 ),
                 directory = base,
                 rootfsData = rootfs,
-                metadataFile = base.resolve("metadata"),
+                metadataFile = metadata,
                 stats = ExtractionStats(1, 1, 0, 0, 10),
             )
             val substrate = ExecutionSubstrateStatus(
@@ -153,5 +159,23 @@ class ProotInvocationPlannerTest {
         } finally {
             base.deleteRecursively()
         }
+    }
+
+    private fun writeEntrypointMetadata(file: File) {
+        RootfsMetadataTestUtils.write(
+            file,
+            listOf(
+                RootfsMetadataEntry(
+                    RootfsEntryType.FILE,
+                    493,
+                    0,
+                    0,
+                    10,
+                    0,
+                    "bin/sh",
+                    "",
+                )
+            ),
+        )
     }
 }
