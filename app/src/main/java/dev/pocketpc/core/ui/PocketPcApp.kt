@@ -216,7 +216,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                     modifier = Modifier.align(alignment),
                 ) {
                     when (window.app) {
-                        DesktopApp.BROWSER -> BrowserApp(browserSession)
+                        DesktopApp.BROWSER -> BrowserApp(browserSession, storage)
                         DesktopApp.FILES -> FilesApp(
                             repository = storage,
                             rootUri = storageRoot,
