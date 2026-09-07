@@ -32,8 +32,14 @@ The Alpha 17 run on a physical Xiaomi device proved:
 - APK install: PASS;
 - installed APK SHA-256 equals the validated local APK: PASS;
 - MainActivity launch: PASS;
-- filesystem critical gate: FAIL / exact capability pending detailed rerun;
-- full physical chain: INCOMPLETE.
+- relative symlink: PASS;
+- absolute symlink: PASS;
+- hardlink creation: FAIL with AccessDeniedException on the physical Android host;
+- NOFOLLOW cleanup: PASS;
+- external symlink target preservation: PASS;
+- Android host filesystem gate: PASS by Alpha 18 policy;
+- Linux/rootfs hardlink semantics: BLOCKED;
+- full Alpha 17 physical chain: INCOMPLETE under the old all-capabilities gate.
 
 Therefore Alpha 18 source is not classified as physically validated until a new build/run proves it.
 
