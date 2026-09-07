@@ -21,6 +21,12 @@
         android:label="PocketPC"
         android:supportsRtl="true"
         android:theme="@style/Theme.PocketPC">
+        <meta-data
+            android:name="dev.pocketpc.SOURCE_REVISION"
+            android:value="${pocketPcSourceRevision}" />
+        <meta-data
+            android:name="dev.pocketpc.SOURCE_REVISION_PINNED"
+            android:value="${pocketPcSourceRevisionPinned}" />
         <receiver
             android:name=".storage.PocketDownloadReceiver"
             android:exported="false">
