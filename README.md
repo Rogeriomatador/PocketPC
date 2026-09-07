@@ -40,13 +40,17 @@ Alpha 21 also introduces the first PocketPC Update Center:
 - checks the stable update feed when PocketPC starts;
 - exposes **Este PC > Atualizações**;
 - downloads APK updates through Android DownloadManager;
-- verifies HTTPS feed metadata, APK SHA-256, package name, versionCode and signing
-  certificate compatibility before enabling installation;
+- verifies HTTPS feed metadata, APK SHA-256, package name, versionCode, source revision
+  and signing-certificate compatibility before enabling installation;
+- release publication is additionally pinned to the public signing-certificate SHA-256
+  observed in the physically validated Alpha 20 evidence bundle;
 - routes unknown-source authorization through Android system settings when required;
 - schedules reliable background checks with WorkManager;
 - stages verified APKs through PackageInstaller rather than a generic file-open intent;
 - requests no-user-action installation when Android permits it;
 - falls back to the Android confirmation flow when the platform requires user action;
+- posts an update-confirmation notification when background launch restrictions could
+  otherwise hide the required Android confirmation;
 - never treats a mismatched/unverified APK as an update.
 
 The current Alpha 21 feed is intentionally `published=false`. Automatic delivery is
