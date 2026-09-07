@@ -123,15 +123,17 @@ class DesktopController {
     }
 
     fun restoreActiveSnap() {
-        activeWindow?.let { window ->
-            mutate(window.id) {
-                it.copy(
-                    snap = WindowSnap.NONE,
-                    maximized = false,
-                    minimized = false,
-                    zIndex = allocateZ(),
-                )
-            }
+        activeWindow?.let { window -> restoreSnap(window.id) }
+    }
+
+    fun restoreSnap(id: String) {
+        mutate(id) {
+            it.copy(
+                snap = WindowSnap.NONE,
+                maximized = false,
+                minimized = false,
+                zIndex = allocateZ(),
+            )
         }
     }
 
