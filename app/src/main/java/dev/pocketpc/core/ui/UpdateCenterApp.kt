@@ -346,30 +346,34 @@ fun UpdateCenterApp() {
                         return@DownloadUpdateCard
                     }
 
-                    updater.requestInstall(
-                        download
-                    )
-                        .onSuccess { result ->
-                            status =
-                                when (result) {
-                                    PocketPcInstallResult
-                                        .INSTALLER_OPENED ->
-                                        "Instalador do Android aberto."
-                                    PocketPcInstallResult
-                                        .NEEDS_UNKNOWN_SOURCE_PERMISSION ->
-                                        "Autorize o PocketPC a instalar atualizações e volte aqui."
-                                }
-                        }
-                        .onFailure { error ->
-                            status =
-                                "Falha ao abrir instalador: " +
-                                    (
-                                        error.message
-                                            ?: error
-                                                .javaClass
-                                                .simpleName
-                                        )
-                        }
+                    busy = true
+                    scope.launch {
+                        updater.requestInstall(
+                            download
+                        )
+                            .onSuccess { result ->
+                                status =
+                                    when (result) {
+                                        PocketPcInstallResult
+                                            .INSTALLER_OPENED ->
+                                            "Instalador do Android aberto."
+                                        PocketPcInstallResult
+                                            .NEEDS_UNKNOWN_SOURCE_PERMISSION ->
+                                            "Autorize o PocketPC a instalar atualizações e volte aqui."
+                                    }
+                            }
+                            .onFailure { error ->
+                                status =
+                                    "Falha ao abrir instalador: " +
+                                        (
+                                            error.message
+                                                ?: error
+                                                    .javaClass
+                                                    .simpleName
+                                            )
+                            }
+                        busy = false
+                    }
                 },
                 onClear = {
                     val manager =
