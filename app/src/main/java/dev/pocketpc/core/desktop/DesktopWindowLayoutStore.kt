@@ -8,13 +8,28 @@ data class WindowGeometry(
     val widthFraction: Float,
     val heightFraction: Float,
 ) {
-    fun sanitized(): WindowGeometry =
-        copy(
-            xFraction = xFraction.coerceIn(0f, 0.85f),
-            yFraction = yFraction.coerceIn(0f, 0.80f),
-            widthFraction = widthFraction.coerceIn(0.38f, 0.95f),
-            heightFraction = heightFraction.coerceIn(0.42f, 0.92f),
+    fun sanitized(spec: DesktopWindowSpec): WindowGeometry {
+        val width = widthFraction.coerceIn(
+            0.20f,
+            spec.maxWidthFraction,
         )
+        val height = heightFraction.coerceIn(
+            0.20f,
+            spec.maxHeightFraction,
+        )
+        return copy(
+            xFraction = xFraction.coerceIn(
+                0f,
+                (1f - width).coerceAtLeast(0f),
+            ),
+            yFraction = yFraction.coerceIn(
+                0f,
+                (1f - height).coerceAtLeast(0f),
+            ),
+            widthFraction = width,
+            heightFraction = height,
+        )
+    }
 }
 
 class DesktopWindowLayoutStore(context: Context) {
@@ -33,13 +48,19 @@ class DesktopWindowLayoutStore(context: Context) {
         return WindowGeometry(
             xFraction = preferences.getFloat("${prefix}x", 0.08f),
             yFraction = preferences.getFloat("${prefix}y", 0.10f),
-            widthFraction = preferences.getFloat("${prefix}width", 0.72f),
-            heightFraction = preferences.getFloat("${prefix}height", 0.70f),
-        ).sanitized()
+            widthFraction = preferences.getFloat(
+                "${prefix}width",
+                app.windowSpec().defaultWidthFraction,
+            ),
+            heightFraction = preferences.getFloat(
+                "${prefix}height",
+                app.windowSpec().defaultHeightFraction,
+            ),
+        ).sanitized(app.windowSpec())
     }
 
     fun save(app: DesktopApp, geometry: WindowGeometry) {
-        val value = geometry.sanitized()
+        val value = geometry.sanitized(app.windowSpec())
         val prefix = prefix(app)
         preferences.edit()
             .putFloat("${prefix}x", value.xFraction)
