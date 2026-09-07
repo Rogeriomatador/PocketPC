@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.pocketpc.core.storage.PocketDownloadRegistry
 import dev.pocketpc.core.storage.PocketDriveDirectory
 import dev.pocketpc.core.storage.PocketFileClass
 import dev.pocketpc.core.storage.PocketPcPackageRecord
@@ -78,7 +79,15 @@ fun DownloadsApp(
         while (true) {
             activeDownloads =
                 withContext(Dispatchers.IO) {
-                    queryDownloads(manager)
+                    val registeredIds =
+                        PocketDownloadRegistry(
+                            context
+                        ).ids()
+                    queryDownloads(
+                        manager = manager,
+                        allowedIds =
+                            registeredIds,
+                    )
                 }
 
             pocketFiles =
@@ -622,11 +631,21 @@ private fun DownloadRow(
 
 private fun queryDownloads(
     manager: DownloadManager,
+    allowedIds: Set<Long>,
 ): List<PocketDownload> {
+    if (allowedIds.isEmpty()) {
+        return emptyList()
+    }
+
     val result =
         mutableListOf<PocketDownload>()
+    val query =
+        DownloadManager.Query()
+            .setFilterById(
+                *allowedIds.toLongArray()
+            )
     val cursor =
-        manager.query(DownloadManager.Query())
+        manager.query(query)
 
     cursor?.use {
         val idIndex =
