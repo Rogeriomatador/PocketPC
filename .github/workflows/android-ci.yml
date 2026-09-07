@@ -125,6 +125,9 @@ jobs:
       - name: CI version evidence policy
         run: python3 scripts/test-ci-version-policy.py
 
+      - name: PocketPC update feed policy
+        run: python3 scripts/test-update-feed-policy.py
+
       - name: Parse Windows PowerShell harnesses
         shell: pwsh
         run: |
