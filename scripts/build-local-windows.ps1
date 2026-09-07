@@ -395,7 +395,8 @@ function Invoke-PythonPolicyChecks {
         "scripts\test-desktop-mode-policy.py",
         "scripts\test-desktop-enum-coverage.py",
         "scripts\test-ci-version-policy.py",
-        "scripts\test-update-feed-policy.py"
+        "scripts\test-update-feed-policy.py",
+        "scripts\test-pocketdrive-research-policy.py"
     )
 
     $oldPocketPcReadelf = $env:POCKETPC_READELF
