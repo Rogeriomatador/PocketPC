@@ -23,14 +23,19 @@
 - APK install: PASS;
 - installed APK hash: PASS;
 - MainActivity launch: PASS;
-- filesystem critical gate: FAIL / capability detail not yet captured in console;
-- complete physical chain: INCOMPLETE.
+- relative/absolute symlink: PASS;
+- hardlink: FAIL / AccessDeniedException on physical Android app-private storage;
+- NOFOLLOW cleanup: PASS;
+- external target preservation: PASS;
+- Android host filesystem gate: PASS under the Alpha 18 split policy;
+- Linux link semantics: BLOCKED until hardlink semantics are implemented without relying on denied host hardlinks;
+- Alpha 17 complete physical chain: INCOMPLETE under the previous all-capabilities gate.
 
 ### Next engineering gates
 
-1. rerun the filesystem evidence path and identify the exact failing capability;
-2. fix the filesystem implementation or classify a real platform limitation without weakening evidence;
-3. physically validate Alpha 18 browser, downloads, Files, Terminal and window behavior;
+1. physically validate the Alpha 18 split filesystem policy on the POCO;
+2. physically validate Alpha 18 browser, downloads, Files, Terminal and window behavior;
+3. design Linux hardlink semantics that do not assume Android host hardlink creation;
 4. improve desktop state persistence, window resizing, keyboard/mouse behavior and multi-window workflows;
 5. add a richer downloads/files experience inside PocketPC;
 6. only after the host-app chain is solid, continue the separately gated Linux/PRoot execution work.
