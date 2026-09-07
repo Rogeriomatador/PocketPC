@@ -3,8 +3,8 @@
   "status": "PINNED",
   "app": {
     "packageName": "dev.pocketpc.core",
-    "versionName": "0.1.0-alpha17",
-    "versionCode": 17
+    "versionName": "0.1.0-alpha18",
+    "versionCode": 18
   },
   "gradle": {
     "version": "9.6.0",
