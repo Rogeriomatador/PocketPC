@@ -9,9 +9,12 @@ import android.os.BatteryManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -87,6 +90,7 @@ fun DesktopIconsV2(
                 rowApps.forEach { app ->
                     val hoverSource = remember(app) { MutableInteractionSource() }
                     val hovered by hoverSource.collectIsHoveredAsState()
+                    val focused by hoverSource.collectIsFocusedAsState()
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -94,8 +98,19 @@ fun DesktopIconsV2(
                             .width(92.dp)
                             .pointerHoverIcon(PointerIcon.Hand)
                             .hoverable(hoverSource)
+                            .focusable(interactionSource = hoverSource)
+                            .border(
+                                width = if (focused) 2.dp else 0.dp,
+                                color =
+                                    if (focused) {
+                                        Color.White.copy(alpha = 0.85f)
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                shape = RoundedCornerShape(12.dp),
+                            )
                             .background(
-                                if (hovered) {
+                                if (hovered || focused) {
                                     Color.White.copy(alpha = 0.10f)
                                 } else {
                                     Color.Transparent
@@ -568,14 +583,26 @@ fun TaskbarV2(
                     val window = desktop.windows.firstOrNull { it.app == app }
                     val hoverSource = remember(app) { MutableInteractionSource() }
                     val hovered by hoverSource.collectIsHoveredAsState()
+                    val focused by hoverSource.collectIsFocusedAsState()
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .pointerHoverIcon(PointerIcon.Hand)
                             .hoverable(hoverSource)
+                            .focusable(interactionSource = hoverSource)
+                            .border(
+                                width = if (focused) 2.dp else 0.dp,
+                                color =
+                                    if (focused) {
+                                        Color.White.copy(alpha = 0.85f)
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                shape = RoundedCornerShape(10.dp),
+                            )
                             .background(
-                                if (hovered) {
+                                if (hovered || focused) {
                                     Color.White.copy(alpha = 0.10f)
                                 } else {
                                     Color.Transparent
