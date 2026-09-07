@@ -135,12 +135,45 @@ def main() -> int:
 
     if final.get("filesystemCriticalPassed") is not True:
         failures.append("final filesystem critical gate is not PASS")
+    if "hostFilesystemCriticalPassed" in final:
+        if final.get("hostFilesystemCriticalPassed") is not True:
+            failures.append("final host filesystem gate is not PASS")
+        if (
+            final.get("hostFilesystemCriticalPassed")
+            != final.get("filesystemCriticalPassed")
+        ):
+            failures.append("final legacy and host filesystem gates disagree")
+    if "runtimeLinkSemanticsReady" in final and not isinstance(
+        final.get("runtimeLinkSemanticsReady"),
+        bool,
+    ):
+        failures.append("final runtimeLinkSemanticsReady must be boolean")
     if final.get("nativeHostLoaded") is not True:
         failures.append("final native host gate is not PASS")
     if final.get("appOpened") is not True:
         failures.append("final app-open gate is not PASS")
     if physical_record.get("filesystemCriticalPassed") is not True:
         failures.append("physical record filesystem critical gate is not PASS")
+    if "hostFilesystemCriticalPassed" in physical_record:
+        if physical_record.get("hostFilesystemCriticalPassed") is not True:
+            failures.append("physical record host filesystem gate is not PASS")
+        if (
+            physical_record.get("hostFilesystemCriticalPassed")
+            != physical_record.get("filesystemCriticalPassed")
+        ):
+            failures.append("physical legacy and host filesystem gates disagree")
+    if "runtimeLinkSemanticsReady" in physical_record and not isinstance(
+        physical_record.get("runtimeLinkSemanticsReady"),
+        bool,
+    ):
+        failures.append("physical runtimeLinkSemanticsReady must be boolean")
+    if (
+        "runtimeLinkSemanticsReady" in final
+        and "runtimeLinkSemanticsReady" in physical_record
+        and final.get("runtimeLinkSemanticsReady")
+        != physical_record.get("runtimeLinkSemanticsReady")
+    ):
+        failures.append("final runtime link readiness differs from physical record")
     if physical_record.get("nativeHostLoaded") is not True:
         failures.append("physical record native host gate is not PASS")
     if physical_record.get("classification") != "PHYSICAL_DEVICE_CHAIN_VERIFIED":
