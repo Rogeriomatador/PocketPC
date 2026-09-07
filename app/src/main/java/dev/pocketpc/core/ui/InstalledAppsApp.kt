@@ -218,9 +218,8 @@ private fun queryLaunchableApps(context: Context): List<LaunchableAndroidApp> {
         .mapNotNull { resolved ->
             val info = resolved.activityInfo ?: return@mapNotNull null
             val label = resolved.loadLabel(context.packageManager)
-                ?.toString()
-                ?.trim()
-                .orEmpty()
+                .toString()
+                .trim()
             if (label.isBlank()) return@mapNotNull null
 
             LaunchableAndroidApp(
