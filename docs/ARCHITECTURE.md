@@ -47,3 +47,19 @@ Windows application compatibility.
 Alpha 17 physically proved APK install, installed hash equality and MainActivity launch.
 Its filesystem critical gate failed, so the complete physical chain remains INCOMPLETE.
 Alpha 18 source changes require a new physical run before any PHYSICAL PASS claim.
+
+
+## Android hardlink capability boundary
+
+Physical evidence on the current Xiaomi/Android API 36 device showed:
+
+- relative symlink: PASS;
+- absolute symlink: PASS;
+- hardlink creation: DENIED by the host with AccessDeniedException;
+- NOFOLLOW cleanup: PASS;
+- external symlink target preservation: PASS.
+
+Alpha 18 therefore separates the Android host filesystem gate from Linux/rootfs
+link-semantics readiness. The host desktop may pass without host hardlinks. Linux
+execution remains blocked until hardlink semantics are implemented and validated
+without pretending that the Android host supports Files.createLink().
