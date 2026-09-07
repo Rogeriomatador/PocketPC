@@ -1,6 +1,17 @@
 # PocketPC Roadmap
 
-## Alpha 20 — current target
+## Alpha 21 — current target
+
+### PocketDrive storage
+
+- C: private system volume for hot/runtime/cache state;
+- P: persisted user-selected PocketDrive;
+- standard desktop folder layout;
+- Explorer P: shortcuts;
+- persistent completed-download import queue;
+- streaming/transactional import into P:\Downloads;
+- PC installer vs Android package classification;
+- Alpha 20 remains the latest physically validated baseline.
 
 ### Implemented in source
 
@@ -47,7 +58,7 @@
 - external-display capability workspace;
 - task-manager-style PocketPC performance telemetry.
 
-### Required Alpha 20 gate
+### Required Alpha 21 gate
 
 1. Finish static source/policy audit.
 2. Run the complete Windows validation against the exact current HEAD.
@@ -71,7 +82,7 @@
 10. Record mouse/keyboard/gamepad/external-display evidence only when physically
     observed.
 
-Until steps 2–10 actually execute, Alpha 20 SOFTWARE/PHYSICAL remain NOT_EXECUTED.
+Until steps 2–10 actually execute, Alpha 21 SOFTWARE/PHYSICAL remain NOT_EXECUTED.
 
 ## Next desktop milestones
 
