@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.pocketpc.core.BuildConfig
 import dev.pocketpc.core.desktop.DesktopApp
 import dev.pocketpc.core.desktop.DesktopCommand
+import dev.pocketpc.core.desktop.DesktopCapabilityMonitor
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.DesktopPeripheralMonitor
 import dev.pocketpc.core.desktop.DesktopWindow
@@ -50,6 +51,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val browserSession = remember { BrowserSessionState() }
     val appearance = remember { DesktopAppearanceState(appContext) }
     val peripheralMonitor = remember { DesktopPeripheralMonitor(appContext) }
+    val capabilityMonitor = remember { DesktopCapabilityMonitor(appContext) }
     val telemetry = remember { TelemetryMonitor(appContext) }
     val storage = remember { StorageRepository(appContext) }
     val terminal = remember { LocalShellEngine(appContext) }
@@ -61,6 +63,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val systemSnapshot = remember { collectSystemSnapshot(appContext) }
     val sample by telemetry.sample.collectAsStateWithLifecycle()
     val peripherals by peripheralMonitor.state.collectAsStateWithLifecycle()
+    val desktopCapabilities by capabilityMonitor.state.collectAsStateWithLifecycle()
 
     var storageRoot by rememberSaveable { mutableStateOf(storage.rootUriString) }
     var storagePickerError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -106,9 +109,11 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     DisposableEffect(Unit) {
         telemetry.start(scope)
         peripheralMonitor.start()
+        capabilityMonitor.start()
         onDispose {
             telemetry.stop()
             peripheralMonitor.stop()
+            capabilityMonitor.stop()
         }
     }
 
@@ -170,7 +175,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             },
                         )
                         DesktopApp.TERMINAL -> TerminalApp(terminal)
-                        DesktopApp.APPS -> InstalledAppsApp()
+                        DesktopApp.APPS -> InstalledAppsApp(desktopCapabilities)
                         DesktopApp.DOWNLOADS -> DownloadsApp()
                         DesktopApp.PERSONALIZATION -> PersonalizationApp(
                             selected = appearance.wallpaper,
@@ -208,6 +213,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             storageConfigured = storageRoot != null,
                             nativeHost = nativeHost,
                             substrate = substrate,
+                            desktopCapabilities = desktopCapabilities,
                         )
                         DesktopApp.PERFORMANCE -> PerformanceApp(sample)
                     }
