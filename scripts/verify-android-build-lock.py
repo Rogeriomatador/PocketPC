@@ -59,13 +59,19 @@ def main() -> int:
         failures.append("JDK major must remain 17 for AGP 9.4 gate")
 
     compile_sdk = android.get("compileSdk")
+    platform_package = str(android.get("platformPackage", ""))
     build_tools = str(android.get("buildTools", ""))
     ndk = str(android.get("ndk", ""))
     cmake = str(android.get("cmake", ""))
 
+    if not platform_package:
+        failures.append("android.platformPackage is required")
+    elif not re.fullmatch(r"platforms;android-[A-Za-z0-9._-]+", platform_package):
+        failures.append("android.platformPackage has invalid package syntax")
+
     expected_components = {
         "platform-tools",
-        f"platforms;android-{compile_sdk}",
+        platform_package,
         f"build-tools;{build_tools}",
         f"ndk;{ndk}",
         f"cmake;{cmake}",
@@ -137,13 +143,13 @@ def main() -> int:
     require_contains(
         failures,
         android_ci,
-        f'gradle-version: '{gradle_version}'',
+        f"gradle-version: '{gradle_version}'",
         "android-ci.yml",
     )
     require_contains(
         failures,
         android_ci,
-        f'"platforms;android-{compile_sdk}"',
+        f'"{platform_package}"',
         "android-ci.yml",
     )
     require_contains(
@@ -187,6 +193,7 @@ def main() -> int:
     print(f"gradle={gradle_version}")
     print(f"gradle_sha256={gradle_sha}")
     print(f"compile_sdk={compile_sdk}")
+    print(f"platform_package={platform_package}")
     return 0
 
 
