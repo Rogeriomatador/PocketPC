@@ -275,13 +275,13 @@ if ($adb) {
                 Join-Path $OutputDir "dumpsys-package.txt"
             ) -Encoding UTF8
 
-        $pid = (Adb-Shell @(
+        $appPid = (Adb-Shell @(
             "pidof",
             $packageName
         )).Text.Trim()
 
-        if ($pid -match '^\d+$') {
-            $context.device.pocketPcPid = $pid
+        if ($appPid -match '^\d+$') {
+            $context.device.pocketPcPid = $appPid
             $logcat = Invoke-Capture $adb @(
                 "-s",
                 $selected,
@@ -289,7 +289,7 @@ if ($adb) {
                 "-d",
                 "-t",
                 "2000",
-                "--pid=$pid"
+                "--pid=$appPid"
             )
             $logcat.Text |
                 Set-Content (

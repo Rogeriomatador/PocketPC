@@ -42,11 +42,81 @@ def main() -> int:
                 f"{path.relative_to(ROOT)}: do not use $Home as a parameter; "
                 "PowerShell $HOME is a readonly automatic variable"
             )
+
+        if re.search(r"(?im)^\s*\$pid\s*=", text):
+            failures.append(
+                f"{path.relative_to(ROOT)}: do not assign to $pid; "
+                "PowerShell $PID is a readonly automatic variable"
+            )
         for number, line in enumerate(text.splitlines(), start=1):
             if LEADING_LOGICAL.search(line):
                 failures.append(
                     f"{path.relative_to(ROOT)}:{number}: "
                     "logical operator starts a continuation line"
+                )
+
+        if path.name == "first-physical-test-core-windows.ps1":
+            marker = "# POCKETPC_FIRST_PHYSICAL_TEST_CORE_EOF"
+            if text.count(marker) != 1:
+                failures.append("first physical core must contain exactly one EOF marker")
+            elif text.strip().splitlines()[-1].strip() != marker:
+                failures.append("first physical core contains content after EOF marker")
+
+            try:
+                text.encode("ascii")
+            except UnicodeEncodeError:
+                failures.append(
+                    "first physical core must remain ASCII-only for Windows PowerShell 5.1"
+                )
+
+            paren = brace = bracket = 0
+            for number, line in enumerate(text.splitlines(), start=1):
+                in_single = False
+                in_double = False
+                index = 0
+                while index < len(line):
+                    char = line[index]
+                    if not in_single and not in_double and char == "#":
+                        break
+                    if char == "'" and not in_double:
+                        if in_single and index + 1 < len(line) and line[index + 1] == "'":
+                            index += 2
+                            continue
+                        in_single = not in_single
+                        index += 1
+                        continue
+                    if char == '"' and not in_single:
+                        if index > 0 and line[index - 1] == "`":
+                            index += 1
+                            continue
+                        in_double = not in_double
+                        index += 1
+                        continue
+                    if not in_single and not in_double:
+                        if char == "(":
+                            paren += 1
+                        elif char == ")":
+                            paren -= 1
+                        elif char == "{":
+                            brace += 1
+                        elif char == "}":
+                            brace -= 1
+                        elif char == "[":
+                            bracket += 1
+                        elif char == "]":
+                            bracket -= 1
+                    index += 1
+
+                if in_single or in_double:
+                    failures.append(
+                        f"scripts/first-physical-test-core-windows.ps1:{number}: "
+                        "unclosed quoted string"
+                    )
+
+            if (paren, brace, bracket) != (0, 0, 0):
+                failures.append(
+                    "first physical core delimiter balance is not zero: "
+                    f"paren={paren} brace={brace} bracket={bracket}"
                 )
 
         if path.name == "doctor-windows.ps1":
