@@ -60,6 +60,11 @@ fun UpdateCenterApp() {
             updater.autoDownloadUnmeteredEnabled()
         )
     }
+    var autoInstall by remember {
+        mutableStateOf(
+            updater.autoInstallVerifiedEnabled()
+        )
+    }
     var unmetered by remember {
         mutableStateOf(
             updater.isUnmeteredNetwork()
@@ -277,6 +282,51 @@ fun UpdateCenterApp() {
                         },
                     )
                 }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.CenterVertically,
+                ) {
+                    Column(
+                        Modifier.weight(1f)
+                    ) {
+                        Text(
+                            "Instalar automaticamente",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodyMedium,
+                        )
+                        Text(
+                            if (
+                                updater
+                                    .canRequestPackageInstalls()
+                            ) {
+                                "Após SHA-256, pacote, revisão e assinatura passarem, o PocketPC tenta atualizar a si próprio."
+                            } else {
+                                "Ative uma vez “Permitir desta fonte”. Depois o PocketPC pode tentar instalar updates sozinho."
+                            },
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = autoInstall,
+                        onCheckedChange = { enabled ->
+                            autoInstall = enabled
+                            updater
+                                .setAutoInstallVerifiedEnabled(
+                                    enabled
+                                )
+                        },
+                    )
+                }
             }
         }
 
@@ -473,8 +523,8 @@ fun UpdateCenterApp() {
                                 status =
                                     when (result) {
                                         PocketPcInstallResult
-                                            .INSTALLER_OPENED ->
-                                            "Instalador do Android aberto."
+                                            .SESSION_COMMITTED ->
+                                            "Atualização entregue ao instalador do Android. Se a plataforma permitir, será aplicada sem outra ação."
                                         PocketPcInstallResult
                                             .NEEDS_UNKNOWN_SOURCE_PERMISSION ->
                                             "Autorize o PocketPC a instalar atualizações e volte aqui."
