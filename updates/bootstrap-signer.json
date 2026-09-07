@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "status": "PHYSICAL_BOOTSTRAP_SIGNER_PINNED",
+  "packageName": "dev.pocketpc.core",
+  "bootstrapVersionName": "0.1.0-alpha20",
+  "bootstrapVersionCode": 20,
+  "bootstrapSourceRevision": "06f01f57c0ed5cf6936be8aaa6867be042e9cdde",
+  "evidenceBundleSha256": "5b38e6a215e7eafb1cfc170a8599c58d21a5eb98203733093912e897eb5803ae",
+  "allowedSigningCertificateSha256": [
+    "1f57477603981f0bd7673f338818f47b9dbc286db02e20fe1d61bb4031f439c7"
+  ],
+  "policy": "Until an explicit signing-lineage migration is implemented and validated, update APKs must use one of these physically observed bootstrap signers."
+}
