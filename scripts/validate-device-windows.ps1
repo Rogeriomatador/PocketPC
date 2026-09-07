@@ -340,6 +340,58 @@ Pull-Required $remoteEvidence $evidencePath | Out-Null
 $deviceEvidence = Get-Content $evidencePath -Raw | ConvertFrom-Json
 
 Write-Host ""
+Write-Host "==> Desktop mode evidence" -ForegroundColor Cyan
+$desktopEvidence = $deviceEvidence.desktop
+if ($null -eq $desktopEvidence) {
+    throw "Alpha 19 desktop evidence ausente em device-evidence.json."
+}
+
+$desktopLandscape = ($desktopEvidence.orientationLandscape -eq $true)
+Write-Host (
+    "Landscape            : " +
+    $(if ($desktopLandscape) { "PASS" } else { "FAIL" })
+)
+Write-Host (
+    "Logical size         : {0}x{1} dp" -f
+    [int]$desktopEvidence.screenWidthDp,
+    [int]$desktopEvidence.screenHeightDp
+)
+Write-Host (
+    "Android freeform     : " +
+    $(if ($desktopEvidence.freeformWindowManagement -eq $true) {
+        "SUPPORTED"
+    } else {
+        "NOT_ADVERTISED"
+    })
+)
+Write-Host (
+    "Secondary activities : " +
+    $(if ($desktopEvidence.secondaryDisplayActivities -eq $true) {
+        "SUPPORTED"
+    } else {
+        "NOT_ADVERTISED"
+    })
+)
+Write-Host (
+    "External displays    : {0} (presentation={1})" -f
+    [int]$desktopEvidence.externalDisplayCount,
+    [int]$desktopEvidence.presentationDisplayCount
+)
+Write-Host (
+    "Input devices        : mouse={0}, keyboard={1}, gamepad={2}" -f
+    [int]$desktopEvidence.peripherals.mouseCount,
+    [int]$desktopEvidence.peripherals.keyboardCount,
+    [int]$desktopEvidence.peripherals.gamepadCount
+)
+
+if (-not $desktopLandscape) {
+    throw (
+        "PocketPC desktop host nao foi observado em landscape durante " +
+        "a evidence fisica."
+    )
+}
+
+Write-Host ""
 Write-Host "==> Device filesystem evidence" -ForegroundColor Cyan
 $filesystemChecks = @(
     @("relativeSymlink", "Symlink relativo"),
@@ -470,6 +522,14 @@ $physicalRecord = [ordered]@{
     filesystemCriticalPassed = [bool]$hostFilesystemPassed
     hostFilesystemCriticalPassed = [bool]$hostFilesystemPassed
     runtimeLinkSemanticsReady = [bool]$runtimeLinksReady
+    desktopOrientationLandscape = [bool]$desktopLandscape
+    desktopFreeformAdvertised = [bool]$desktopEvidence.freeformWindowManagement
+    secondaryDisplayActivitiesAdvertised = [bool]$desktopEvidence.secondaryDisplayActivities
+    externalDisplayCount = [int]$desktopEvidence.externalDisplayCount
+    presentationDisplayCount = [int]$desktopEvidence.presentationDisplayCount
+    mouseCount = [int]$desktopEvidence.peripherals.mouseCount
+    keyboardCount = [int]$desktopEvidence.peripherals.keyboardCount
+    gamepadCount = [int]$desktopEvidence.peripherals.gamepadCount
     nativeHostLoaded = [bool]$result.nativeHostLoaded
     substrateState = [string]$result.substrateState
     prootReady = [bool]$result.prootReady
@@ -531,6 +591,7 @@ Write-Host "PocketPC Physical Validation concluída." -ForegroundColor Green
 Write-Host "Classification : PHYSICAL_DEVICE_CHAIN_VERIFIED"
 Write-Host "Source commit  : $expectedCommit"
 Write-Host "Bundle SHA-256 : $bundleHash"
+Write-Host "Landscape      : $desktopLandscape"
 Write-Host "Host filesystem: $hostFilesystemPassed"
 Write-Host "Linux links    : $runtimeLinksReady"
 Write-Host "Native host    : $($result.nativeHostLoaded)"
