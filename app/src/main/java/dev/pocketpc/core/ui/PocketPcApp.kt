@@ -106,6 +106,16 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 .onSuccess {
                     storageRoot = uri.toString()
                     storagePickerError = null
+                    scope.launch {
+                        storage.ensurePocketDrive(
+                            uri.toString()
+                        )
+                            .onFailure { failure ->
+                                storagePickerError =
+                                    failure.message
+                                        ?: "Falha ao preparar o PocketDrive."
+                            }
+                    }
                 }
                 .onFailure {
                     storagePickerError = it.message ?: "Falha ao persistir a permissão da pasta."
@@ -230,7 +240,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                         )
                         DesktopApp.TERMINAL -> TerminalApp(terminal)
                         DesktopApp.APPS -> InstalledAppsApp(desktopCapabilities)
-                        DesktopApp.DOWNLOADS -> DownloadsApp()
+                        DesktopApp.DOWNLOADS -> DownloadsApp(storage, storageRoot)
                         DesktopApp.STORE -> StoreApp()
                         DesktopApp.CONTROL_CENTER -> ControlCenterApp()
                         DesktopApp.DISPLAYS -> DisplaysApp(desktopCapabilities)
