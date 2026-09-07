@@ -157,3 +157,26 @@ allow-external-apps=true
 inside `~/.termux/termux.properties`.
 
 This remains an explicit opt-in integration, not an implicit privilege path.
+
+
+## Run repository policies on the phone
+
+For source-only validation that needs no Android SDK or NDK:
+
+```bash
+bash scripts/termux-static-check.sh
+```
+
+It runs Python syntax compilation plus the repository's platform-independent
+policy/self-test scripts, including Desktop Mode, enum coverage, update feed,
+CI-version, evidence-schema and PocketDrive/research guards.
+
+A complete successful run ends with:
+
+```text
+Classification : TERMUX_STATIC_POLICY_PASS
+```
+
+This classification means only that those static repository checks passed on the
+phone. It does not compile Kotlin, run Android Lint, assemble an APK or perform a
+physical PocketPC test.
