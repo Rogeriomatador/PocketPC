@@ -162,6 +162,10 @@ def main() -> int:
             "automaticCheckIsThrottledInsideInterval",
             "automaticCheckRunsAtIntervalBoundary",
             "clockRollbackDoesNotBlockUpdatesForever",
+            "autoInstallRequiresAllSafetyConditions",
+            "autoInstallRejectsUnverifiedApk",
+            "autoInstallRejectsMissingInstallerPermission",
+            "autoInstallRejectsDuplicateAttempt",
         ),
         SYSTEM: (
             'UPDATES("Atualizações")',
