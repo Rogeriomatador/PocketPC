@@ -173,7 +173,7 @@ def main() -> int:
             "UpdateCenterApp()",
         ),
         SHELL: (
-            "PocketPcUpdateAutoCheck()",
+            "PocketPcUpdateAutoCheck(",
         ),
         MAIN_ACTIVITY: (
             "PocketPcUpdateScheduler.schedule",
