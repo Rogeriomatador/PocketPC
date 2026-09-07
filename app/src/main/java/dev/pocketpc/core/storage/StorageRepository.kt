@@ -242,7 +242,9 @@ class StorageRepository(private val context: Context) {
                 val parent =
                     resolveDirectory(directoryUri)
                 val cleanName =
-                    validateStorageName(fileName)
+                    sanitizePocketImportedFileName(
+                        fileName
+                    )
                 val finalName =
                     uniqueChildName(
                         parent,
