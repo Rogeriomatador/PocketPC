@@ -47,33 +47,30 @@ class DesktopPeripheralMonitor(context: Context) : InputManager.InputDeviceListe
         var keyboards = 0
         var gamepads = 0
 
-        InputDevice.getDeviceIds()
-            .mapNotNull { deviceId -> InputDevice.getDevice(deviceId) }
-            .filterNot { it.isVirtual }
-            .forEach { device ->
-                val sources = device.sources
-                if (
-                    (sources and InputDevice.SOURCE_MOUSE) ==
-                    InputDevice.SOURCE_MOUSE
-                ) {
-                    mice++
-                }
-                if (
-                    device.keyboardType != InputDevice.KEYBOARD_TYPE_NONE &&
-                    (sources and InputDevice.SOURCE_KEYBOARD) ==
-                    InputDevice.SOURCE_KEYBOARD
-                ) {
-                    keyboards++
-                }
-                if (
-                    (sources and InputDevice.SOURCE_GAMEPAD) ==
-                        InputDevice.SOURCE_GAMEPAD ||
-                    (sources and InputDevice.SOURCE_JOYSTICK) ==
-                        InputDevice.SOURCE_JOYSTICK
-                ) {
-                    gamepads++
-                }
+        for (deviceId in InputDevice.getDeviceIds()) {
+            val device = InputDevice.getDevice(deviceId) ?: continue
+            if (device.isVirtual) continue
+
+            val sources = device.sources
+
+            if (hasSource(sources, InputDevice.SOURCE_MOUSE)) {
+                mice++
             }
+
+            if (
+                device.keyboardType != InputDevice.KEYBOARD_TYPE_NONE &&
+                hasSource(sources, InputDevice.SOURCE_KEYBOARD)
+            ) {
+                keyboards++
+            }
+
+            if (
+                hasSource(sources, InputDevice.SOURCE_GAMEPAD) ||
+                hasSource(sources, InputDevice.SOURCE_JOYSTICK)
+            ) {
+                gamepads++
+            }
+        }
 
         return PeripheralSnapshot(
             mouseCount = mice,
@@ -81,4 +78,7 @@ class DesktopPeripheralMonitor(context: Context) : InputManager.InputDeviceListe
             gamepadCount = gamepads,
         )
     }
+
+    private fun hasSource(sources: Int, source: Int): Boolean =
+        sources.and(source) == source
 }
