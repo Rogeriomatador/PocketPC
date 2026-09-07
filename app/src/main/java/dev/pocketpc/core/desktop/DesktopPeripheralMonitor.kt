@@ -48,28 +48,28 @@ class DesktopPeripheralMonitor(context: Context) : InputManager.InputDeviceListe
         var gamepads = 0
 
         InputDevice.getDeviceIds()
-            .mapNotNull(InputDevice::getDevice)
+            .mapNotNull { deviceId -> InputDevice.getDevice(deviceId) }
             .filterNot { it.isVirtual }
             .forEach { device ->
                 val sources = device.sources
                 if (
-                    sources and InputDevice.SOURCE_MOUSE ==
+                    (sources and InputDevice.SOURCE_MOUSE) ==
                     InputDevice.SOURCE_MOUSE
                 ) {
                     mice++
                 }
                 if (
                     device.keyboardType != InputDevice.KEYBOARD_TYPE_NONE &&
-                    sources and InputDevice.SOURCE_KEYBOARD ==
+                    (sources and InputDevice.SOURCE_KEYBOARD) ==
                     InputDevice.SOURCE_KEYBOARD
                 ) {
                     keyboards++
                 }
                 if (
-                    sources and InputDevice.SOURCE_GAMEPAD ==
-                    InputDevice.SOURCE_GAMEPAD ||
-                    sources and InputDevice.SOURCE_JOYSTICK ==
-                    InputDevice.SOURCE_JOYSTICK
+                    (sources and InputDevice.SOURCE_GAMEPAD) ==
+                        InputDevice.SOURCE_GAMEPAD ||
+                    (sources and InputDevice.SOURCE_JOYSTICK) ==
+                        InputDevice.SOURCE_JOYSTICK
                 ) {
                     gamepads++
                 }
