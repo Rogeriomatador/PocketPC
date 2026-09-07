@@ -57,6 +57,71 @@ CHECKS = {
         "widthFraction",
         "heightFraction",
     ),
+    "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt": (
+        "data class BrowserTabState",
+        "mutableStateListOf",
+        "BrowserTabStrip",
+        "Nova aba",
+        "Windows NT 10.0; Win64; x64",
+        "Grid",
+        "settings.useWideViewPort",
+        "settings.loadWithOverviewMode",
+        "DownloadManager",
+    ),
+    "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt": (
+        "ExplorerSidebar",
+        "ExplorerToolbar",
+        "FileTableHeader",
+        "FileTableRow",
+        "ExplorerDetailsPane",
+        "combinedClickable",
+        "Nova pasta",
+        "Renomear",
+        "Excluir",
+        "BoxWithConstraints",
+    ),
+    "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt": (
+        "createDirectory",
+        "rename(",
+        "delete(entry",
+        "validateStorageName",
+        "takePersistableUriPermission",
+    ),
+    "app/src/test/java/dev/pocketpc/core/storage/StorageNameValidationTest.kt": (
+        "trimsValidNames",
+        "rejectsEmptyName",
+        "rejectsPathSeparator",
+        "rejectsParentTraversalName",
+    ),
+    "app/src/main/java/dev/pocketpc/core/system/SystemSnapshot.kt": (
+        "socManufacturer",
+        "socModel",
+        "totalRamBytes",
+        "availableRamBytes",
+        "displayWidthPx",
+        "displayHeightPx",
+        "refreshRateHz",
+        "batteryPercent",
+        "networkTransport",
+    ),
+    "app/src/main/java/dev/pocketpc/core/ui/SystemApp.kt": (
+        "Este PC",
+        "PcSummaryCards",
+        "PcInfoTab.OVERVIEW",
+        "PcInfoTab.HARDWARE",
+        "PcInfoTab.DESKTOP",
+        "PcInfoTab.DIAGNOSTICS",
+        "Processador",
+        "Memória",
+        "Armazenamento",
+    ),
+    "app/src/main/java/dev/pocketpc/core/ui/DownloadsApp.kt": (
+        "queryDownloads",
+        "DownloadManager.Query",
+        "STATUS_RUNNING",
+        "getUriForDownloadedFile",
+        "Gerenciador Android",
+    ),
     "app/src/main/java/dev/pocketpc/core/ui/DesktopChrome.kt": (
         "import androidx.compose.foundation.clickable",
         "awaitPointerEventScope {",
@@ -123,19 +188,27 @@ CHECKS = {
         "DesktopLaunchPolicy.plan",
         "setLaunchDisplayId",
         "setLaunchBounds",
-        "Pedir janela livre do Android",
+        "LazyVerticalGrid",
+        "GridCells.Adaptive",
         "ApplicationInfo.CATEGORY_GAME",
         "GameCompatibilityStore",
         "GameDesktopRating.entries",
-        "Voltar para aplicativos",
+        "← Aplicativos",
         "verticalScroll(rememberScrollState())",
         ".weight(1f)",
         "Perfil desktop:",
-        "entrada desktop depende do jogo",
-        "Monitor externo recusou o launch",
+        "Monitor externo recusou a abertura",
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopModels.kt": (
         "enum class WindowSnap",
+        "data class DesktopWindowSpec",
+        "fun DesktopApp.windowSpec()",
+        "defaultWidthFraction",
+        "defaultHeightFraction",
+        "minWidthDp",
+        "minHeightDp",
+        "defaultXFraction",
+        "defaultYFraction",
         "LEFT",
         "RIGHT",
         "val snap: WindowSnap = WindowSnap.NONE",
@@ -150,14 +223,16 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopWindowLayoutStore.kt": (
         "data class WindowGeometry",
-        "fun sanitized()",
-        "pocketpc-window-layout",
+        "fun sanitized(spec: DesktopWindowSpec)",
+        "pocketpc-window-layout-v2",
+        "app.windowSpec()",
         "widthFraction",
         "heightFraction",
     ),
     "app/src/test/java/dev/pocketpc/core/desktop/WindowGeometryTest.kt": (
-        "validGeometryIsPreserved",
-        "invalidGeometryIsClampedToDesktopBounds",
+        "validGeometryIsPreservedInsideAppContract",
+        "invalidGeometryIsClampedToAppAndDesktopBounds",
+        "browserAllowsFullWorkspaceGeometry",
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopPinStore.kt": (
         "pinned_apps",
@@ -318,6 +393,22 @@ def main() -> int:
                 failures.append(
                     "InstalledAppsApp must use RowScope/ColumnScope weight "
                     "without importing the internal layout.weight symbol"
+                )
+
+        if relative.endswith("BrowserApp.kt"):
+            if 'label = { Text("Endereço ou pesquisa") }' in text:
+                failures.append(
+                    "Browser address field must stay compact and label-free"
+                )
+            if 'Text(text = pageTitle' in text:
+                failures.append(
+                    "Browser must not waste a full row on page title"
+                )
+
+        if relative.endswith("PocketPcApp.kt"):
+            if ".padding(16.dp)" in text and "spec.contentPaddingDp" not in text:
+                failures.append(
+                    "Window content padding must be controlled by app spec"
                 )
 
         for sentinel in sentinels:
