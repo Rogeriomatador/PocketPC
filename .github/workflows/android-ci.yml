@@ -122,6 +122,9 @@ jobs:
       - name: Desktop Mode policy self-test
         run: python3 scripts/test-desktop-mode-policy.py
 
+      - name: CI version evidence policy
+        run: python3 scripts/test-ci-version-policy.py
+
       - name: Parse Windows PowerShell harnesses
         shell: pwsh
         run: |
