@@ -8,6 +8,7 @@ import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.InputStream
 
 class StorageRepository(private val context: Context) {
     private val prefs = context.getSharedPreferences("pocketpc-storage", Context.MODE_PRIVATE)
@@ -221,6 +222,75 @@ class StorageRepository(private val context: Context) {
             }
         }
 
+    suspend fun importIntoPocketDrive(
+        directory: PocketDriveDirectory,
+        fileName: String,
+        mimeType: String?,
+        source: InputStream,
+    ): Result<StorageEntry> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val mount =
+                    ensurePocketDrive().getOrThrow()
+                val directoryUri =
+                    requireNotNull(
+                        mount.uriFor(directory)
+                    ) {
+                        "Diretório lógico indisponível: " +
+                            directory.displayName
+                    }
+                val parent =
+                    resolveDirectory(directoryUri)
+                val cleanName =
+                    validateStorageName(fileName)
+                val finalName =
+                    uniqueChildName(
+                        parent,
+                        cleanName,
+                    )
+                val target =
+                    checkNotNull(
+                        parent.createFile(
+                            mimeType
+                                ?.takeIf {
+                                    it.isNotBlank()
+                                }
+                                ?: "application/octet-stream",
+                            finalName,
+                        )
+                    ) {
+                        "O provedor recusou criar o arquivo " +
+                            finalName
+                    }
+
+                context.contentResolver
+                    .openOutputStream(
+                        target.uri,
+                        "w",
+                    )
+                    ?.use { output ->
+                        source.copyTo(
+                            output,
+                            bufferSize = 256 * 1024,
+                        )
+                    }
+                    ?: error(
+                        "Não foi possível abrir o destino " +
+                            "para escrita."
+                    )
+
+                StorageEntry(
+                    name = target.name ?: finalName,
+                    uri = target.uri.toString(),
+                    directory = false,
+                    size = target.length(),
+                    mimeType = target.type ?: mimeType,
+                    lastModified =
+                        target.lastModified(),
+                )
+            }
+        }
+
     fun openFile(entry: StorageEntry): Result<Unit> = runCatching {
         require(!entry.directory) { "Diretórios devem ser navegados dentro do PocketPC." }
         val uri = Uri.parse(entry.uri)
@@ -234,6 +304,46 @@ class StorageRepository(private val context: Context) {
         } catch (error: ActivityNotFoundException) {
             throw IllegalStateException("Nenhum app instalado consegue abrir este tipo de arquivo.", error)
         }
+    }
+
+    private fun uniqueChildName(
+        parent: DocumentFile,
+        requested: String,
+    ): String {
+        if (parent.findFile(requested) == null) {
+            return requested
+        }
+
+        val dot = requested.lastIndexOf('.')
+        val hasExtension =
+            dot > 0 && dot < requested.lastIndex
+        val base =
+            if (hasExtension) {
+                requested.substring(0, dot)
+            } else {
+                requested
+            }
+        val extension =
+            if (hasExtension) {
+                requested.substring(dot)
+            } else {
+                ""
+            }
+
+        var index = 2
+        while (index < 10_000) {
+            val candidate =
+                "$base ($index)$extension"
+            if (parent.findFile(candidate) == null) {
+                return candidate
+            }
+            index++
+        }
+
+        error(
+            "Não foi possível gerar um nome único " +
+                "para $requested."
+        )
     }
 
     private fun resolveDirectory(uriString: String): DocumentFile {
