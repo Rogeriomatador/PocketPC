@@ -460,6 +460,16 @@ private fun DesktopWindowView(
                 ) {
                     Text(window.title, modifier = Modifier.weight(1f))
                     TextButton(
+                        onClick = { desktop.snapLeft(window.id) }
+                    ) {
+                        Text("◧")
+                    }
+                    TextButton(
+                        onClick = { desktop.snapRight(window.id) }
+                    ) {
+                        Text("◨")
+                    }
+                    TextButton(
                         onClick = { desktop.minimize(window.id) }
                     ) {
                         Text("—")
