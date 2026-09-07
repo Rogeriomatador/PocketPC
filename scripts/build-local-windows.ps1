@@ -537,6 +537,13 @@ $embeddedRevision = if ($sourceDirty) {
 
 $shortCommit = $sourceCommit.Substring(0, 12).ToLowerInvariant()
 
+Write-Step "Validando captura de processos no Windows"
+$processCaptureSelfTest = Join-Path $repoRoot "scripts\test-process-capture-windows.ps1"
+if (-not (Test-Path $processCaptureSelfTest -PathType Leaf)) {
+    throw "test-process-capture-windows.ps1 ausente."
+}
+& $processCaptureSelfTest
+
 Write-Step "Resolvendo JDK $JdkMajor"
 $javaInfo = Resolve-JavaPinned $JavaHome
 
