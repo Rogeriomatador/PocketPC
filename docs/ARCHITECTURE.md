@@ -182,7 +182,34 @@ advertisements, display counts and physical input-device counts.
 
 Alpha 21 has not yet completed this pipeline.
 
-## 9. Runtime/filesystem boundary
+## 9. Update trust chain
+
+PocketPC's self-update path is deliberately fail-closed.
+
+The stable feed lives at `updates/stable.json` and is fetched through HTTPS. Before an
+APK can be offered to Android's package installer, PocketPC verifies:
+
+- feed schema/channel/package;
+- versionCode is newer than the installed build;
+- APK SHA-256 equals the published digest;
+- archive package name equals `dev.pocketpc.core`;
+- archive versionCode equals the feed;
+- candidate signing certificate is compatible with the installed PocketPC signing
+  lineage.
+
+Android remains the authority that performs the package replacement. On ordinary
+sideloaded Android installs, the user may need to authorize PocketPC as an install
+source and confirm the installer UI.
+
+A signing private key is never stored in the repository. Server-side automatic release
+publication therefore remains blocked until a stable signing key is configured through
+a secure external secret mechanism.
+
+Alpha 21 is the updater bootstrap. The currently installed Alpha 20 cannot discover this
+new updater code by itself; Alpha 21 must be installed once through the existing
+validated host flow.
+
+## 10. Runtime/filesystem boundary
 
 On the current Xiaomi Android host, physical diagnostics established safe host
 filesystem behaviors while direct host hardlink creation was denied.
