@@ -70,7 +70,13 @@ fun SystemApp(
 
         Section("PocketPC") {
             ValueRow("Versão", BuildConfig.VERSION_NAME)
-            ValueRow("Desktop shell", "IMPLEMENTED")
+            ValueRow("Desktop shell", "IMPLEMENTED / ALPHA19")
+            ValueRow("Landscape imersivo", "IMPLEMENTED / NOT DEVICE VALIDATED")
+            ValueRow("Mouse/teclado/gamepad", "IMPLEMENTED / NOT DEVICE VALIDATED")
+            ValueRow("Launcher de apps Android", "IMPLEMENTED / NOT DEVICE VALIDATED")
+            ValueRow("Monitor externo launch", "IMPLEMENTED / NOT DEVICE VALIDATED")
+            ValueRow("Menu contextual", "IMPLEMENTED / NOT DEVICE VALIDATED")
+            ValueRow("Wallpapers animados", "IMPLEMENTED / NOT DEVICE VALIDATED")
             ValueRow("Navegador + Google", "IMPLEMENTED / NOT DEVICE VALIDATED")
             ValueRow("Downloads web", "IMPLEMENTED / NOT DEVICE VALIDATED")
             ValueRow(
@@ -84,10 +90,10 @@ fun SystemApp(
             ValueRow("NOFOLLOW cleanup", "IMPLEMENTED")
             ValueRow("Device evidence harness", "IMPLEMENTED / USER-RUN TEST")
             ValueRow("Evidence bundle", "IMPLEMENTED / EXPORTABLE")
-            ValueRow("Local Windows builder", "IMPLEMENTED / EXECUTION PENDING")
+            ValueRow("Local Windows builder", "IMPLEMENTED")
             ValueRow("Device install gate", "IMPLEMENTED / ALPHA17 PHYSICAL PASS")
-            ValueRow("Automated physical runner", "DEBUG ONLY / ALPHA17 FILESYSTEM GATE FAIL")
-            ValueRow("One-command physical test", "IMPLEMENTED / INCOMPLETE")
+            ValueRow("Automated physical runner", "DEBUG ONLY / ALPHA19 NOT_EXECUTED")
+            ValueRow("One-command physical test", "IMPLEMENTED / ALPHA19 NOT_EXECUTED")
             ValueRow("Windows preflight doctor", "IMPLEMENTED / ALPHA17 PASS")
             ValueRow("Failure triage pack", "IMPLEMENTED / AUTO ON FAILURE")
             ValueRow(
