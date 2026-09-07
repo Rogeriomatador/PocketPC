@@ -104,7 +104,19 @@ CHECKS = {
         "PocketDriveDirectory",
         "PocketFileClass.PC_INSTALLER",
         "PocketFileClass.ANDROID_PACKAGE",
+        "BACKUPS",
         "fun pocketPath",
+    ),
+    "app/src/main/java/dev/pocketpc/core/storage/PocketPcProfileBackup.kt": (
+        "PocketDriveDirectory.BACKUPS",
+        "PocketPC-profile-",
+        "pocketpc-desktop",
+        "pocketpc-window-layout-v2",
+        "pocketpc-game-compatibility",
+        "performance_hud",
+        "pinned_apps",
+        "restoreLatest",
+        "schemaVersion",
     ),
     "app/src/main/java/dev/pocketpc/core/storage/PocketDownloadBridge.kt": (
         "PocketDownloadRegistry",
@@ -119,6 +131,7 @@ CHECKS = {
         "classifiesWindowsInstallerAsPcPackage",
         "distinguishesAndroidPackage",
         "userVolumeContainsExpectedDesktopFolders",
+        '"Backups"',
     ),
     "app/src/test/java/dev/pocketpc/core/storage/StorageNameValidationTest.kt": (
         "trimsValidNames",
@@ -195,6 +208,10 @@ CHECKS = {
         "Instalar automaticamente",
         "attemptAutomaticInstall",
         "SESSION_ALREADY_PENDING",
+        "Perfil e migração",
+        "Criar backup em P:",
+        "Restaurar último",
+        "PocketPcProfileBackup",
     ),
     "updates/stable.json": (
         "\"schemaVersion\": 1",
