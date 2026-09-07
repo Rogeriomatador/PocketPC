@@ -35,7 +35,7 @@ data class WindowGeometry(
 class DesktopWindowLayoutStore(context: Context) {
     private val preferences =
         context.applicationContext.getSharedPreferences(
-            "pocketpc-window-layout",
+            "pocketpc-window-layout-v2",
             Context.MODE_PRIVATE,
         )
 
