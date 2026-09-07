@@ -14,6 +14,8 @@ on:
       - "scripts/test-pocketdrive-research-policy.py"
       - "scripts/termux-on-device-preflight.sh"
       - "updates/stable.json"
+      - "updates/bootstrap-signer.json"
+      - "scripts/verify-bootstrap-signer.py"
       - "scripts/test-powershell51-compat.py"
       - "scripts/verify-device-evidence-bundle.py"
       - "scripts/test-device-evidence-bundle-verifier.py"
