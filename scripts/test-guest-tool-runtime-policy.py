@@ -49,6 +49,12 @@ CHECKS = {
         "/opt/pocketpc/box64/bin/box64",
         "/opt/pocketpc/wine/bin/wine",
     ),
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeProbeController.kt": (
+        "RuntimeExecutionIdentity.of",
+        "RuntimeDisplayBridgeSessionFactory",
+        "RuntimeDisplayBridgeHost",
+        "POCKETPC_DISPLAY_BRIDGE_HOST_AUTH_OK",
+    ),
     "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt": (
         "guestToolPackages.stageZip",
         "guestToolInstaller.install",
@@ -77,6 +83,8 @@ def main() -> int:
         failures.append("Box64 build contains nested run argv")
     for sentinel in (
         "POCKETPC_BOX64_SMOKE_OK",
+        "POCKETPC_DISPLAY_BRIDGE_SMOKE_OK",
+        "display-bridge-smoke-x86_64",
         '"executionMode": "native-aarch64"',
         "guest-package.zip",
     ):
