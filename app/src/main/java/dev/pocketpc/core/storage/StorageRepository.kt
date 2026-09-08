@@ -9,11 +9,16 @@ import android.provider.Settings
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.InputStream
 
 class StorageRepository(private val context: Context) {
     private val prefs = context.getSharedPreferences("pocketpc-storage", Context.MODE_PRIVATE)
+
+    val volumeId: String?
+        get() = prefs.getString(KEY_DRIVE_VOLUME_ID, null)
 
     var rootUriString: String?
         get() = prefs.getString(KEY_ROOT_URI, null)
@@ -31,13 +36,22 @@ class StorageRepository(private val context: Context) {
             .getOrThrow()
 
         rootUriString = uri.toString()
+        if (oldUri != uri) {
+            prefs.edit()
+                .remove(KEY_DRIVE_SCHEMA_VERSION)
+                .remove(KEY_DRIVE_VOLUME_ID)
+                .apply()
+        }
         if (oldUri != null && oldUri != uri) releasePersistedPermission(oldUri)
     }
 
     fun clearRoot() {
         rootUriString?.let(Uri::parse)?.let(::releasePersistedPermission)
         rootUriString = null
-        prefs.edit().remove(KEY_DRIVE_SCHEMA_VERSION).apply()
+        prefs.edit()
+            .remove(KEY_DRIVE_SCHEMA_VERSION)
+            .remove(KEY_DRIVE_VOLUME_ID)
+            .apply()
     }
 
     suspend fun ensurePocketDrive(
@@ -46,60 +60,166 @@ class StorageRepository(private val context: Context) {
         },
     ): Result<PocketDriveMount> =
         withContext(Dispatchers.IO) {
-            runCatching {
-                val root = resolveDirectory(rootUri)
-                check(root.canWrite()) {
-                    "A pasta escolhida não permite escrita. " +
-                        "Escolha uma pasta gravável para o PocketDrive."
-                }
+            DRIVE_MUTEX.withLock {
+                runCatching {
+                    val root = resolveDirectory(rootUri)
+                    check(root.canWrite()) {
+                        "A pasta escolhida não permite escrita. " +
+                            "Escolha uma pasta gravável para o PocketDrive."
+                    }
 
-                val directories =
-                    PocketDriveDirectory.entries
-                        .associateWith { directory ->
-                            val existing =
-                                root.findFile(
-                                    directory.folderName
-                                )
-                            val folder =
-                                when {
-                                    existing == null ->
-                                        checkNotNull(
-                                            root.createDirectory(
-                                                directory.folderName
+                    // Existing metadata is validated before changing the
+                    // directory layout. A future/corrupt volume therefore
+                    // fails closed instead of being silently rewritten.
+                    val existingMetadata =
+                        readPocketDriveMetadata(root)
+
+                    val directories =
+                        PocketDriveDirectory.entries
+                            .associateWith { directory ->
+                                val existing =
+                                    root.findFile(
+                                        directory.folderName
+                                    )
+                                val folder =
+                                    when {
+                                        existing == null ->
+                                            checkNotNull(
+                                                root.createDirectory(
+                                                    directory.folderName
+                                                )
+                                            ) {
+                                                "Não foi possível criar " +
+                                                    directory.folderName
+                                            }
+
+                                        existing.isDirectory ->
+                                            existing
+
+                                        else ->
+                                            error(
+                                                "Existe um arquivo chamado " +
+                                                    directory.folderName +
+                                                    " onde o PocketDrive " +
+                                                    "precisa de uma pasta."
                                             )
-                                        ) {
-                                            "Não foi possível criar " +
-                                                directory.folderName
-                                        }
+                                    }
 
-                                    existing.isDirectory ->
-                                        existing
+                                folder.uri.toString()
+                            }
 
-                                    else ->
-                                        error(
-                                            "Existe um arquivo chamado " +
-                                                directory.folderName +
-                                                " onde o PocketDrive " +
-                                                "precisa de uma pasta."
-                                        )
-                                }
+                    val metadata =
+                        existingMetadata
+                            ?: createPocketDriveMetadata(root)
 
-                            folder.uri.toString()
-                        }
+                    prefs.edit()
+                        .putInt(
+                            KEY_DRIVE_SCHEMA_VERSION,
+                            metadata.schemaVersion,
+                        )
+                        .putString(
+                            KEY_DRIVE_VOLUME_ID,
+                            metadata.volumeId,
+                        )
+                        .apply()
 
-                prefs.edit()
-                    .putInt(
-                        KEY_DRIVE_SCHEMA_VERSION,
-                        POCKET_DRIVE_SCHEMA_VERSION,
+                    PocketDriveMount(
+                        rootUri = root.uri.toString(),
+                        directories = directories,
+                        metadata = metadata,
                     )
-                    .apply()
-
-                PocketDriveMount(
-                    rootUri = root.uri.toString(),
-                    directories = directories,
-                )
+                }
             }
         }
+
+    private fun readPocketDriveMetadata(
+        root: DocumentFile,
+    ): PocketDriveMetadata? {
+        val document =
+            root.findFile(POCKET_DRIVE_METADATA_FILE)
+                ?: return null
+
+        check(!document.isDirectory) {
+            "$POCKET_DRIVE_METADATA_FILE não pode ser uma pasta."
+        }
+
+        val raw =
+            context.contentResolver
+                .openInputStream(document.uri)
+                ?.bufferedReader(Charsets.UTF_8)
+                ?.use { it.readText() }
+                ?: error(
+                    "Não foi possível ler $POCKET_DRIVE_METADATA_FILE."
+                )
+
+        val decoded =
+            PocketDriveMetadata.decode(raw)
+                ?: error(
+                    "$POCKET_DRIVE_METADATA_FILE está corrompido " +
+                        "ou incompleto."
+                )
+
+        return try {
+            validatePocketDriveMetadata(decoded)
+        } catch (error: IllegalArgumentException) {
+            throw IllegalStateException(
+                "$POCKET_DRIVE_METADATA_FILE inválido: " +
+                    (error.message ?: "formato desconhecido"),
+                error,
+            )
+        }
+    }
+
+    private fun createPocketDriveMetadata(
+        root: DocumentFile,
+    ): PocketDriveMetadata {
+        readPocketDriveMetadata(root)?.let {
+            return it
+        }
+
+        val metadata = newPocketDriveMetadata()
+        var target: DocumentFile? = null
+
+        try {
+            target =
+                checkNotNull(
+                    root.createFile(
+                        "application/octet-stream",
+                        POCKET_DRIVE_METADATA_FILE,
+                    )
+                ) {
+                    "Não foi possível criar " +
+                        POCKET_DRIVE_METADATA_FILE +
+                        "."
+                }
+
+            check(
+                target.name == POCKET_DRIVE_METADATA_FILE
+            ) {
+                "O provedor alterou o nome de " +
+                    POCKET_DRIVE_METADATA_FILE +
+                    "; o PocketDrive não será ativado."
+            }
+
+            context.contentResolver
+                .openOutputStream(target.uri, "w")
+                ?.bufferedWriter(Charsets.UTF_8)
+                ?.use { writer ->
+                    writer.write(metadata.encode())
+                    writer.flush()
+                }
+                ?: error(
+                    "Não foi possível gravar " +
+                        POCKET_DRIVE_METADATA_FILE +
+                        "."
+                )
+
+            return metadata
+        } catch (error: Throwable) {
+            runCatching { target?.delete() }
+            throw error
+        }
+    }
 
     suspend fun pocketDirectoryUri(
         directory: PocketDriveDirectory,
@@ -510,5 +630,9 @@ class StorageRepository(private val context: Context) {
         private const val KEY_ROOT_URI = "root-uri"
         private const val KEY_DRIVE_SCHEMA_VERSION =
             "pocket-drive-schema-version"
+        private const val KEY_DRIVE_VOLUME_ID =
+            "pocket-drive-volume-id"
+
+        private val DRIVE_MUTEX = Mutex()
     }
 }
