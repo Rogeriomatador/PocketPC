@@ -345,7 +345,7 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/ui/WallpaperEditor.kt": (
         '"Ajustar papel de parede"',
-        '"A prévia usa a proporção atual da tela."',
+        "A prévia usa a proporção atual da tela.",
         "detectDragGestures",
         "WallpaperFitMode.CROP",
         "WallpaperFitMode.FIT",
@@ -534,6 +534,7 @@ CHECKS = {
         '"win32-compat"',
         '"graphics-bridge"',
         '"roblox-compatibility"',
+        '"Windows x64 em Android ARM64"',
         "executableReady",
     ),
     "app/src/test/java/dev/pocketpc/core/runtime/PcRuntimeReadinessTest.kt": (
@@ -546,7 +547,6 @@ CHECKS = {
         '"Compatibilidade de PC"',
         '"Ver etapas"',
         '"Ocultar etapas"',
-        '"Windows x64 em Android ARM64"',
         '"Execução de .exe continua bloqueada. "',
         '"O PocketPC não marcará Roblox/Windows "',
     ),
