@@ -123,6 +123,8 @@ CHECKS = {
         "horizontalScroll(",
         "onOpenRuntime",
         '"Ver compatibilidade"',
+        '"Corrigir nome"',
+        "sanitizePocketImportedFileName",
         '"Pesquisar nesta pasta"',
     ),
     "app/src/main/java/dev/pocketpc/core/ui/PocketPcFirstRun.kt": (
@@ -353,6 +355,9 @@ CHECKS = {
         "WallpaperFitMode.CROP",
         "WallpaperFitMode.FIT",
         "Slider(",
+        "DialogProperties(",
+        "usePlatformDefaultWidth = false",
+        ".fillMaxWidth(0.94f)",
         '"Centralizar"',
         '"Cancelar"',
         '"Aplicar"',
