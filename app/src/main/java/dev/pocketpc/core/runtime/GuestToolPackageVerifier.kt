@@ -23,7 +23,9 @@ object GuestToolPackageVerifier {
         packageRoot: File,
         manifest: GuestToolManifest,
     ): GuestToolPackageVerification {
-        val manifestErrors = GuestToolManifestValidator.errors(manifest)
+        val manifestErrors =
+            GuestToolManifestValidator.errors(manifest) +
+                GuestToolTrustPolicy.errors(manifest)
         if (manifestErrors.isNotEmpty()) {
             return GuestToolPackageVerification(
                 valid = false,
