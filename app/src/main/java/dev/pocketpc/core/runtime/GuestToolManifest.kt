@@ -79,7 +79,7 @@ object GuestToolManifestValidator {
         if (
             normalizedGuestRoot == null ||
             normalizedGuestRoot != manifest.guestRoot ||
-            !normalizedGuestRoot.startsWith("/opt/pocketpc/")
+            normalizedGuestRoot != "/opt/pocketpc/" + manifest.id
         ) {
             errors += "GUEST_TOOL_ROOT_INVALID"
         }
