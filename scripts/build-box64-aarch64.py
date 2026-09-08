@@ -139,17 +139,17 @@ def main() -> int:
     package_tests.mkdir(parents=True)
 
     run(["git", "init", str(source)], work, work / "git-init.log")
-    run([
+    run(
         ["git", "-C", str(source), "remote", "add", "origin", lock["repository"]],
         work,
         work / "git-remote.log",
     )
-    run([
+    run(
         ["git", "-C", str(source), "fetch", "--depth", "1", "origin", lock["commit"]],
         work,
         work / "git-fetch.log",
     )
-    run([
+    run(
         ["git", "-C", str(source), "checkout", "--detach", "FETCH_HEAD"],
         work,
         work / "git-checkout.log",
