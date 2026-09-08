@@ -38,6 +38,8 @@ import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimeIoCapabilityProbe
 import dev.pocketpc.core.runtime.RuntimeManifestValidator
 import dev.pocketpc.core.runtime.RuntimePackageManager
+import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
+import dev.pocketpc.core.runtime.RuntimeProbeEvidenceState
 import dev.pocketpc.core.runtime.StagedRuntime
 import dev.pocketpc.core.runtime.StagedGuestToolPackage
 import kotlinx.coroutines.launch
@@ -51,6 +53,7 @@ fun RuntimeApp(
     installer: RuntimeInstallManager,
     guestToolInstaller: GuestToolInstallManager,
     guestToolPackages: GuestToolPackageManager,
+    probeEvidenceStore: RuntimeProbeEvidenceStore,
     linkManager: RootfsLinkManager,
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
@@ -90,9 +93,10 @@ fun RuntimeApp(
     var showProbeOutput by rememberSaveable { mutableStateOf(false) }
     var pendingExecution by remember {
         mutableStateOf<
-            Pair<
+            Triple<
                 InstalledRuntime,
-                ProotInvocationPlan
+                ProotInvocationPlan,
+                GuestRuntimeProbe
             >?
         >(null)
     }
@@ -101,6 +105,9 @@ fun RuntimeApp(
     var installed by remember { mutableStateOf<List<InstalledRuntime>>(emptyList()) }
     var installedTools by remember { mutableStateOf<List<InstalledGuestTool>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
+    var evidenceRevision by remember {
+        mutableIntStateOf(0)
+    }
     var status by remember { mutableStateOf<String?>(null) }
     var showPcRuntimeStages by rememberSaveable {
         mutableStateOf(false)
