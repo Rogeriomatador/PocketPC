@@ -77,27 +77,30 @@ class RuntimeDisplayBridgeStateMachine(
                         .WINDOW_DESTROY ->
                         destroyWindow(frame)
                     RuntimeDisplayBridgeMessageType
-                        .POINTER_EVENT ->
-                        pointer(frame)
-                    RuntimeDisplayBridgeMessageType
-                        .KEY_EVENT ->
-                        key(frame)
-                    RuntimeDisplayBridgeMessageType
-                        .FRAME_PRESENTED ->
-                        framePresented(frame)
-                    RuntimeDisplayBridgeMessageType
                         .HELLO,
                     RuntimeDisplayBridgeMessageType
-                        .HELLO_ACK,
+                        .HELLO_ACK ->
+                        error(
+                            "DISPLAY_BRIDGE_HANDSHAKE_ALREADY_COMPLETE",
+                        )
                     RuntimeDisplayBridgeMessageType
                         .SURFACE_AVAILABLE,
                     RuntimeDisplayBridgeMessageType
+                        .POINTER_EVENT,
+                    RuntimeDisplayBridgeMessageType
+                        .KEY_EVENT,
+                    RuntimeDisplayBridgeMessageType
                         .GAMEPAD_EVENT,
+                    RuntimeDisplayBridgeMessageType
+                        .FRAME_PRESENTED ->
+                        error(
+                            "DISPLAY_BRIDGE_MESSAGE_DIRECTION_INVALID:" +
+                                frame.type.name,
+                        )
                     RuntimeDisplayBridgeMessageType
                         .ERROR ->
                         error(
-                            "DISPLAY_BRIDGE_MESSAGE_NOT_IMPLEMENTED:" +
-                                frame.type.name,
+                            "DISPLAY_BRIDGE_GUEST_ERROR",
                         )
                 }
 
@@ -224,71 +227,8 @@ class RuntimeDisplayBridgeStateMachine(
             )
     }
 
-    private fun pointer(
-        frame: RuntimeDisplayBridgeFrame,
-    ): RuntimeDisplayBridgeEvent {
-        requireCapability(
-            RuntimeDisplayBridgeCapabilities
-                .POINTER,
-        )
-        val event =
-            RuntimeDisplayBridgePayloadCodec
-                .decodePointerEvent(
-                    frame.payload,
-                )
-                .getOrThrow()
-        require(
-            event.windowId in windows,
-        ) {
-            "DISPLAY_BRIDGE_WINDOW_MISSING"
-        }
-        return RuntimeDisplayBridgeEvent
-            .Pointer(event)
-    }
 
-    private fun key(
-        frame: RuntimeDisplayBridgeFrame,
-    ): RuntimeDisplayBridgeEvent {
-        requireCapability(
-            RuntimeDisplayBridgeCapabilities
-                .KEYBOARD,
-        )
-        val event =
-            RuntimeDisplayBridgePayloadCodec
-                .decodeKeyEvent(
-                    frame.payload,
-                )
-                .getOrThrow()
-        require(
-            event.windowId in windows,
-        ) {
-            "DISPLAY_BRIDGE_WINDOW_MISSING"
-        }
-        return RuntimeDisplayBridgeEvent
-            .Key(event)
-    }
 
-    private fun framePresented(
-        frame: RuntimeDisplayBridgeFrame,
-    ): RuntimeDisplayBridgeEvent {
-        requireCapability(
-            RuntimeDisplayBridgeCapabilities
-                .FRAME_ACK,
-        )
-        val event =
-            RuntimeDisplayBridgePayloadCodec
-                .decodeFramePresented(
-                    frame.payload,
-                )
-                .getOrThrow()
-        require(
-            event.windowId in windows,
-        ) {
-            "DISPLAY_BRIDGE_WINDOW_MISSING"
-        }
-        return RuntimeDisplayBridgeEvent
-            .FramePresented(event)
-    }
 
     private fun requireCapability(
         capability: Int,
