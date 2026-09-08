@@ -93,8 +93,8 @@ object PcRuntimeReadinessProbe {
                     state =
                         PcRuntimeStageState.NOT_IMPLEMENTED,
                     detail =
-                        "Candidato técnico: Box64 Android/ARM64. " +
-                            "Ainda não está aprovado, empacotado ou executado pelo PocketPC.",
+                        "Box64 v0.4.4 está fixado por commit e possui build AArch64 de revisão. " +
+                            "Ainda não está integrado ao rootfs nem executado pelo PocketPC.",
                 ),
                 PcRuntimeStage(
                     id = "win32-compat",
@@ -102,7 +102,7 @@ object PcRuntimeReadinessProbe {
                     state =
                         PcRuntimeStageState.NOT_IMPLEMENTED,
                     detail =
-                        "Candidato técnico: Wine WoW64 sobre o tradutor x86_64. " +
+                        "Wine 11.0 estável está fixado por commit e possui preparação de build Win64. " +
                             "Loader PE, DLLs e APIs Win32 ainda não executam no PocketPC.",
                 ),
                 PcRuntimeStage(
@@ -119,8 +119,8 @@ object PcRuntimeReadinessProbe {
                     state =
                         PcRuntimeStageState.NOT_IMPLEMENTED,
                     detail =
-                        "Candidatos: DXVK para D3D9/10/11 e VKD3D para D3D12, " +
-                            "mas nenhuma ponte foi validada até a GPU Android.",
+                        "DXVK 3.0.2 e vkd3d-proton 3.0.1 estão fixados por commit. " +
+                            "Nenhuma ponte Direct3D foi construída ou validada até a GPU Android.",
                 ),
                 PcRuntimeStage(
                     id = "io-integration",
