@@ -167,6 +167,223 @@ int main(void) {
     return output
 
 
+def build_windows_process_smoke(work: Path) -> Path:
+    source = work / "pocketpc-process-ipc-smoke.c"
+    output = work / "pocketpc-process-ipc-smoke.exe"
+    source.write_text(
+        """#include <windows.h>
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char **argv) {
+    static const char child_message[] = "POCKETPC_WIN_PROCESS_CHILD_OK\\r\\n";
+    if (argc > 1 && strcmp(argv[1], "--child") == 0) {
+        DWORD written = 0;
+        HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (!WriteFile(out, child_message, sizeof(child_message) - 1, &written, NULL)) return 31;
+        return 37;
+    }
+
+    SECURITY_ATTRIBUTES security = { sizeof(security), NULL, TRUE };
+    HANDLE read_pipe = NULL;
+    HANDLE write_pipe = NULL;
+    if (!CreatePipe(&read_pipe, &write_pipe, &security, 0)) return 32;
+    if (!SetHandleInformation(read_pipe, HANDLE_FLAG_INHERIT, 0)) return 33;
+
+    WCHAR module[MAX_PATH];
+    if (!GetModuleFileNameW(NULL, module, MAX_PATH)) return 34;
+
+    WCHAR command[MAX_PATH + 32];
+    if (swprintf(command, MAX_PATH + 32, L"\\"%ls\\" --child", module) < 0) return 35;
+
+    STARTUPINFOW startup;
+    PROCESS_INFORMATION process;
+    ZeroMemory(&startup, sizeof(startup));
+    ZeroMemory(&process, sizeof(process));
+    startup.cb = sizeof(startup);
+    startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.hStdOutput = write_pipe;
+    startup.hStdError = write_pipe;
+    startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+
+    if (!CreateProcessW(NULL, command, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &startup, &process)) return 36;
+    CloseHandle(write_pipe);
+    write_pipe = NULL;
+
+    char buffer[256] = {0};
+    DWORD read = 0;
+    ReadFile(read_pipe, buffer, sizeof(buffer) - 1, &read, NULL);
+    WaitForSingleObject(process.hProcess, 10000);
+
+    DWORD exit_code = 0;
+    GetExitCodeProcess(process.hProcess, &exit_code);
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    CloseHandle(read_pipe);
+
+    if (exit_code != 37) return 38;
+    if (strstr(buffer, "POCKETPC_WIN_PROCESS_CHILD_OK") == NULL) return 39;
+    printf("POCKETPC_WIN_PROCESS_IPC_SMOKE_OK\\n");
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+    run(
+        [
+            "x86_64-w64-mingw32-gcc",
+            "-Os",
+            "-s",
+            "-Wl,--no-insert-timestamp",
+            "-o",
+            str(output),
+            str(source),
+        ],
+        work,
+        work / "process-ipc-smoke-build.log",
+    )
+    machine, magic = pe_machine(output)
+    if machine != 0x8664 or magic != 0x20B:
+        raise SystemExit("WINDOWS_PROCESS_SMOKE_PE_TARGET_MISMATCH")
+    return output
+
+
+def build_winsock_smoke(work: Path) -> Path:
+    source = work / "pocketpc-winsock-smoke.c"
+    output = work / "pocketpc-winsock-smoke.exe"
+    source.write_text(
+        """#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <stdio.h>
+
+int main(void) {
+    WSADATA data;
+    if (WSAStartup(MAKEWORD(2, 2), &data) != 0) return 40;
+
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
+        WSACleanup();
+        return 41;
+    }
+
+    struct addrinfo hints = {0};
+    struct addrinfo *result = NULL;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    int rc = getaddrinfo("localhost", "80", &hints, &result);
+    if (rc != 0 || result == NULL) {
+        closesocket(sock);
+        WSACleanup();
+        return 42;
+    }
+
+    freeaddrinfo(result);
+    closesocket(sock);
+    WSACleanup();
+    printf("POCKETPC_WINSOCK_SMOKE_OK\\n");
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+    run(
+        [
+            "x86_64-w64-mingw32-gcc",
+            "-Os",
+            "-s",
+            "-Wl,--no-insert-timestamp",
+            "-o",
+            str(output),
+            str(source),
+            "-lws2_32",
+        ],
+        work,
+        work / "winsock-smoke-build.log",
+    )
+    machine, magic = pe_machine(output)
+    if machine != 0x8664 or magic != 0x20B:
+        raise SystemExit("WINSOCK_SMOKE_PE_TARGET_MISMATCH")
+    return output
+
+
+def build_winmm_audio_api_smoke(work: Path) -> Path:
+    source = work / "pocketpc-winmm-audio-api-smoke.c"
+    output = work / "pocketpc-winmm-audio-api-smoke.exe"
+    source.write_text(
+        """#include <windows.h>
+#include <mmsystem.h>
+#include <stdio.h>
+
+int main(void) {
+    UINT count = waveOutGetNumDevs();
+    if (count > 0) {
+        WAVEOUTCAPSW caps;
+        MMRESULT rc = waveOutGetDevCapsW(0, &caps, sizeof(caps));
+        if (rc != MMSYSERR_NOERROR) return 50;
+    }
+    printf("POCKETPC_WINMM_AUDIO_API_OK devices=%u\\n", (unsigned)count);
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+    run(
+        [
+            "x86_64-w64-mingw32-gcc",
+            "-Os",
+            "-s",
+            "-Wl,--no-insert-timestamp",
+            "-o",
+            str(output),
+            str(source),
+            "-lwinmm",
+        ],
+        work,
+        work / "winmm-audio-api-smoke-build.log",
+    )
+    machine, magic = pe_machine(output)
+    if machine != 0x8664 or magic != 0x20B:
+        raise SystemExit("WINMM_AUDIO_SMOKE_PE_TARGET_MISMATCH")
+    return output
+
+
+def build_raw_input_api_smoke(work: Path) -> Path:
+    source = work / "pocketpc-raw-input-api-smoke.c"
+    output = work / "pocketpc-raw-input-api-smoke.exe"
+    source.write_text(
+        """#include <windows.h>
+#include <stdio.h>
+
+int main(void) {
+    UINT count = 0;
+    UINT rc = GetRawInputDeviceList(NULL, &count, sizeof(RAWINPUTDEVICELIST));
+    if (rc == (UINT)-1) return 60;
+    printf("POCKETPC_RAW_INPUT_API_OK devices=%u\\n", (unsigned)count);
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+    run(
+        [
+            "x86_64-w64-mingw32-gcc",
+            "-Os",
+            "-s",
+            "-Wl,--no-insert-timestamp",
+            "-o",
+            str(output),
+            str(source),
+            "-luser32",
+        ],
+        work,
+        work / "raw-input-api-smoke-build.log",
+    )
+    machine, magic = pe_machine(output)
+    if machine != 0x8664 or magic != 0x20B:
+        raise SystemExit("RAW_INPUT_SMOKE_PE_TARGET_MISMATCH")
+    return output
+
+
 def flatten_install_tree(source_root: Path, package_root: Path) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
     for source in sorted(source_root.rglob("*"), key=lambda p: p.as_posix()):
@@ -328,6 +545,10 @@ def main() -> int:
     records = flatten_install_tree(installed_root, package_root)
     smoke = build_win64_smoke(work)
     d3d11 = build_d3d11_smoke(work)
+    process_smoke = build_windows_process_smoke(work)
+    winsock_smoke = build_winsock_smoke(work)
+    audio_smoke = build_winmm_audio_api_smoke(work)
+    input_smoke = build_raw_input_api_smoke(work)
     smoke_relative = Path("share/tests/pocketpc-win64-smoke.exe")
     smoke_destination = package_root / smoke_relative
     smoke_destination.parent.mkdir(parents=True, exist_ok=True)
@@ -355,6 +576,39 @@ def main() -> int:
             "executable": False,
         }
     )
+
+    extra_smokes = [
+        (
+            Path("share/tests/pocketpc-process-ipc-smoke.exe"),
+            process_smoke,
+        ),
+        (
+            Path("share/tests/pocketpc-winsock-smoke.exe"),
+            winsock_smoke,
+        ),
+        (
+            Path("share/tests/pocketpc-winmm-audio-api-smoke.exe"),
+            audio_smoke,
+        ),
+        (
+            Path("share/tests/pocketpc-raw-input-api-smoke.exe"),
+            input_smoke,
+        ),
+    ]
+    for relative, source_smoke in extra_smokes:
+        destination = package_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_smoke, destination)
+        destination.chmod(0o644)
+        records.append(
+            {
+                "path": relative.as_posix(),
+                "bytes": destination.stat().st_size,
+                "sha256": sha256(destination),
+                "executable": False,
+            }
+        )
+
     records.sort(key=lambda item: str(item["path"]))
 
     guest_manifest = {
@@ -399,6 +653,22 @@ def main() -> int:
             "sha256": sha256(d3d11_destination),
             "expectedOutput": "POCKETPC_D3D11_SMOKE_OK",
         },
+        "windowsProcessIpcSmoke": {
+            "path": "share/tests/pocketpc-process-ipc-smoke.exe",
+            "expectedOutput": "POCKETPC_WIN_PROCESS_IPC_SMOKE_OK",
+        },
+        "winsockSmoke": {
+            "path": "share/tests/pocketpc-winsock-smoke.exe",
+            "expectedOutput": "POCKETPC_WINSOCK_SMOKE_OK",
+        },
+        "winmmAudioApiSmoke": {
+            "path": "share/tests/pocketpc-winmm-audio-api-smoke.exe",
+            "expectedOutput": "POCKETPC_WINMM_AUDIO_API_OK",
+        },
+        "rawInputApiSmoke": {
+            "path": "share/tests/pocketpc-raw-input-api-smoke.exe",
+            "expectedOutput": "POCKETPC_RAW_INPUT_API_OK",
+        },
         "package": {
             "fileCount": len(records),
             "manifestSha256": sha256(manifest_path),
@@ -417,6 +687,10 @@ def main() -> int:
             "Win64 smoke executable",
             "DXVK D3D11 smoke",
             "vkd3d D3D12 smoke",
+            "Windows process/IPC smoke",
+            "Winsock smoke",
+            "WinMM audio API smoke",
+            "Raw Input API smoke",
             "Roblox",
         ],
     }
