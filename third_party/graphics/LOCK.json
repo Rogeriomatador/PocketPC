@@ -10,7 +10,9 @@
     "purpose": "Direct3D 9/10/11 to Vulkan",
     "built": false,
     "wineIntegrated": false,
-    "vulkanGuestTested": false
+    "vulkanGuestTested": false,
+    "license": "Zlib",
+    "licenseEvidence": "LICENSE at pinned commit"
   },
   "vkd3dProton": {
     "version": "3.0.1",
@@ -20,7 +22,9 @@
     "purpose": "Direct3D 12 to Vulkan",
     "built": false,
     "wineIntegrated": false,
-    "vulkanGuestTested": false
+    "vulkanGuestTested": false,
+    "license": "LGPL-2.1-or-later",
+    "licenseEvidence": "LICENSE at pinned commit"
   },
   "gates": {
     "androidVulkanExposedToGuest": false,
