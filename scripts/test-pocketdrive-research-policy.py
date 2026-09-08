@@ -105,10 +105,12 @@ CHECKS = {
     "scripts/termux-on-device-preflight.sh": (
         "DIAGNOSTIC_ONLY_NOT_A_BUILD", "TERMUX_FULL_BUILD_CANDIDATE_NOT_EXECUTED",
         "TERMUX_JAVA_UI_CANDIDATE_NATIVE_BLOCKED", "TERMUX_STATIC_TEST_READY", "BLOCKED_NO_MATCHING_SIGNING_KEY",
-        "pinned_gradle=FOUND", "This script does not build, install, sign, or update PocketPC.",
+        "pinned_gradle=FOUND", "java_meets_build_minimum=", "TERMUX_NEWER_JDK_THAN_LOCK",
+        "This script does not build, install, sign, or update PocketPC.",
     ),
     "scripts/termux-bootstrap-tooling.sh": (
-        "TOOLING_INSTALL_ONLY_NOT_A_BUILD", "openjdk-17", "aapt2", "cmake", "ninja",
+        "TOOLING_INSTALL_ONLY_NOT_A_BUILD", "openjdk-21", "TERMUX_JDK_NEWER_THAN_LOCK",
+        "java_meets_agp_minimum=true", "aapt2", "cmake", "ninja",
         "distributionSha256", "GRADLE_SHA256_MISMATCH", "TERMUX_BASE_TOOLING_INSTALLED",
         "This bootstrap does not install Android SDK platform 37 or an NDK host toolchain.",
     ),
