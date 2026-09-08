@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -56,6 +58,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun WallpaperEditorDialog(
     uri: String,
@@ -365,7 +368,7 @@ internal fun WallpaperEditorDialog(
                         valueRange = 1f..3f,
                     )
 
-                    Row(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement =
                             Arrangement.spacedBy(8.dp),
@@ -379,13 +382,13 @@ internal fun WallpaperEditorDialog(
                                         offsetY = 0f,
                                     )
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.heightIn(min = 48.dp),
                         ) {
                             Text("Centralizar")
                         }
                         OutlinedButton(
                             onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.heightIn(min = 48.dp),
                         ) {
                             Text("Cancelar")
                         }
@@ -396,7 +399,7 @@ internal fun WallpaperEditorDialog(
                                 )
                             },
                             enabled = bitmap != null,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.heightIn(min = 48.dp),
                         ) {
                             Text("Aplicar")
                         }

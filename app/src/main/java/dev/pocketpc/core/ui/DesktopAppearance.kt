@@ -10,6 +10,17 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
@@ -476,6 +487,7 @@ internal fun decodeWallpaperBitmap(
         requireNotNull(bitmap).asImageBitmap()
     }.getOrNull()
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PersonalizationApp(
     selected: WallpaperPreset,
@@ -495,34 +507,20 @@ fun PersonalizationApp(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Personalizacao")
-        Text(
-            "Escolha o visual do desktop. Os presets animados se movem sem " +
-                "usar video em segundo plano."
-        )
-
+        Text("Personalização", style = MaterialTheme.typography.titleMedium)
         Text("Tema")
-        Row(
-            modifier = Modifier.fillMaxWidth(),
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             DesktopThemeMode.entries.forEach { mode ->
-                if (mode == themeMode) {
-                    Button(
-                        onClick = {},
-                        enabled = false,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(mode.label)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = { onThemeSelect(mode) },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(mode.label)
-                    }
-                }
+                FilterChip(
+                    selected = mode == themeMode,
+                    onClick = { onThemeSelect(mode) },
+                    label = { Text(mode.label) },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                )
             }
         }
 
@@ -531,7 +529,7 @@ fun PersonalizationApp(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("HUD de desempenho")
+            Text("HUD de desempenho", modifier = Modifier.weight(1f))
             Switch(
                 checked = showPerformanceHud,
                 onCheckedChange = onPerformanceHudChange,
@@ -540,48 +538,22 @@ fun PersonalizationApp(
 
         Text("Papel de parede")
 
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Button(
-                onClick = onChooseCustom,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Escolher imagem")
-            }
-            OutlinedButton(
-                onClick = onClearCustom,
-                enabled = customUri != null,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Usar preset")
+            Button(onClick = onChooseCustom) { Text("Escolher imagem") }
+            if (customUri != null) {
+                OutlinedButton(onClick = onEditCustom) { Text("Ajustar enquadramento") }
+                OutlinedButton(onClick = onClearCustom) { Text("Usar padrão") }
             }
         }
-
-        customUri?.let {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                tonalElevation = 2.dp,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(10.dp),
-                    horizontalArrangement =
-                        Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        "Imagem personalizada em uso"
-                    )
-                    OutlinedButton(
-                        onClick = onEditCustom,
-                    ) {
-                        Text("Ajustar enquadramento")
-                    }
-                }
-            }
-        }
+        Text(
+            if (customUri != null) "Imagem personalizada em uso" else "Toque em uma opção para aplicar.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         val solidPresets =
             WallpaperPreset.entries.filter {
@@ -633,72 +605,56 @@ private fun WallpaperPresetGrid(
     customUri: String?,
     onSelect: (WallpaperPreset) -> Unit,
 ) {
-    presets.chunked(2).forEach { row ->
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.spacedBy(10.dp),
-        ) {
-            row.forEach { preset ->
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    tonalElevation =
-                        if (preset == selected) {
-                            8.dp
-                        } else {
-                            2.dp
-                        },
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // Measure the app window, and allow labels to grow with the system font.
+        val minimumTileWidth = 156.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
+        val columns = ((maxWidth + 8.dp) / (minimumTileWidth + 8.dp)).toInt().coerceIn(1, 4)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            presets.chunked(columns).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().selectableGroup(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(10.dp),
-                        verticalArrangement =
-                            Arrangement.spacedBy(8.dp),
-                    ) {
-                        DesktopWallpaper(
-                            preset = preset,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(88.dp),
-                        )
-                        Text(preset.label)
-                        Text(
-                            when {
-                                preset.animated ->
-                                    "ANIMADO"
-                                preset.colors
-                                    .distinct()
-                                    .size == 1 ->
-                                    "SÓLIDO"
-                                else ->
-                                    "ESTÁTICO"
-                            }
-                        )
-                        if (
-                            preset == selected &&
-                            customUri == null
+                    row.forEach { preset ->
+                        val inUse = preset == selected && customUri == null
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (inUse) MaterialTheme.colorScheme.secondaryContainer
+                                else MaterialTheme.colorScheme.surfaceContainerLow,
+                            border = BorderStroke(
+                                if (inUse) 2.dp else 1.dp,
+                                if (inUse) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outlineVariant,
+                            ),
                         ) {
-                            Button(
-                                onClick = {},
-                                enabled = false,
+                            Row(
+                                modifier = Modifier
+                                    .selectable(selected = inUse, role = Role.RadioButton,
+                                        onClick = { onSelect(preset) })
+                                    .heightIn(min = 64.dp)
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Text("Em uso")
-                            }
-                        } else {
-                            OutlinedButton(
-                                onClick = {
-                                    onSelect(preset)
+                                // A static swatch avoids running every animated preset at once.
+                                Surface(shape = RoundedCornerShape(8.dp)) {
+                                    DesktopWallpaper(preset = preset, animationEnabled = false,
+                                        modifier = Modifier.size(36.dp))
                                 }
-                            ) {
-                                Text("Aplicar")
+                                Column(Modifier.weight(1f)) {
+                                    Text(preset.label, style = MaterialTheme.typography.bodyMedium)
+                                    if (inUse || preset.animated) {
+                                        Text(if (inUse) "Em uso" else "Animado",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
                             }
                         }
                     }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
-            }
-
-            if (row.size == 1) {
-                Spacer(Modifier.weight(1f))
             }
         }
     }

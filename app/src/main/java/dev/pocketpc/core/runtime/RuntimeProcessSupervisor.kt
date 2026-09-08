@@ -46,19 +46,21 @@ class RuntimeProcessSupervisor {
             require(spec.timeoutMillis in 1_000L..300_000L)
             require(spec.maxOutputBytes in 1024..(16 * 1024 * 1024))
 
-            synchronized(this@RuntimeProcessSupervisor) {
-                check(active == null) { "Já existe um processo supervisionado ativo." }
-            }
-
             val process = runCatching {
-                ProcessBuilder(spec.argv)
-                    .directory(spec.workingDirectory)
-                    .redirectErrorStream(true)
-                    .apply {
-                        environment().clear()
-                        environment().putAll(spec.environment)
-                    }
-                    .start()
+                // Reserve and publish under the same lock: two callers must never
+                // both start a process while active is still null.
+                synchronized(this@RuntimeProcessSupervisor) {
+                    check(active == null) { "Já existe um processo supervisionado ativo." }
+                    ProcessBuilder(spec.argv)
+                        .directory(spec.workingDirectory)
+                        .redirectErrorStream(true)
+                        .apply {
+                            environment().clear()
+                            environment().putAll(spec.environment)
+                        }
+                        .start()
+                        .also { active = it }
+                }
             }.getOrElse {
                 return@withContext ProcessRunResult(
                     started = false,
@@ -70,9 +72,9 @@ class RuntimeProcessSupervisor {
                 )
             }
 
-            synchronized(this@RuntimeProcessSupervisor) { active = process }
-
             try {
+                // One-shot probes have no interactive input; signal EOF immediately.
+                process.outputStream.close()
                 coroutineScope {
                     val capturedDeferred = async(Dispatchers.IO) {
                         drainCapped(process.inputStream, spec.maxOutputBytes)
@@ -97,6 +99,10 @@ class RuntimeProcessSupervisor {
                     )
                 }
             } finally {
+                if (process.isAlive) process.destroyForcibly()
+                runCatching { process.outputStream.close() }
+                runCatching { process.inputStream.close() }
+                runCatching { process.errorStream.close() }
                 synchronized(this@RuntimeProcessSupervisor) {
                     if (active === process) active = null
                 }
