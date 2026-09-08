@@ -114,14 +114,14 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
     Column(Modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
             Row(
-                Modifier.fillMaxWidth().height(34.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
+                Modifier.fillMaxWidth().height(30.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 session.tabs.forEach { tab ->
                     val active = tab.id == session.activeTabId
                     Surface(
-                        Modifier.widthIn(min = 110.dp, max = 220.dp).height(30.dp).clickable { loadTab(tab) },
+                        Modifier.widthIn(min = 104.dp, max = 210.dp).height(28.dp).clickable { loadTab(tab) },
                         shape = RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp),
                         color = if (active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
                     ) {
@@ -137,11 +137,11 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
                                         if (restored == null) { view.clearHistory(); view.loadUrl(session.activeTab.url) }
                                     }
                                 }
-                            }, modifier = Modifier.size(28.dp), contentPadding = PaddingValues(0.dp)) { Text("×", fontSize = 12.sp) }
+                            }, modifier = Modifier.size(24.dp), contentPadding = PaddingValues(0.dp)) { Text("×", fontSize = 12.sp) }
                         }
                     }
                 }
-                TextButton(onClick = { saveState(); loadTab(session.newTab()) }, modifier = Modifier.size(30.dp), contentPadding = PaddingValues(0.dp)) { Text("+", fontSize = 16.sp) }
+                TextButton(onClick = { saveState(); loadTab(session.newTab()) }, modifier = Modifier.size(26.dp), contentPadding = PaddingValues(0.dp)) { Text("+", fontSize = 15.sp) }
             }
         }
 
@@ -154,7 +154,7 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
                         .fillMaxWidth()
                         .padding(
                             horizontal = 5.dp,
-                            vertical = 4.dp,
+                            vertical = 2.dp,
                         ),
                     verticalArrangement =
                         Arrangement.spacedBy(3.dp),
@@ -193,8 +193,8 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
                             modifier = Modifier
                                 .weight(1f)
                                 .heightIn(
-                                    min = 42.dp,
-                                    max = 46.dp,
+                                    min = 36.dp,
+                                    max = 40.dp,
                                 ),
                             singleLine = true,
                             placeholder = {
@@ -366,18 +366,6 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
                                     )
                                 }
                             }
-                            Text(
-                                "Modo touch",
-                                modifier =
-                                    Modifier.padding(
-                                        start = 4.dp
-                                    ),
-                                fontSize = 9.sp,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                            )
                         }
                     }
                 }
@@ -449,12 +437,39 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
 }
 
 @Composable
-private fun BrowserNavButton(label: String, wide: Boolean = false, onClick: () -> Unit) {
-    OutlinedButton(
+private fun BrowserNavButton(
+    label: String,
+    wide: Boolean = false,
+    onClick: () -> Unit,
+) {
+    TextButton(
         onClick = onClick,
-        modifier = Modifier.height(40.dp).widthIn(min = if (wide) 48.dp else 40.dp),
-        contentPadding = PaddingValues(horizontal = if (wide) 8.dp else 4.dp, vertical = 0.dp),
-    ) { Text(label, fontSize = 12.sp, maxLines = 1) }
+        modifier = Modifier
+            .height(34.dp)
+            .widthIn(
+                min =
+                    if (wide) {
+                        42.dp
+                    } else {
+                        32.dp
+                    }
+            ),
+        contentPadding = PaddingValues(
+            horizontal =
+                if (wide) {
+                    6.dp
+                } else {
+                    2.dp
+                },
+            vertical = 0.dp,
+        ),
+    ) {
+        Text(
+            label,
+            fontSize = 12.sp,
+            maxLines = 1,
+        )
+    }
 }
 
 internal fun browserTarget(raw: String): String {
