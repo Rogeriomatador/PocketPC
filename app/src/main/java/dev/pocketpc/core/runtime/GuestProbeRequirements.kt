@@ -11,8 +11,19 @@ object GuestProbeRequirements {
                 emptySet()
             GuestRuntimeProbe.BOX64_SMOKE ->
                 setOf("box64")
-            GuestRuntimeProbe.WINE_SMOKE ->
+            GuestRuntimeProbe.WINE_SMOKE,
+            GuestRuntimeProbe.D3D11_SMOKE ->
                 setOf("box64", "wine")
+        }
+
+    fun requiredWindowsLayerIds(
+        probe: GuestRuntimeProbe,
+    ): Set<String> =
+        when (probe) {
+            GuestRuntimeProbe.D3D11_SMOKE ->
+                setOf("dxvk")
+            else ->
+                emptySet()
         }
 
     fun blockers(
