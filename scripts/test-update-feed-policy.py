@@ -268,7 +268,7 @@ def main() -> int:
             "POCKETPC_UPDATE_BOOTSTRAP_OK",
             "POCKETPC_UPDATE_BOOTSTRAP_FAILED",
             "updates\\bootstrap-signer.json",
-            "Signer físico: PASS",
+            "Signer fisico: PASS",
             "POCKETPC_SIGNING_KEYSTORE_BASE64",
             "POCKETPC_SIGNING_STORE_PASSWORD",
             "POCKETPC_SIGNING_KEY_ALIAS",
