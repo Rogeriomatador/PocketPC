@@ -80,7 +80,7 @@ CHECKS = {
         "settings.loadWithOverviewMode",
         "compactToolbar",
         "maxWidth < 700.dp",
-        ""Modo touch"",
+        '"Modo touch"',
         "DownloadManager",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt": (
@@ -102,7 +102,7 @@ CHECKS = {
         "compactExplorer",
         "maxWidth < 680.dp",
         "maxWidth >= 980.dp",
-        ""Pesquisar nesta pasta"",
+        '"Pesquisar nesta pasta"',
     ),
     "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt": (
         "ensurePocketDrive",
@@ -248,7 +248,7 @@ CHECKS = {
         "taskbarHeight",
         "taskIconSize",
         "menuWidth",
-        ""Toque e segure para opções"",
+        '"Toque e segure para opções"',
         "PocketPcStartButton",
         "PocketPcStartLogo",
         "StartMenuV2",
