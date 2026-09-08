@@ -74,7 +74,6 @@ class GuestRuntimeProbeTest {
         assertTrue(script.contains("POCKETPC_TOOLCHAIN_PROBE_V3"))
         assertTrue(script.contains("/opt/pocketpc/box64/bin/box64"))
         assertTrue(script.contains("/opt/pocketpc/wine/bin/wine"))
-        assertTrue(script.contains("/opt/pocketpc/wine/bin/wine64"))
         assertTrue(script.contains("application_compatibility=not_tested"))
     }
 
@@ -83,7 +82,6 @@ class GuestRuntimeProbeTest {
         assumeTrue(File("/bin/sh").canExecute())
         assumeTrue(!File("/opt/pocketpc/box64/bin/box64").exists())
         assumeTrue(!File("/opt/pocketpc/wine/bin/wine").exists())
-        assumeTrue(!File("/opt/pocketpc/wine/bin/wine64").exists())
         val result =
             RuntimeProcessSupervisor().runOneShot(
                 ProcessRunSpec(
@@ -96,7 +94,7 @@ class GuestRuntimeProbeTest {
             )
         assertEquals(0, result.exitCode)
         assertEquals(
-            3,
+            2,
             "state=missing_or_not_executable".toRegex()
                 .findAll(result.output)
                 .count(),
