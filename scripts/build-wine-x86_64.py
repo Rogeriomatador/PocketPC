@@ -105,6 +105,67 @@ int main(void) {
     return output
 
 
+def build_d3d11_smoke(work: Path) -> Path:
+    source = work / "pocketpc-d3d11-smoke.c"
+    output = work / "pocketpc-d3d11-smoke.exe"
+    source.write_text(
+        """#include <windows.h>
+#include <d3d11.h>
+#include <stdio.h>
+
+int main(void) {
+    D3D_FEATURE_LEVEL requested[] = { D3D_FEATURE_LEVEL_11_0 };
+    D3D_FEATURE_LEVEL obtained = 0;
+    ID3D11Device *device = NULL;
+    ID3D11DeviceContext *context = NULL;
+    HRESULT hr = D3D11CreateDevice(
+        NULL,
+        D3D_DRIVER_TYPE_HARDWARE,
+        NULL,
+        0,
+        requested,
+        1,
+        D3D11_SDK_VERSION,
+        &device,
+        &obtained,
+        &context
+    );
+    if (FAILED(hr)) {
+        printf("POCKETPC_D3D11_SMOKE_FAILED hr=0x%08lx\\n", (unsigned long)hr);
+        return 20;
+    }
+    printf("POCKETPC_D3D11_SMOKE_OK feature=0x%x\\n", (unsigned)obtained);
+    if (context) ID3D11DeviceContext_Release(context);
+    if (device) ID3D11Device_Release(device);
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+    run(
+        [
+            "x86_64-w64-mingw32-gcc",
+            "-Os",
+            "-s",
+            "-Wl,--no-insert-timestamp",
+            "-o",
+            str(output),
+            str(source),
+            "-ld3d11",
+            "-ldxgi",
+        ],
+        work,
+        work / "d3d11-smoke-build.log",
+    )
+    machine, magic = pe_machine(output)
+    if machine != 0x8664 or magic != 0x20B:
+        raise SystemExit(
+            "D3D11_SMOKE_PE_TARGET_MISMATCH "
+            f"machine=0x{machine:04x} optional=0x{magic:04x}"
+        )
+    return output
+
+
 def flatten_install_tree(source_root: Path, package_root: Path) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
     for source in sorted(source_root.rglob("*"), key=lambda p: p.as_posix()):
@@ -241,7 +302,6 @@ def main() -> int:
         "--without-v4l2",
         "--without-opencl",
         "--without-opengl",
-        "--without-vulkan",
     ]
     run(configure, build, work / "configure.log", common_env)
     run(["make", "-j2"], build, work / "make.log", common_env)
@@ -266,6 +326,7 @@ def main() -> int:
 
     records = flatten_install_tree(installed_root, package_root)
     smoke = build_win64_smoke(work)
+    d3d11 = build_d3d11_smoke(work)
     smoke_relative = Path("share/tests/pocketpc-win64-smoke.exe")
     smoke_destination = package_root / smoke_relative
     smoke_destination.parent.mkdir(parents=True, exist_ok=True)
@@ -276,6 +337,20 @@ def main() -> int:
             "path": smoke_relative.as_posix(),
             "bytes": smoke_destination.stat().st_size,
             "sha256": sha256(smoke_destination),
+            "executable": False,
+        }
+    )
+
+    d3d11_relative = Path("share/tests/pocketpc-d3d11-smoke.exe")
+    d3d11_destination = package_root / d3d11_relative
+    d3d11_destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(d3d11, d3d11_destination)
+    d3d11_destination.chmod(0o644)
+    records.append(
+        {
+            "path": d3d11_relative.as_posix(),
+            "bytes": d3d11_destination.stat().st_size,
+            "sha256": sha256(d3d11_destination),
             "executable": False,
         }
     )
@@ -318,6 +393,11 @@ def main() -> int:
             "sha256": sha256(smoke_destination),
             "expectedOutput": "POCKETPC_WIN64_SMOKE_OK",
         },
+        "d3d11Smoke": {
+            "path": d3d11_relative.as_posix(),
+            "sha256": sha256(d3d11_destination),
+            "expectedOutput": "POCKETPC_D3D11_SMOKE_OK",
+        },
         "package": {
             "fileCount": len(records),
             "manifestSha256": sha256(manifest_path),
@@ -334,7 +414,8 @@ def main() -> int:
             "Wine under Box64",
             "wineboot prefix creation",
             "Win64 smoke executable",
-            "DXVK/vkd3d",
+            "DXVK D3D11 smoke",
+            "vkd3d D3D12 smoke",
             "Roblox",
         ],
     }
