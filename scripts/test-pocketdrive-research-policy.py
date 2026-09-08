@@ -51,7 +51,7 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DownloadsApp.kt": (
         "Programas de PC detectados", "PocketPcPackageRegistry",
-        "RUNTIME_REQUIRED", "Runtime necessário",
+        "RUNTIME_REQUIRED", "Ver compatibilidade", "PcApplicationTarget",
         "PocketDownloadImporter.importReady", "PocketDriveDirectory.DOWNLOADS",
         "DownloadManager.STATUS_SUCCESSFUL", ").remove(item.id)",
         "Concluído / importando", "Download removido do PocketPC",
