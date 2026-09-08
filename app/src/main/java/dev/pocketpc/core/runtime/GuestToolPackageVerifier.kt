@@ -135,7 +135,7 @@ object GuestToolPackageVerifier {
             candidate.inputStream().buffered().use {
                 Sha256.digest(
                     input = it,
-                    maxBytes = item.bytes,
+                    maxBytes = maxOf(1L, item.bytes),
                 )
             }
         if (digest.sha256 != item.sha256) {
