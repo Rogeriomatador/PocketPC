@@ -40,6 +40,7 @@ fun FilesApp(
     pickerError: String?,
     onChooseStorage: () -> Unit,
     onDisconnectStorage: () -> Unit,
+    onOpenRuntime: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current.applicationContext
@@ -155,12 +156,8 @@ fun FilesApp(
 
         when (classifyPocketFile(entry.name)) {
             PocketFileClass.PC_INSTALLER -> {
-                error =
-                    "Instalador de PC detectado: " +
-                        entry.name +
-                        ". O arquivo está armazenado no PocketDrive, " +
-                        "mas a execução Windows ainda depende do " +
-                        "runtime de compatibilidade."
+                error = null
+                onOpenRuntime()
             }
 
             else ->
