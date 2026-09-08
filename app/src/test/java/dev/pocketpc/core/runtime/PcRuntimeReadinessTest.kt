@@ -183,6 +183,7 @@ class PcRuntimeReadinessTest {
                         box64SmokePassed = true,
                         wineSmokePassed = true,
                     ),
+                windowsStateReady = true,
             )
 
         assertEquals(
@@ -195,6 +196,12 @@ class PcRuntimeReadinessTest {
             PcRuntimeStageState.READY,
             result.stages.single {
                 it.id == "win32-compat"
+            }.state,
+        )
+        assertEquals(
+            PcRuntimeStageState.READY,
+            result.stages.single {
+                it.id == "windows-state"
             }.state,
         )
         assertEquals(
