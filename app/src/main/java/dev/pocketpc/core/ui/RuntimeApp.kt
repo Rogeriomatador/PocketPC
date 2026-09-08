@@ -18,7 +18,6 @@ import dev.pocketpc.core.runtime.PcRuntimeExecutionPlanner
 import dev.pocketpc.core.runtime.PcRuntimeReadinessProbe
 import dev.pocketpc.core.runtime.PcRuntimeStageState
 import dev.pocketpc.core.runtime.ProotExecutionController
-import dev.pocketpc.core.runtime.ProotExecutionState
 import dev.pocketpc.core.runtime.ProotInvocationPlan
 import dev.pocketpc.core.runtime.ProotInvocationPlanner
 import dev.pocketpc.core.runtime.RootfsLinkManager
