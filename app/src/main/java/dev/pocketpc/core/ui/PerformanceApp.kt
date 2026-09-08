@@ -1,5 +1,7 @@
 package dev.pocketpc.core.ui
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -15,6 +17,7 @@ import dev.pocketpc.core.telemetry.thermalHeadroomHint
 import dev.pocketpc.core.telemetry.thermalStatusLabel
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PerformanceApp(
     sample: TelemetrySample,
@@ -52,7 +55,7 @@ fun PerformanceApp(
             ).coerceIn(0f, 1f)
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement =
             Arrangement.spacedBy(10.dp),
     ) {
@@ -65,7 +68,7 @@ fun PerformanceApp(
                 Text(
                     "Desempenho",
                     style =
-                        MaterialTheme.typography.titleLarge,
+                        MaterialTheme.typography.titleMedium,
                 )
                 Text(
                     "Telemetria do host PocketPC",
@@ -88,8 +91,10 @@ fun PerformanceApp(
             )
         }
 
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
+            maxItemsInEachRow = if (LocalAppViewport.current.widthDp < 500f) 1 else 3,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement =
                 Arrangement.spacedBy(8.dp),
         ) {
@@ -213,7 +218,7 @@ fun PerformanceApp(
             }
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(8.dp))
 
         Text(
             "As métricas acima medem o processo e a UI do PocketPC. " +

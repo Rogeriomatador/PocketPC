@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -19,7 +21,7 @@ fun ControlCenterApp() {
     val context = LocalContext.current
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
@@ -29,7 +31,7 @@ fun ControlCenterApp() {
             Column(Modifier.weight(1f)) {
                 Text(
                     "Central de Controle",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
                     "Acesso rápido aos controles do sistema",
@@ -107,7 +109,7 @@ fun ControlCenterApp() {
             context = context,
         )
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(8.dp))
 
         OutlinedButton(
             onClick = {
@@ -172,7 +174,7 @@ private fun QuickSettingTile(
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
+        modifier = modifier.heightIn(min = 56.dp),
         shape = RoundedCornerShape(12.dp),
         contentPadding = PaddingValues(
             horizontal = 10.dp,
@@ -185,13 +187,11 @@ private fun QuickSettingTile(
         ) {
             Text(
                 item.title,
-                fontSize = 11.sp,
-                maxLines = 1,
+                fontSize = 14.sp,
             )
             Text(
                 item.subtitle,
-                fontSize = 8.sp,
-                maxLines = 1,
+                fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

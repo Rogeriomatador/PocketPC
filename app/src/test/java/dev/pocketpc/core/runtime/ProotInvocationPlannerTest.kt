@@ -73,6 +73,13 @@ class ProotInvocationPlannerTest {
                 allowedHostRoots = listOf(base),
             )
 
+            val probe = ProotInvocationPlanner.buildProbe(runtime, substrate, binds, listOf(base), GuestRuntimeProbe.SHELL)
+            assertEquals(listOf("/bin/sh") + GuestRuntimeProbe.SHELL.arguments, probe.argv.takeLast(3))
+            assertEquals(listOf("EXECUTION_REQUIRES_USER_APPROVAL"), probe.blockers)
+            val invalid = ProotInvocationPlanner.build(runtime, substrate, binds, listOf(base), listOf("bad\u0000arg"))
+            assertTrue(invalid.argv.isEmpty())
+            assertTrue("INVALID_GUEST_ARGUMENTS" in invalid.blockers)
+
             assertFalse(plan.ready)
             assertEquals(listOf("EXECUTION_REQUIRES_USER_APPROVAL"), plan.blockers)
             assertTrue(plan.argv.contains("-r"))

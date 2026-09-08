@@ -10,13 +10,32 @@ data class ProotInvocationPlan(
 )
 
 object ProotInvocationPlanner {
+    fun buildProbe(
+        runtime: InstalledRuntime,
+        substrate: ExecutionSubstrateStatus,
+        binds: List<RuntimeBindSpec>,
+        allowedHostRoots: List<File>,
+        probe: GuestRuntimeProbe,
+    ): ProotInvocationPlan = build(
+        // Resolve and audit /bin/sh using the same metadata/link/path gates.
+        runtime = runtime.copy(manifest = runtime.manifest.copy(entrypoint = "/bin/sh")),
+        substrate = substrate,
+        binds = binds,
+        allowedHostRoots = allowedHostRoots,
+        guestArguments = probe.arguments,
+    )
+
     fun build(
         runtime: InstalledRuntime,
         substrate: ExecutionSubstrateStatus,
         binds: List<RuntimeBindSpec>,
         allowedHostRoots: List<File>,
+        guestArguments: List<String> = emptyList(),
     ): ProotInvocationPlan {
         val blockers = mutableListOf<String>()
+        if (guestArguments.size > 64 || guestArguments.any { it.length > 16_384 || '\u0000' in it }) {
+            blockers += "INVALID_GUEST_ARGUMENTS"
+        }
 
         if (!substrate.prootReady) blockers += "SUBSTRATE_NOT_READY"
 
@@ -75,6 +94,7 @@ object ProotInvocationPlanner {
                     add("${bind.hostPath.canonicalPath}:$guest!")
                 }
                 add(runtime.manifest.entrypoint)
+                addAll(guestArguments)
             }
         } else {
             emptyList()

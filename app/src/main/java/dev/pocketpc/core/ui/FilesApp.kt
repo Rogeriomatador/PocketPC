@@ -3,6 +3,8 @@ package dev.pocketpc.core.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -77,6 +79,11 @@ fun FilesApp(
     var renameOpen by remember { mutableStateOf(false) }
     var renameName by remember { mutableStateOf("") }
     var deleteOpen by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = pathStack.size > 1 && !createFolderOpen && !renameOpen && !deleteOpen) {
+        pathStack = pathStack.dropLast(1)
+        selectedUri = null
+    }
 
     val selected =
         listing?.entries
@@ -247,6 +254,8 @@ fun FilesApp(
             Column(
                 modifier = Modifier.weight(1f),
             ) {
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                item(key = "explorer-controls") {
                 ExplorerToolbar(
                     compact = compactExplorer,
                     canGoBack = pathStack.size > 1,
@@ -321,13 +330,14 @@ fun FilesApp(
                     compact = compactExplorer,
                 )
 
+                }
                 if (
                     !loading &&
                     error == null &&
                     visibleEntries.isEmpty()
                 ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
+                    item(key = "empty") { Box(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -340,12 +350,8 @@ fun FilesApp(
                                 MaterialTheme.typography.bodyMedium,
                         )
                     }
+                    }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                    ) {
                         items(
                             items = visibleEntries,
                             key = { it.uri },
@@ -666,7 +672,7 @@ private fun ExplorerSidebar(
         tonalElevation = 2.dp,
     ) {
         Column(
-            modifier = Modifier.padding(9.dp),
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(9.dp),
             verticalArrangement =
                 Arrangement.spacedBy(3.dp),
         ) {

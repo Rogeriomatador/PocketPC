@@ -1,12 +1,11 @@
 package dev.pocketpc.core.runtime
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.InputStream
 import java.util.concurrent.TimeUnit
 
 data class ProcessRunSpec(
@@ -75,29 +74,52 @@ class RuntimeProcessSupervisor {
             try {
                 // One-shot probes have no interactive input; signal EOF immediately.
                 process.outputStream.close()
-                coroutineScope {
-                    val capturedDeferred = async(Dispatchers.IO) {
-                        drainCapped(process.inputStream, spec.maxOutputBytes)
+                val stored = ByteArrayOutputStream(minOf(spec.maxOutputBytes, 64 * 1024))
+                val buffer = ByteArray(8192)
+                var truncated = false
+                val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(spec.timeoutMillis)
+                var timedOut = false
+                // Read only available bytes. Waiting for EOF can hang forever when
+                // a descendant inherits stdout after the supervised process exits.
+                fun drainAvailable() {
+                    var remaining = 64 * 1024
+                    while (remaining > 0) {
+                        val available = process.inputStream.available()
+                        if (available <= 0) break
+                        val read = process.inputStream.read(buffer, 0, minOf(buffer.size, available, remaining))
+                        if (read < 0) break
+                        val room = spec.maxOutputBytes - stored.size()
+                        if (room > 0) stored.write(buffer, 0, minOf(room, read))
+                        if (read > room) truncated = true
+                        remaining -= read
                     }
-
-                    val finished = process.waitFor(spec.timeoutMillis, TimeUnit.MILLISECONDS)
-                    if (!finished) {
+                }
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    drainAvailable()
+                    if (!process.isAlive) {
+                        drainAvailable()
+                        break
+                    }
+                    if (System.nanoTime() >= deadline) {
+                        timedOut = true
                         process.destroy()
                         if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
                             process.destroyForcibly()
                             process.waitFor(2, TimeUnit.SECONDS)
                         }
+                        runCatching { drainAvailable() }
+                        break
                     }
-
-                    val captured = capturedDeferred.await()
-                    ProcessRunResult(
-                        started = true,
-                        exitCode = if (finished) runCatching { process.exitValue() }.getOrNull() else null,
-                        timedOut = !finished,
-                        output = captured.first,
-                        outputTruncated = captured.second,
-                    )
+                    process.waitFor(10, TimeUnit.MILLISECONDS)
                 }
+                ProcessRunResult(
+                    started = true,
+                    exitCode = if (timedOut) null else runCatching { process.exitValue() }.getOrNull(),
+                    timedOut = timedOut,
+                    output = stored.toByteArray().toString(Charsets.UTF_8),
+                    outputTruncated = truncated,
+                )
             } finally {
                 if (process.isAlive) process.destroyForcibly()
                 runCatching { process.outputStream.close() }
@@ -116,23 +138,4 @@ class RuntimeProcessSupervisor {
         return true
     }
 
-    private fun drainCapped(input: InputStream, maxBytes: Int): Pair<String, Boolean> {
-        val stored = ByteArrayOutputStream(minOf(maxBytes, 64 * 1024))
-        val buffer = ByteArray(8192)
-        var truncated = false
-
-        input.use { stream ->
-            while (true) {
-                val read = stream.read(buffer)
-                if (read < 0) break
-                val room = maxBytes - stored.size()
-                if (room > 0) {
-                    stored.write(buffer, 0, minOf(room, read))
-                }
-                if (read > room) truncated = true
-            }
-        }
-
-        return stored.toByteArray().toString(Charsets.UTF_8) to truncated
-    }
 }

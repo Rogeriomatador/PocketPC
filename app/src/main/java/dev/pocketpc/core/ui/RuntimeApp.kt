@@ -12,6 +12,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.selection.SelectionContainer
+import dev.pocketpc.core.runtime.GuestRuntimeProbe
 import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.InstalledRuntime
 import dev.pocketpc.core.runtime.NativeHostStatus
@@ -65,6 +67,10 @@ fun RuntimeApp(
         onDispose { executionController.stopActive() }
     }
     var showSubstrateDetails by rememberSaveable { mutableStateOf(false) }
+    var selectedProbeName by rememberSaveable { mutableStateOf(GuestRuntimeProbe.SHELL.name) }
+    val selectedProbe = GuestRuntimeProbe.valueOf(selectedProbeName)
+    var probeOutput by remember { mutableStateOf<String?>(null) }
+    var showProbeOutput by rememberSaveable { mutableStateOf(false) }
     var pendingExecution by remember {
         mutableStateOf<
             Pair<
@@ -593,6 +599,30 @@ fun RuntimeApp(
                 )
             }
 
+            item(key = "guest-probes") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Testar ambiente Linux", style = MaterialTheme.typography.titleSmall)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GuestRuntimeProbe.entries.forEach { probe ->
+                            FilterChip(selected = selectedProbe == probe, enabled = !busy,
+                                onClick = { selectedProbeName = probe.name },
+                                label = { Text(probe.label) })
+                        }
+                    }
+                    Text(selectedProbe.description, style = MaterialTheme.typography.bodySmall)
+                    Text("Os testes ficam disponíveis quando o PRoot e o rootfs estiverem prontos.",
+                        style = MaterialTheme.typography.bodySmall)
+                    probeOutput?.let { output ->
+                        TextButton(onClick = { showProbeOutput = !showProbeOutput }) {
+                            Text(if (showProbeOutput) "Ocultar resultado" else "Ver resultado do teste")
+                        }
+                        if (showProbeOutput) {
+                            SelectionContainer { Text(output, style = MaterialTheme.typography.bodySmall) }
+                        }
+                    }
+                }
+            }
+
             item {
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 Text("INSTALLED_DATA / LINKS_PREPARED", style = MaterialTheme.typography.titleSmall)
@@ -615,12 +645,14 @@ fun RuntimeApp(
                     initialValue = ProotInvocationPlan(false, emptyList(), emptyMap(), listOf("BIND_PLAN_PREPARING")),
                     key1 = runtime,
                     key2 = substrate,
+                    key3 = selectedProbe,
                 ) {
                     value = withContext(Dispatchers.IO) {
                     runCatching {
-                        ProotInvocationPlanner.build(
+                        ProotInvocationPlanner.buildProbe(
                             runtime = runtime,
                             substrate = substrate,
+                            probe = selectedProbe,
                             binds =
                                 bindPlanner
                                     .base(runtime),
@@ -733,14 +765,14 @@ fun RuntimeApp(
                     )
                     Text(
                         "Entrypoint: " +
-                            runtime.manifest.entrypoint,
+                            "/bin/sh • " + selectedProbe.label,
                         style =
                             MaterialTheme.typography
                                 .bodySmall,
                     )
                     Text(
-                        "Este é um teste R1 do userspace Linux. " +
-                            "Não executa Wine, Box64 ou Roblox. " +
+                        "Este teste executa comandos de diagnóstico no Linux. " +
+                            "A consulta de versões não instala componentes nem inicia Roblox. " +
                             "O processo terá timeout e saída " +
                             "capturada pelo PocketPC.",
                         style =
@@ -764,6 +796,14 @@ fun RuntimeApp(
                                         userApproved =
                                             true,
                                     )
+                            probeOutput = buildString {
+                                appendLine("${selectedProbe.label}: ${result.state} • exit=${result.exitCode ?: "—"}")
+                                appendLine(result.output.take(16_000))
+                                if (result.outputTruncated || result.output.length > 16_000) appendLine("[saída truncada]")
+                                result.error?.let { appendLine(it) }
+                                append("Teste de diagnóstico; compatibilidade com jogos não validada.")
+                            }
+                            showProbeOutput = true
                             status =
                                 buildString {
                                     append(

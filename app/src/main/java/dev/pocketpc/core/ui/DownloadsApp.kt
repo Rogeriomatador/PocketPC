@@ -39,6 +39,7 @@ private data class PocketDownload(
     val mimeType: String?,
 )
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DownloadsApp(
     repository: StorageRepository,
@@ -150,11 +151,13 @@ fun DownloadsApp(
                     PocketFileClass.PC_INSTALLER
         }
 
-    Column(
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement =
             Arrangement.spacedBy(8.dp),
     ) {
+        item(key = "download-controls") {
+        Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment =
@@ -180,6 +183,8 @@ fun DownloadsApp(
                 )
             }
 
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedButton(
                 onClick = { refreshToken++ },
             ) {
@@ -205,6 +210,7 @@ fun DownloadsApp(
             }
         }
 
+        }
         statusMessage?.let {
             Text(
                 it,
@@ -215,13 +221,14 @@ fun DownloadsApp(
 
         HorizontalDivider()
 
+        }
         if (
             activeDownloads.isEmpty() &&
             regularPocketFiles.isEmpty() &&
             pcPackages.isEmpty()
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
+            item(key = "empty") { Box(
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -235,12 +242,8 @@ fun DownloadsApp(
                         MaterialTheme.typography.bodyMedium,
                 )
             }
+            }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement =
-                    Arrangement.spacedBy(5.dp),
-            ) {
                 if (activeDownloads.isNotEmpty()) {
                     item {
                         DownloadSectionHeader(
@@ -378,7 +381,6 @@ fun DownloadsApp(
                         )
                     }
                 }
-            }
         }
     }
 }

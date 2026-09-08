@@ -1,5 +1,8 @@
 package dev.pocketpc.core.runtime
 
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.CompletableDeferred
@@ -92,5 +95,47 @@ class RuntimeProcessSupervisorTest {
         ))
         assertEquals(0, next.exitCode)
         assertEquals("recovered", next.output)
+    }
+
+    @Test
+    fun inheritedOutputPipeDoesNotDelayCompletedParent() = runBlocking {
+        assumeTrue(File("/bin/sh").canExecute())
+        val started = System.nanoTime()
+        val result = RuntimeProcessSupervisor().runOneShot(ProcessRunSpec(
+            argv = listOf("/bin/sh", "-c", "sleep 3 & printf parent-done"),
+            environment = emptyMap(), timeoutMillis = 1_000,
+        ))
+        assertEquals(0, result.exitCode)
+        assertEquals("parent-done", result.output)
+        assertTrue(java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) < 2_000)
+    }
+
+    @Test
+    fun largeOutputIsCappedWithoutBlockingProducer() = runBlocking {
+        assumeTrue(File("/bin/sh").canExecute())
+        val result = RuntimeProcessSupervisor().runOneShot(ProcessRunSpec(
+            argv = listOf("/bin/sh", "-c", "i=0; while [ \"${'$'}i\" -lt 5000 ]; do printf abcdefgh; i=${'$'}((i+1)); done"),
+            environment = emptyMap(), maxOutputBytes = 1024,
+        ))
+        assertEquals(0, result.exitCode)
+        assertEquals(1024, result.output.length)
+        assertTrue(result.outputTruncated)
+    }
+
+    @Test
+    fun cancellingProbeReleasesSupervisor() = runBlocking {
+        assumeTrue(File("/bin/sh").canExecute())
+        val supervisor = RuntimeProcessSupervisor()
+        val job = launch { supervisor.runOneShot(ProcessRunSpec(
+            argv = listOf("/bin/sh", "-c", "exec sleep 10"),
+            environment = emptyMap(), timeoutMillis = 15_000,
+        )) }
+        delay(100)
+        job.cancelAndJoin()
+        val next = supervisor.runOneShot(ProcessRunSpec(
+            argv = listOf("/bin/sh", "-c", "printf resumed"), environment = emptyMap(),
+        ))
+        assertEquals(0, next.exitCode)
+        assertEquals("resumed", next.output)
     }
 }

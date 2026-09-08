@@ -808,19 +808,24 @@ private fun DesktopWindowView(
                     }
                 }
 
-                Box(
+                BoxWithConstraints(
                     Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .then(
                             if (spec.contentPaddingDp > 0) {
-                                Modifier.padding(spec.contentPaddingDp.dp)
+                                Modifier.padding(
+                                    if (compactMobile) minOf(spec.contentPaddingDp, 8).dp
+                                    else spec.contentPaddingDp.dp
+                                )
                             } else {
                                 Modifier
                             }
                         )
                 ) {
-                    content()
+                    CompositionLocalProvider(
+                        LocalAppViewport provides AppViewport(maxWidth.value, maxHeight.value)
+                    ) { content() }
                 }
             }
 

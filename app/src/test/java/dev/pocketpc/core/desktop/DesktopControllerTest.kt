@@ -162,4 +162,27 @@ class DesktopControllerTest {
             saved,
         )
     }
+
+    @Test
+    fun taskbarClickMinimizesActiveAndRestoresSameWindow() {
+        val controller = DesktopController()
+        controller.open(DesktopApp.FILES)
+        val id = controller.windows.single().id
+        controller.activateFromTaskbar(DesktopApp.FILES)
+        assertTrue(controller.windows.single().minimized)
+        controller.activateFromTaskbar(DesktopApp.FILES)
+        assertFalse(controller.windows.single().minimized)
+        assertEquals(id, controller.activeWindow?.id)
+    }
+
+    @Test
+    fun taskbarClickRaisesBackgroundWindowWithoutMinimizingIt() {
+        val controller = DesktopController()
+        controller.open(DesktopApp.FILES)
+        controller.open(DesktopApp.BROWSER)
+        controller.activateFromTaskbar(DesktopApp.FILES)
+        assertEquals(DesktopApp.FILES, controller.activeWindow?.app)
+        assertEquals(2, controller.windows.size)
+        assertTrue(controller.windows.none { it.minimized })
+    }
 }

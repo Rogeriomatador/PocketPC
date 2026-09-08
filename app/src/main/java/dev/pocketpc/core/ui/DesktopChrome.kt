@@ -66,6 +66,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -97,7 +98,7 @@ fun DesktopIconsV2(
     val spacing = if (compactMobile) 8.dp else 12.dp
 
     Column(
-        modifier = modifier.width(columnWidth),
+        modifier = modifier.width(columnWidth).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(spacing),
     ) {
         defaultDesktopShortcuts().chunked(2).forEach { rowApps ->
@@ -776,7 +777,7 @@ fun TaskbarV2(
                                     onClick = {
                                         taskbarMenuTarget =
                                             null
-                                        desktop.open(app)
+                                        desktop.activateFromTaskbar(app)
                                     },
                                     onLongClick = {
                                         desktop
@@ -1140,7 +1141,8 @@ fun StartMenuV2(
     val menuWidth = layout.startMenuWidthDp.dp
     val menuHeight = layout.startMenuHeightDp.dp
     val appColumns =
-        if (layout.widthDp < 380) 3 else 4
+        ((layout.startMenuWidthDp - 24f) /
+            (92f * LocalDensity.current.fontScale.coerceAtLeast(1f))).toInt().coerceIn(1, 4)
 
     var query by rememberSaveable { mutableStateOf("") }
     val visibleApps = remember(query) {
@@ -1273,8 +1275,7 @@ fun StartMenuV2(
                                         )
                                         Text(
                                             app.label,
-                                            fontSize = 11.sp,
-                                            maxLines = 2,
+                                            fontSize = 12.sp,
                                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                         )
                                     }
@@ -1333,12 +1334,14 @@ fun DesktopContextMenu(
         }
 
     Surface(
-        modifier = modifier.width(270.dp),
+        modifier = modifier
+            .width(minOf(270f, LocalDesktopLayout.current.startMenuWidthDp).dp)
+            .heightIn(max = LocalDesktopLayout.current.startMenuHeightDp.dp),
         shape = RoundedCornerShape(14.dp),
         tonalElevation = 15.dp,
         shadowElevation = 18.dp,
     ) {
-        Column(Modifier.padding(8.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) {
             if (target != null) {
                 Text(
                     target.label,

@@ -69,6 +69,17 @@ class DesktopController(
         closeContextMenu()
     }
 
+    fun activateFromTaskbar(app: DesktopApp) {
+        val active = activeWindow
+        if (active?.app == app) {
+            minimize(active.id)
+            closeStartMenu()
+            closeContextMenu()
+        } else {
+            open(app)
+        }
+    }
+
     fun focus(id: String) {
         mutate(id) { it.copy(zIndex = allocateZ()) }
     }
