@@ -56,16 +56,29 @@ def main() -> int:
         failures.append("stable feed channel must be 'stable'")
     if feed.get("packageName") != expected_package:
         failures.append("stable feed packageName must match build lock")
-    if str(feed.get("versionName") or "") != expected_version:
-        failures.append("stable feed versionName must match build lock")
-    if int(feed.get("versionCode") or -1) != expected_code:
-        failures.append("stable feed versionCode must match build lock")
+
+    feed_version = str(feed.get("versionName") or "")
+    feed_code = int(feed.get("versionCode") or -1)
+    published = bool(feed.get("published"))
+
+    if feed_code > expected_code:
+        failures.append(
+            "stable feed versionCode must not be ahead of the source lock"
+        )
+    elif feed_code == expected_code:
+        if feed_version != expected_version:
+            failures.append(
+                "stable feed versionName must match build lock at equal versionCode"
+            )
+    elif not published:
+        failures.append(
+            "an unpublished bootstrap feed must match the current source version"
+        )
 
     min_api = int(feed.get("minApi") or -1)
     if min_api < 26:
         failures.append("stable feed minApi must be >= PocketPC minSdk 26")
 
-    published = bool(feed.get("published"))
     apk_url = str(feed.get("apkUrl") or "")
     apk_sha = str(feed.get("apkSha256") or "")
     source_revision = str(feed.get("sourceRevision") or "")
@@ -252,6 +265,9 @@ def main() -> int:
         ),
         PUBLISH_WORKFLOW: (
             "PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED",
+            "PUBLISH_UPDATE_READY_NEWER_VERSION",
+            "PUBLISH_UPDATE_SKIPPED_CURRENT_VERSION_ALREADY_PUBLISHED",
+            "PUBLISH_UPDATE_BLOCKED_FEED_AHEAD_OF_SOURCE",
             "POCKETPC_SIGNING_KEYSTORE_BASE64",
             "POCKETPC_SIGNING_STORE_PASSWORD",
             "POCKETPC_SIGNING_KEY_ALIAS",
