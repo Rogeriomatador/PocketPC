@@ -37,17 +37,21 @@ CHECKS = {
         "classifyPocketFile(entry.name)", "MAX_RECORDS = 512",
     ),
     "app/src/main/java/dev/pocketpc/core/storage/PocketPcProfileBackup.kt": (
-        "PocketDriveDirectory.BACKUPS", "PocketPC-profile-", "P:\\Backups",
+        "PocketDriveDirectory.BACKUPS", "PocketPC-profile-",
+        "importIntoPocketDrive(", "pocketDirectoryUri(", "restoreLatest",
         "pocketpc-window-layout-v2", "pocketpc-game-compatibility",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt": (
         "PocketDownloadRegistry", "setDestinationInExternalFilesDir",
-        "será importado para P:\\Downloads quando concluir", "PocketDownloadRegistry(context)",
+        "pocketDriveConfigured", "PocketDownloadRegistry(context).register(downloadId)",
+        "Baixando $fileName",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DownloadsApp.kt": (
-        "Destino padrão: P:\\Downloads", "Programas de PC detectados", "PocketPcPackageRegistry",
-        "RUNTIME_REQUIRED", "Runtime necessário", "P:\\Downloads está vazio.",
-        "PocketDownloadImporter.importReady", "Download removido do PocketPC",
+        "Programas de PC detectados", "PocketPcPackageRegistry",
+        "RUNTIME_REQUIRED", "Runtime necessário",
+        "PocketDownloadImporter.importReady", "PocketDriveDirectory.DOWNLOADS",
+        "DownloadManager.STATUS_SUCCESSFUL", ").remove(item.id)",
+        "Concluído / importando", "Download removido do PocketPC",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt": (
         "PocketDriveMount", "PocketDriveDirectory.DOWNLOADS", "PocketDriveDirectory.APPLICATIONS",
