@@ -183,9 +183,9 @@ def create_bundle(
             "abis": ["arm64-v8a", "armeabi-v7a"],
         },
         "desktop": {
-            "orientationLandscape": True,
-            "screenWidthDp": 915,
-            "screenHeightDp": 412,
+            "orientationLandscape": False,
+            "screenWidthDp": 469,
+            "screenHeightDp": 1043,
             "secondaryDisplayActivities": True,
             "freeformWindowManagement": False,
             "pcHardwareType": False,
