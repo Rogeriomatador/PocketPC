@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.pocketpc.core.storage.PocketDownloadRegistry
 import dev.pocketpc.core.storage.StorageRepository
+import dev.pocketpc.core.storage.sanitizePocketImportedFileName
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -626,10 +628,104 @@ internal fun desktopUserAgent(base: String): String {
     return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$chromeVersion Safari/537.36"
 }
 
+internal fun contentDispositionFileName(
+    header: String?,
+): String? {
+    if (header.isNullOrBlank()) {
+        return null
+    }
+
+    val parameters =
+        header
+            .split(';')
+            .drop(1)
+            .map { it.trim() }
+            .filter { '=' in it }
+
+    fun valueFor(
+        names: Set<String>,
+    ): String? =
+        parameters
+            .firstOrNull { parameter ->
+                parameter
+                    .substringBefore('=')
+                    .trim()
+                    .lowercase() in names
+            }
+            ?.substringAfter('=')
+            ?.trim()
+            ?.trim('"')
+            ?.takeIf { it.isNotBlank() }
+
+    val encoded =
+        valueFor(
+            setOf(
+                "filename*",
+                "filename_",
+            )
+        )
+
+    val regular =
+        valueFor(
+            setOf(
+                "filename",
+            )
+        )
+
+    val raw =
+        encoded
+            ?: regular
+            ?: return null
+
+    val payload =
+        raw
+            .substringAfter(
+                "''",
+                raw,
+            )
+            .trim()
+            .trim('"')
+
+    return runCatching {
+        URLDecoder.decode(
+            payload,
+            StandardCharsets.UTF_8.name(),
+        )
+    }
+        .getOrDefault(payload)
+        .takeIf { it.isNotBlank() }
+}
+
+internal fun resolvePocketDownloadFileName(
+    url: String,
+    contentDisposition: String?,
+    mimeType: String?,
+): String {
+    val raw =
+        contentDispositionFileName(
+            contentDisposition
+        )
+            ?: URLUtil.guessFileName(
+                url,
+                null,
+                mimeType,
+            )
+
+    return sanitizePocketImportedFileName(
+        raw
+    )
+}
+
 private fun enqueueDownload(context: Context, storage: StorageRepository, url: String?, userAgent: String?, contentDisposition: String?, mimeType: String?) {
     if (url.isNullOrBlank()) { Toast.makeText(context, "Download sem URL.", Toast.LENGTH_SHORT).show(); return }
     runCatching {
-        val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+        val fileName =
+            resolvePocketDownloadFileName(
+                url = url,
+                contentDisposition =
+                    contentDisposition,
+                mimeType = mimeType,
+            )
         val request = DownloadManager.Request(Uri.parse(url))
             .setTitle(fileName)
             .setDescription("Download pelo PocketPC")
