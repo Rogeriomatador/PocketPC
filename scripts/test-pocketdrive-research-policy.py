@@ -89,7 +89,9 @@ CHECKS = {
     "scripts/termux-static-check.sh": (
         "STATIC_SOURCE_VALIDATION_ONLY", "PYTHON_COMPILEALL_OK", "TERMUX_STATIC_POLICY_PASS",
         "test-desktop-mode-policy.py", "test-desktop-enum-coverage.py", "test-ci-version-policy.py",
-        "test-update-feed-policy.py", "test-pocketdrive-research-policy.py", "This does not compile Kotlin",
+        "test-update-feed-policy.py", "test-pocketdrive-research-policy.py",
+        "source_revision=", "validated_revision=", "validated_version=", "validated_tree=",
+        "This does not compile Kotlin",
     ),
     "scripts/termux-install-published.sh": (
         "POCKETPC_ON_DEVICE_NO_PUBLISHED_APK", "POCKETPC_APK_DOWNLOAD_REJECTED",
