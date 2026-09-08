@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "status": "PINNED_SOURCES_NOT_BUILT_NOT_RUNTIME_TESTED",
+  "dxvk": {
+    "version": "3.0.2",
+    "repository": "https://github.com/doitsujin/dxvk.git",
+    "tag": "v3.0.2",
+    "tagObject": "767633ab3481e4e30687bedaba982c1a5e4722a7",
+    "commit": "6b20f622a77b87b2921fe5d2c1774d2f2ba3e9b7",
+    "purpose": "Direct3D 9/10/11 to Vulkan",
+    "built": false,
+    "wineIntegrated": false,
+    "vulkanGuestTested": false
+  },
+  "vkd3dProton": {
+    "version": "3.0.1",
+    "repository": "https://github.com/HansKristian-Work/vkd3d-proton.git",
+    "tag": "v3.0.1",
+    "commit": "3b10bd7a7ec6a7347e616cf8bea59333afec2255",
+    "purpose": "Direct3D 12 to Vulkan",
+    "built": false,
+    "wineIntegrated": false,
+    "vulkanGuestTested": false
+  },
+  "gates": {
+    "androidVulkanExposedToGuest": false,
+    "wineGraphicsSmokeTest": false,
+    "d3d11SmokeTest": false,
+    "d3d12SmokeTest": false,
+    "robloxGraphicsTest": false
+  }
+}
