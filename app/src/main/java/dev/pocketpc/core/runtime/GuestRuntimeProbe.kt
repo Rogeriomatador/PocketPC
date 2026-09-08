@@ -70,17 +70,6 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 else
                     printf 'state=missing_or_not_executable\n'
                 fi
-                printf '\ncomponent=wine64\n'
-                if [ -x /opt/pocketpc/wine/bin/wine64 ]; then
-                    printf 'path=/opt/pocketpc/wine/bin/wine64\n'
-                    if /opt/pocketpc/wine/bin/wine64 --version; then
-                        printf 'version_exit=0\n'
-                    else
-                        printf 'version_exit=nonzero\n'
-                    fi
-                else
-                    printf 'state=missing_or_not_executable\n'
-                fi
                 printf '\nprobe=complete\napplication_compatibility=not_tested\n'
             """.trimIndent()
             BOX64_SMOKE -> """
