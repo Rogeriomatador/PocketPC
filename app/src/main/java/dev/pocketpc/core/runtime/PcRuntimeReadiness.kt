@@ -201,6 +201,12 @@ object PcRuntimeReadinessProbe {
                                     ioHost.networkInternetCapable -> "detectada"
                                     else -> "indisponível"
                                 }
+                            val displayBridge =
+                                if (
+                                    probeEvidence
+                                        ?.displayBridgeSmokePassed ==
+                                    true
+                                ) "AUTH_PASS" else "PENDING"
                             val winsock =
                                 if (
                                     probeEvidence?.winsockSmokePassed ==
@@ -219,6 +225,7 @@ object PcRuntimeReadinessProbe {
                             "Host Android: áudio=${ioHost.audioOutputCount} saída(s), " +
                                 "teclados=${ioHost.keyboardCount}, mouses=${ioHost.mouseCount}, " +
                                 "gamepads=${ioHost.gamepadCount}, internet=$networkState. " +
+                                "Bridge x86↔Android=$displayBridge. " +
                                 "Wine: Winsock=$winsock, WinMM=$winmm, RawInput=$rawInput. " +
                                 "Esses smokes não provam streaming de áudio, eventos de input nem internet externa."
                         },
