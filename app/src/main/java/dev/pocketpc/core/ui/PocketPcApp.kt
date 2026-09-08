@@ -48,6 +48,7 @@ import dev.pocketpc.core.system.collectSystemSnapshot
 import dev.pocketpc.core.telemetry.TelemetryMonitor
 import dev.pocketpc.core.terminal.LocalShellEngine
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
@@ -379,7 +380,13 @@ private fun DesktopWindowView(
     val screenHeightPx =
         with(density) { configuration.screenHeightDp.dp.toPx() }
             .coerceAtLeast(1f)
-    val taskbarHeightPx = with(density) { 58.dp.toPx() }
+    val compactMobile =
+        configuration.screenWidthDp < 700 ||
+            configuration.screenHeightDp < 500
+    val taskbarHeightDp =
+        if (compactMobile) 52.dp else 58.dp
+    val taskbarHeightPx =
+        with(density) { taskbarHeightDp.toPx() }
     val workspaceHeightPx =
         (screenHeightPx - taskbarHeightPx).coerceAtLeast(1f)
     val spec = window.app.windowSpec()
@@ -456,15 +463,21 @@ private fun DesktopWindowView(
     }
 
     val canHalfSnap =
-        configuration.screenWidthDp / 2 >=
-            spec.minWidthDp
+        !compactMobile &&
+            configuration.screenWidthDp / 2 >=
+                spec.minWidthDp
 
     val windowModifier =
         when {
+            compactMobile ->
+                modifier
+                    .fillMaxSize()
+                    .padding(bottom = taskbarHeightDp)
+
             window.maximized ->
                 modifier
                     .fillMaxSize()
-                    .padding(bottom = 58.dp)
+                    .padding(bottom = taskbarHeightDp)
 
             window.snap != WindowSnap.NONE -> {
                 val snapFraction =
@@ -476,7 +489,7 @@ private fun DesktopWindowView(
                 modifier
                     .fillMaxHeight()
                     .fillMaxWidth(snapFraction)
-                    .padding(bottom = 58.dp)
+                    .padding(bottom = taskbarHeightDp)
             }
 
             else ->
@@ -501,7 +514,11 @@ private fun DesktopWindowView(
             },
         ) { desktop.focus(window.id) },
         shape = RoundedCornerShape(
-            if (window.maximized || window.snap != WindowSnap.NONE) {
+            if (
+                compactMobile ||
+                window.maximized ||
+                window.snap != WindowSnap.NONE
+            ) {
                 0.dp
             } else {
                 14.dp
@@ -523,6 +540,7 @@ private fun DesktopWindowView(
                             window.snap,
                         ) {
                             if (
+                                !compactMobile &&
                                 !window.maximized &&
                                 window.snap == WindowSnap.NONE
                             ) {
@@ -569,17 +587,19 @@ private fun DesktopWindowView(
                     WindowControlButton("—") {
                         desktop.minimize(window.id)
                     }
-                    WindowControlButton(
-                        when {
-                            window.snap != WindowSnap.NONE -> "↙"
-                            window.maximized -> "▣"
-                            else -> "□"
-                        }
-                    ) {
-                        if (window.snap != WindowSnap.NONE) {
-                            desktop.restoreSnap(window.id)
-                        } else {
-                            desktop.toggleMaximize(window.id)
+                    if (!compactMobile) {
+                        WindowControlButton(
+                            when {
+                                window.snap != WindowSnap.NONE -> "↙"
+                                window.maximized -> "▣"
+                                else -> "□"
+                            }
+                        ) {
+                            if (window.snap != WindowSnap.NONE) {
+                                desktop.restoreSnap(window.id)
+                            } else {
+                                desktop.toggleMaximize(window.id)
+                            }
                         }
                     }
                     WindowControlButton(
@@ -607,6 +627,7 @@ private fun DesktopWindowView(
             }
 
             if (
+                !compactMobile &&
                 !window.maximized &&
                 window.snap == WindowSnap.NONE
             ) {
