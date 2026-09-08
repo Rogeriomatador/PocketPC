@@ -81,10 +81,18 @@ try {
         "-storepass", $StorePassword,
         "-file", $tempCert
     )
-    & $keytool @keytoolArgs 2>&1 | Out-Null
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $keytool @keytoolArgs | Out-Null
+        $keytoolExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
 
     if (
-        $LASTEXITCODE -ne 0 -or
+        $keytoolExitCode -ne 0 -or
         -not (Test-Path -LiteralPath $tempCert)
     ) {
         Fail "Nao foi possivel exportar o certificado da keystore."
@@ -121,8 +129,16 @@ try {
         )
     }
 
-    & $gh.Source auth status 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $gh.Source auth status | Out-Host
+        $authExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($authExitCode -ne 0) {
         Fail "GitHub CLI nao esta autenticado. Execute gh auth login uma vez."
     }
 
@@ -144,9 +160,17 @@ try {
             "--repo", $Repository,
             "--body", "-"
         )
-        $value | & $gh.Source @secretArgs 2>&1 | Out-Host
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $value | & $gh.Source @secretArgs | Out-Host
+            $secretExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
 
-        if ($LASTEXITCODE -ne 0) {
+        if ($secretExitCode -ne 0) {
             Fail ("Falha ao configurar o Secret " + $entry.Key + ".")
         }
     }
@@ -162,9 +186,17 @@ try {
             "workflow", "run", "publish-update.yml",
             "--repo", $Repository
         )
-        & $gh.Source @workflowArgs 2>&1 | Out-Host
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            & $gh.Source @workflowArgs | Out-Host
+            $workflowExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
 
-        if ($LASTEXITCODE -ne 0) {
+        if ($workflowExitCode -ne 0) {
             Fail "Falha ao disparar publish-update.yml."
         }
 
