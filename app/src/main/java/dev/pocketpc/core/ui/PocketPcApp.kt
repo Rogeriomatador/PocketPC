@@ -51,6 +51,7 @@ import dev.pocketpc.core.runtime.RootfsLinkManager
 import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
+import dev.pocketpc.core.runtime.WindowsRuntimeLayerPackageManager
 import dev.pocketpc.core.storage.PocketDownloadImporter
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.system.collectSystemSnapshot
@@ -118,6 +119,12 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 appContext,
             )
         }
+    val windowsLayerPackages =
+        remember {
+            WindowsRuntimeLayerPackageManager(
+                appContext,
+            )
+        }
     val linkManager = remember { RootfsLinkManager() }
     val nativeHost = remember { NativeRuntimeHost.status(appContext) }
     val substrate = remember { ExecutionSubstrateProbe.inspect(appContext) }
@@ -142,6 +149,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     var runtimeManifestUri by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeRootfsUri by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeToolPackageUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var runtimeWindowsLayerUri by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeTargetUri by rememberSaveable {
         mutableStateOf<String?>(null)
     }
@@ -238,6 +246,17 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             if (uri != null) {
                 persistRead(uri)
                 runtimeToolPackageUri = uri.toString()
+            }
+        }
+
+    val windowsLayerPackagePicker =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) {
+                persistRead(uri)
+                runtimeWindowsLayerUri =
+                    uri.toString()
             }
         }
 
@@ -453,6 +472,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             guestToolInstaller = guestToolInstaller,
                             guestToolPackages = guestToolPackages,
                             probeEvidenceStore = runtimeProbeEvidence,
+                            windowsLayerPackages = windowsLayerPackages,
                             linkManager = linkManager,
                             nativeHost = nativeHost,
                             substrate = substrate,
@@ -462,6 +482,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             manifestUri = runtimeManifestUri,
                             rootfsUri = runtimeRootfsUri,
                             toolPackageUri = runtimeToolPackageUri,
+                            windowsLayerUri = runtimeWindowsLayerUri,
                             onChooseManifest = {
                                 manifestPicker.launch(
                                     arrayOf("application/json", "text/plain", "application/octet-stream")
@@ -486,6 +507,25 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                                     }
                                 }
                                 runtimeToolPackageUri = null
+                            },
+                            onChooseWindowsLayer = {
+                                windowsLayerPackagePicker.launch(
+                                    arrayOf(
+                                        "application/zip",
+                                        "application/octet-stream",
+                                    )
+                                )
+                            },
+                            onClearWindowsLayer = {
+                                runtimeWindowsLayerUri?.let { uriString ->
+                                    runCatching {
+                                        context.contentResolver.releasePersistableUriPermission(
+                                            Uri.parse(uriString),
+                                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                        )
+                                    }
+                                }
+                                runtimeWindowsLayerUri = null
                             },
                             onClearSelection = {
                                 listOfNotNull(runtimeManifestUri, runtimeRootfsUri).forEach { uriString ->
