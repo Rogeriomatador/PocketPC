@@ -7,7 +7,7 @@ enum class LaunchBlocker {
     LINKS_VERIFY_FAILED,
     ENTRYPOINT_NOT_RESOLVED,
     ENTRYPOINT_NOT_REGULAR_FILE,
-    EXECUTOR_NOT_IMPLEMENTED,
+    EXECUTOR_DISABLED,
 }
 
 data class RuntimeLaunchAssessment(
@@ -61,8 +61,10 @@ object RuntimeLaunchPlanner {
             blockers += LaunchBlocker.ENTRYPOINT_NOT_REGULAR_FILE
         }
 
-        // Alpha 7 still has no enabled PRoot executor.
-        blockers += LaunchBlocker.EXECUTOR_NOT_IMPLEMENTED
+        // Execution is implemented by ProotExecutionController, but it remains
+        // disabled until an invocation plan passes and the user explicitly
+        // approves the one-shot attempt.
+        blockers += LaunchBlocker.EXECUTOR_DISABLED
 
         return RuntimeLaunchAssessment(
             ready = blockers.isEmpty(),
