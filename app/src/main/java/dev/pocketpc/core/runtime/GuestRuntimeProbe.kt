@@ -5,7 +5,8 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
     SHELL("Shell Linux", "Executa o shell, identifica a arquitetura e mostra a pasta do guest."),
     ROOTFS("Rootfs Linux", "Verifica diretórios essenciais, /proc, /dev, escrita em /tmp e identidade do guest sem alterar o sistema."),
     TOOLCHAIN("Box64 / Wine", "Consulta as ferramentas instaladas nos overlays confiáveis do PocketPC."),
-    BOX64_SMOKE("Box64 x86-64", "Executa um ELF x86-64 mínimo e estático através do Box64; não testa Wine nem Roblox.");
+    BOX64_SMOKE("Box64 x86-64", "Executa um ELF x86-64 mínimo e estático através do Box64; não testa Wine nem Roblox."),
+    WINE_SMOKE("Wine Win64", "Executa um PE64 mínimo pelo Wine através do Box64, usando um prefixo isolado; não testa gráficos nem Roblox.");
 
     val arguments: List<String>
         get() = listOf("-c", script)
@@ -82,6 +83,19 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 fi
                 printf 'box64_x86_64_smoke=failed\nprobe=failed\n'
                 exit 9
+            """.trimIndent()
+            WINE_SMOKE -> """
+                printf 'POCKETPC_WINE_WIN64_SMOKE_PROBE_V1\n'
+                [ -x /opt/pocketpc/box64/bin/box64 ] || { printf 'box64=missing\nprobe=failed\n'; exit 10; }
+                [ -x /opt/pocketpc/wine/bin/wine ] || { printf 'wine=missing\nprobe=failed\n'; exit 11; }
+                [ -f /opt/pocketpc/wine/share/tests/pocketpc-win64-smoke.exe ] || { printf 'win64_smoke=missing\nprobe=failed\n'; exit 12; }
+                mkdir -p /home/pocket/windows-prefixes/smoke || exit 13
+                if WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine /opt/pocketpc/wine/share/tests/pocketpc-win64-smoke.exe; then
+                    printf 'wine_win64_smoke=passed\nprobe=complete\n'
+                    exit 0
+                fi
+                printf 'wine_win64_smoke=failed\nprobe=failed\n'
+                exit 14
             """.trimIndent()
         }
 }
