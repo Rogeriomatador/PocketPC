@@ -35,6 +35,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -670,6 +672,9 @@ fun TaskbarV2(
         (desktop.pinnedApps + desktop.windows.map { it.app }).distinct()
     }
     val activeApp = desktop.activeWindow?.app
+    var taskbarMenuTarget by remember {
+        mutableStateOf<DesktopApp?>(null)
+    }
 
     Surface(
         modifier = modifier
@@ -708,53 +713,124 @@ fun TaskbarV2(
                     val hovered by hoverSource.collectIsHoveredAsState()
                     val focused by hoverSource.collectIsFocusedAsState()
 
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .pointerHoverIcon(PointerIcon.Hand)
-                            .hoverable(hoverSource)
-                            .focusable(interactionSource = hoverSource)
-                            .border(
-                                width = if (focused) 2.dp else 0.dp,
-                                color =
-                                    if (focused) {
-                                        Color.White.copy(alpha = 0.85f)
+                    Box {
+                        Column(
+                            horizontalAlignment =
+                                Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .pointerHoverIcon(
+                                    PointerIcon.Hand
+                                )
+                                .hoverable(hoverSource)
+                                .focusable(
+                                    interactionSource =
+                                        hoverSource
+                                )
+                                .border(
+                                    width =
+                                        if (focused) {
+                                            2.dp
+                                        } else {
+                                            0.dp
+                                        },
+                                    color =
+                                        if (focused) {
+                                            Color.White.copy(
+                                                alpha = 0.85f
+                                            )
+                                        } else {
+                                            Color.Transparent
+                                        },
+                                    shape =
+                                        RoundedCornerShape(
+                                            10.dp
+                                        ),
+                                )
+                                .background(
+                                    if (
+                                        hovered ||
+                                        focused
+                                    ) {
+                                        Color.White.copy(
+                                            alpha = 0.10f
+                                        )
                                     } else {
                                         Color.Transparent
                                     },
-                                shape = RoundedCornerShape(10.dp),
-                            )
-                            .background(
-                                if (hovered || focused) {
-                                    Color.White.copy(alpha = 0.10f)
-                                } else {
-                                    Color.Transparent
-                                },
-                                RoundedCornerShape(10.dp),
-                            )
-                            .desktopSecondaryClick {
-                                desktop.openContextMenu(app)
-                            }
-                            .combinedClickable(
-                                onClick = { desktop.open(app) },
-                                onLongClick = { desktop.openContextMenu(app) },
-                            )
-                            .padding(horizontal = 3.dp),
-                    ) {
-                        AppIconTile(app = app, size = taskIconSize, active = active)
-                        Box(
-                            Modifier
-                                .padding(top = 2.dp)
-                                .width(if (active) 18.dp else 7.dp)
-                                .height(2.dp)
-                                .background(
-                                    when {
-                                        active -> Color(0xFF7EC8FF)
-                                        window != null -> Color(0xFF8D939C)
-                                        else -> Color.Transparent
-                                    },
-                                    RoundedCornerShape(2.dp),
+                                    RoundedCornerShape(
+                                        10.dp
+                                    ),
                                 )
+                                .desktopSecondaryClick {
+                                    desktop
+                                        .closeContextMenu()
+                                    taskbarMenuTarget =
+                                        app
+                                }
+                                .combinedClickable(
+                                    onClick = {
+                                        taskbarMenuTarget =
+                                            null
+                                        desktop.open(app)
+                                    },
+                                    onLongClick = {
+                                        desktop
+                                            .closeContextMenu()
+                                        taskbarMenuTarget =
+                                            app
+                                    },
+                                )
+                                .padding(
+                                    horizontal = 3.dp
+                                ),
+                        ) {
+                            AppIconTile(
+                                app = app,
+                                size = taskIconSize,
+                                active = active,
+                            )
+                            Box(
+                                Modifier
+                                    .padding(top = 2.dp)
+                                    .width(
+                                        if (active) {
+                                            18.dp
+                                        } else {
+                                            7.dp
+                                        }
+                                    )
+                                    .height(2.dp)
+                                    .background(
+                                        when {
+                                            active ->
+                                                Color(
+                                                    0xFF7EC8FF
+                                                )
+                                            window != null ->
+                                                Color(
+                                                    0xFF8D939C
+                                                )
+                                            else ->
+                                                Color.Transparent
+                                        },
+                                        RoundedCornerShape(
+                                            2.dp
+                                        ),
+                                    )
+                            )
+                        }
+
+                        TaskbarAppMenu(
+                            app = app,
+                            window = window,
+                            desktop = desktop,
+                            expanded =
+                                taskbarMenuTarget ==
+                                    app,
+                            onDismiss = {
+                                taskbarMenuTarget =
+                                    null
+                            },
                         )
                     }
                 }
@@ -780,6 +856,110 @@ fun TaskbarV2(
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun TaskbarAppMenu(
+    app: DesktopApp,
+    window: dev.pocketpc.core.desktop.DesktopWindow?,
+    desktop: DesktopController,
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+    ) {
+        Text(
+            app.label,
+            modifier = Modifier.padding(
+                horizontal = 12.dp,
+                vertical = 7.dp,
+            ),
+            style =
+                MaterialTheme.typography
+                    .labelLarge,
+        )
+
+        DropdownMenuItem(
+            text = {
+                Text(
+                    if (window?.minimized == true) {
+                        "Restaurar janela"
+                    } else {
+                        "Abrir / trazer para frente"
+                    }
+                )
+            },
+            onClick = {
+                desktop.open(app)
+                onDismiss()
+            },
+        )
+
+        if (window != null) {
+            DropdownMenuItem(
+                text = {
+                    Text("Minimizar")
+                },
+                onClick = {
+                    desktop.minimize(window.id)
+                    onDismiss()
+                },
+            )
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        if (window.maximized) {
+                            "Restaurar tamanho"
+                        } else {
+                            "Maximizar"
+                        }
+                    )
+                },
+                onClick = {
+                    desktop.toggleMaximize(
+                        window.id
+                    )
+                    onDismiss()
+                },
+            )
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "Fechar janela",
+                        color =
+                            MaterialTheme
+                                .colorScheme.error,
+                    )
+                },
+                onClick = {
+                    desktop.close(window.id)
+                    onDismiss()
+                },
+            )
+            HorizontalDivider()
+        }
+
+        DropdownMenuItem(
+            text = {
+                Text(
+                    if (
+                        app in
+                        desktop.pinnedApps
+                    ) {
+                        "Desafixar da barra de tarefas"
+                    } else {
+                        "Fixar na barra de tarefas"
+                    }
+                )
+            },
+            onClick = {
+                desktop.togglePin(app)
+                onDismiss()
+            },
+        )
     }
 }
 
