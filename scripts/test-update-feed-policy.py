@@ -24,6 +24,7 @@ BOOTSTRAP_SIGNER = ROOT / "updates" / "bootstrap-signer.json"
 VERIFY_BOOTSTRAP_SIGNER = ROOT / "scripts" / "verify-bootstrap-signer.py"
 TEST_BOOTSTRAP_SIGNER = ROOT / "scripts" / "test-bootstrap-signer-verifier.py"
 BOOTSTRAP_WINDOWS = ROOT / "scripts" / "bootstrap-update-signing-windows.ps1"
+LOCAL_PUBLISHER = ROOT / "scripts" / "publish-update-local-windows.ps1"
 BUILD_GRADLE = ROOT / "app" / "build.gradle.kts"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -267,6 +268,7 @@ def main() -> int:
         BOOTSTRAP_WINDOWS: (
             "POCKETPC_UPDATE_BOOTSTRAP_OK",
             "POCKETPC_UPDATE_BOOTSTRAP_FAILED",
+            "POCKETPC_UPDATE_BOOTSTRAP_VALIDATE_OK",
             "updates\\bootstrap-signer.json",
             "Signer fisico: PASS",
             "POCKETPC_SIGNING_KEYSTORE_BASE64",
@@ -276,6 +278,25 @@ def main() -> int:
             "gh",
             "publish-update.yml",
             "Nenhum Secret foi enviado",
+        ),
+        LOCAL_PUBLISHER: (
+            "POCKETPC_LOCAL_UPDATE_PUBLISH_OK",
+            "POCKETPC_LOCAL_UPDATE_PUBLISH_FAILED",
+            "bootstrap-update-signing-windows.ps1",
+            "-ValidateOnly",
+            "build-local-windows.ps1",
+            ":app:testDebugUnitTest",
+            ":app:lintDebug",
+            ":app:assembleRelease",
+            "bootstrap-signer.json",
+            "Signer #1 certificate SHA-256 digest",
+            "release",
+            "create",
+            "prepare-update-feed.py",
+            "--publish",
+            "test-update-feed-policy.py",
+            "updates/stable.json",
+            "HEAD:main",
         ),
         PUBLISH_WORKFLOW: (
             "PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED",
