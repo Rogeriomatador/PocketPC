@@ -115,4 +115,43 @@ class PcRuntimeReadinessTest {
         assertTrue(rootfs.detail.contains("nenhum está preparado"))
         assertFalse(result.executableReady)
     }
+    @Test
+    fun ioFoundationIsReportedWithoutPromotingWindowsIo() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = false,
+                        components = emptyList(),
+                        state = "BLOCKED",
+                    ),
+                installedRuntimeCount = 0,
+                preparedRuntimeCount = 0,
+                ioHost =
+                    RuntimeIoHostCapabilities(
+                        networkInternetCapable = true,
+                        networkValidated = true,
+                        audioOutputCount = 2,
+                        keyboardCount = 1,
+                        mouseCount = 1,
+                        gamepadCount = 0,
+                    ),
+            )
+
+        val io = result.stages.single { it.id == "io-integration" }
+        assertEquals(PcRuntimeStageState.NOT_IMPLEMENTED, io.state)
+        assertTrue(io.detail.contains("áudio=2"))
+        assertTrue(io.detail.contains("internet=validada"))
+        assertFalse(result.executableReady)
+    }
+
 }
