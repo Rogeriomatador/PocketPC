@@ -43,6 +43,9 @@ CHECKS = {
         "DesktopApp.APPS -> InstalledAppsApp(desktopCapabilities)",
         "DesktopApp.DOWNLOADS -> DownloadsApp(storage, storageRoot)",
         "PocketDownloadImporter.importReady",
+        "PocketPcFirstRunStore",
+        "PocketPcFirstRunExperience",
+        "integratedBrowserHeader",
         "kotlinx.coroutines.launch",
         "compactMobile",
         "configuration.screenWidthDp < 700",
@@ -80,7 +83,8 @@ CHECKS = {
         "settings.loadWithOverviewMode",
         "compactToolbar",
         "maxWidth < 700.dp",
-        '"Modo touch"',
+        "TextButton(",
+        ".height(34.dp)",
         "DownloadManager",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt": (
@@ -102,7 +106,17 @@ CHECKS = {
         "compactExplorer",
         "maxWidth < 680.dp",
         "maxWidth >= 980.dp",
+        "PocketDownloadImporter.importReady",
+        "delay(2_000)",
         '"Pesquisar nesta pasta"',
+    ),
+    "app/src/main/java/dev/pocketpc/core/ui/PocketPcFirstRun.kt": (
+        '"pocketpc-first-run"',
+        '"completed"',
+        '"Seu espaço de trabalho no celular"',
+        '"C: para o sistema. P: para você."',
+        '"Entrar no PocketPC"',
+        '"P:\\\\Downloads"',
     ),
     "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt": (
         "ensurePocketDrive",
@@ -419,7 +433,7 @@ CHECKS = {
     ),
     "scripts/test-device-chain-verifier.py": (
         '"schemaVersion": 4',
-        '"orientationLandscape": True',
+        '"orientationLandscape": False',
         '"freeformWindowManagement": False',
         '"pcHardwareType": False',
         '"externalDisplayCount": 0',
@@ -445,6 +459,8 @@ CHECKS = {
         '"freeformWindowManagement"',
         '"pcHardwareType"',
         '"externalDisplayCount"',
+        "returnToPocketPc",
+        "MainActivity::class.java",
     ),
     "app/src/debug/AndroidManifest.xml": (
         'android:screenOrientation="fullUser"',
@@ -455,6 +471,12 @@ CHECKS = {
         "$logicalSizeUsable",
         '"Logical size usable  : "',
         '"PocketPC nao reportou uma area logica utilizavel durante "',
+    ),
+    "scripts/verify-device-evidence-bundle.py": (
+        '"orientationLandscape"',
+        '"adaptive desktop {field} must be boolean"',
+        '"adaptive desktop {field} must be "',
+        '"a positive integer"',
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopLaunchPolicy.kt": (
         "data class DesktopLaunchPlan",
