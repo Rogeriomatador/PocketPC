@@ -571,6 +571,12 @@ CHECKS = {
         '"screenWidthDp": 469',
         '"screenHeightDp": 1043',
     ),
+    "scripts/first-physical-test-core-windows.ps1": (
+        '"Desktop host nao reportou orientacao adaptativa valida."',
+        '"Orientation  : {0} (adaptive)"',
+        '"LANDSCAPE"',
+        '"PORTRAIT"',
+    ),
     "scripts/verify-first-physical-test-record.py": (
         '"final desktopOrientationLandscape must be boolean"',
         '"physical record desktopOrientationLandscape must be boolean"',
@@ -695,6 +701,17 @@ def main() -> int:
                     "PocketPC manifests must not force landscape; "
                     "adaptive phone/desktop orientation is required"
                 )
+
+        if relative.endswith("first-physical-test-core-windows.ps1"):
+            for forbidden in (
+                "Desktop host nao foi validado em landscape.",
+                'Write-Host "Landscape    : PASS"',
+            ):
+                if forbidden in text:
+                    failures.append(
+                        "First physical orchestration still contains "
+                        f"landscape-only regression: {forbidden}"
+                    )
 
         if relative.endswith("validate-device-windows.ps1"):
             if "if (-not $desktopLandscape)" in text:
