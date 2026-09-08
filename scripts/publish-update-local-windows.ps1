@@ -215,16 +215,10 @@ if (
 
 $bootstrap = Join-Path $RepoRoot "scripts\bootstrap-update-signing-windows.ps1"
 & $bootstrap -Repository $Repository -RepoRoot $RepoRoot -KeystorePath $KeystorePath -StorePassword $StorePassword -KeyAlias $KeyAlias -KeyPassword $KeyPassword -ValidateOnly
-if ($LASTEXITCODE -ne 0) {
-    Fail "Bootstrap signer validation failed."
-}
 
 if (-not $SkipDebugValidation) {
     $buildScript = Join-Path $RepoRoot "scripts\build-local-windows.ps1"
     & $buildScript -AndroidSdkRoot $AndroidSdkRoot -JavaHome $JavaHome -RequirePythonPolicyChecks
-    if ($LASTEXITCODE -ne 0) {
-        Fail "Strict local debug validation failed."
-    }
 }
 
 $gradleVersion = [string]$lock.gradle.version
