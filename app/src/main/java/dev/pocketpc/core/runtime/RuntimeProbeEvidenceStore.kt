@@ -151,6 +151,11 @@ class RuntimeProbeEvidenceStore(
                     KEY_D3D11,
                     d3d11Key,
                 ),
+            graphicsPresentationSmokePassed =
+                matches(
+                    KEY_D3D11_PRESENT,
+                    d3d11Key,
+                ),
             windowsProcessSmokePassed =
                 matches(
                     KEY_WINDOWS_PROCESS,
@@ -236,6 +241,25 @@ class RuntimeProbeEvidenceStore(
                         )
                     ) {
                         KEY_D3D11 to
+                            graphicsEvidenceKey(
+                                runtime = runtime,
+                                tools = tools,
+                                layers = layers,
+                                layerId = "dxvk",
+                            )
+                    } else {
+                        null
+                    }
+
+                GuestRuntimeProbe.D3D11_PRESENT_SMOKE ->
+                    if (
+                        hasBoth(
+                            result,
+                            "POCKETPC_D3D11_PRESENT_SMOKE_OK",
+                            "d3d11_present_smoke=passed",
+                        )
+                    ) {
+                        KEY_D3D11_PRESENT to
                             graphicsEvidenceKey(
                                 runtime = runtime,
                                 tools = tools,
@@ -441,6 +465,8 @@ class RuntimeProbeEvidenceStore(
             "wine-smoke-key"
         private const val KEY_D3D11 =
             "d3d11-smoke-key"
+        private const val KEY_D3D11_PRESENT =
+            "d3d11-present-smoke-key"
         private const val KEY_WINDOWS_PROCESS =
             "windows-process-ipc-smoke-key"
         private const val KEY_WINSOCK =
