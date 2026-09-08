@@ -7,6 +7,8 @@ object GuestToolTrustPolicy {
         val sourceCommit: String,
         val license: String,
         val entrypoint: String,
+        val architecture: String,
+        val executionMode: String,
     )
 
     private val trusted =
@@ -19,6 +21,8 @@ object GuestToolTrustPolicy {
                         "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
                     license = "MIT",
                     entrypoint = "bin/box64",
+                    architecture = "aarch64",
+                    executionMode = "native-aarch64",
                 ),
             "wine" to
                 TrustedTool(
@@ -28,6 +32,8 @@ object GuestToolTrustPolicy {
                         "db11d0fe6a169c457e23d007e20404643d067aa8",
                     license = "LGPL-2.1-or-later",
                     entrypoint = "bin/wine",
+                    architecture = "x86_64",
+                    executionMode = "box64-x86_64",
                 ),
         )
 
@@ -58,6 +64,16 @@ object GuestToolTrustPolicy {
         if (manifest.license != expected.license) {
             errors +=
                 "GUEST_TOOL_LICENSE_NOT_TRUSTED:" +
+                    manifest.id
+        }
+        if (manifest.architecture != expected.architecture) {
+            errors +=
+                "GUEST_TOOL_ARCHITECTURE_NOT_TRUSTED:" +
+                    manifest.id
+        }
+        if (manifest.executionMode != expected.executionMode) {
+            errors +=
+                "GUEST_TOOL_EXECUTION_MODE_NOT_TRUSTED:" +
                     manifest.id
         }
         if (
