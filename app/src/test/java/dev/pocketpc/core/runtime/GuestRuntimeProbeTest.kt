@@ -22,6 +22,33 @@ class GuestRuntimeProbeTest {
     }
 
     @Test
+    fun rootfsProbeUsesFailClosedProtocol() {
+        val script = GuestRuntimeProbe.ROOTFS.script
+        assertTrue(script.contains("POCKETPC_ROOTFS_PROBE_V1"))
+        assertTrue(script.contains("/bin /etc /usr /tmp"))
+        assertTrue(script.contains("/proc /dev"))
+        assertTrue(script.contains("tmp_write=failed"))
+        assertTrue(script.contains("rootfs=incomplete"))
+        assertTrue(script.contains("exit 5"))
+        assertFalse(script.contains("rootfs=ready\n"))
+    }
+
+    @Test
+    fun rootfsProbeCompletesOnHostOnlyAsProtocolFixture() = runBlocking {
+        assumeTrue(File("/bin/sh").canExecute())
+        assumeTrue(listOf("/bin", "/etc", "/usr", "/tmp", "/proc", "/dev").all { File(it).isDirectory })
+        val result = RuntimeProcessSupervisor().runOneShot(ProcessRunSpec(
+            argv = listOf("/bin/sh") + GuestRuntimeProbe.ROOTFS.arguments,
+            environment = mapOf("PATH" to "/usr/bin:/bin", "HOME" to "/tmp"),
+        ))
+        assertEquals(0, result.exitCode)
+        assertTrue(result.output.contains("POCKETPC_ROOTFS_PROBE_V1"))
+        assertTrue(result.output.contains("tmp_write=ok"))
+        assertTrue(result.output.contains("rootfs=structurally_ready"))
+        assertTrue(result.output.contains("probe=complete"))
+    }
+
+    @Test
     fun absentToolsRemainMissingInsteadOfReady() = runBlocking {
         assumeTrue(File("/bin/sh").canExecute())
         val result = RuntimeProcessSupervisor().runOneShot(ProcessRunSpec(
