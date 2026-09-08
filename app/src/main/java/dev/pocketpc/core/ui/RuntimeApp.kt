@@ -1305,6 +1305,16 @@ fun RuntimeApp(
                                         .toSet(),
                                 overlayValid =
                                     toolOverlayPlan.valid,
+                                installedWindowsLayerIds =
+                                    deployedWindowsLayersByRuntime[
+                                        runtimeLayerStateKey(
+                                            runtime,
+                                        )
+                                    ].orEmpty()
+                                        .map {
+                                            it.manifest.id
+                                        }
+                                        .toSet(),
                             )
                         if (requirementBlockers.isNotEmpty()) {
                             ProotInvocationPlan(
