@@ -105,8 +105,8 @@ def main() -> int:
     if record.get("nativeHostLoaded") is not True:
         failures.append("nativeHostLoaded is not true")
 
-    if record.get("desktopOrientationLandscape") is not True:
-        failures.append("desktopOrientationLandscape is not true")
+    if not isinstance(record.get("desktopOrientationLandscape"), bool):
+        failures.append("desktopOrientationLandscape must be boolean")
 
     for field in (
         "desktopFreeformAdvertised",
@@ -165,8 +165,21 @@ def main() -> int:
         if not isinstance(desktop, dict):
             failures.append("automation desktop evidence must be an object")
             desktop = {}
-        if desktop.get("orientationLandscape") is not True:
-            failures.append("automation desktop orientation is not landscape")
+        if not isinstance(desktop.get("orientationLandscape"), bool):
+            failures.append(
+                "automation desktop orientationLandscape must be boolean"
+            )
+
+        for field in ("screenWidthDp", "screenHeightDp"):
+            value = desktop.get(field)
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or value <= 0
+            ):
+                failures.append(
+                    f"automation desktop {field} must be a positive integer"
+                )
 
         desktop_pairs = (
             ("desktopFreeformAdvertised", "freeformWindowManagement"),
@@ -180,6 +193,10 @@ def main() -> int:
             ("mouseCount", "mouseCount"),
             ("keyboardCount", "keyboardCount"),
             ("gamepadCount", "gamepadCount"),
+            (
+                "desktopOrientationLandscape",
+                "orientationLandscape",
+            ),
         )
         for record_field, desktop_field in desktop_pairs:
             desktop_value = desktop.get(desktop_field)
