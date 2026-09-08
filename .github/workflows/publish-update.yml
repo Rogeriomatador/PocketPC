@@ -1,18 +1,11 @@
 name: PocketPC Publish Update
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "app/**"
-      - "updates/stable.json"
-      - "toolchains/android-build-lock.json"
-      - "scripts/prepare-update-feed.py"
-      - "scripts/test-update-feed-policy.py"
-      - "scripts/verify-bootstrap-signer.py"
-      - "updates/bootstrap-signer.json"
-      - ".github/workflows/publish-update.yml"
+  workflow_run:
+    workflows:
+      - "Android CI"
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -24,13 +17,25 @@ concurrency:
 
 jobs:
   publish:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
+    env:
+      POCKETPC_RELEASE_SOURCE_SHA: >-
+        ${{ github.event_name == 'workflow_run' &&
+            github.event.workflow_run.head_sha ||
+            github.sha }}
 
     steps:
-      - name: Checkout exact source
+      - name: Checkout exact CI-approved source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ env.POCKETPC_RELEASE_SOURCE_SHA }}
 
       - name: Decide whether publishing is possible
         id: gate
@@ -152,7 +157,7 @@ jobs:
       - name: Build and test signed release
         if: steps.gate.outputs.publish == 'true'
         env:
-          POCKETPC_SOURCE_REVISION: ${{ github.sha }}
+          POCKETPC_SOURCE_REVISION: ${{ env.POCKETPC_RELEASE_SOURCE_SHA }}
           POCKETPC_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETPC_SIGNING_STORE_PASSWORD }}
           POCKETPC_SIGNING_KEY_ALIAS: ${{ secrets.POCKETPC_SIGNING_KEY_ALIAS }}
           POCKETPC_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETPC_SIGNING_KEY_PASSWORD }}
@@ -223,7 +228,7 @@ jobs:
             exit 1
           fi
 
-          gh release create "$TAG" "$APK"             --target "$GITHUB_SHA"             --title "PocketPC $VERSION"             --notes "Signed PocketPC update built from $GITHUB_SHA"             --prerelease
+          gh release create "$TAG" "$APK"             --target "$POCKETPC_RELEASE_SOURCE_SHA"             --title "PocketPC $VERSION"             --notes "Signed PocketPC update built from $POCKETPC_RELEASE_SOURCE_SHA"             --prerelease
 
       - name: Render and validate published stable feed
         if: steps.gate.outputs.publish == 'true'
@@ -235,13 +240,22 @@ jobs:
         run: |
           APK_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
 
-          python3 scripts/prepare-update-feed.py             --apk "$APK"             --apk-url "$APK_URL"             --source-revision "$GITHUB_SHA"             --notes "PocketPC $VERSION"             --publish
+          python3 scripts/prepare-update-feed.py             --apk "$APK"             --apk-url "$APK_URL"             --source-revision "$POCKETPC_RELEASE_SOURCE_SHA"             --notes "PocketPC $VERSION"             --publish
 
           python3 scripts/test-update-feed-policy.py
 
       - name: Publish feed to main
         if: steps.gate.outputs.publish == 'true'
         run: |
+          git fetch origin main
+          CURRENT_MAIN="$(git rev-parse origin/main)"
+          if [ "$CURRENT_MAIN" != "$POCKETPC_RELEASE_SOURCE_SHA" ]; then
+            echo "PUBLISH_UPDATE_BLOCKED_MAIN_ADVANCED" >&2
+            echo "approved=$POCKETPC_RELEASE_SOURCE_SHA" >&2
+            echo "current=$CURRENT_MAIN" >&2
+            exit 1
+          fi
+
           git config user.name "PocketPC Release Bot"
           git config user.email "pocketpc-release@users.noreply.github.com"
           git add updates/stable.json
