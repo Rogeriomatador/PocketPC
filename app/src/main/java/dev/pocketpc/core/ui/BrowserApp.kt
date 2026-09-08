@@ -508,10 +508,14 @@ private fun enqueueDownload(context: Context, storage: StorageRepository, url: S
         }
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val downloadId = manager.enqueue(request)
-        if (pocketDriveConfigured) PocketDownloadRegistry(context).register(downloadId)
+        PocketDownloadRegistry(context).register(downloadId)
         Toast.makeText(
             context,
-            if (pocketDriveConfigured) "Baixando $fileName • será importado para P:\\Downloads quando concluir" else "Download iniciado: $fileName",
+            if (pocketDriveConfigured) {
+                "Baixando $fileName • será importado para P:\\Downloads quando concluir"
+            } else {
+                "Baixando $fileName • conecte um PocketDrive para importar depois"
+            },
             Toast.LENGTH_LONG,
         ).show()
     }.onFailure { error ->
