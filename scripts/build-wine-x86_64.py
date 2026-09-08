@@ -111,7 +111,17 @@ def flatten_install_tree(source_root: Path, package_root: Path) -> list[dict[str
         relative = source.relative_to(source_root)
         if source.is_dir() and not source.is_symlink():
             continue
-        resolved = source.resolve()
+        if source.is_symlink():
+            target_text = os.readlink(source)
+            if target_text.startswith("/opt/pocketpc/wine/"):
+                resolved = (
+                    source_root /
+                    target_text.removeprefix("/opt/pocketpc/wine/")
+                ).resolve()
+            else:
+                resolved = (source.parent / target_text).resolve()
+        else:
+            resolved = source.resolve()
         try:
             resolved.relative_to(source_root.resolve())
         except ValueError as error:
