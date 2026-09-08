@@ -11,9 +11,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.pocketpc.core.storage.PocketDownloadImporter
 import dev.pocketpc.core.storage.PocketDriveDirectory
 import dev.pocketpc.core.storage.PocketDriveMount
 import dev.pocketpc.core.storage.PocketFileClass
@@ -21,6 +23,7 @@ import dev.pocketpc.core.storage.classifyPocketFile
 import dev.pocketpc.core.storage.StorageEntry
 import dev.pocketpc.core.storage.StorageListing
 import dev.pocketpc.core.storage.StorageRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -37,6 +40,7 @@ fun FilesApp(
     onDisconnectStorage: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current.applicationContext
 
     var pathStack by remember(rootUri) {
         mutableStateOf(
@@ -84,6 +88,24 @@ fun FilesApp(
                         failure.message
                             ?: "Falha ao preparar o PocketDrive."
                 }
+        }
+    }
+
+    LaunchedEffect(rootUri) {
+        if (rootUri == null) {
+            return@LaunchedEffect
+        }
+
+        while (true) {
+            val imported =
+                PocketDownloadImporter.importReady(
+                    context = context,
+                    storage = repository,
+                )
+            if (imported > 0) {
+                refreshToken++
+            }
+            delay(2_000)
         }
     }
 
