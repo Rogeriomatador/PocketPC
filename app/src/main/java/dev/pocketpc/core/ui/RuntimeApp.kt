@@ -235,6 +235,10 @@ fun RuntimeApp(
                     states.any {
                         it.wineSmokePassed
                     },
+                displayBridgeSmokePassed =
+                    states.any {
+                        it.displayBridgeSmokePassed
+                    },
                 d3d11SmokePassed =
                     states.any {
                         it.d3d11SmokePassed
