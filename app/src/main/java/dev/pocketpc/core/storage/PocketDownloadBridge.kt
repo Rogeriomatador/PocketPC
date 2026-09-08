@@ -125,7 +125,14 @@ object PocketDownloadImporter {
                         downloadId,
                     )
 
-                when (metadata?.status) {
+                if (metadata == null) {
+                    // The Android DownloadManager entry was removed outside
+                    // PocketPC. Do not keep an unreachable ID forever.
+                    registry.remove(downloadId)
+                    return@forEach
+                }
+
+                when (metadata.status) {
                     DownloadManager.STATUS_FAILED -> {
                         registry.remove(downloadId)
                     }
