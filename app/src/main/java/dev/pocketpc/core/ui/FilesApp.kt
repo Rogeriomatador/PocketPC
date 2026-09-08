@@ -3,6 +3,8 @@ package dev.pocketpc.core.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -266,6 +268,25 @@ fun FilesApp(
                         createFolderOpen = true
                     },
                 )
+
+                if (compactExplorer) {
+                    CompactExplorerLocations(
+                        mount = driveMount,
+                        onRoot = {
+                            pathStack = listOf(rootUri)
+                            selectedUri = null
+                        },
+                        onDirectory = { directory ->
+                            driveMount
+                                ?.uriFor(directory)
+                                ?.let { uri ->
+                                    pathStack =
+                                        listOf(rootUri, uri)
+                                    selectedUri = null
+                                }
+                        },
+                    )
+                }
 
                 if (loading) {
                     LinearProgressIndicator(
@@ -540,6 +561,61 @@ private fun EmptyExplorer(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CompactExplorerLocations(
+    mount: PocketDriveMount?,
+    onRoot: () -> Unit,
+    onDirectory: (PocketDriveDirectory) -> Unit,
+) {
+    Surface(
+        tonalElevation = 1.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(
+                    rememberScrollState()
+                )
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 5.dp,
+                ),
+            horizontalArrangement =
+                Arrangement.spacedBy(6.dp),
+            verticalAlignment =
+                Alignment.CenterVertically,
+        ) {
+            AssistChip(
+                onClick = onRoot,
+                label = {
+                    Text(
+                        "P:",
+                        fontSize = 10.sp,
+                    )
+                },
+            )
+
+            PocketDriveDirectory.entries
+                .forEach { directory ->
+                    AssistChip(
+                        onClick = {
+                            onDirectory(directory)
+                        },
+                        enabled =
+                            mount?.uriFor(directory) != null,
+                        label = {
+                            Text(
+                                directory.displayName,
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                            )
+                        },
+                    )
+                }
         }
     }
 }
