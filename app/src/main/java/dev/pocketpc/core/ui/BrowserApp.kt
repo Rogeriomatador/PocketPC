@@ -146,42 +146,240 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
         }
 
         Surface(tonalElevation = 2.dp) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                BrowserNavButton("←") { webView?.takeIf { it.canGoBack() }?.goBack() }
-                BrowserNavButton("→") { webView?.takeIf { it.canGoForward() }?.goForward() }
-                BrowserNavButton("↻") { webView?.reload() }
-                BrowserNavButton("⌂") { navigate(POCKETPC_HOME) }
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it },
-                    modifier = Modifier.weight(1f).heightIn(min = 44.dp, max = 48.dp),
-                    singleLine = true,
-                    placeholder = { Text("Endereço ou pesquisa") },
-                    shape = RoundedCornerShape(12.dp),
-                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { navigate(address) }),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Go),
-                )
-                BrowserNavButton("Ir", true) { navigate(address) }
-                BrowserNavButton(if (session.desktopMode) "PC✓" else "PC", true) {
-                    session.desktopMode = !session.desktopMode
-                    webView?.let { view ->
-                        val base = mobileUserAgent ?: view.settings.userAgentString.orEmpty()
-                        view.settings.userAgentString = if (session.desktopMode) desktopUserAgent(base) else base
-                        view.settings.useWideViewPort = session.desktopMode
-                        view.settings.loadWithOverviewMode = session.desktopMode
-                        view.reload()
+            BoxWithConstraints {
+                val compactToolbar = maxWidth < 700.dp
+
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 5.dp,
+                            vertical = 4.dp,
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(3.dp),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment =
+                            Alignment.CenterVertically,
+                        horizontalArrangement =
+                            Arrangement.spacedBy(4.dp),
+                    ) {
+                        BrowserNavButton("←") {
+                            webView
+                                ?.takeIf { it.canGoBack() }
+                                ?.goBack()
+                        }
+                        BrowserNavButton("→") {
+                            webView
+                                ?.takeIf { it.canGoForward() }
+                                ?.goForward()
+                        }
+                        BrowserNavButton("↻") {
+                            webView?.reload()
+                        }
+                        if (!compactToolbar) {
+                            BrowserNavButton("⌂") {
+                                navigate(POCKETPC_HOME)
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = address,
+                            onValueChange = {
+                                address = it
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(
+                                    min = 42.dp,
+                                    max = 46.dp,
+                                ),
+                            singleLine = true,
+                            placeholder = {
+                                Text("Endereço ou pesquisa")
+                            },
+                            shape =
+                                RoundedCornerShape(12.dp),
+                            textStyle =
+                                LocalTextStyle.current
+                                    .copy(fontSize = 13.sp),
+                            keyboardActions =
+                                androidx.compose.foundation
+                                    .text.KeyboardActions(
+                                        onDone = {
+                                            navigate(address)
+                                        }
+                                    ),
+                            keyboardOptions =
+                                androidx.compose.foundation
+                                    .text.KeyboardOptions(
+                                        imeAction =
+                                            androidx.compose.ui
+                                                .text.input
+                                                .ImeAction.Go
+                                    ),
+                        )
+                        BrowserNavButton("Ir", true) {
+                            navigate(address)
+                        }
+
+                        if (!compactToolbar) {
+                            BrowserNavButton(
+                                if (session.desktopMode) {
+                                    "PC✓"
+                                } else {
+                                    "PC"
+                                },
+                                true,
+                            ) {
+                                session.desktopMode =
+                                    !session.desktopMode
+                                webView?.let { view ->
+                                    val base =
+                                        mobileUserAgent
+                                            ?: view.settings
+                                                .userAgentString
+                                                .orEmpty()
+                                    view.settings
+                                        .userAgentString =
+                                        if (
+                                            session.desktopMode
+                                        ) {
+                                            desktopUserAgent(base)
+                                        } else {
+                                            base
+                                        }
+                                    view.settings
+                                        .useWideViewPort =
+                                        session.desktopMode
+                                    view.settings
+                                        .loadWithOverviewMode =
+                                        session.desktopMode
+                                    view.reload()
+                                }
+                            }
+                            BrowserNavButton("↓") {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            DownloadManager
+                                                .ACTION_VIEW_DOWNLOADS
+                                        ).addFlags(
+                                            Intent
+                                                .FLAG_ACTIVITY_NEW_TASK
+                                        )
+                                    )
+                                }
+                            }
+                            BrowserNavButton("↗") {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            Uri.parse(
+                                                webView?.url
+                                                    ?: address
+                                            ),
+                                        ).addFlags(
+                                            Intent
+                                                .FLAG_ACTIVITY_NEW_TASK
+                                        )
+                                    )
+                                }
+                            }
+                        }
                     }
-                }
-                BrowserNavButton("↓") {
-                    runCatching { context.startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                }
-                BrowserNavButton("↗") {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webView?.url ?: address)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+
+                    if (compactToolbar) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(4.dp),
+                            verticalAlignment =
+                                Alignment.CenterVertically,
+                        ) {
+                            BrowserNavButton("⌂") {
+                                navigate(POCKETPC_HOME)
+                            }
+                            BrowserNavButton(
+                                if (session.desktopMode) {
+                                    "PC✓"
+                                } else {
+                                    "PC"
+                                },
+                                true,
+                            ) {
+                                session.desktopMode =
+                                    !session.desktopMode
+                                webView?.let { view ->
+                                    val base =
+                                        mobileUserAgent
+                                            ?: view.settings
+                                                .userAgentString
+                                                .orEmpty()
+                                    view.settings
+                                        .userAgentString =
+                                        if (
+                                            session.desktopMode
+                                        ) {
+                                            desktopUserAgent(base)
+                                        } else {
+                                            base
+                                        }
+                                    view.settings
+                                        .useWideViewPort =
+                                        session.desktopMode
+                                    view.settings
+                                        .loadWithOverviewMode =
+                                        session.desktopMode
+                                    view.reload()
+                                }
+                            }
+                            BrowserNavButton("↓") {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            DownloadManager
+                                                .ACTION_VIEW_DOWNLOADS
+                                        ).addFlags(
+                                            Intent
+                                                .FLAG_ACTIVITY_NEW_TASK
+                                        )
+                                    )
+                                }
+                            }
+                            BrowserNavButton("↗") {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            Uri.parse(
+                                                webView?.url
+                                                    ?: address
+                                            ),
+                                        ).addFlags(
+                                            Intent
+                                                .FLAG_ACTIVITY_NEW_TASK
+                                        )
+                                    )
+                                }
+                            }
+                            Text(
+                                "Modo touch",
+                                modifier =
+                                    Modifier.padding(
+                                        start = 4.dp
+                                    ),
+                                fontSize = 9.sp,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
         }
