@@ -552,11 +552,26 @@ private fun ExplorerSidebar(
                     MaterialTheme.typography.titleMedium,
             )
             Text(
-                "P:  PocketDrive",
+                "P:  " + (mount?.label ?: "PocketDrive"),
                 fontSize = 10.sp,
                 color =
                     MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
+            if (mount != null) {
+                Text(
+                    "Volume " +
+                        mount.volumeId.take(8) +
+                        " • esquema " +
+                        mount.schemaVersion,
+                    fontSize = 7.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
             HorizontalDivider()
 
             TextButton(
