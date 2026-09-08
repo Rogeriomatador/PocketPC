@@ -148,6 +148,7 @@ jobs:
       - name: Run fail-closed source policies
         if: steps.gate.outputs.publish == 'true'
         run: |
+          python3 scripts/test-python-script-syntax.py
           python3 scripts/verify-android-build-lock.py
           python3 scripts/test-desktop-mode-policy.py
           python3 scripts/test-desktop-enum-coverage.py
