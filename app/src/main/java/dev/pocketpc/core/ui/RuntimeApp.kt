@@ -50,6 +50,7 @@ import dev.pocketpc.core.runtime.WindowsRuntimeLayerDeployManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -1271,6 +1272,79 @@ fun RuntimeApp(
                             ProotExecutionController
                                 .EXECUTION_APPROVAL_BLOCKER
                         )
+                val runtimeProbeEvidence =
+                    remember(
+                        runtime,
+                        installedTools,
+                        evidenceRevision,
+                    ) {
+                        probeEvidenceStore.stateFor(
+                            runtime = runtime,
+                            tools = installedTools,
+                        )
+                    }
+                val runtimeHome =
+                    remember(runtime) {
+                        runCatching {
+                            bindPlanner
+                                .homeDirectory(runtime)
+                        }.getOrNull()
+                    }
+                val runtimePrefixPlan =
+                    remember(
+                        runtimeHome,
+                        evidenceRevision,
+                    ) {
+                        runtimeHome?.let { home ->
+                            WindowsPrefixPlanner.plan(
+                                storageRoot = home,
+                                profileId = "smoke",
+                            )
+                        }
+                    }
+                val runtimePrefixReady =
+                    runtimePrefixPlan?.let { plan ->
+                        WindowsPrefixReadinessProbe
+                            .assess(plan)
+                            .ready
+                    } == true
+                val windowsLayerDeployManager =
+                    remember(runtimeHome) {
+                        runtimeHome?.let { home ->
+                            WindowsRuntimeLayerDeployManager(
+                                File(
+                                    home,
+                                    ".pocketpc/windows-layers",
+                                ),
+                            )
+                        }
+                    }
+                val deployedWindowsLayers by
+                    produceState(
+                        initialValue = emptyList(),
+                        key1 = runtime,
+                        key2 = evidenceRevision,
+                        key3 = stagedWindowsLayers,
+                    ) {
+                        value =
+                            withContext(
+                                Dispatchers.IO,
+                            ) {
+                                val manager =
+                                    windowsLayerDeployManager
+                                val plan =
+                                    runtimePrefixPlan
+                                if (
+                                    manager != null &&
+                                    plan != null &&
+                                    runtimePrefixReady
+                                ) {
+                                    manager.discover(plan)
+                                } else {
+                                    emptyList()
+                                }
+                            }
+                    }
 
                 InstalledRuntimeCard(
                     runtime = runtime,
@@ -1327,6 +1401,151 @@ fun RuntimeApp(
                         }
                     },
                 )
+                if (
+                    runtimeProbeEvidence
+                        .wineSmokePassed &&
+                    runtimePrefixReady &&
+                    runtimePrefixPlan != null &&
+                    windowsLayerDeployManager !=
+                        null
+                ) {
+                    Surface(
+                        tonalElevation = 1.dp,
+                        shape =
+                            MaterialTheme.shapes
+                                .medium,
+                    ) {
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalArrangement =
+                                Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                "Camadas gráficas deste prefixo",
+                                style =
+                                    MaterialTheme.typography
+                                        .titleSmall,
+                            )
+                            if (
+                                stagedWindowsLayers
+                                    .isEmpty()
+                            ) {
+                                Text(
+                                    "Nenhuma camada gráfica em staging.",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                )
+                            }
+                            stagedWindowsLayers
+                                .forEach { layer ->
+                                    val alreadyDeployed =
+                                        deployedWindowsLayers
+                                            .any { deployed ->
+                                                deployed.manifest ==
+                                                    layer.manifest
+                                            }
+                                    Button(
+                                        enabled =
+                                            !busy &&
+                                                !alreadyDeployed,
+                                        onClick = {
+                                            busy = true
+                                            status =
+                                                "Implantando " +
+                                                    layer.manifest.id +
+                                                    " com backup/rollback…"
+                                            scope.launch {
+                                                windowsLayerDeployManager
+                                                    .deploy(
+                                                        layer = layer,
+                                                        prefixPlan =
+                                                            runtimePrefixPlan,
+                                                    )
+                                                    .onSuccess {
+                                                        status =
+                                                            "WINDOWS_LAYER_DEPLOYED_ATTESTED: " +
+                                                                it.manifest.id +
+                                                                " " +
+                                                                it.manifest.version
+                                                        evidenceRevision +=
+                                                            1
+                                                    }
+                                                    .onFailure {
+                                                        status =
+                                                            "WINDOWS LAYER DEPLOY FAILED: " +
+                                                                (
+                                                                    it.message
+                                                                        ?: it.javaClass
+                                                                            .simpleName
+                                                                )
+                                                    }
+                                                busy = false
+                                            }
+                                        },
+                                    ) {
+                                        Text(
+                                            if (alreadyDeployed) {
+                                                layer.manifest.id +
+                                                    " aplicado ✓"
+                                            } else {
+                                                "Aplicar " +
+                                                    layer.manifest.id
+                                            },
+                                        )
+                                    }
+                                }
+
+                            deployedWindowsLayers
+                                .forEach { deployed ->
+                                    TextButton(
+                                        enabled = !busy,
+                                        onClick = {
+                                            busy = true
+                                            scope.launch {
+                                                windowsLayerDeployManager
+                                                    .remove(
+                                                        deployed = deployed,
+                                                        prefixPlan =
+                                                            runtimePrefixPlan,
+                                                    )
+                                                    .onSuccess {
+                                                        status =
+                                                            if (it) {
+                                                                "Camada " +
+                                                                    deployed.manifest.id +
+                                                                    " removida e backup restaurado."
+                                                            } else {
+                                                                "Camada não removida."
+                                                            }
+                                                        evidenceRevision +=
+                                                            1
+                                                    }
+                                                    .onFailure {
+                                                        status =
+                                                            "WINDOWS LAYER REMOVE FAILED: " +
+                                                                (
+                                                                    it.message
+                                                                        ?: it.javaClass
+                                                                            .simpleName
+                                                                )
+                                                    }
+                                                busy = false
+                                            }
+                                        },
+                                    ) {
+                                        Text(
+                                            "Remover " +
+                                                deployed.manifest.id +
+                                                " / restaurar backup",
+                                        )
+                                    }
+                                }
+                        }
+                    }
+                }
             }
     }
 
