@@ -254,7 +254,31 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                     modifier = Modifier.align(alignment),
                 ) {
                     when (window.app) {
-                        DesktopApp.BROWSER -> BrowserApp(browserSession, storage)
+                        DesktopApp.BROWSER ->
+                            BrowserApp(
+                                session = browserSession,
+                                storage = storage,
+                                windowActions =
+                                    BrowserWindowActions(
+                                        minimized = {
+                                            desktop.minimize(
+                                                window.id
+                                            )
+                                        },
+                                        toggleMaximize = {
+                                            desktop.toggleMaximize(
+                                                window.id
+                                            )
+                                        },
+                                        close = {
+                                            desktop.close(
+                                                window.id
+                                            )
+                                        },
+                                        maximized =
+                                            window.maximized,
+                                    ),
+                            )
                         DesktopApp.FILES -> FilesApp(
                             repository = storage,
                             rootUri = storageRoot,
