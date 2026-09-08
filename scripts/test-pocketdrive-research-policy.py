@@ -30,7 +30,7 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/storage/PocketDownloadBridge.kt": (
         "class PocketDownloadReceiver", "BroadcastReceiver", "ACTION_DOWNLOAD_COMPLETE", "goAsync()",
         "PocketDownloadImporter", "importReady", "PocketDownloadRegistry", "STATUS_FAILED",
-        "STATUS_SUCCESSFUL", "manager.remove(downloadId)", "registry.remove(downloadId)",
+        "STATUS_SUCCESSFUL", "metadata == null", "manager.remove(downloadId)", "registry.remove(downloadId)",
     ),
     "app/src/main/java/dev/pocketpc/core/storage/PocketPcPackageRegistry.kt": (
         "PocketPcPackageState", "RUNTIME_REQUIRED", "class PocketPcPackageRegistry",
@@ -47,10 +47,12 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/DownloadsApp.kt": (
         "Destino padrão: P:\\Downloads", "Programas de PC detectados", "PocketPcPackageRegistry",
         "RUNTIME_REQUIRED", "Runtime necessário", "P:\\Downloads está vazio.",
+        "PocketDownloadImporter.importReady", "Download removido do PocketPC",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt": (
         "PocketDriveMount", "PocketDriveDirectory.DOWNLOADS", "PocketDriveDirectory.APPLICATIONS",
-        "PocketDriveDirectory.GAMES", "Trocar PocketDrive", "Desconectar P:",
+        "PocketDriveDirectory.GAMES", "mount.volumeId.take(8)", "mount.schemaVersion",
+        "Trocar PocketDrive", "Desconectar P:",
     ),
     "app/src/main/java/dev/pocketpc/core/research/PocketPcResearchProbe.kt": (
         "VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY", "createVirtualDisplay", "MediaCodecList",
