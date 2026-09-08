@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.InputStream
 
 class RuntimeDisplayBridgeProtocolTest {
     @Test
@@ -219,4 +220,118 @@ class RuntimeDisplayBridgeProtocolTest {
             ],
         )
     }
+    @Test
+    fun fragmentedStreamReassemblesOneFrame() {
+        val encoded =
+            RuntimeDisplayBridgeProtocol
+                .encode(
+                    RuntimeDisplayBridgeFrame(
+                        type =
+                            RuntimeDisplayBridgeMessageType
+                                .WINDOW_GEOMETRY,
+                        sequence = 12,
+                        payload =
+                            ByteArray(257) {
+                                (it and 0xff)
+                                    .toByte()
+                            },
+                    ),
+                )
+
+        val fragmented =
+            object : InputStream() {
+                var offset = 0
+
+                override fun read(): Int {
+                    if (
+                        offset >=
+                        encoded.size
+                    ) {
+                        return -1
+                    }
+                    return encoded[
+                        offset++
+                    ].toInt() and 0xff
+                }
+
+                override fun read(
+                    buffer: ByteArray,
+                    bufferOffset: Int,
+                    length: Int,
+                ): Int {
+                    if (
+                        offset >=
+                        encoded.size
+                    ) {
+                        return -1
+                    }
+                    val count =
+                        minOf(
+                            3,
+                            length,
+                            encoded.size -
+                                offset,
+                        )
+                    encoded.copyInto(
+                        buffer,
+                        destinationOffset =
+                            bufferOffset,
+                        startIndex = offset,
+                        endIndex =
+                            offset + count,
+                    )
+                    offset += count
+                    return count
+                }
+            }
+
+        val decoded =
+            RuntimeDisplayBridgeProtocol
+                .readFrame(fragmented)
+                .getOrThrow()
+
+        assertEquals(
+            RuntimeDisplayBridgeMessageType
+                .WINDOW_GEOMETRY,
+            decoded.type,
+        )
+        assertEquals(
+            12L,
+            decoded.sequence,
+        )
+        assertEquals(
+            257,
+            decoded.payload.size,
+        )
+    }
+
+    @Test
+    fun truncatedStreamingFrameFailsClosed() {
+        val encoded =
+            RuntimeDisplayBridgeProtocol
+                .encode(
+                    RuntimeDisplayBridgeFrame(
+                        type =
+                            RuntimeDisplayBridgeMessageType
+                                .HELLO,
+                        sequence = 0,
+                        payload =
+                            ByteArray(100),
+                    ),
+                )
+        val truncated =
+            encoded.copyOf(
+                encoded.size - 7,
+            )
+
+        val result =
+            RuntimeDisplayBridgeProtocol
+                .readFrame(
+                    truncated
+                        .inputStream(),
+                )
+
+        assertTrue(result.isFailure)
+    }
+
 }
