@@ -1152,6 +1152,12 @@ fun DesktopContextMenu(
     modifier: Modifier = Modifier,
 ) {
     val target = desktop.contextMenuTarget
+    val targetWindow =
+        target?.let { app ->
+            desktop.windows.firstOrNull {
+                it.app == app
+            }
+        }
 
     Surface(
         modifier = modifier.width(270.dp),
@@ -1167,11 +1173,70 @@ fun DesktopContextMenu(
                     fontSize = 12.sp,
                 )
                 TextButton(
-                    onClick = { desktop.open(target) },
+                    onClick = {
+                        desktop.open(target)
+                        desktop.closeContextMenu()
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Abrir", modifier = Modifier.fillMaxWidth())
+                    Text(
+                        if (targetWindow?.minimized == true) {
+                            "Restaurar janela"
+                        } else {
+                            "Abrir / trazer para frente"
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
+
+                if (targetWindow != null) {
+                    TextButton(
+                        onClick = {
+                            desktop.minimize(targetWindow.id)
+                            desktop.closeContextMenu()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            "Minimizar",
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            desktop.toggleMaximize(targetWindow.id)
+                            desktop.closeContextMenu()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            if (targetWindow.maximized) {
+                                "Restaurar tamanho"
+                            } else {
+                                "Maximizar"
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            desktop.close(targetWindow.id)
+                            desktop.closeContextMenu()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            "Fechar janela",
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    HorizontalDivider()
+                }
+
                 TextButton(
                     onClick = {
                         desktop.togglePin(target)
