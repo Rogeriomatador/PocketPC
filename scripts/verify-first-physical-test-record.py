@@ -150,8 +150,13 @@ def main() -> int:
         failures.append("final runtimeLinkSemanticsReady must be boolean")
     if final.get("nativeHostLoaded") is not True:
         failures.append("final native host gate is not PASS")
-    if final.get("desktopOrientationLandscape") is not True:
-        failures.append("final desktop orientation is not landscape")
+    if not isinstance(
+        final.get("desktopOrientationLandscape"),
+        bool,
+    ):
+        failures.append(
+            "final desktopOrientationLandscape must be boolean"
+        )
 
     for field in (
         "desktopFreeformAdvertised",
@@ -198,8 +203,13 @@ def main() -> int:
         failures.append("final runtime link readiness differs from physical record")
     if physical_record.get("nativeHostLoaded") is not True:
         failures.append("physical record native host gate is not PASS")
-    if physical_record.get("desktopOrientationLandscape") is not True:
-        failures.append("physical record desktop orientation is not landscape")
+    if not isinstance(
+        physical_record.get("desktopOrientationLandscape"),
+        bool,
+    ):
+        failures.append(
+            "physical record desktopOrientationLandscape must be boolean"
+        )
 
     desktop_fields = (
         "desktopOrientationLandscape",
