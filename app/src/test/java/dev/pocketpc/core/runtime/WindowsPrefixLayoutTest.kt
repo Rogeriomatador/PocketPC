@@ -2,7 +2,6 @@ package dev.pocketpc.core.runtime
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Files
@@ -14,7 +13,7 @@ class WindowsPrefixLayoutTest {
         try {
             val result = WindowsPrefixPlanner.plan(root, "default")
             assertTrue(result.blockers.joinToString(), result.valid)
-            val layout = assertNotNull(result.layout)
+            val layout = requireNotNull(result.layout)
             assertEquals(
                 "/home/pocket/windows-prefixes/default",
                 layout.guestPrefixRoot,
