@@ -278,28 +278,37 @@ def main() -> int:
                     desktop = evidence_json.get("desktop")
                     if not isinstance(desktop, dict):
                         failures.append(
-                            "alpha19 device evidence desktop must be an object"
+                            "adaptive device evidence desktop must be an object"
                         )
                         desktop = {}
 
-                    if desktop.get("orientationLandscape") is not True:
-                        failures.append(
-                            "alpha19 desktop orientation is not landscape"
-                        )
-
                     for field in (
+                        "orientationLandscape",
                         "secondaryDisplayActivities",
                         "freeformWindowManagement",
                         "pcHardwareType",
                     ):
                         if not isinstance(desktop.get(field), bool):
                             failures.append(
-                                f"alpha19 desktop {field} must be boolean"
+                                f"adaptive desktop {field} must be boolean"
                             )
 
                     for field in (
                         "screenWidthDp",
                         "screenHeightDp",
+                    ):
+                        value = desktop.get(field)
+                        if (
+                            not isinstance(value, int)
+                            or isinstance(value, bool)
+                            or value <= 0
+                        ):
+                            failures.append(
+                                f"adaptive desktop {field} must be "
+                                "a positive integer"
+                            )
+
+                    for field in (
                         "externalDisplayCount",
                         "presentationDisplayCount",
                     ):
@@ -310,14 +319,14 @@ def main() -> int:
                             or value < 0
                         ):
                             failures.append(
-                                f"alpha19 desktop {field} must be "
+                                f"adaptive desktop {field} must be "
                                 "a non-negative integer"
                             )
 
                     peripherals = desktop.get("peripherals")
                     if not isinstance(peripherals, dict):
                         failures.append(
-                            "alpha19 desktop peripherals must be an object"
+                            "adaptive desktop peripherals must be an object"
                         )
                         peripherals = {}
 
@@ -333,14 +342,14 @@ def main() -> int:
                             or value < 0
                         ):
                             failures.append(
-                                f"alpha19 peripherals {field} must be "
+                                f"adaptive peripherals {field} must be "
                                 "a non-negative integer"
                             )
 
                     displays = desktop.get("externalDisplays")
                     if not isinstance(displays, list):
                         failures.append(
-                            "alpha19 externalDisplays must be an array"
+                            "adaptive externalDisplays must be an array"
                         )
                         displays = []
 
@@ -351,7 +360,7 @@ def main() -> int:
                         and count != len(displays)
                     ):
                         failures.append(
-                            "alpha19 externalDisplayCount differs from "
+                            "adaptive externalDisplayCount differs from "
                             "externalDisplays length"
                         )
 
