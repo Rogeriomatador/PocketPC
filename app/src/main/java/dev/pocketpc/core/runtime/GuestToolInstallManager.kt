@@ -30,7 +30,7 @@ class GuestToolInstallManager(
                 require(SafeTreeOps.isPlainFile(manifestFile.toPath())) {
                     "GUEST_TOOL_MANIFEST_MISSING"
                 }
-                require(manifestFile.length() in 1..(2L * 1024L * 1024L)) {
+                require(manifestFile.length() in 1..(16L * 1024L * 1024L)) {
                     "GUEST_TOOL_MANIFEST_SIZE_INVALID"
                 }
 
@@ -164,7 +164,7 @@ class GuestToolInstallManager(
                 File(directory, "guest-tool-manifest.json")
             if (
                 !SafeTreeOps.isPlainFile(manifestFile.toPath()) ||
-                manifestFile.length() !in 1..(2L * 1024L * 1024L)
+                manifestFile.length() !in 1..(16L * 1024L * 1024L)
             ) {
                 return@runCatching null
             }
