@@ -61,15 +61,27 @@ fun RuntimeApp(
                 ValueRow("Substrate", substrate.state)
                 ValueRow(
                     "PRoot components",
-                    if (substrate.prootReady) "PRESENT / UNVALIDATED" else "NOT BUNDLED",
+                    when {
+                        substrate.prootReady ->
+                            "APPROVED / VERIFIED"
+                        substrate.components.any {
+                            it.exists
+                        } ->
+                            "CANDIDATE / NOT APPROVED"
+                        else ->
+                            "NOT BUNDLED"
+                    },
                 )
                 Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
                 Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
 
                 if (!substrate.prootReady) {
                     Text(
-                        "Nenhum Linux é marcado como executável: PRoot/loader continuam fora do APK.",
-                        style = MaterialTheme.typography.bodySmall,
+                        "O substrate continua BLOCKED: componentes podem estar " +
+                            "ausentes ou ainda não aprovados/verificados. " +
+                            "Nenhum candidato é tratado como runtime executável.",
+                        style =
+                            MaterialTheme.typography.bodySmall,
                     )
                 }
             }
