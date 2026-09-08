@@ -100,6 +100,9 @@ jobs:
       - name: Guest tool runtime policy
         run: python3 scripts/test-guest-tool-runtime-policy.py
 
+      - name: Display bridge protocol lock
+        run: python3 scripts/test-display-bridge-protocol-lock.py
+
       - name: PRoot ELF policy self-test
         run: python3 scripts/test-proot-artifact-policy.py
 
