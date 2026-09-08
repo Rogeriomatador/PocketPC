@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "status": "PROTOCOL_IMPLEMENTED_NOT_INTEGRATION_TESTED",
+  "wire": {
+    "magicHex": "0x31424450",
+    "magicAsciiLittleEndian": "PDB1",
+    "version": 1,
+    "headerBytes": 20,
+    "maxPayloadBytes": 1048576,
+    "byteOrder": "little-endian"
+  },
+  "hello": {
+    "typeId": 1,
+    "ackTypeId": 2,
+    "sequence": 0,
+    "tokenBytes": 32,
+    "runtimeIdentityAsciiBytes": 64,
+    "capabilitiesBytes": 4,
+    "payloadBytes": 100,
+    "ackPayloadBytes": 4
+  },
+  "messageTypes": {
+    "HELLO": 1,
+    "HELLO_ACK": 2,
+    "WINDOW_CREATE": 10,
+    "WINDOW_GEOMETRY": 11,
+    "WINDOW_DESTROY": 12,
+    "SURFACE_AVAILABLE": 20,
+    "POINTER_EVENT": 30,
+    "KEY_EVENT": 31,
+    "GAMEPAD_EVENT": 32,
+    "FRAME_PRESENTED": 40,
+    "ERROR": 255
+  },
+  "capabilities": {
+    "WINDOW_SURFACE": 1,
+    "POINTER": 2,
+    "KEYBOARD": 4,
+    "GAMEPAD": 8,
+    "FRAME_ACK": 16,
+    "HOST_BASELINE": 23
+  },
+  "evidence": {
+    "hostImplementation": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeProtocol.kt",
+    "hostBroker": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeHost.kt",
+    "sessionAuth": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeSession.kt",
+    "x8664ClientBuilder": "scripts/build-box64-aarch64.py"
+  },
+  "gates": {
+    "x8664ClientBuilt": false,
+    "guestHandshakeExecuted": false,
+    "surfaceRoundTrip": false,
+    "pointerRoundTrip": false,
+    "keyboardRoundTrip": false
+  }
+}
