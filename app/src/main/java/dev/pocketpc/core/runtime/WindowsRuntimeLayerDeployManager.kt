@@ -94,6 +94,12 @@ class WindowsRuntimeLayerDeployManager(
                     require(existing != null) {
                         "WINDOWS_LAYER_EXISTING_DEPLOYMENT_INVALID"
                     }
+                    require(
+                        existing.manifest ==
+                            layer.manifest,
+                    ) {
+                        "WINDOWS_LAYER_EXISTING_DEPLOYMENT_DIFFERS"
+                    }
                     return@runCatching existing
                 }
 
@@ -336,6 +342,13 @@ class WindowsRuntimeLayerDeployManager(
                     SafeTreeOps.deleteNoFollow(
                         transaction,
                     )
+                    if (
+                        layerState.exists()
+                    ) {
+                        SafeTreeOps.deleteNoFollow(
+                            layerState,
+                        )
+                    }
                     throw error
                 }
             }
