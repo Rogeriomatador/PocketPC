@@ -157,6 +157,20 @@ CHECKS = {
         "wallpaperViewportGeometry",
         "ContentScale.FillBounds",
     ),
+    "app/src/main/java/dev/pocketpc/core/runtime/ProotExecutionController.kt": (
+        "ProotExecutionController",
+        "EXECUTION_REQUIRES_USER_APPROVAL",
+        "RuntimeProcessSupervisor",
+        "executeOneShot",
+        "userApproved",
+        "TIMED_OUT",
+        "MAX_CAPTURE_BYTES",
+    ),
+    "app/src/test/java/dev/pocketpc/core/runtime/ProotExecutionControllerTest.kt": (
+        "explicitApprovalIsRequiredBeforeProcessStart",
+        "structuralBlockerCannotBeOverriddenByApproval",
+        "SUBSTRATE_NOT_READY",
+    ),
     "app/src/main/java/dev/pocketpc/core/runtime/PcRuntimeExecutionPlan.kt": (
         "PcApplicationTarget",
         "PcRuntimeExecutionPlanner",
@@ -175,6 +189,10 @@ CHECKS = {
         "PcRuntimeExecutionPlanner",
         '"Alvo do Explorador"',
         '"Execução bloqueada pelos gates"',
+        '"Executar probe ARM64?"',
+        '"Probe ARM64"',
+        "ProotInvocationPlanner.build",
+        "ProotExecutionController",
         "onClearTarget",
     ),
     "app/src/test/java/dev/pocketpc/core/ui/WallpaperViewportMathTest.kt": (
