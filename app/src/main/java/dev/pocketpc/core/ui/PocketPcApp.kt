@@ -314,7 +314,17 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                         )
                         DesktopApp.TERMINAL -> TerminalApp(terminal)
                         DesktopApp.APPS -> InstalledAppsApp(desktopCapabilities)
-                        DesktopApp.DOWNLOADS -> DownloadsApp(storage, storageRoot)
+                        DesktopApp.DOWNLOADS ->
+                            DownloadsApp(
+                                repository = storage,
+                                rootUri = storageRoot,
+                                onOpenRuntime = { target ->
+                                    runtimeTarget = target
+                                    desktop.open(
+                                        DesktopApp.RUNTIMES
+                                    )
+                                },
+                            )
                         DesktopApp.STORE -> StoreApp()
                         DesktopApp.CONTROL_CENTER -> ControlCenterApp()
                         DesktopApp.DISPLAYS -> DisplaysApp(desktopCapabilities)
