@@ -60,11 +60,20 @@ A fail-closed GitHub Actions publisher is now implemented for that future steady
 path. It only publishes when a long-lived compatible signing identity is supplied as
 protected secrets; the signing private key is never stored in the repository.
 
-The updater does not embed a signing private key. A long-lived signing key must be
+The updater does not embed a signing private key. A compatible signing key must be
 configured outside the repository before server-built releases can safely update an
-installed PocketPC. Alpha 21 is the bootstrap version: it must still be installed once
-through the existing validated install flow before future versions can use the in-app
-Update Center.
+installed PocketPC.
+
+A fail-closed Windows bootstrap now exists at
+`scripts/bootstrap-update-signing-windows.ps1`. It verifies the keystore certificate
+against the physically observed Alpha 20 signer before it can configure protected GitHub
+Actions Secrets.
+
+Alpha 21 is the bootstrap version: because the installed Alpha 20 does not contain the
+new updater, Alpha 21 still has to be installed once. After that transition, routine
+future updates are designed to be discovered/downloaded/verified from inside PocketPC,
+with only Android's own installation confirmation remaining when the platform requires
+one.
 
 ## Alpha 20 — Desktop UX Overhaul
 
