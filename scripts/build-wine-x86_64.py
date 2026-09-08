@@ -167,6 +167,126 @@ int main(void) {
     return output
 
 
+def build_d3d11_present_smoke(work: Path) -> Path:
+    source = work / "pocketpc-d3d11-present-smoke.c"
+    output = work / "pocketpc-d3d11-present-smoke.exe"
+    source.write_text(
+        """#define COBJMACROS
+#include <windows.h>
+#include <d3d11.h>
+#include <dxgi.h>
+#include <stdio.h>
+
+static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+int main(void) {
+    HINSTANCE instance = GetModuleHandleW(NULL);
+    WNDCLASSW wc;
+    ZeroMemory(&wc, sizeof(wc));
+    wc.lpfnWndProc = wndproc;
+    wc.hInstance = instance;
+    wc.lpszClassName = L"PocketPcD3D11PresentSmoke";
+    if (!RegisterClassW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return 70;
+
+    HWND window = CreateWindowExW(
+        0,
+        wc.lpszClassName,
+        L"PocketPC",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        96,
+        96,
+        NULL,
+        NULL,
+        instance,
+        NULL
+    );
+    if (!window) {
+        printf("POCKETPC_D3D11_PRESENT_WINDOW_FAILED error=%lu\\n", (unsigned long)GetLastError());
+        return 71;
+    }
+
+    DXGI_SWAP_CHAIN_DESC desc;
+    ZeroMemory(&desc, sizeof(desc));
+    desc.BufferDesc.Width = 64;
+    desc.BufferDesc.Height = 64;
+    desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    desc.BufferCount = 2;
+    desc.OutputWindow = window;
+    desc.Windowed = TRUE;
+    desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+
+    IDXGISwapChain *swap = NULL;
+    ID3D11Device *device = NULL;
+    ID3D11DeviceContext *context = NULL;
+    D3D_FEATURE_LEVEL feature = 0;
+    HRESULT hr = D3D11CreateDeviceAndSwapChain(
+        NULL,
+        D3D_DRIVER_TYPE_HARDWARE,
+        NULL,
+        0,
+        NULL,
+        0,
+        D3D11_SDK_VERSION,
+        &desc,
+        &swap,
+        &device,
+        &feature,
+        &context
+    );
+    if (FAILED(hr)) {
+        DestroyWindow(window);
+        printf("POCKETPC_D3D11_PRESENT_CREATE_FAILED hr=0x%08lx\\n", (unsigned long)hr);
+        return 72;
+    }
+
+    hr = IDXGISwapChain_Present(swap, 0, 0);
+    if (FAILED(hr)) {
+        ID3D11DeviceContext_Release(context);
+        ID3D11Device_Release(device);
+        IDXGISwapChain_Release(swap);
+        DestroyWindow(window);
+        printf("POCKETPC_D3D11_PRESENT_FAILED hr=0x%08lx\\n", (unsigned long)hr);
+        return 73;
+    }
+
+    printf("POCKETPC_D3D11_PRESENT_SMOKE_OK feature=0x%x\\n", (unsigned)feature);
+    ID3D11DeviceContext_Release(context);
+    ID3D11Device_Release(device);
+    IDXGISwapChain_Release(swap);
+    DestroyWindow(window);
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+    run(
+        [
+            "x86_64-w64-mingw32-gcc",
+            "-Os",
+            "-s",
+            "-Wl,--no-insert-timestamp",
+            "-o",
+            str(output),
+            str(source),
+            "-ld3d11",
+            "-ldxgi",
+            "-luser32",
+        ],
+        work,
+        work / "d3d11-present-smoke-build.log",
+    )
+    machine, magic = pe_machine(output)
+    if machine != 0x8664 or magic != 0x20B:
+        raise SystemExit("D3D11_PRESENT_SMOKE_PE_TARGET_MISMATCH")
+    return output
+
+
 def build_windows_process_smoke(work: Path) -> Path:
     source = work / "pocketpc-process-ipc-smoke.c"
     output = work / "pocketpc-process-ipc-smoke.exe"
@@ -545,6 +665,7 @@ def main() -> int:
     records = flatten_install_tree(installed_root, package_root)
     smoke = build_win64_smoke(work)
     d3d11 = build_d3d11_smoke(work)
+    present_smoke = build_d3d11_present_smoke(work)
     process_smoke = build_windows_process_smoke(work)
     winsock_smoke = build_winsock_smoke(work)
     audio_smoke = build_winmm_audio_api_smoke(work)
@@ -573,6 +694,20 @@ def main() -> int:
             "path": d3d11_relative.as_posix(),
             "bytes": d3d11_destination.stat().st_size,
             "sha256": sha256(d3d11_destination),
+            "executable": False,
+        }
+    )
+
+    present_relative = Path("share/tests/pocketpc-d3d11-present-smoke.exe")
+    present_destination = package_root / present_relative
+    present_destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(present_smoke, present_destination)
+    present_destination.chmod(0o644)
+    records.append(
+        {
+            "path": present_relative.as_posix(),
+            "bytes": present_destination.stat().st_size,
+            "sha256": sha256(present_destination),
             "executable": False,
         }
     )
@@ -653,6 +788,11 @@ def main() -> int:
             "sha256": sha256(d3d11_destination),
             "expectedOutput": "POCKETPC_D3D11_SMOKE_OK",
         },
+        "d3d11PresentSmoke": {
+            "path": present_relative.as_posix(),
+            "sha256": sha256(present_destination),
+            "expectedOutput": "POCKETPC_D3D11_PRESENT_SMOKE_OK",
+        },
         "windowsProcessIpcSmoke": {
             "path": "share/tests/pocketpc-process-ipc-smoke.exe",
             "expectedOutput": "POCKETPC_WIN_PROCESS_IPC_SMOKE_OK",
@@ -685,7 +825,8 @@ def main() -> int:
             "Wine under Box64",
             "wineboot prefix creation",
             "Win64 smoke executable",
-            "DXVK D3D11 smoke",
+            "DXVK D3D11 device smoke",
+            "DXVK D3D11 presentation smoke",
             "vkd3d D3D12 smoke",
             "Windows process/IPC smoke",
             "Winsock smoke",
