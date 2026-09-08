@@ -15,12 +15,14 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/storage/PocketDrive.kt": (
         'const val POCKET_DRIVE_LETTER = "P:"', 'const val POCKET_SYSTEM_LETTER = "C:"',
-        "PocketDriveDirectory", 'DOWNLOADS("Downloads"', 'APPLICATIONS("Apps"', 'GAMES("Games"',
+        "PocketDriveDirectory", "PocketDriveMetadata", "newPocketDriveMetadata",
+        "validatePocketDriveMetadata", "POCKET_DRIVE_METADATA_FILE", 'DOWNLOADS("Downloads"', 'APPLICATIONS("Apps"', 'GAMES("Games"',
         'BACKUPS("Backups"', "sanitizePocketImportedFileName", "validateStorageName", '"CON"', '"LPT1"',
         "PocketFileClass.PC_INSTALLER", "PocketFileClass.ANDROID_PACKAGE",
     ),
     "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt": (
-        "ensurePocketDrive", "systemVolume", "importIntoPocketDrive", "bufferSize = 256 * 1024",
+        "ensurePocketDrive", "readPocketDriveMetadata", "createPocketDriveMetadata",
+        "KEY_DRIVE_VOLUME_ID", "DRIVE_MUTEX", "systemVolume", "importIntoPocketDrive", "bufferSize = 256 * 1024",
         '".pocketpc-part-"', "renameTo(finalName)", "PocketPcPackageRegistry(context)",
         "requestAndroidPackageInstall", "canRequestPackageInstalls", "ACTION_MANAGE_UNKNOWN_APP_SOURCES",
         "Intent.ACTION_INSTALL_PACKAGE", "Pacote de PC detectado",
@@ -71,7 +73,9 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/ui/SystemApp.kt": ('RESEARCH("Pesquisa")', "PcInfoTab.RESEARCH", "ResearchLabApp()"),
     "app/src/test/java/dev/pocketpc/core/storage/PocketDriveTest.kt": (
-        "buildsStablePocketPaths", "classifiesWindowsInstallerAsPcPackage", "distinguishesAndroidPackage",
+        "pocketDriveMetadataRoundTripsWithoutLosingIdentity", "rejectsInvalidPocketDriveVolumeIdentity",
+        "rejectsFuturePocketDriveSchemaFailClosed", "buildsStablePocketPaths",
+        "classifiesWindowsInstallerAsPcPackage", "distinguishesAndroidPackage",
         "userVolumeContainsExpectedDesktopFolders", "sanitizesImportedLeafNamesForPcNamespace",
         "prefixesWindowsReservedDeviceNames", "importedFilenameNeverCarriesParentPath",
     ),
