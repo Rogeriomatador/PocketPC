@@ -32,6 +32,7 @@ object PcRuntimeReadinessProbe {
         nativeHost: NativeHostStatus,
         substrate: ExecutionSubstrateStatus,
         installedRuntimeCount: Int,
+        preparedRuntimeCount: Int = installedRuntimeCount,
     ): PcRuntimeReadiness {
         val stages =
             listOf(
@@ -71,16 +72,19 @@ object PcRuntimeReadinessProbe {
                     id = "rootfs",
                     label = "Rootfs instalado",
                     state =
-                        if (installedRuntimeCount > 0) {
+                        if (preparedRuntimeCount > 0) {
                             PcRuntimeStageState.READY
                         } else {
                             PcRuntimeStageState.BLOCKED
                         },
                     detail =
-                        if (installedRuntimeCount > 0) {
-                            "$installedRuntimeCount runtime(s) de dados instalado(s)."
-                        } else {
-                            "Nenhum rootfs instalado e validado."
+                        when {
+                            preparedRuntimeCount > 0 ->
+                                "$preparedRuntimeCount de $installedRuntimeCount rootfs preparado(s) para execução."
+                            installedRuntimeCount > 0 ->
+                                "$installedRuntimeCount rootfs instalado(s), mas nenhum está preparado para execução."
+                            else ->
+                                "Nenhum rootfs instalado e validado."
                         },
                 ),
                 PcRuntimeStage(
