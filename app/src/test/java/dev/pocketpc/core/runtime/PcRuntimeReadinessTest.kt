@@ -181,6 +181,7 @@ class PcRuntimeReadinessTest {
                     RuntimeProbeEvidenceState(
                         box64SmokePassed = true,
                         wineSmokePassed = true,
+                        windowsProcessSmokePassed = true,
                     ),
                 windowsStateReady = true,
             )
@@ -210,6 +211,54 @@ class PcRuntimeReadinessTest {
             }.state,
         )
         assertFalse(result.executableReady)
+    }
+
+    @Test
+    fun wineWithoutProcessIpcKeepsWindowsStateBlocked() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                        windowsProcessSmokePassed = false,
+                    ),
+                windowsStateReady = true,
+            )
+
+        val windows =
+            result.stages.single {
+                it.id == "windows-state"
+            }
+        assertEquals(
+            PcRuntimeStageState.BLOCKED,
+            windows.state,
+        )
+        assertTrue(
+            windows.detail.contains(
+                "CreateProcess/IPC",
+            ),
+        )
     }
 
 }
