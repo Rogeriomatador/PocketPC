@@ -200,8 +200,11 @@ CHECKS = {
         "ProotInvocationPlanner.build",
         "ProotExecutionController",
         "RuntimeBindPlanner",
-        "bindPlanner.base(runtime)",
+        "bindPlanner",
+        ".base(runtime)",
         "allowedHostRoots",
+        '"BIND_PLAN_FAILED:"',
+        "runCatching",
         "onClearTarget",
     ),
     "app/src/test/java/dev/pocketpc/core/ui/WallpaperViewportMathTest.kt": (
