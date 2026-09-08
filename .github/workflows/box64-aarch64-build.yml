@@ -22,7 +22,7 @@ jobs:
       - name: Install AArch64 cross toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc gcc-aarch64-linux-gnu binutils cmake make git
+          sudo apt-get install -y gcc libc6-dev gcc-aarch64-linux-gnu binutils cmake make git
 
       - name: Validate runtime source locks
         run: python3 scripts/test-pc-runtime-source-locks.py
