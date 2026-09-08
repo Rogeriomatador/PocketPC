@@ -13,6 +13,7 @@ from pathlib import Path
 import shutil
 import struct
 import subprocess
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK_PATH = ROOT / "third_party/box64/LOCK.json"
@@ -141,7 +142,9 @@ def main() -> int:
             "fileName": staged.name,
             "bytes": staged.stat().st_size,
             "sha256": sha256(staged),
-            "guestPackageManifestSha256": sha256(package_root / "guest-tool-manifest.json"),
+            "guestPackageManifestSha256": sha256(manifest_path),
+            "guestPackageZipBytes": zip_path.stat().st_size,
+            "guestPackageZipSha256": sha256(zip_path),
             "elfClass": elf_class,
             "elfType": elf_type,
             "machine": machine,
