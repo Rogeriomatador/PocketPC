@@ -403,6 +403,37 @@ private fun OverviewTab(
         )
     }
 
+    InfoSection("Unidades do PocketPC") {
+        ValueRow(
+            "C:  PocketPC System",
+            "Sistema rápido e privado",
+        )
+        ValueRow(
+            "C:  Uso",
+            "runtime • cache • temporários • índices",
+        )
+        ValueRow(
+            "P:  PocketDrive",
+            if (storageConfigured) {
+                "Conectado • persistente"
+            } else {
+                "Não conectado"
+            },
+        )
+        ValueRow(
+            "P:  Uso",
+            "Desktop • Documentos • Downloads • Apps • Jogos",
+        )
+        Text(
+            "C: e P: são volumes lógicos do PocketPC. P: usa a pasta " +
+                "autorizada pelo Android e permanece separado do ciclo do APK.",
+            style =
+                MaterialTheme.typography.bodySmall,
+            color =
+                MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
     InfoSection("Recursos") {
         ValueRow(
             "Explorador",
