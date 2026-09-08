@@ -118,6 +118,8 @@ CHECKS = {
         "CompactExplorerLocations",
         "PocketDriveDirectory.entries",
         "horizontalScroll(",
+        "onOpenRuntime",
+        '"Ver compatibilidade"',
         '"Pesquisar nesta pasta"',
     ),
     "app/src/main/java/dev/pocketpc/core/ui/PocketPcFirstRun.kt": (
@@ -270,6 +272,10 @@ CHECKS = {
         "Fixar na barra de tarefas",
         "Mostrar área de trabalho",
         "DesktopSystemTray",
+        "TaskbarAppMenu",
+        "taskbarMenuTarget",
+        "DropdownMenu(",
+        '"Fechar janela"',
         "targetWindow",
         '"Minimizar"',
         '"Maximizar"',
@@ -347,6 +353,10 @@ CHECKS = {
         '"Centralizar"',
         '"Cancelar"',
         '"Aplicar"',
+    ),
+    "app/src/test/java/dev/pocketpc/core/ui/WallpaperTransformTest.kt": (
+        "sanitizeClampsZoomAndOffsets",
+        "defaultTransformIsCenteredCrop",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/ControlCenterApp.kt": (
         "Build.VERSION.SDK_INT",
@@ -534,6 +544,8 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt": (
         "PcRuntimeReadinessProbe.assess",
         '"Compatibilidade de PC"',
+        '"Ver etapas"',
+        '"Ocultar etapas"',
         '"Windows x64 em Android ARM64"',
         '"Execução de .exe continua bloqueada. "',
         '"O PocketPC não marcará Roblox/Windows "',
