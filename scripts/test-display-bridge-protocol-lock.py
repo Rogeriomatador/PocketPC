@@ -9,6 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "third_party/wine/POCKETPC_DISPLAY_BRIDGE_PROTOCOL.json"
 KOTLIN = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeProtocol.kt"
 BOX64 = ROOT / "scripts/build-box64-aarch64.py"
+BRIDGE_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.h"
+BRIDGE_SMOKE = ROOT / "third_party/wine/pocketpc-display-bridge/display_bridge_smoke.c"
 
 
 def main() -> int:
@@ -108,21 +110,35 @@ def main() -> int:
         if sentinel not in kotlin:
             failures.append("Kotlin protocol missing sentinel: " + sentinel)
 
-    box64 = BOX64.read_text(encoding="utf-8")
-    client_sentinels = (
+    header = BRIDGE_HEADER.read_text(encoding="utf-8")
+    header_sentinels = (
         "#define PDB_MAGIC 0x31424450u",
         "#define PDB_VERSION 1u",
-        "#define PDB_HELLO 1u",
-        "#define PDB_HELLO_ACK 2u",
+        "#define PDB_MSG_HELLO 1u",
+        "#define PDB_MSG_HELLO_ACK 2u",
         "#define PDB_TOKEN_BYTES 32u",
         "#define PDB_IDENTITY_BYTES 64u",
         "#define PDB_HELLO_BYTES 100u",
         "#define PDB_HEADER_BYTES 20u",
-        "POCKETPC_DISPLAY_BRIDGE_SMOKE_OK",
+        "#define PDB_MAX_PAYLOAD_BYTES 1048576u",
     )
-    for sentinel in client_sentinels:
+    for sentinel in header_sentinels:
+        if sentinel not in header:
+            failures.append("guest C protocol missing sentinel: " + sentinel)
+
+    smoke = BRIDGE_SMOKE.read_text(encoding="utf-8")
+    if "POCKETPC_DISPLAY_BRIDGE_SMOKE_OK" not in smoke:
+        failures.append("guest bridge smoke success sentinel missing")
+
+    box64 = BOX64.read_text(encoding="utf-8")
+    for sentinel in (
+        "pocketpc_display_bridge.h",
+        "pocketpc_display_bridge.c",
+        "display_bridge_smoke.c",
+        "displayBridgeSources",
+    ):
         if sentinel not in box64:
-            failures.append("x86_64 bridge client missing sentinel: " + sentinel)
+            failures.append("Box64 bridge builder missing sentinel: " + sentinel)
 
     if failures:
         print("DISPLAY_BRIDGE_PROTOCOL_LOCK_FAILED", file=sys.stderr)
