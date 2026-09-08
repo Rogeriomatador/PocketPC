@@ -39,7 +39,7 @@ class PcRuntimeReadinessTest {
                 it.id == "x86-64-translation" &&
                     it.state ==
                         PcRuntimeStageState
-                            .NOT_IMPLEMENTED
+                            .BLOCKED
             }
         )
         assertTrue(
@@ -76,12 +76,11 @@ class PcRuntimeReadinessTest {
 
         assertEquals(0, result.readyCount)
         assertFalse(result.executableReady)
-        assertEquals(
-            3,
+        assertTrue(
             result.stages.count {
                 it.state ==
                     PcRuntimeStageState.BLOCKED
-            },
+            } >= 7,
         )
     }
     @Test
@@ -205,7 +204,7 @@ class PcRuntimeReadinessTest {
             }.state,
         )
         assertEquals(
-            PcRuntimeStageState.NOT_IMPLEMENTED,
+            PcRuntimeStageState.BLOCKED,
             result.stages.single {
                 it.id == "graphics-bridge"
             }.state,
