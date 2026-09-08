@@ -44,6 +44,7 @@ import dev.pocketpc.core.desktop.WindowSnap
 import dev.pocketpc.core.desktop.windowSpec
 import dev.pocketpc.core.runtime.ExecutionSubstrateProbe
 import dev.pocketpc.core.runtime.GuestToolInstallManager
+import dev.pocketpc.core.runtime.GuestToolPackageManager
 import dev.pocketpc.core.runtime.PcApplicationTarget
 import dev.pocketpc.core.runtime.NativeRuntimeHost
 import dev.pocketpc.core.runtime.RootfsLinkManager
@@ -107,6 +108,9 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             File(appContext.noBackupFilesDir, "runtime-tools")
         )
     }
+    val guestToolPackages = remember {
+        GuestToolPackageManager(appContext)
+    }
     val linkManager = remember { RootfsLinkManager() }
     val nativeHost = remember { NativeRuntimeHost.status(appContext) }
     val substrate = remember { ExecutionSubstrateProbe.inspect(appContext) }
@@ -130,6 +134,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     var storagePickerError by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeManifestUri by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeRootfsUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var runtimeToolPackageUri by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeTargetUri by rememberSaveable {
         mutableStateOf<String?>(null)
     }
@@ -218,6 +223,16 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             runtimeRootfsUri = uri.toString()
         }
     }
+
+    val guestToolPackagePicker =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) {
+                persistRead(uri)
+                runtimeToolPackageUri = uri.toString()
+            }
+        }
 
     val wallpaperPicker =
         rememberLauncherForActivityResult(
@@ -429,6 +444,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             manager = runtimes,
                             installer = installer,
                             guestToolInstaller = guestToolInstaller,
+                            guestToolPackages = guestToolPackages,
                             linkManager = linkManager,
                             nativeHost = nativeHost,
                             substrate = substrate,
@@ -437,12 +453,32 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                                 ::clearRuntimeTarget,
                             manifestUri = runtimeManifestUri,
                             rootfsUri = runtimeRootfsUri,
+                            toolPackageUri = runtimeToolPackageUri,
                             onChooseManifest = {
                                 manifestPicker.launch(
                                     arrayOf("application/json", "text/plain", "application/octet-stream")
                                 )
                             },
                             onChooseRootfs = { rootfsPicker.launch(arrayOf("*/*")) },
+                            onChooseToolPackage = {
+                                guestToolPackagePicker.launch(
+                                    arrayOf(
+                                        "application/zip",
+                                        "application/octet-stream",
+                                    )
+                                )
+                            },
+                            onClearToolPackage = {
+                                runtimeToolPackageUri?.let { uriString ->
+                                    runCatching {
+                                        context.contentResolver.releasePersistableUriPermission(
+                                            Uri.parse(uriString),
+                                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                        )
+                                    }
+                                }
+                                runtimeToolPackageUri = null
+                            },
                             onClearSelection = {
                                 listOfNotNull(runtimeManifestUri, runtimeRootfsUri).forEach { uriString ->
                                     runCatching {
