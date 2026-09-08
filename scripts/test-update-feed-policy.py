@@ -248,7 +248,7 @@ def main() -> int:
             "BOOTSTRAP_SIGNER_SELFTEST_OK",
             "negative_signer_rejected=true",
             "malformed_signer_rejected=true",
-            "test-bootstrap-signer-verifier.py",
+            "run_verifier",
         ),
         PUBLISH_WORKFLOW: (
             "PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED",
