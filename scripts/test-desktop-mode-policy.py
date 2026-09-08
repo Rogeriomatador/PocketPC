@@ -108,6 +108,9 @@ CHECKS = {
         "maxWidth >= 980.dp",
         "PocketDownloadImporter.importReady",
         "delay(2_000)",
+        "CompactExplorerLocations",
+        "PocketDriveDirectory.entries",
+        "horizontalScroll(",
         '"Pesquisar nesta pasta"',
     ),
     "app/src/main/java/dev/pocketpc/core/ui/PocketPcFirstRun.kt": (
