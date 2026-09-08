@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.InstalledRuntime
@@ -21,6 +22,7 @@ import dev.pocketpc.core.runtime.ProotExecutionState
 import dev.pocketpc.core.runtime.ProotInvocationPlan
 import dev.pocketpc.core.runtime.ProotInvocationPlanner
 import dev.pocketpc.core.runtime.RootfsLinkManager
+import dev.pocketpc.core.runtime.RuntimeBindPlanner
 import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimeManifestValidator
 import dev.pocketpc.core.runtime.RuntimePackageManager
@@ -43,6 +45,12 @@ fun RuntimeApp(
     onClearSelection: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val appContext =
+        LocalContext.current.applicationContext
+    val bindPlanner =
+        remember(appContext) {
+            RuntimeBindPlanner(appContext)
+        }
     val executionController =
         remember {
             ProotExecutionController()
@@ -541,9 +549,11 @@ fun RuntimeApp(
                     ProotInvocationPlanner.build(
                         runtime = runtime,
                         substrate = substrate,
-                        binds = emptyList(),
+                        binds =
+                            bindPlanner.base(runtime),
                         allowedHostRoots =
-                            emptyList(),
+                            bindPlanner
+                                .allowedHostRoots(),
                     )
                 val executionRequestReady =
                     invocationPlan.argv.isNotEmpty() &&
