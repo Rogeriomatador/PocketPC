@@ -68,4 +68,36 @@ class GuestProbeRequirementsTest {
             ),
         )
     }
+    @Test
+    fun d3d11SmokeRequiresDxvkDeployment() {
+        val missing =
+            GuestProbeRequirements.blockers(
+                probe =
+                    GuestRuntimeProbe.D3D11_SMOKE,
+                installedToolIds =
+                    setOf("box64", "wine"),
+                overlayValid = true,
+                installedWindowsLayerIds =
+                    emptySet(),
+            )
+        assertEquals(
+            listOf(
+                "WINDOWS_LAYER_REQUIRED_MISSING:dxvk"
+            ),
+            missing,
+        )
+
+        val ready =
+            GuestProbeRequirements.blockers(
+                probe =
+                    GuestRuntimeProbe.D3D11_SMOKE,
+                installedToolIds =
+                    setOf("box64", "wine"),
+                overlayValid = true,
+                installedWindowsLayerIds =
+                    setOf("dxvk"),
+            )
+        assertTrue(ready.isEmpty())
+    }
+
 }
