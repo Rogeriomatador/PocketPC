@@ -151,4 +151,67 @@ class GuestRuntimeProbeTest {
         )
     }
 
+    @Test
+    fun windowsIoFoundationProbesUseDedicatedWin64Fixtures() {
+        val process =
+            GuestRuntimeProbe
+                .WINDOWS_PROCESS_SMOKE
+                .script
+        assertTrue(
+            process.contains(
+                "pocketpc-process-ipc-smoke.exe",
+            ),
+        )
+        assertTrue(
+            process.contains(
+                "windows_process_ipc_smoke=passed",
+            ),
+        )
+
+        val winsock =
+            GuestRuntimeProbe
+                .WINSOCK_SMOKE
+                .script
+        assertTrue(
+            winsock.contains(
+                "pocketpc-winsock-smoke.exe",
+            ),
+        )
+        assertTrue(
+            winsock.contains(
+                "winsock_smoke=passed",
+            ),
+        )
+
+        val audio =
+            GuestRuntimeProbe
+                .WINMM_AUDIO_API_SMOKE
+                .script
+        assertTrue(
+            audio.contains(
+                "pocketpc-winmm-audio-api-smoke.exe",
+            ),
+        )
+        assertTrue(
+            audio.contains(
+                "winmm_audio_api_smoke=passed",
+            ),
+        )
+
+        val input =
+            GuestRuntimeProbe
+                .RAW_INPUT_API_SMOKE
+                .script
+        assertTrue(
+            input.contains(
+                "pocketpc-raw-input-api-smoke.exe",
+            ),
+        )
+        assertTrue(
+            input.contains(
+                "raw_input_api_smoke=passed",
+            ),
+        )
+    }
+
 }
