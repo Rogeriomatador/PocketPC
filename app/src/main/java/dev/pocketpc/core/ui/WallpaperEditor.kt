@@ -3,7 +3,7 @@ package dev.pocketpc.core.ui
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,12 +45,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 @Composable
 internal fun WallpaperEditorDialog(
@@ -139,8 +142,9 @@ internal fun WallpaperEditorDialog(
                     )
                     Text(
                         "A prévia usa a proporção atual da tela. " +
-                            "Arraste a imagem, ajuste o zoom e escolha " +
-                            "como ela deve ocupar o desktop.",
+                            "Arraste em qualquer direção disponível, " +
+                            "use pinça para ampliar/reduzir e escolha " +
+                            "como a imagem deve ocupar o desktop.",
                         style =
                             MaterialTheme.typography
                                 .bodySmall,
@@ -167,73 +171,59 @@ internal fun WallpaperEditorDialog(
                                     )
                                 )
                                 .pointerInput(
-                                    transform.zoom,
+                                    bitmap,
                                     transform.fitMode,
+                                    transform.zoom,
                                 ) {
-                                    detectDragGestures {
-                                            change,
-                                            dragAmount ->
-                                            change.consume()
-
-                                            val extraX =
-                                                size.width *
-                                                    (
-                                                        transform
-                                                            .zoom -
-                                                            1f
-                                                    ) /
-                                                    2f
-                                            val extraY =
-                                                size.height *
-                                                    (
-                                                        transform
-                                                            .zoom -
-                                                            1f
-                                                    ) /
-                                                    2f
-
-                                            transform =
-                                                transform.copy(
-                                                    offsetX =
-                                                        if (
-                                                            extraX >
-                                                            0.5f
-                                                        ) {
-                                                            (
-                                                                transform
-                                                                    .offsetX +
-                                                                    dragAmount
-                                                                        .x /
-                                                                        extraX
-                                                                )
-                                                                .coerceIn(
-                                                                    -1f,
-                                                                    1f,
-                                                                )
-                                                        } else {
-                                                            0f
-                                                        },
-                                                    offsetY =
-                                                        if (
-                                                            extraY >
-                                                            0.5f
-                                                        ) {
-                                                            (
-                                                                transform
-                                                                    .offsetY +
-                                                                    dragAmount
-                                                                        .y /
-                                                                        extraY
-                                                                )
-                                                                .coerceIn(
-                                                                    -1f,
-                                                                    1f,
-                                                                )
-                                                        } else {
-                                                            0f
-                                                        },
+                                    detectTransformGestures {
+                                            _,
+                                            pan,
+                                            zoomChange,
+                                            _ ->
+                                            val image =
+                                                bitmap
+                                                    ?: return@detectTransformGestures
+                                            val nextZoom =
+                                                (
+                                                    transform.zoom *
+                                                        zoomChange
+                                                ).coerceIn(
+                                                    1f,
+                                                    3f,
                                                 )
-                                        }
+                                            val geometry =
+                                                wallpaperViewportGeometry(
+                                                    imageWidthPx =
+                                                        image.width,
+                                                    imageHeightPx =
+                                                        image.height,
+                                                    viewportWidthPx =
+                                                        size.width
+                                                            .toFloat(),
+                                                    viewportHeightPx =
+                                                        size.height
+                                                            .toFloat(),
+                                                    fitMode =
+                                                        transform
+                                                            .fitMode,
+                                                    zoom =
+                                                        nextZoom,
+                                                )
+                                            transform =
+                                                transform
+                                                    .copy(
+                                                        zoom =
+                                                            nextZoom
+                                                    )
+                                                    .panByPixels(
+                                                        panXpx =
+                                                            pan.x,
+                                                        panYpx =
+                                                            pan.y,
+                                                        geometry =
+                                                            geometry,
+                                                    )
+                                    }
                                 },
                         ) {
                             val safe =
@@ -246,16 +236,9 @@ internal fun WallpaperEditorDialog(
                                 with(density) {
                                     maxHeight.toPx()
                                 }
-                            val extraX =
-                                widthPx *
-                                    (safe.zoom - 1f) /
-                                    2f
-                            val extraY =
-                                heightPx *
-                                    (safe.zoom - 1f) /
-                                    2f
+                            val image = bitmap
 
-                            if (bitmap == null) {
+                            if (image == null) {
                                 CircularProgressIndicator(
                                     modifier =
                                         Modifier.align(
@@ -263,32 +246,60 @@ internal fun WallpaperEditorDialog(
                                         )
                                 )
                             } else {
+                                val geometry =
+                                    wallpaperViewportGeometry(
+                                        imageWidthPx =
+                                            image.width,
+                                        imageHeightPx =
+                                            image.height,
+                                        viewportWidthPx =
+                                            widthPx,
+                                        viewportHeightPx =
+                                            heightPx,
+                                        fitMode =
+                                            safe.fitMode,
+                                        zoom =
+                                            safe.zoom,
+                                    )
+                                val renderedWidth =
+                                    with(density) {
+                                        geometry
+                                            .renderedWidthPx
+                                            .toDp()
+                                    }
+                                val renderedHeight =
+                                    with(density) {
+                                        geometry
+                                            .renderedHeightPx
+                                            .toDp()
+                                    }
+
                                 Image(
-                                    bitmap =
-                                        requireNotNull(bitmap),
+                                    bitmap = image,
                                     contentDescription =
                                         "Prévia do papel de parede",
                                     modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer {
-                                            scaleX = safe.zoom
-                                            scaleY = safe.zoom
-                                            translationX =
-                                                safe.offsetX *
-                                                    extraX
-                                            translationY =
-                                                safe.offsetY *
-                                                    extraY
+                                        .align(
+                                            Alignment.Center
+                                        )
+                                        .width(renderedWidth)
+                                        .height(renderedHeight)
+                                        .offset {
+                                            IntOffset(
+                                                (
+                                                    safe.offsetX *
+                                                        geometry
+                                                            .overflowXpx
+                                                ).roundToInt(),
+                                                (
+                                                    safe.offsetY *
+                                                        geometry
+                                                            .overflowYpx
+                                                ).roundToInt(),
+                                            )
                                         },
                                     contentScale =
-                                        if (
-                                            safe.fitMode ==
-                                            WallpaperFitMode.FIT
-                                        ) {
-                                            ContentScale.Fit
-                                        } else {
-                                            ContentScale.Crop
-                                        },
+                                        ContentScale.FillBounds,
                                 )
                             }
                         }
