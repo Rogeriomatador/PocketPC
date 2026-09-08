@@ -7,7 +7,11 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
     TOOLCHAIN("Box64 / Wine", "Consulta as ferramentas instaladas nos overlays confiáveis do PocketPC."),
     BOX64_SMOKE("Box64 x86-64", "Executa um ELF x86-64 mínimo e estático através do Box64; não testa Wine nem Roblox."),
     WINE_SMOKE("Wine Win64", "Executa um PE64 mínimo pelo Wine através do Box64, usando um prefixo isolado; não testa gráficos nem Roblox."),
-    D3D11_SMOKE("D3D11 → Vulkan", "Força DXVK nativo e cria um dispositivo D3D11; sucesso comprova a ponte gráfica básica, não Roblox.");
+    D3D11_SMOKE("D3D11 → Vulkan", "Força DXVK nativo e cria um dispositivo D3D11; sucesso comprova a ponte gráfica básica, não Roblox."),
+    WINDOWS_PROCESS_SMOKE("Processos / IPC", "Cria um processo Win64 filho e confirma IPC por pipe anônimo no Wine."),
+    WINSOCK_SMOKE("Winsock", "Valida WSAStartup, socket e resolução de localhost no Wine; não prova internet externa."),
+    WINMM_AUDIO_API_SMOKE("WinMM áudio", "Consulta a API WinMM e enumera saídas quando existirem; não prova reprodução de áudio."),
+    RAW_INPUT_API_SMOKE("Raw Input", "Consulta a API Raw Input e enumera dispositivos; não prova entrega de eventos.");
 
     val arguments: List<String>
         get() = listOf("-c", script)
@@ -110,6 +114,54 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 fi
                 printf 'd3d11_dxvk_smoke=failed\nprobe=failed\n'
                 exit 19
+            """.trimIndent()
+            WINDOWS_PROCESS_SMOKE -> """
+                printf 'POCKETPC_WINDOWS_PROCESS_SMOKE_PROBE_V1\n'
+                [ -x /opt/pocketpc/box64/bin/box64 ] || { printf 'box64=missing\nprobe=failed\n'; exit 20; }
+                [ -x /opt/pocketpc/wine/bin/wine ] || { printf 'wine=missing\nprobe=failed\n'; exit 21; }
+                [ -f /opt/pocketpc/wine/share/tests/pocketpc-process-ipc-smoke.exe ] || { printf 'process_smoke=missing\nprobe=failed\n'; exit 22; }
+                if WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine /opt/pocketpc/wine/share/tests/pocketpc-process-ipc-smoke.exe; then
+                    printf 'windows_process_ipc_smoke=passed\nprobe=complete\n'
+                    exit 0
+                fi
+                printf 'windows_process_ipc_smoke=failed\nprobe=failed\n'
+                exit 23
+            """.trimIndent()
+            WINSOCK_SMOKE -> """
+                printf 'POCKETPC_WINSOCK_SMOKE_PROBE_V1\n'
+                [ -x /opt/pocketpc/box64/bin/box64 ] || { printf 'box64=missing\nprobe=failed\n'; exit 24; }
+                [ -x /opt/pocketpc/wine/bin/wine ] || { printf 'wine=missing\nprobe=failed\n'; exit 25; }
+                [ -f /opt/pocketpc/wine/share/tests/pocketpc-winsock-smoke.exe ] || { printf 'winsock_smoke=missing\nprobe=failed\n'; exit 26; }
+                if WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine /opt/pocketpc/wine/share/tests/pocketpc-winsock-smoke.exe; then
+                    printf 'winsock_smoke=passed\nprobe=complete\n'
+                    exit 0
+                fi
+                printf 'winsock_smoke=failed\nprobe=failed\n'
+                exit 27
+            """.trimIndent()
+            WINMM_AUDIO_API_SMOKE -> """
+                printf 'POCKETPC_WINMM_AUDIO_API_SMOKE_PROBE_V1\n'
+                [ -x /opt/pocketpc/box64/bin/box64 ] || { printf 'box64=missing\nprobe=failed\n'; exit 28; }
+                [ -x /opt/pocketpc/wine/bin/wine ] || { printf 'wine=missing\nprobe=failed\n'; exit 29; }
+                [ -f /opt/pocketpc/wine/share/tests/pocketpc-winmm-audio-api-smoke.exe ] || { printf 'audio_smoke=missing\nprobe=failed\n'; exit 30; }
+                if WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine /opt/pocketpc/wine/share/tests/pocketpc-winmm-audio-api-smoke.exe; then
+                    printf 'winmm_audio_api_smoke=passed\nprobe=complete\n'
+                    exit 0
+                fi
+                printf 'winmm_audio_api_smoke=failed\nprobe=failed\n'
+                exit 31
+            """.trimIndent()
+            RAW_INPUT_API_SMOKE -> """
+                printf 'POCKETPC_RAW_INPUT_API_SMOKE_PROBE_V1\n'
+                [ -x /opt/pocketpc/box64/bin/box64 ] || { printf 'box64=missing\nprobe=failed\n'; exit 32; }
+                [ -x /opt/pocketpc/wine/bin/wine ] || { printf 'wine=missing\nprobe=failed\n'; exit 33; }
+                [ -f /opt/pocketpc/wine/share/tests/pocketpc-raw-input-api-smoke.exe ] || { printf 'input_smoke=missing\nprobe=failed\n'; exit 34; }
+                if WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine /opt/pocketpc/wine/share/tests/pocketpc-raw-input-api-smoke.exe; then
+                    printf 'raw_input_api_smoke=passed\nprobe=complete\n'
+                    exit 0
+                fi
+                printf 'raw_input_api_smoke=failed\nprobe=failed\n'
+                exit 35
             """.trimIndent()
         }
 }
