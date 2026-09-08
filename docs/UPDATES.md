@@ -185,6 +185,32 @@ source changes
 
 No ADB or PowerShell command is intended for routine future updates.
 
+## Local publisher fallback
+
+GitHub Actions is the preferred steady-state publisher, but PocketPC also includes a
+Windows fallback:
+
+`scripts/publish-update-local-windows.ps1`
+
+This path reuses the pinned PocketPC toolchain and is fail-closed. It:
+
+1. requires a clean repository and fast-forward pull;
+2. validates the local keystore against the physically pinned Alpha 20 signer;
+3. runs the strict local debug/policy build unless explicitly skipped;
+4. builds/tests/lints a signed release APK;
+5. verifies the release signing certificate against the bootstrap pin;
+6. creates an immutable GitHub Release;
+7. generates `updates/stable.json` from the real APK SHA-256 and source revision;
+8. reruns the update-feed policy;
+9. commits and pushes only the published feed.
+
+This fallback exists so a GitHub runner outage does not permanently block binary
+publication. It still requires the Windows PC to be online, authenticated with GitHub
+CLI and holding the compatible signing keystore.
+
+It is not the routine phone update path. Once a release/feed exists, the phone updater
+continues to use the same in-app verification/install flow.
+
 ## Data preservation
 
 For normal in-place updates with the same compatible signing identity:
