@@ -119,7 +119,9 @@ CHECKS = {
         '"Seu espaço de trabalho no celular"',
         '"C: para o sistema. P: para você."',
         '"Entrar no PocketPC"',
-        '"P:\\\\Downloads"',
+        '"Downloads concluídos podem ser "',
+        '"PocketDrive"',
+        '"Downloads, Documentos, Apps, Jogos e Projetos."',
     ),
     "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt": (
         "ensurePocketDrive",
