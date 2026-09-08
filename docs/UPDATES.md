@@ -133,6 +133,58 @@ weakening signature checks.
 This means one bootstrap/signing transition may still be required before the desired
 steady state of “ChatGPT/repository changes -> phone updates itself” can be reached.
 
+## One-time Alpha 20 -> Alpha 21 bootstrap
+
+The Alpha 20 APK that is physically installed on the POCO does not contain the Alpha
+21 updater code. Therefore one transition is unavoidable before the steady-state
+self-update path exists.
+
+The repository now contains:
+
+`scripts/bootstrap-update-signing-windows.ps1`
+
+It is fail-closed:
+
+1. reads the candidate Windows keystore;
+2. exports only its public certificate;
+3. computes the certificate SHA-256;
+4. compares it with the signer observed in the physical Alpha 20 evidence bundle;
+5. refuses to send any GitHub Secret when the signer differs;
+6. when it matches, stores the signing material only in protected GitHub Actions
+   Secrets;
+7. optionally triggers `publish-update.yml`.
+
+The intended one-time bootstrap command is:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\scripts\bootstrap-update-signing-windows.ps1 `
+  -PublishNow
+```
+
+This command requires GitHub CLI to be authenticated once. The private keystore is not
+committed to the repository.
+
+After a compatible signed Alpha 21 release is published, Alpha 20 still needs to receive
+that bootstrap APK once. This can be done by downloading/tapping the signed APK on the
+phone or by the existing validated PC install flow.
+
+After Alpha 21 is installed, the normal intended path becomes:
+
+```text
+source changes
+  -> signed published APK
+  -> stable.json
+  -> PocketPC checks feed
+  -> automatic download when policy allows
+  -> verification
+  -> PackageInstaller
+  -> silent completion when Android permits
+     or Android confirmation when required
+```
+
+No ADB or PowerShell command is intended for routine future updates.
+
 ## Data preservation
 
 For normal in-place updates with the same compatible signing identity:
