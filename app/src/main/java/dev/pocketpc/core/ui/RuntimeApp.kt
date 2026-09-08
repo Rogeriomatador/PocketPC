@@ -42,6 +42,8 @@ import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceState
 import dev.pocketpc.core.runtime.StagedRuntime
 import dev.pocketpc.core.runtime.StagedGuestToolPackage
+import dev.pocketpc.core.runtime.WindowsPrefixPlanner
+import dev.pocketpc.core.runtime.WindowsPrefixReadinessProbe
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -154,6 +156,29 @@ fun RuntimeApp(
             )
         }
 
+    val windowsStateReady =
+        remember(
+            installed,
+            evidenceRevision,
+        ) {
+            preparedRuntimes.any { runtime ->
+                runCatching {
+                    val home =
+                        bindPlanner
+                            .homeDirectory(runtime)
+                    val prefix =
+                        WindowsPrefixPlanner
+                            .plan(
+                                storageRoot = home,
+                                profileId = "smoke",
+                            )
+                    WindowsPrefixReadinessProbe
+                        .assess(prefix)
+                        .ready
+                }.getOrDefault(false)
+            }
+        }
+
     val pcReadiness =
         PcRuntimeReadinessProbe.assess(
             nativeHost = nativeHost,
@@ -165,6 +190,8 @@ fun RuntimeApp(
             ioHost = ioHostCapabilities,
             probeEvidence =
                 currentProbeEvidence,
+            windowsStateReady =
+                windowsStateReady,
         )
 
     val toolOverlayPlan =
