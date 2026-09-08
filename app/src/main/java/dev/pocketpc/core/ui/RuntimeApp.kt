@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import dev.pocketpc.core.runtime.GuestRuntimeProbe
 import dev.pocketpc.core.runtime.GuestToolInstallManager
 import dev.pocketpc.core.runtime.GuestToolOverlayPlanner
+import dev.pocketpc.core.runtime.GuestToolPackageManager
 import dev.pocketpc.core.runtime.InstalledGuestTool
 import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.InstalledRuntime
@@ -37,6 +38,7 @@ import dev.pocketpc.core.runtime.RuntimeIoCapabilityProbe
 import dev.pocketpc.core.runtime.RuntimeManifestValidator
 import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.StagedRuntime
+import dev.pocketpc.core.runtime.StagedGuestToolPackage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -47,6 +49,7 @@ fun RuntimeApp(
     manager: RuntimePackageManager,
     installer: RuntimeInstallManager,
     guestToolInstaller: GuestToolInstallManager,
+    guestToolPackages: GuestToolPackageManager,
     linkManager: RootfsLinkManager,
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
@@ -54,8 +57,11 @@ fun RuntimeApp(
     onClearTarget: () -> Unit,
     manifestUri: String?,
     rootfsUri: String?,
+    toolPackageUri: String?,
     onChooseManifest: () -> Unit,
     onChooseRootfs: () -> Unit,
+    onChooseToolPackage: () -> Unit,
+    onClearToolPackage: () -> Unit,
     onClearSelection: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -90,6 +96,7 @@ fun RuntimeApp(
         >(null)
     }
     var staged by remember { mutableStateOf<List<StagedRuntime>>(emptyList()) }
+    var stagedTools by remember { mutableStateOf<List<StagedGuestToolPackage>>(emptyList()) }
     var installed by remember { mutableStateOf<List<InstalledRuntime>>(emptyList()) }
     var installedTools by remember { mutableStateOf<List<InstalledGuestTool>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
@@ -100,6 +107,7 @@ fun RuntimeApp(
 
     suspend fun reload() {
         staged = manager.discover()
+        stagedTools = guestToolPackages.discover()
         installed = installer.discover()
         installedTools = guestToolInstaller.discover()
     }
@@ -593,6 +601,248 @@ fun RuntimeApp(
 
         }
         }
+
+            item(key = "guest-tool-import") {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Ferramentas do runtime PC",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        "Importe um pacote ZIP confiável. O PocketPC valida manifesto, commit, hashes e arquivos antes de instalar.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = onChooseToolPackage,
+                            enabled = !busy,
+                        ) {
+                            Text(
+                                if (toolPackageUri == null) {
+                                    "Selecionar pacote"
+                                } else {
+                                    "Pacote ✓"
+                                }
+                            )
+                        }
+                        Button(
+                            enabled = !busy && toolPackageUri != null,
+                            onClick = {
+                                val uri =
+                                    toolPackageUri
+                                        ?: return@Button
+                                busy = true
+                                status =
+                                    "Verificando pacote guest tool…"
+                                scope.launch {
+                                    guestToolPackages
+                                        .stageZip(uri)
+                                        .onSuccess {
+                                            status =
+                                                "TOOL_STAGED_VERIFIED: " +
+                                                    it.manifest.id +
+                                                    " " +
+                                                    it.manifest.version
+                                            onClearToolPackage()
+                                            reload()
+                                        }
+                                        .onFailure {
+                                            status =
+                                                "TOOL STAGING FAILED: " +
+                                                    (
+                                                        it.message
+                                                            ?: it.javaClass
+                                                                .simpleName
+                                                    )
+                                        }
+                                    busy = false
+                                }
+                            },
+                        ) {
+                            Text("Verificar pacote")
+                        }
+                        TextButton(
+                            onClick = onClearToolPackage,
+                            enabled = !busy && toolPackageUri != null,
+                        ) {
+                            Text("Limpar")
+                        }
+                    }
+                }
+            }
+
+            if (stagedTools.isNotEmpty()) {
+                item(key = "guest-tools-staged-title") {
+                    Text(
+                        "TOOLS_STAGED_VERIFIED",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                }
+            }
+
+            items(
+                items = stagedTools,
+                key = {
+                    "tool-staged:" +
+                        it.manifest.id +
+                        ":" +
+                        it.manifest.version
+                },
+            ) { tool ->
+                Surface(
+                    tonalElevation = 2.dp,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement =
+                            Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            tool.manifest.id +
+                                " " +
+                                tool.manifest.version
+                        )
+                        Text(
+                            "commit " +
+                                tool.manifest.sourceCommit.take(12) +
+                                "… • " +
+                                tool.manifest.architecture,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        FlowRow(
+                            horizontalArrangement =
+                                Arrangement.spacedBy(6.dp),
+                        ) {
+                            Button(
+                                enabled = !busy,
+                                onClick = {
+                                    busy = true
+                                    status =
+                                        "Instalando guest tool verificado…"
+                                    scope.launch {
+                                        guestToolInstaller
+                                            .install(tool.directory)
+                                            .onSuccess {
+                                                status =
+                                                    "TOOL_INSTALLED_ATTESTED: " +
+                                                        it.manifest.id +
+                                                        " " +
+                                                        it.manifest.version
+                                                reload()
+                                            }
+                                            .onFailure {
+                                                status =
+                                                    "TOOL INSTALL FAILED: " +
+                                                        (
+                                                            it.message
+                                                                ?: it.javaClass
+                                                                    .simpleName
+                                                        )
+                                            }
+                                        busy = false
+                                    }
+                                },
+                            ) {
+                                Text("Instalar")
+                            }
+                            TextButton(
+                                enabled = !busy,
+                                onClick = {
+                                    busy = true
+                                    scope.launch {
+                                        val removed =
+                                            guestToolPackages
+                                                .remove(tool)
+                                        status =
+                                            if (removed) {
+                                                "Staging da ferramenta removido."
+                                            } else {
+                                                "Não foi possível remover staging da ferramenta."
+                                            }
+                                        reload()
+                                        busy = false
+                                    }
+                                },
+                            ) {
+                                Text("Remover staging")
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (installedTools.isNotEmpty()) {
+                item(key = "guest-tools-installed-title") {
+                    Text(
+                        "GUEST_TOOLS_INSTALLED",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                }
+            }
+
+            items(
+                items = installedTools,
+                key = {
+                    "tool-installed:" +
+                        it.manifest.id +
+                        ":" +
+                        it.manifest.version
+                },
+            ) { tool ->
+                Surface(
+                    tonalElevation = 2.dp,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement =
+                            Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            tool.manifest.id +
+                                " " +
+                                tool.manifest.version
+                        )
+                        Text(
+                            tool.manifest.guestRoot +
+                                "/" +
+                                tool.manifest.entrypoint,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        TextButton(
+                            enabled = !busy,
+                            onClick = {
+                                busy = true
+                                scope.launch {
+                                    val removed =
+                                        guestToolInstaller
+                                            .remove(tool)
+                                    status =
+                                        if (removed) {
+                                            "Guest tool removido."
+                                        } else {
+                                            "Não foi possível remover guest tool."
+                                        }
+                                    reload()
+                                    busy = false
+                                }
+                            },
+                        ) {
+                            Text("Desinstalar")
+                        }
+                    }
+                }
+            }
 
             item {
                 Text("STAGED_VERIFIED", style = MaterialTheme.typography.titleSmall)
