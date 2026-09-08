@@ -39,6 +39,8 @@
 #### Desktop UX
 - PocketPC-specific visual theme;
 - compact taskbar, Start launcher and system tray;
+- adaptive phone touch mode with portrait/landscape support;
+- compact phone windows use the available workspace instead of unusably small freeform geometry;
 - per-app window sizing/position contracts;
 - calculated drag/resize workspace bounds;
 - left/right snap safety based on application minimum width;
@@ -46,7 +48,7 @@
 - wallpaper-safe desktop labels.
 
 #### Browser
-- compact landscape browser chrome;
+- responsive browser chrome for compact phone and desktop windows;
 - tab strip;
 - independent per-tab WebView history/state during the PocketPC session;
 - true desktop browser User-Agent mode;
@@ -54,6 +56,7 @@
 
 #### Explorer
 - desktop sidebar/toolbar/table/details layout;
+- compact phone Explorer layout that collapses sidebar/details/secondary columns;
 - search;
 - SAF directory navigation;
 - create directory;
