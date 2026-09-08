@@ -182,8 +182,38 @@ fun pocketPath(
 internal fun sanitizePocketImportedFileName(
     raw: String,
 ): String {
-    val leaf =
+    val withoutDispositionTail =
         raw
+            .replace('\r', ' ')
+            .replace('\n', ' ')
+            .let { value ->
+                val separator =
+                    value.indexOf(';')
+                if (separator > 0) {
+                    val tail =
+                        value
+                            .substring(separator + 1)
+                            .trimStart()
+                    if (
+                        tail.startsWith(
+                            "filename",
+                            ignoreCase = true,
+                        )
+                    ) {
+                        value.substring(
+                            0,
+                            separator,
+                        )
+                    } else {
+                        value
+                    }
+                } else {
+                    value
+                }
+            }
+
+    val leaf =
+        withoutDispositionTail
             .substringAfterLast('/')
             .substringAfterLast('\\')
             .trim()
