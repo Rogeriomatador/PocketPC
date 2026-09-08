@@ -12,7 +12,11 @@ object GuestProbeRequirements {
             GuestRuntimeProbe.BOX64_SMOKE ->
                 setOf("box64")
             GuestRuntimeProbe.WINE_SMOKE,
-            GuestRuntimeProbe.D3D11_SMOKE ->
+            GuestRuntimeProbe.D3D11_SMOKE,
+            GuestRuntimeProbe.WINDOWS_PROCESS_SMOKE,
+            GuestRuntimeProbe.WINSOCK_SMOKE,
+            GuestRuntimeProbe.WINMM_AUDIO_API_SMOKE,
+            GuestRuntimeProbe.RAW_INPUT_API_SMOKE ->
                 setOf("box64", "wine")
         }
 
