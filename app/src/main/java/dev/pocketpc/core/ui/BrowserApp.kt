@@ -55,7 +55,7 @@ class BrowserSessionState {
     )
 
     var activeTabId by mutableStateOf(1L)
-    var desktopMode by mutableStateOf(false)
+    var desktopMode by mutableStateOf(true)
 
     val activeTab: BrowserTabState
         get() =
