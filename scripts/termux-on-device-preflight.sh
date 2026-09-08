@@ -86,16 +86,29 @@ fi
 echo
 
 JAVA_OK=false
+JAVA_LOCK_EXACT=false
 if has java; then
   JAVA_MAJOR="$(
     java -version 2>&1 |
       awk -F'[".]' '/version/ {print $2; exit}'
   )"
+
   if [ "$JAVA_MAJOR" = "$JDK_REQUIRED" ]; then
+    JAVA_LOCK_EXACT=true
+  fi
+
+  if [ "${JAVA_MAJOR:-0}" -ge "$JDK_REQUIRED" ] 2>/dev/null &&
+     [ "${JAVA_MAJOR:-99}" -le 26 ] 2>/dev/null; then
     JAVA_OK=true
   fi
+
   echo "java_major=${JAVA_MAJOR:-unknown}"
-  echo "java_matches_lock=$JAVA_OK"
+  echo "java_matches_lock=$JAVA_LOCK_EXACT"
+  echo "java_meets_build_minimum=$JAVA_OK"
+  if [ "$JAVA_OK" = true ] &&
+     [ "$JAVA_LOCK_EXACT" != true ]; then
+    echo "java_compatibility_variance=TERMUX_NEWER_JDK_THAN_LOCK"
+  fi
 fi
 
 GRADLE_OK=false
