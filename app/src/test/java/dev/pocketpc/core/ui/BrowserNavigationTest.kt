@@ -65,4 +65,11 @@ class BrowserNavigationTest {
         assertEquals(1, session.tabs.size)
         assertEquals(POCKETPC_HOME, session.activeTab.url)
     }
+
+    @Test
+    fun newBrowserSessionStartsInDesktopMode() {
+        val session = BrowserSessionState()
+        assertTrue(session.desktopMode)
+    }
+
 }
