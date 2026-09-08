@@ -89,7 +89,8 @@ object PcRuntimeReadinessProbe {
                     state =
                         PcRuntimeStageState.NOT_IMPLEMENTED,
                     detail =
-                        "Necessária para executáveis Windows x64 como o Roblox desktop.",
+                        "Candidato técnico: Box64 Android/ARM64. " +
+                            "Ainda não está aprovado, empacotado ou executado pelo PocketPC.",
                 ),
                 PcRuntimeStage(
                     id = "win32-compat",
@@ -97,7 +98,8 @@ object PcRuntimeReadinessProbe {
                     state =
                         PcRuntimeStageState.NOT_IMPLEMENTED,
                     detail =
-                        "Processos, DLLs, loader PE, APIs Win32 e serviços ainda não executam.",
+                        "Candidato técnico: Wine WoW64 sobre o tradutor x86_64. " +
+                            "Loader PE, DLLs e APIs Win32 ainda não executam no PocketPC.",
                 ),
                 PcRuntimeStage(
                     id = "windows-state",
@@ -113,7 +115,8 @@ object PcRuntimeReadinessProbe {
                     state =
                         PcRuntimeStageState.NOT_IMPLEMENTED,
                     detail =
-                        "Ainda não há ponte D3D validada até a GPU Android.",
+                        "Candidatos: DXVK para D3D9/10/11 e VKD3D para D3D12, " +
+                            "mas nenhuma ponte foi validada até a GPU Android.",
                 ),
                 PcRuntimeStage(
                     id = "io-integration",
