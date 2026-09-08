@@ -228,8 +228,13 @@ if ($physical.filesystemCriticalPassed -ne $true) {
 if ($physical.nativeHostLoaded -ne $true) {
     throw "Native Runtime Host nao carregou."
 }
-if ($physical.desktopOrientationLandscape -ne $true) {
-    throw "Desktop host nao foi validado em landscape."
+if (
+    $physical.desktopOrientationLandscape -ne $true -and
+    $physical.desktopOrientationLandscape -ne $false
+) {
+    throw (
+        "Desktop host nao reportou orientacao adaptativa valida."
+    )
 }
 
 $runtimeLinkSemanticsReady = $false
@@ -344,7 +349,14 @@ Write-Host "====================================================" -ForegroundCol
 Write-Host "Commit       : $commit"
 Write-Host "APK SHA-256  : $($buildRecord.apk.sha256)"
 Write-Host "Bundle SHA   : $($physical.bundleSha256)"
-Write-Host "Landscape    : PASS"
+Write-Host (
+    "Orientation  : {0} (adaptive)" -f
+    $(if ($physical.desktopOrientationLandscape) {
+        "LANDSCAPE"
+    } else {
+        "PORTRAIT"
+    })
+)
 Write-Host ("PC hardware  : {0}" -f $(if ($physical.androidPcHardwareAdvertised) { "ADVERTISED" } else { "NOT_ADVERTISED" }))
 Write-Host "Host fs      : PASS"
 Write-Host ("Linux links  : {0}" -f $(if ($runtimeLinkSemanticsReady) { "READY" } else { "BLOCKED" }))
