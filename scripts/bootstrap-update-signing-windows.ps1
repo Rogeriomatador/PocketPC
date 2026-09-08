@@ -157,8 +157,7 @@ try {
         $value = [string]$entry.Value
         $secretArgs = @(
             "secret", "set", $entry.Key,
-            "--repo", $Repository,
-            "--body", "-"
+            "--repo", $Repository
         )
         $previousErrorActionPreference = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
