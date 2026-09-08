@@ -121,9 +121,9 @@ class PocketDriveTest {
     }
 
     @Test
-    fun sanitizesDownloadedNamesWithoutChangingPackageType() {
+    fun sanitizesDownloadedLeafNameWithoutChangingPackageType() {
         assertEquals(
-            "Roblox_PlayerInstaller.exe",
+            "PlayerInstaller.exe",
             sanitizePocketImportedFileName(
                 "Roblox/PlayerInstaller.exe"
             ),
