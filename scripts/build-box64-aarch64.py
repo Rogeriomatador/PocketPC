@@ -60,7 +60,10 @@ def main() -> int:
     source = work / "source"
     build = work / "build"
     quarantine = work / "quarantine"
+    package_root = work / "guest-package"
+    package_bin = package_root / "bin"
     quarantine.mkdir()
+    package_bin.mkdir(parents=True)
 
     run(["git", "init", str(source)], work, work / "git-init.log")
     run(["git", "-C", str(source), "remote", "add", "origin", lock["repository"]], work, work / "git-remote.log")
@@ -100,9 +103,33 @@ def main() -> int:
         )
 
     staged = quarantine / "box64"
+    packaged = package_bin / "box64"
     shutil.copy2(candidate, staged)
-    if sha256(staged) != sha256(candidate):
+    shutil.copy2(candidate, packaged)
+    if sha256(staged) != sha256(candidate) or sha256(packaged) != sha256(candidate):
         raise SystemExit("BOX64_COPY_DIGEST_MISMATCH")
+
+    guest_manifest = {
+        "schemaVersion": 1,
+        "id": "box64",
+        "version": lock["version"],
+        "architecture": "aarch64",
+        "guestRoot": "/opt/pocketpc/box64",
+        "entrypoint": "bin/box64",
+        "sourceCommit": actual_commit,
+        "license": lock["license"],
+        "files": [
+            {
+                "path": "bin/box64",
+                "bytes": packaged.stat().st_size,
+                "sha256": sha256(packaged),
+                "executable": True,
+            }
+        ],
+    }
+    (package_root / "guest-tool-manifest.json").write_text(
+        json.dumps(guest_manifest, indent=2) + "\\n", encoding="utf-8"
+    )
 
     evidence = {
         "schemaVersion": 1,
@@ -114,11 +141,13 @@ def main() -> int:
             "fileName": staged.name,
             "bytes": staged.stat().st_size,
             "sha256": sha256(staged),
+            "guestPackageManifestSha256": sha256(package_root / "guest-tool-manifest.json"),
             "elfClass": elf_class,
             "elfType": elf_type,
             "machine": machine,
         },
         "notExecuted": [
+            "PocketPC guest-tool package installation",
             "Box64 --version inside PocketPC rootfs",
             "x86_64 ELF execution",
             "Wine",
