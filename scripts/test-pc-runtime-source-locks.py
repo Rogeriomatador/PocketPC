@@ -9,6 +9,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BOX64 = ROOT / "third_party/box64/LOCK.json"
 WINE = ROOT / "third_party/wine/LOCK.json"
+GRAPHICS = ROOT / "third_party/graphics/LOCK.json"
 
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 
@@ -18,6 +19,7 @@ def main() -> int:
     try:
         box64 = json.loads(BOX64.read_text(encoding="utf-8"))
         wine = json.loads(WINE.read_text(encoding="utf-8"))
+        graphics = json.loads(GRAPHICS.read_text(encoding="utf-8"))
     except Exception as error:
         print(f"PC_RUNTIME_SOURCE_LOCKS_FAILED\n- metadata: {error}", file=sys.stderr)
         return 1
@@ -52,6 +54,32 @@ def main() -> int:
         if (wine.get("gates") or {}).get(gate) is not False:
             failures.append(f"Wine gate must remain false until evidence exists: {gate}")
 
+    if graphics.get("schemaVersion") != 1:
+        failures.append("graphics schemaVersion must be 1")
+    dxvk = graphics.get("dxvk") or {}
+    if dxvk.get("version") != "3.0.2":
+        failures.append("DXVK version must remain pinned to 3.0.2")
+    if dxvk.get("tagObject") != "767633ab3481e4e30687bedaba982c1a5e4722a7":
+        failures.append("DXVK signed tag object changed without review")
+    if dxvk.get("commit") != "6b20f622a77b87b2921fe5d2c1774d2f2ba3e9b7":
+        failures.append("DXVK source commit changed without review")
+    for gate in ("built", "wineIntegrated", "vulkanGuestTested"):
+        if dxvk.get(gate) is not False:
+            failures.append(f"DXVK gate must remain false until evidence exists: {gate}")
+
+    vkd3d = graphics.get("vkd3dProton") or {}
+    if vkd3d.get("version") != "3.0.1":
+        failures.append("vkd3d-proton version must remain pinned to 3.0.1")
+    if vkd3d.get("commit") != "3b10bd7a7ec6a7347e616cf8bea59333afec2255":
+        failures.append("vkd3d-proton source commit changed without review")
+    for gate in ("built", "wineIntegrated", "vulkanGuestTested"):
+        if vkd3d.get(gate) is not False:
+            failures.append(f"vkd3d-proton gate must remain false until evidence exists: {gate}")
+
+    for gate, value in (graphics.get("gates") or {}).items():
+        if value is not False:
+            failures.append(f"graphics runtime gate must remain false until evidence exists: {gate}")
+
     if failures:
         print("PC_RUNTIME_SOURCE_LOCKS_FAILED", file=sys.stderr)
         for failure in failures:
@@ -61,6 +89,8 @@ def main() -> int:
     print("PC_RUNTIME_SOURCE_LOCKS_OK")
     print("box64=v0.4.4@2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a")
     print("wine=11.0@db11d0fe6a169c457e23d007e20404643d067aa8")
+    print("dxvk=3.0.2@6b20f622a77b87b2921fe5d2c1774d2f2ba3e9b7")
+    print("vkd3d-proton=3.0.1@3b10bd7a7ec6a7347e616cf8bea59333afec2255")
     print("runtime_execution_evidence=false")
     return 0
 
