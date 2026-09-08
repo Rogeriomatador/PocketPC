@@ -109,7 +109,8 @@ def build_d3d11_smoke(work: Path) -> Path:
     source = work / "pocketpc-d3d11-smoke.c"
     output = work / "pocketpc-d3d11-smoke.exe"
     source.write_text(
-        """#include <windows.h>
+        """#define COBJMACROS
+#include <windows.h>
 #include <d3d11.h>
 #include <stdio.h>
 
