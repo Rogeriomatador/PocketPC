@@ -25,6 +25,7 @@ import dev.pocketpc.core.storage.classifyPocketFile
 import dev.pocketpc.core.storage.StorageEntry
 import dev.pocketpc.core.storage.StorageListing
 import dev.pocketpc.core.storage.StorageRepository
+import dev.pocketpc.core.storage.sanitizePocketImportedFileName
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -394,6 +395,15 @@ fun FilesApp(
                     onRename = {
                         selected?.let {
                             renameName = it.name
+                            renameOpen = true
+                        }
+                    },
+                    onFixName = {
+                        selected?.let {
+                            renameName =
+                                sanitizePocketImportedFileName(
+                                    it.name
+                                )
                             renameOpen = true
                         }
                     },
@@ -1006,6 +1016,7 @@ private fun ExplorerDetailsPane(
     entry: StorageEntry?,
     onOpen: () -> Unit,
     onRename: () -> Unit,
+    onFixName: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Surface(
@@ -1100,6 +1111,19 @@ private fun ExplorerDetailsPane(
                     }
                 )
             }
+            val cleanedName =
+                sanitizePocketImportedFileName(
+                    entry.name
+                )
+            if (cleanedName != entry.name) {
+                OutlinedButton(
+                    onClick = onFixName,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Corrigir nome")
+                }
+            }
+
             OutlinedButton(
                 onClick = onRename,
                 modifier = Modifier.fillMaxWidth(),
