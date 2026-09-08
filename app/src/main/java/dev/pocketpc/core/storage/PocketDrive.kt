@@ -29,8 +29,17 @@ enum class PocketDriveDirectory(
 data class PocketDriveMount(
     val rootUri: String,
     val directories: Map<PocketDriveDirectory, String>,
-    val schemaVersion: Int = POCKET_DRIVE_SCHEMA_VERSION,
+    val metadata: PocketDriveMetadata,
 ) {
+    val schemaVersion: Int
+        get() = metadata.schemaVersion
+
+    val volumeId: String
+        get() = metadata.volumeId
+
+    val label: String
+        get() = metadata.label
+
     fun uriFor(directory: PocketDriveDirectory): String? =
         directories[directory]
 }
@@ -99,6 +108,62 @@ const val POCKET_SYSTEM_LETTER = "C:"
 const val POCKET_DRIVE_SCHEMA_VERSION = 1
 const val POCKET_DRIVE_METADATA_FILE = "PocketDrive.meta"
 const val POCKET_DRIVE_DEFAULT_LABEL = "PocketDrive"
+
+internal fun newPocketDriveMetadata(
+    volumeId: String = java.util.UUID.randomUUID().toString(),
+    label: String = POCKET_DRIVE_DEFAULT_LABEL,
+): PocketDriveMetadata =
+    validatePocketDriveMetadata(
+        PocketDriveMetadata(
+            schemaVersion = POCKET_DRIVE_SCHEMA_VERSION,
+            volumeId = volumeId,
+            label = label,
+        )
+    )
+
+internal fun validatePocketDriveMetadata(
+    metadata: PocketDriveMetadata,
+): PocketDriveMetadata {
+    require(
+        metadata.schemaVersion == POCKET_DRIVE_SCHEMA_VERSION
+    ) {
+        "Versão do PocketDrive incompatível: " +
+            metadata.schemaVersion +
+            ". Esperado: " +
+            POCKET_DRIVE_SCHEMA_VERSION +
+            "."
+    }
+
+    val canonicalVolumeId =
+        runCatching {
+            java.util.UUID
+                .fromString(metadata.volumeId)
+                .toString()
+        }.getOrElse {
+            throw IllegalArgumentException(
+                "PocketDrive.meta possui volumeId inválido.",
+                it,
+            )
+        }
+
+    require(canonicalVolumeId == metadata.volumeId.lowercase()) {
+        "PocketDrive.meta possui volumeId não canônico."
+    }
+
+    val cleanLabel = metadata.label.trim()
+    require(
+        cleanLabel.isNotEmpty() &&
+            cleanLabel.length <= 64 &&
+            cleanLabel.none { it == '\n' || it == '\r' || it.code < 32 }
+    ) {
+        "PocketDrive.meta possui label inválido."
+    }
+
+    return metadata.copy(
+        volumeId = canonicalVolumeId,
+        label = cleanLabel,
+    )
+}
 
 fun pocketPath(
     directory: PocketDriveDirectory,
