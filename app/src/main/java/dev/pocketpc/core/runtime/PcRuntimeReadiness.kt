@@ -132,11 +132,16 @@ object PcRuntimeReadinessProbe {
                         if (ioHost == null) {
                             "Capacidades Android de áudio/input/rede ainda não foram medidas nesta sessão."
                         } else {
+                            val networkState =
+                                when {
+                                    ioHost.networkValidated -> "validada"
+                                    ioHost.networkInternetCapable -> "detectada"
+                                    else -> "indisponível"
+                                }
                             "Host Android: áudio=${ioHost.audioOutputCount} saída(s), " +
                                 "teclados=${ioHost.keyboardCount}, mouses=${ioHost.mouseCount}, " +
-                                "gamepads=${ioHost.gamepadCount}, internet=" +
-                                if (ioHost.networkValidated) "validada" else if (ioHost.networkInternetCapable) "detectada" else "indisponível" +
-                                ". A ponte Win32 ainda não está implementada."
+                                "gamepads=${ioHost.gamepadCount}, internet=$networkState. " +
+                                "A ponte Win32 ainda não está implementada."
                         },
                 ),
                 PcRuntimeStage(
