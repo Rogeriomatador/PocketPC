@@ -16,6 +16,7 @@ on:
       - "updates/stable.json"
       - "updates/bootstrap-signer.json"
       - "scripts/verify-bootstrap-signer.py"
+      - "scripts/test-bootstrap-signer-verifier.py"
       - "scripts/test-powershell51-compat.py"
       - "scripts/verify-device-evidence-bundle.py"
       - "scripts/test-device-evidence-bundle-verifier.py"
@@ -86,6 +87,9 @@ jobs:
 
       - name: PocketPC update feed policy
         run: python scripts/test-update-feed-policy.py
+
+      - name: Physical bootstrap signer self-test
+        run: python scripts/test-bootstrap-signer-verifier.py
 
       - name: PocketDrive and research policy
         run: python scripts/test-pocketdrive-research-policy.py
