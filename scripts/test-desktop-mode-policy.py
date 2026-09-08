@@ -8,7 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 CHECKS = {
     "app/src/main/java/dev/pocketpc/core/MainActivity.kt": (
-        "SCREEN_ORIENTATION_SENSOR_LANDSCAPE",
+        "enableEdgeToEdge()",
         "DesktopCommand.CYCLE_WINDOWS",
         "DesktopCommand.OPEN_DESKTOP_CONTEXT",
         "MotionEvent.BUTTON_SECONDARY",
@@ -25,7 +25,7 @@ CHECKS = {
         "BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE",
     ),
     "app/src/main/AndroidManifest.xml": (
-        'android:screenOrientation="sensorLandscape"',
+        'android:screenOrientation="fullUser"',
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.REQUEST_INSTALL_PACKAGES",
         "android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION",
@@ -447,8 +447,14 @@ CHECKS = {
         '"externalDisplayCount"',
     ),
     "app/src/debug/AndroidManifest.xml": (
-        'android:screenOrientation="sensorLandscape"',
+        'android:screenOrientation="fullUser"',
         'android:resizeableActivity="true"',
+    ),
+    "scripts/validate-device-windows.ps1": (
+        '"Orientation          : {0} (adaptive)"',
+        "$logicalSizeUsable",
+        '"Logical size usable  : "',
+        '"PocketPC nao reportou uma area logica utilizavel durante "',
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopLaunchPolicy.kt": (
         "data class DesktopLaunchPlan",
@@ -502,6 +508,8 @@ def main() -> int:
                 "override fun dispatchGenericMotionEvent(",
                 "super.dispatchKeyEvent(",
                 "super.dispatchGenericMotionEvent(",
+                "SCREEN_ORIENTATION_SENSOR_LANDSCAPE",
+                "requestedOrientation =",
             ):
                 if forbidden in text:
                     failures.append(
@@ -556,6 +564,20 @@ def main() -> int:
                         "storage roots, updater state, or custom URI grants: " +
                         forbidden
                     )
+
+        if relative.endswith("AndroidManifest.xml"):
+            if 'android:screenOrientation="sensorLandscape"' in text:
+                failures.append(
+                    "PocketPC manifests must not force landscape; "
+                    "adaptive phone/desktop orientation is required"
+                )
+
+        if relative.endswith("validate-device-windows.ps1"):
+            if "if (-not $desktopLandscape)" in text:
+                failures.append(
+                    "Physical validation must not reject portrait-only evidence "
+                    "for the adaptive mobile host"
+                )
 
         if relative.endswith("BrowserApp.kt"):
             if 'label = { Text("Endereço ou pesquisa") }' in text:
