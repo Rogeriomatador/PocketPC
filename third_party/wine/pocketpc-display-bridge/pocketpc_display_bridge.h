@@ -15,6 +15,12 @@ extern "C" {
 #define PDB_TOKEN_BYTES 32u
 #define PDB_IDENTITY_BYTES 64u
 #define PDB_HELLO_BYTES 100u
+#define PDB_WINDOW_CREATE_BYTES 28u
+#define PDB_WINDOW_GEOMETRY_BYTES 32u
+#define PDB_WINDOW_DESTROY_BYTES 8u
+#define PDB_POINTER_EVENT_BYTES 32u
+#define PDB_KEY_EVENT_BYTES 28u
+#define PDB_FRAME_PRESENTED_BYTES 20u
 
 #define PDB_MSG_HELLO 1u
 #define PDB_MSG_HELLO_ACK 2u
@@ -66,6 +72,37 @@ int pdb_send_frame(
 int pdb_receive_frame(
     struct pdb_connection *connection,
     struct pdb_frame *frame,
+    char *error,
+    size_t error_bytes
+);
+
+int pdb_send_window_create(
+    struct pdb_connection *connection,
+    uint64_t window_id,
+    uint64_t parent_id,
+    uint32_t flags,
+    int32_t width,
+    int32_t height,
+    char *error,
+    size_t error_bytes
+);
+
+int pdb_send_window_geometry(
+    struct pdb_connection *connection,
+    uint64_t window_id,
+    int32_t x,
+    int32_t y,
+    int32_t width,
+    int32_t height,
+    uint32_t visible,
+    int32_t z_order,
+    char *error,
+    size_t error_bytes
+);
+
+int pdb_send_window_destroy(
+    struct pdb_connection *connection,
+    uint64_t window_id,
     char *error,
     size_t error_bytes
 );
