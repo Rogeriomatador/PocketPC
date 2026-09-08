@@ -19,6 +19,7 @@ data class GuestToolManifest(
     val sourceCommit: String,
     val license: String,
     val files: List<GuestToolFile>,
+    val executionMode: String = "native-aarch64",
 )
 
 object GuestToolManifestCodec {
@@ -48,6 +49,11 @@ object GuestToolManifestCodec {
             sourceCommit = root.getString("sourceCommit").lowercase(),
             license = root.getString("license"),
             files = files,
+            executionMode =
+                root.optString(
+                    "executionMode",
+                    "native-aarch64",
+                ),
         )
     }
 }
@@ -70,8 +76,22 @@ object GuestToolManifestValidator {
         if (!versionRegex.matches(manifest.version)) {
             errors += "GUEST_TOOL_VERSION_INVALID"
         }
-        if (manifest.architecture != "aarch64") {
-            errors += "GUEST_TOOL_ARCHITECTURE_UNSUPPORTED"
+        when (manifest.executionMode) {
+            "native-aarch64" -> {
+                if (manifest.architecture != "aarch64") {
+                    errors +=
+                        "GUEST_TOOL_ARCHITECTURE_MODE_MISMATCH"
+                }
+            }
+            "box64-x86_64" -> {
+                if (manifest.architecture != "x86_64") {
+                    errors +=
+                        "GUEST_TOOL_ARCHITECTURE_MODE_MISMATCH"
+                }
+            }
+            else ->
+                errors +=
+                    "GUEST_TOOL_EXECUTION_MODE_UNSUPPORTED"
         }
 
         val normalizedGuestRoot =
