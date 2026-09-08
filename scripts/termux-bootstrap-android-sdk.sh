@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOCK="$ROOT/toolchains/android-build-lock.json"
 SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
-REPOSITORY_XML_URL="https://dl.google.com/android/repository/repository2-1.xml"
+REPOSITORY_XML_URL="https://dl.google.com/android/repository/repository2-3.xml"
 TMP_ROOT="${TMPDIR:-$PREFIX/tmp}/pocketpc-android-sdk"
 
 echo "PocketPC Termux Android SDK bootstrap"
@@ -144,7 +144,20 @@ install_package() {
     local version="$2"
     local target="$3"
 
-    mapfile -t meta < <(resolve_package "$kind" "$version")
+    local resolved
+    if ! resolved="$(resolve_package "$kind" "$version")"; then
+        echo "SDK_PACKAGE_RESOLUTION_FAILED kind=$kind version=$version" >&2
+        exit 4
+    fi
+
+    local meta=()
+    mapfile -t meta <<< "$resolved"
+
+    if [ "${#meta[@]}" -lt 4 ]; then
+        echo "SDK_PACKAGE_METADATA_INCOMPLETE kind=$kind version=$version" >&2
+        exit 4
+    fi
+
     local package_path="${meta[0]}"
     local archive_name="${meta[1]}"
     local algorithm="${meta[2]}"
