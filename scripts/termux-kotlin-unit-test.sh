@@ -97,11 +97,12 @@ echo "  build_tools=$BUILD_TOOLS_DIR"
 echo "  aapt2=$AAPT2"
 echo
 echo "Executing:"
+echo "  -Ppocketpc.skipNativeBuild=true"
 echo "  :app:testDebugUnitTest"
 echo
 
 set +e
-gradle     --no-daemon     --stacktrace     -Pandroid.aapt2FromMavenOverride="$AAPT2"     :app:testDebugUnitTest
+gradle     --no-daemon     --stacktrace     -Pandroid.aapt2FromMavenOverride="$AAPT2"     -Ppocketpc.skipNativeBuild=true     :app:testDebugUnitTest
 STATUS=$?
 set -e
 
@@ -122,5 +123,6 @@ echo "tested_tree=$SOURCE_TREE_STATE"
 echo
 echo "Important:"
 echo "  This is a real Gradle/Kotlin unit-test software test on the phone."
+echo "  Native CMake configuration is explicitly disabled for this Termux-only unit-test gate."
 echo "  It does not run Android Lint, assemble an APK, execute the native CMake host,"
 echo "  sign/install PocketPC, or validate physical behavior."
