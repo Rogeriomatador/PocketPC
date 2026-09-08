@@ -482,6 +482,13 @@ private fun DesktopWindowView(
             configuration.screenWidthDp / 2 >=
                 spec.minWidthDp
 
+    val integratedBrowserHeader =
+        window.app == DesktopApp.BROWSER &&
+            (
+                compactMobile ||
+                    window.maximized
+            )
+
     val windowModifier =
         when {
             compactMobile ->
@@ -547,8 +554,16 @@ private fun DesktopWindowView(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(38.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .height(
+                            if (integratedBrowserHeader) {
+                                0.dp
+                            } else {
+                                38.dp
+                            }
+                        )
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant
+                        )
                         .pointerInput(
                             window.id,
                             window.maximized,
