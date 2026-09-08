@@ -167,20 +167,23 @@ object PcRuntimeReadinessProbe {
                     state =
                         if (
                             probeEvidence?.d3d11SmokePassed ==
-                            true
+                                true &&
+                            probeEvidence
+                                .graphicsPresentationSmokePassed
                         ) {
                             PcRuntimeStageState.READY
                         } else {
                             PcRuntimeStageState.BLOCKED
                         },
                     detail =
-                        if (
-                            probeEvidence?.d3d11SmokePassed ==
-                            true
-                        ) {
-                            "D3D11 criou dispositivo com DXVK nativo forçado; a evidência está vinculada ao rootfs, Box64, Wine e DLLs atuais."
-                        } else {
-                            "DXVK/vkd3d possuem supply-chain e implantação preparada, mas o smoke D3D11→Vulkan atual ainda não foi comprovado."
+                        when {
+                            probeEvidence?.d3d11SmokePassed !=
+                                true ->
+                                "DXVK/vkd3d possuem supply-chain e implantação preparada, mas o smoke D3D11→Vulkan atual ainda não foi comprovado."
+                            !probeEvidence.graphicsPresentationSmokePassed ->
+                                "D3D11 criou dispositivo via DXVK, mas janela/swapchain/Present ainda não foram comprovados."
+                            else ->
+                                "D3D11 e swapchain/Present passaram com evidência vinculada ao rootfs, Box64, Wine e DLLs DXVK atuais."
                         },
                 ),
                 PcRuntimeStage(
