@@ -10,7 +10,10 @@ substrate works.
 
 ## 1. Desktop shell
 
-The Android host is a Compose-based landscape/immersive desktop with:
+The Android host is a Compose-based adaptive/immersive desktop shell. The main
+activity no longer forces landscape: phone portrait/landscape, resized windows and
+larger desktop-style displays are expected to share the same shell while the layout
+reflows from compact touch mode to freeform desktop mode.
 
 - wallpaper;
 - desktop shortcuts;
@@ -80,19 +83,23 @@ dimensions and reserved taskbar space. Saved Alpha 20 geometry uses
 `pocketpc-window-layout-v2`.
 
 Half-screen snap is only offered when half of the logical display can satisfy the
-application minimum width.
+application minimum width. On compact phone windows, internal apps use the available
+workspace instead of exposing tiny freeform windows, snap controls or resize handles.
 
 ## 4. Integrated applications
 
 ### Browser
 
-WebView-based browser with compact desktop chrome, tabs, per-tab WebView state,
-DownloadManager and an explicit desktop-browser User-Agent mode.
+WebView-based browser with tabs, per-tab WebView state, DownloadManager and an
+explicit desktop-browser User-Agent mode. Its chrome reflows on compact windows so
+navigation/address controls do not consume the whole page area.
 
 ### Explorer
 
-Storage Access Framework-based file workspace. Current write operations are create
-directory, rename and delete. Copy/move are not exposed until their backend exists.
+Storage Access Framework-based file workspace. On compact windows the desktop sidebar,
+details pane and secondary table columns collapse so the file list remains touch-usable.
+Current write operations are create directory, rename and delete. Copy/move are not
+exposed until their backend exists.
 
 ### Este PC
 
