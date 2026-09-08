@@ -1,6 +1,5 @@
 package dev.pocketpc.core
 
-import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
@@ -34,7 +33,6 @@ class MainActivity : ComponentActivity() {
         PocketPcUpdateScheduler.schedule(
             applicationContext
         )
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         enableEdgeToEdge()
         applyDesktopImmersiveMode()
 
