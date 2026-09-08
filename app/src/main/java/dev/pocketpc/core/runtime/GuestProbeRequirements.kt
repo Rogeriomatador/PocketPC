@@ -9,7 +9,8 @@ object GuestProbeRequirements {
             GuestRuntimeProbe.ROOTFS,
             GuestRuntimeProbe.TOOLCHAIN ->
                 emptySet()
-            GuestRuntimeProbe.BOX64_SMOKE ->
+            GuestRuntimeProbe.BOX64_SMOKE,
+            GuestRuntimeProbe.DISPLAY_BRIDGE_SMOKE ->
                 setOf("box64")
             GuestRuntimeProbe.WINE_SMOKE,
             GuestRuntimeProbe.D3D11_SMOKE,
