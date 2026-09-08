@@ -47,6 +47,24 @@ Possible classifications include:
 
 A candidate classification is not a PASS.
 
+## Bootstrap the missing base tooling
+
+After the preflight reports missing Java/Gradle/aapt2/CMake/Ninja, use the repository
+bootstrap instead of installing arbitrary versions manually:
+
+```bash
+bash scripts/termux-bootstrap-tooling.sh
+source ~/.profile
+bash scripts/termux-on-device-preflight.sh
+```
+
+The bootstrap reads the repository lock, installs Termux-native Java/build helpers,
+downloads the exact locked Gradle distribution, verifies its SHA-256, and exposes it
+through `~/.profile`.
+
+It deliberately does **not** claim the Android SDK 37 or NDK host-toolchain problem is
+solved. A successful base-tooling bootstrap is not an APK build.
+
 ## Useful Termux packages
 
 Current Termux repositories provide OpenJDK 17 and Android packaging tools such as
