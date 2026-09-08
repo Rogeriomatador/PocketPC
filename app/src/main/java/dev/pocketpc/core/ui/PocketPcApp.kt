@@ -484,10 +484,7 @@ private fun DesktopWindowView(
 
     val integratedBrowserHeader =
         window.app == DesktopApp.BROWSER &&
-            (
-                compactMobile ||
-                    window.maximized
-            )
+            compactMobile
 
     val windowModifier =
         when {
