@@ -6,6 +6,7 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
     ROOTFS("Rootfs Linux", "Verifica diretórios essenciais, /proc, /dev, escrita em /tmp e identidade do guest sem alterar o sistema."),
     TOOLCHAIN("Box64 / Wine", "Consulta as ferramentas instaladas nos overlays confiáveis do PocketPC."),
     BOX64_SMOKE("Box64 x86-64", "Executa um ELF x86-64 mínimo e estático através do Box64; não testa Wine nem Roblox."),
+    DISPLAY_BRIDGE_SMOKE("Bridge x86-64 ↔ Android", "Executa um cliente x86-64 pelo Box64 e exige handshake autenticado com o broker ARM64 do PocketPC."),
     WINE_SMOKE("Wine Win64", "Executa um PE64 mínimo pelo Wine através do Box64, usando um prefixo isolado; não testa gráficos nem Roblox."),
     D3D11_SMOKE("D3D11 → Vulkan", "Força DXVK nativo e cria um dispositivo D3D11; sucesso comprova a ponte gráfica básica, não Roblox."),
     D3D11_PRESENT_SMOKE("D3D11 Present", "Cria janela, swapchain e chama Present(); sucesso comprova apresentação básica via DXVK."),
@@ -89,6 +90,20 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 fi
                 printf 'box64_x86_64_smoke=failed\nprobe=failed\n'
                 exit 9
+            """.trimIndent()
+            DISPLAY_BRIDGE_SMOKE -> """
+                printf 'POCKETPC_DISPLAY_BRIDGE_PROBE_V1\n'
+                [ -x /opt/pocketpc/box64/bin/box64 ] || { printf 'box64=missing\nprobe=failed\n'; exit 41; }
+                [ -x /opt/pocketpc/box64/share/tests/display-bridge-smoke-x86_64 ] || { printf 'bridge_client=missing\nprobe=failed\n'; exit 42; }
+                [ -n "$POCKETPC_DISPLAY_SOCKET" ] || { printf 'bridge_socket=missing\nprobe=failed\n'; exit 43; }
+                [ -n "$POCKETPC_DISPLAY_TOKEN" ] || { printf 'bridge_token=missing\nprobe=failed\n'; exit 44; }
+                [ -n "$POCKETPC_DISPLAY_RUNTIME_SHA256" ] || { printf 'bridge_runtime_id=missing\nprobe=failed\n'; exit 45; }
+                if /opt/pocketpc/box64/bin/box64 /opt/pocketpc/box64/share/tests/display-bridge-smoke-x86_64; then
+                    printf 'display_bridge_smoke=passed\nprobe=complete\n'
+                    exit 0
+                fi
+                printf 'display_bridge_smoke=failed\nprobe=failed\n'
+                exit 46
             """.trimIndent()
             WINE_SMOKE -> """
                 printf 'POCKETPC_WINE_WIN64_SMOKE_PROBE_V1\n'
