@@ -8,6 +8,10 @@ data class RuntimeProbeEvidenceState(
     val box64SmokePassed: Boolean,
     val wineSmokePassed: Boolean,
     val d3d11SmokePassed: Boolean = false,
+    val windowsProcessSmokePassed: Boolean = false,
+    val winsockSmokePassed: Boolean = false,
+    val winmmAudioApiSmokePassed: Boolean = false,
+    val rawInputApiSmokePassed: Boolean = false,
 )
 
 object GuestToolFingerprint {
@@ -120,25 +124,52 @@ class RuntimeProbeEvidenceStore(
                 layerId = "dxvk",
             )
 
+        fun matches(
+            prefKey: String,
+            expected: String?,
+        ): Boolean =
+            expected != null &&
+                prefs.getString(
+                    prefKey,
+                    null,
+                ) == expected
+
         return RuntimeProbeEvidenceState(
             box64SmokePassed =
-                box64Key != null &&
-                    prefs.getString(
-                        KEY_BOX64,
-                        null,
-                    ) == box64Key,
+                matches(
+                    KEY_BOX64,
+                    box64Key,
+                ),
             wineSmokePassed =
-                wineKey != null &&
-                    prefs.getString(
-                        KEY_WINE,
-                        null,
-                    ) == wineKey,
+                matches(
+                    KEY_WINE,
+                    wineKey,
+                ),
             d3d11SmokePassed =
-                d3d11Key != null &&
-                    prefs.getString(
-                        KEY_D3D11,
-                        null,
-                    ) == d3d11Key,
+                matches(
+                    KEY_D3D11,
+                    d3d11Key,
+                ),
+            windowsProcessSmokePassed =
+                matches(
+                    KEY_WINDOWS_PROCESS,
+                    wineKey,
+                ),
+            winsockSmokePassed =
+                matches(
+                    KEY_WINSOCK,
+                    wineKey,
+                ),
+            winmmAudioApiSmokePassed =
+                matches(
+                    KEY_WINMM_AUDIO,
+                    wineKey,
+                ),
+            rawInputApiSmokePassed =
+                matches(
+                    KEY_RAW_INPUT,
+                    wineKey,
+                ),
         )
     }
 
@@ -160,64 +191,128 @@ class RuntimeProbeEvidenceStore(
 
         val pair =
             when (probe) {
-                GuestRuntimeProbe.BOX64_SMOKE -> {
+                GuestRuntimeProbe.BOX64_SMOKE ->
                     if (
-                        !result.output.contains(
+                        hasBoth(
+                            result,
                             "POCKETPC_BOX64_SMOKE_OK",
-                        ) ||
-                        !result.output.contains(
                             "box64_x86_64_smoke=passed",
                         )
                     ) {
-                        return false
+                        KEY_BOX64 to
+                            evidenceKey(
+                                runtime,
+                                tools,
+                                listOf("box64"),
+                            )
+                    } else {
+                        null
                     }
-                    KEY_BOX64 to
-                        evidenceKey(
-                            runtime,
-                            tools,
-                            listOf("box64"),
-                        )
-                }
-                GuestRuntimeProbe.WINE_SMOKE -> {
+
+                GuestRuntimeProbe.WINE_SMOKE ->
                     if (
-                        !result.output.contains(
+                        hasBoth(
+                            result,
                             "POCKETPC_WIN64_SMOKE_OK",
-                        ) ||
-                        !result.output.contains(
                             "wine_win64_smoke=passed",
                         )
                     ) {
-                        return false
+                        KEY_WINE to
+                            wineEvidenceKey(
+                                runtime,
+                                tools,
+                            )
+                    } else {
+                        null
                     }
-                    KEY_WINE to
-                        evidenceKey(
-                            runtime,
-                            tools,
-                            listOf(
-                                "box64",
-                                "wine",
-                            ),
-                        )
-                }
-                GuestRuntimeProbe.D3D11_SMOKE -> {
+
+                GuestRuntimeProbe.D3D11_SMOKE ->
                     if (
-                        !result.output.contains(
+                        hasBoth(
+                            result,
                             "POCKETPC_D3D11_SMOKE_OK",
-                        ) ||
-                        !result.output.contains(
                             "d3d11_dxvk_smoke=passed",
                         )
                     ) {
-                        return false
+                        KEY_D3D11 to
+                            graphicsEvidenceKey(
+                                runtime = runtime,
+                                tools = tools,
+                                layers = layers,
+                                layerId = "dxvk",
+                            )
+                    } else {
+                        null
                     }
-                    KEY_D3D11 to
-                        graphicsEvidenceKey(
-                            runtime = runtime,
-                            tools = tools,
-                            layers = layers,
-                            layerId = "dxvk",
+
+                GuestRuntimeProbe.WINDOWS_PROCESS_SMOKE ->
+                    if (
+                        hasBoth(
+                            result,
+                            "POCKETPC_WIN_PROCESS_IPC_SMOKE_OK",
+                            "windows_process_ipc_smoke=passed",
                         )
-                }
+                    ) {
+                        KEY_WINDOWS_PROCESS to
+                            wineEvidenceKey(
+                                runtime,
+                                tools,
+                            )
+                    } else {
+                        null
+                    }
+
+                GuestRuntimeProbe.WINSOCK_SMOKE ->
+                    if (
+                        hasBoth(
+                            result,
+                            "POCKETPC_WINSOCK_SMOKE_OK",
+                            "winsock_smoke=passed",
+                        )
+                    ) {
+                        KEY_WINSOCK to
+                            wineEvidenceKey(
+                                runtime,
+                                tools,
+                            )
+                    } else {
+                        null
+                    }
+
+                GuestRuntimeProbe.WINMM_AUDIO_API_SMOKE ->
+                    if (
+                        hasBoth(
+                            result,
+                            "POCKETPC_WINMM_AUDIO_API_OK",
+                            "winmm_audio_api_smoke=passed",
+                        )
+                    ) {
+                        KEY_WINMM_AUDIO to
+                            wineEvidenceKey(
+                                runtime,
+                                tools,
+                            )
+                    } else {
+                        null
+                    }
+
+                GuestRuntimeProbe.RAW_INPUT_API_SMOKE ->
+                    if (
+                        hasBoth(
+                            result,
+                            "POCKETPC_RAW_INPUT_API_OK",
+                            "raw_input_api_smoke=passed",
+                        )
+                    ) {
+                        KEY_RAW_INPUT to
+                            wineEvidenceKey(
+                                runtime,
+                                tools,
+                            )
+                    } else {
+                        null
+                    }
+
                 GuestRuntimeProbe.SHELL,
                 GuestRuntimeProbe.ROOTFS,
                 GuestRuntimeProbe.TOOLCHAIN ->
@@ -235,6 +330,27 @@ class RuntimeProbeEvidenceStore(
             )
             .commit()
     }
+
+    private fun hasBoth(
+        result: ProotExecutionResult,
+        first: String,
+        second: String,
+    ): Boolean =
+        result.output.contains(first) &&
+            result.output.contains(second)
+
+    private fun wineEvidenceKey(
+        runtime: InstalledRuntime,
+        tools: List<InstalledGuestTool>,
+    ): String? =
+        evidenceKey(
+            runtime,
+            tools,
+            listOf(
+                "box64",
+                "wine",
+            ),
+        )
 
     private fun evidenceKey(
         runtime: InstalledRuntime,
@@ -288,13 +404,9 @@ class RuntimeProbeEvidenceStore(
         layerId: String,
     ): String? {
         val base =
-            evidenceKey(
+            wineEvidenceKey(
                 runtime,
                 tools,
-                listOf(
-                    "box64",
-                    "wine",
-                ),
             ) ?: return null
         val layer =
             layers.singleOrNull {
@@ -321,12 +433,20 @@ class RuntimeProbeEvidenceStore(
 
     companion object {
         private const val PREFS =
-            "runtime-probe-evidence-v2"
+            "runtime-probe-evidence-v3"
         private const val KEY_BOX64 =
             "box64-smoke-key"
         private const val KEY_WINE =
             "wine-smoke-key"
         private const val KEY_D3D11 =
             "d3d11-smoke-key"
+        private const val KEY_WINDOWS_PROCESS =
+            "windows-process-ipc-smoke-key"
+        private const val KEY_WINSOCK =
+            "winsock-smoke-key"
+        private const val KEY_WINMM_AUDIO =
+            "winmm-audio-api-smoke-key"
+        private const val KEY_RAW_INPUT =
+            "raw-input-api-smoke-key"
     }
 }
