@@ -218,6 +218,7 @@ def main() -> int:
         "id": "box64",
         "version": lock["version"],
         "architecture": "aarch64",
+        "executionMode": "native-aarch64",
         "guestRoot": "/opt/pocketpc/box64",
         "entrypoint": "bin/box64",
         "sourceCommit": actual_commit,
