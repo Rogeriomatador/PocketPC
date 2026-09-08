@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -44,9 +45,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 enum class DesktopThemeMode(
     val key: String,
@@ -68,6 +71,42 @@ enum class WallpaperPreset(
     val animated: Boolean,
     val colors: List<Long>,
 ) {
+    SOLID_BLACK(
+        key = "solid_black",
+        label = "Preto",
+        animated = false,
+        colors = listOf(
+            0xFF000000,
+            0xFF000000,
+        ),
+    ),
+    SOLID_WHITE(
+        key = "solid_white",
+        label = "Branco",
+        animated = false,
+        colors = listOf(
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+        ),
+    ),
+    SOLID_GRAPHITE(
+        key = "solid_graphite",
+        label = "Grafite",
+        animated = false,
+        colors = listOf(
+            0xFF181A1F,
+            0xFF181A1F,
+        ),
+    ),
+    SOLID_GRAY(
+        key = "solid_gray",
+        label = "Cinza",
+        animated = false,
+        colors = listOf(
+            0xFF6D7278,
+            0xFF6D7278,
+        ),
+    ),
     BLUE_SKY(
         key = "blue_sky",
         label = "Ceu azul",
@@ -313,7 +352,9 @@ fun DesktopWallpaper(
     ) {
         customBitmap?.let { bitmap ->
             androidx.compose.foundation.layout.BoxWithConstraints(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clipToBounds(),
             ) {
                 val density = LocalDensity.current
                 val safe =
@@ -326,38 +367,48 @@ fun DesktopWallpaper(
                     with(density) {
                         maxHeight.toPx()
                     }
-                val extraX =
-                    widthPx *
-                        (safe.zoom - 1f) /
-                        2f
-                val extraY =
-                    heightPx *
-                        (safe.zoom - 1f) /
-                        2f
+                val geometry =
+                    wallpaperViewportGeometry(
+                        imageWidthPx = bitmap.width,
+                        imageHeightPx = bitmap.height,
+                        viewportWidthPx = widthPx,
+                        viewportHeightPx = heightPx,
+                        fitMode = safe.fitMode,
+                        zoom = safe.zoom,
+                    )
+                val renderedWidth =
+                    with(density) {
+                        geometry.renderedWidthPx.toDp()
+                    }
+                val renderedHeight =
+                    with(density) {
+                        geometry.renderedHeightPx.toDp()
+                    }
 
                 Image(
                     bitmap = bitmap,
                     contentDescription =
                         "Papel de parede personalizado",
                     modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = safe.zoom
-                            scaleY = safe.zoom
-                            translationX =
-                                safe.offsetX * extraX
-                            translationY =
-                                safe.offsetY * extraY
+                        .align(
+                            androidx.compose.ui.Alignment.Center
+                        )
+                        .width(renderedWidth)
+                        .height(renderedHeight)
+                        .offset {
+                            IntOffset(
+                                (
+                                    safe.offsetX *
+                                        geometry.overflowXpx
+                                ).roundToInt(),
+                                (
+                                    safe.offsetY *
+                                        geometry.overflowYpx
+                                ).roundToInt(),
+                            )
                         },
                     contentScale =
-                        if (
-                            safe.fitMode ==
-                            WallpaperFitMode.FIT
-                        ) {
-                            ContentScale.Fit
-                        } else {
-                            ContentScale.Crop
-                        },
+                        ContentScale.FillBounds,
                 )
             }
         }
@@ -528,7 +579,18 @@ fun PersonalizationApp(
                                     .height(88.dp),
                             )
                             Text(preset.label)
-                            Text(if (preset.animated) "ANIMADO" else "ESTATICO")
+                            Text(
+                                when {
+                                    preset.animated ->
+                                        "ANIMADO"
+                                    preset.colors
+                                        .distinct()
+                                        .size == 1 ->
+                                        "SÓLIDO"
+                                    else ->
+                                        "ESTÁTICO"
+                                }
+                            )
                             if (preset == selected && customUri == null) {
                                 Button(onClick = {}, enabled = false) { Text("Em uso") }
                             } else {
