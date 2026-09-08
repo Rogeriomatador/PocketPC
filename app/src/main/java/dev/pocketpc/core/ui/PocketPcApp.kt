@@ -38,6 +38,7 @@ import dev.pocketpc.core.desktop.WindowGeometry
 import dev.pocketpc.core.desktop.WindowSnap
 import dev.pocketpc.core.desktop.windowSpec
 import dev.pocketpc.core.runtime.ExecutionSubstrateProbe
+import dev.pocketpc.core.runtime.PcApplicationTarget
 import dev.pocketpc.core.runtime.NativeRuntimeHost
 import dev.pocketpc.core.runtime.RootfsLinkManager
 import dev.pocketpc.core.runtime.RuntimeInstallManager
@@ -109,6 +110,9 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     var storagePickerError by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeManifestUri by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeRootfsUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var runtimeTarget by remember {
+        mutableStateOf<PcApplicationTarget?>(null)
+    }
     var wallpaperEditorUri by remember {
         mutableStateOf<String?>(null)
     }
@@ -301,7 +305,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                                 storageRoot = null
                                 storagePickerError = null
                             },
-                            onOpenRuntime = {
+                            onOpenRuntime = { target ->
+                                runtimeTarget = target
                                 desktop.open(
                                     DesktopApp.RUNTIMES
                                 )
@@ -347,6 +352,10 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             linkManager = linkManager,
                             nativeHost = nativeHost,
                             substrate = substrate,
+                            target = runtimeTarget,
+                            onClearTarget = {
+                                runtimeTarget = null
+                            },
                             manifestUri = runtimeManifestUri,
                             rootfsUri = runtimeRootfsUri,
                             onChooseManifest = {
