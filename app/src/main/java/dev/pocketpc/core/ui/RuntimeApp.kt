@@ -14,6 +14,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.selection.SelectionContainer
 import dev.pocketpc.core.runtime.GuestRuntimeProbe
+import dev.pocketpc.core.runtime.GuestToolInstallManager
+import dev.pocketpc.core.runtime.GuestToolOverlayPlanner
+import dev.pocketpc.core.runtime.InstalledGuestTool
 import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.InstalledRuntime
 import dev.pocketpc.core.runtime.NativeHostStatus
@@ -43,6 +46,7 @@ import kotlinx.coroutines.withContext
 fun RuntimeApp(
     manager: RuntimePackageManager,
     installer: RuntimeInstallManager,
+    guestToolInstaller: GuestToolInstallManager,
     linkManager: RootfsLinkManager,
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
@@ -87,6 +91,7 @@ fun RuntimeApp(
     }
     var staged by remember { mutableStateOf<List<StagedRuntime>>(emptyList()) }
     var installed by remember { mutableStateOf<List<InstalledRuntime>>(emptyList()) }
+    var installedTools by remember { mutableStateOf<List<InstalledGuestTool>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     var showPcRuntimeStages by rememberSaveable {
@@ -96,6 +101,7 @@ fun RuntimeApp(
     suspend fun reload() {
         staged = manager.discover()
         installed = installer.discover()
+        installedTools = guestToolInstaller.discover()
     }
 
     LaunchedEffect(Unit) { reload() }
@@ -115,6 +121,12 @@ fun RuntimeApp(
                 ioHost = ioHostCapabilities,
             )
 
+
+    val toolOverlayPlan =
+        GuestToolOverlayPlanner.plan(
+            tools = installedTools,
+            allowedHostRoots = bindPlanner.allowedHostRoots(),
+        )
 
     val scrollState = rememberLazyListState()
     LazyColumn(
@@ -177,6 +189,18 @@ fun RuntimeApp(
                                 ioHostCapabilities.networkInternetCapable -> "INTERNET"
                                 else -> "OFFLINE"
                             }
+                        RuntimeDetailRow(
+                            "Guest tools",
+                            when {
+                                installedTools.isEmpty() -> "NONE INSTALLED"
+                                toolOverlayPlan.valid ->
+                                    installedTools.joinToString { tool ->
+                                        tool.manifest.id + " " + tool.manifest.version
+                                    }
+                                else ->
+                                    "BLOCKED / ATTESTATION FAILED"
+                            },
+                        )
                         RuntimeDetailRow(
                             "Host IO",
                             "audio=${ioHostCapabilities.audioOutputCount}, " +
@@ -672,21 +696,37 @@ fun RuntimeApp(
                     initialValue = ProotInvocationPlan(false, emptyList(), emptyMap(), listOf("BIND_PLAN_PREPARING")),
                     key1 = runtime,
                     key2 = substrate,
-                    key3 = selectedProbe,
+                    key3 =
+                        selectedProbe to
+                            installedTools.map {
+                                it.manifest.id + ":" + it.manifest.version
+                            },
                 ) {
                     value = withContext(Dispatchers.IO) {
                     runCatching {
-                        ProotInvocationPlanner.buildProbe(
-                            runtime = runtime,
-                            substrate = substrate,
-                            probe = selectedProbe,
-                            binds =
-                                bindPlanner
-                                    .base(runtime),
-                            allowedHostRoots =
-                                bindPlanner
-                                    .allowedHostRoots(),
-                        )
+                        if (
+                            selectedProbe == GuestRuntimeProbe.TOOLCHAIN &&
+                            installedTools.isNotEmpty() &&
+                            !toolOverlayPlan.valid
+                        ) {
+                            ProotInvocationPlan(
+                                ready = false,
+                                argv = emptyList(),
+                                environment = emptyMap(),
+                                blockers = toolOverlayPlan.blockers,
+                            )
+                        } else {
+                            ProotInvocationPlanner.buildProbe(
+                                runtime = runtime,
+                                substrate = substrate,
+                                probe = selectedProbe,
+                                binds =
+                                    bindPlanner.base(runtime) +
+                                        toolOverlayPlan.binds,
+                                allowedHostRoots =
+                                    bindPlanner.allowedHostRoots(),
+                            )
+                        }
                     }.getOrElse { failure ->
                         ProotInvocationPlan(
                             ready = false,
