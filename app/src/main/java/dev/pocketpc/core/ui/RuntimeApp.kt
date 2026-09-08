@@ -30,6 +30,7 @@ import dev.pocketpc.core.runtime.RootfsLinkManager
 import dev.pocketpc.core.runtime.RootfsExecutionReadinessProbe
 import dev.pocketpc.core.runtime.RuntimeBindPlanner
 import dev.pocketpc.core.runtime.RuntimeInstallManager
+import dev.pocketpc.core.runtime.RuntimeIoCapabilityProbe
 import dev.pocketpc.core.runtime.RuntimeManifestValidator
 import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.StagedRuntime
@@ -59,6 +60,10 @@ fun RuntimeApp(
     val bindPlanner =
         remember(appContext) {
             RuntimeBindPlanner(appContext)
+        }
+    val ioHostCapabilities =
+        remember(appContext) {
+            RuntimeIoCapabilityProbe.inspect(appContext)
         }
     val executionController =
         remember {
@@ -107,6 +112,7 @@ fun RuntimeApp(
                             .assess(runtime)
                             .ready
                     },
+                ioHost = ioHostCapabilities,
             )
 
 
@@ -165,6 +171,17 @@ fun RuntimeApp(
                         )
                         Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
                         Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
+                        RuntimeDetailRow(
+                            "Host IO",
+                            "audio=${ioHostCapabilities.audioOutputCount}, " +
+                                "keyboard=${ioHostCapabilities.keyboardCount}, " +
+                                "mouse=${ioHostCapabilities.mouseCount}, " +
+                                "gamepad=${ioHostCapabilities.gamepadCount}, " +
+                                "network=" +
+                                if (ioHostCapabilities.networkValidated) "VALIDATED"
+                                else if (ioHostCapabilities.networkInternetCapable) "INTERNET"
+                                else "OFFLINE",
+                        )
 
                         if (!substrate.prootReady) {
                             Text(
