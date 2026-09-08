@@ -176,10 +176,12 @@ fun FilesApp(
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
     ) {
-        val showDetails = maxWidth >= 760.dp
+        val compactExplorer = maxWidth < 680.dp
+        val showDetails = maxWidth >= 980.dp
 
         Row(Modifier.fillMaxSize()) {
-            ExplorerSidebar(
+            if (!compactExplorer) {
+                ExplorerSidebar(
                 rootName =
                     if (pathStack.size == 1) {
                         listing?.directoryName
@@ -203,14 +205,16 @@ fun FilesApp(
                 },
                 onChangeRoot = onChooseStorage,
                 onDisconnect = onDisconnectStorage,
-            )
+                )
 
-            VerticalDivider()
+                VerticalDivider()
+            }
 
             Column(
                 modifier = Modifier.weight(1f),
             ) {
                 ExplorerToolbar(
+                    compact = compactExplorer,
                     canGoBack = pathStack.size > 1,
                     query = query,
                     pathLabel =
@@ -260,7 +264,9 @@ fun FilesApp(
                     )
                 }
 
-                FileTableHeader()
+                FileTableHeader(
+                    compact = compactExplorer,
+                )
 
                 if (
                     !loading &&
@@ -292,6 +298,7 @@ fun FilesApp(
                             key = { it.uri },
                         ) { entry ->
                             FileTableRow(
+                                compact = compactExplorer,
                                 entry = entry,
                                 selected =
                                     entry.uri == selectedUri,
@@ -661,6 +668,7 @@ private fun ExplorerSidebar(
 
 @Composable
 private fun ExplorerToolbar(
+    compact: Boolean,
     canGoBack: Boolean,
     query: String,
     pathLabel: String,
@@ -717,14 +725,37 @@ private fun ExplorerToolbar(
                     fontSize = 11.sp,
                 )
 
+                if (!compact) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        modifier = Modifier
+                            .widthIn(
+                                min = 150.dp,
+                                max = 250.dp,
+                            )
+                            .heightIn(max = 46.dp),
+                        placeholder = {
+                            Text("Pesquisar")
+                        },
+                        singleLine = true,
+                        textStyle =
+                            LocalTextStyle.current.copy(
+                                fontSize = 11.sp
+                            ),
+                    )
+                }
+            }
+
+            if (compact) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = onQueryChange,
                     modifier = Modifier
-                        .widthIn(min = 150.dp, max = 250.dp)
+                        .fillMaxWidth()
                         .heightIn(max = 46.dp),
                     placeholder = {
-                        Text("Pesquisar")
+                        Text("Pesquisar nesta pasta")
                     },
                     singleLine = true,
                     textStyle =
@@ -759,7 +790,9 @@ private fun SmallExplorerButton(
 }
 
 @Composable
-private fun FileTableHeader() {
+private fun FileTableHeader(
+    compact: Boolean,
+) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
@@ -776,21 +809,27 @@ private fun FileTableHeader() {
                 modifier = Modifier.weight(1f),
                 fontSize = 10.sp,
             )
-            Text(
-                "Tipo",
-                modifier = Modifier.width(110.dp),
-                fontSize = 10.sp,
-            )
+            if (!compact) {
+                Text(
+                    "Tipo",
+                    modifier = Modifier.width(110.dp),
+                    fontSize = 10.sp,
+                )
+            }
             Text(
                 "Tamanho",
-                modifier = Modifier.width(82.dp),
+                modifier = Modifier.width(
+                    if (compact) 92.dp else 82.dp
+                ),
                 fontSize = 10.sp,
             )
-            Text(
-                "Modificado",
-                modifier = Modifier.width(120.dp),
-                fontSize = 10.sp,
-            )
+            if (!compact) {
+                Text(
+                    "Modificado",
+                    modifier = Modifier.width(120.dp),
+                    fontSize = 10.sp,
+                )
+            }
         }
     }
 }
@@ -798,6 +837,7 @@ private fun FileTableHeader() {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FileTableRow(
+    compact: Boolean,
     entry: StorageEntry,
     selected: Boolean,
     onSelect: () -> Unit,
@@ -839,24 +879,30 @@ private fun FileTableRow(
                 fontSize = 11.sp,
             )
         }
-        Text(
-            fileTypeLabel(entry),
-            modifier = Modifier.width(110.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontSize = 10.sp,
-        )
+        if (!compact) {
+            Text(
+                fileTypeLabel(entry),
+                modifier = Modifier.width(110.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 10.sp,
+            )
+        }
         Text(
             if (entry.directory) "—"
             else formatBytes(entry.size),
-            modifier = Modifier.width(82.dp),
+            modifier = Modifier.width(
+                if (compact) 92.dp else 82.dp
+            ),
             fontSize = 10.sp,
         )
-        Text(
-            formatModified(entry.lastModified),
-            modifier = Modifier.width(120.dp),
-            fontSize = 10.sp,
-        )
+        if (!compact) {
+            Text(
+                formatModified(entry.lastModified),
+                modifier = Modifier.width(120.dp),
+                fontSize = 10.sp,
+            )
+        }
     }
 }
 
