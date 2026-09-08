@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.pocketpc.core.storage.PocketDownloadImporter
 import dev.pocketpc.core.storage.PocketDownloadRegistry
 import dev.pocketpc.core.storage.PocketDriveDirectory
 import dev.pocketpc.core.storage.PocketFileClass
@@ -79,15 +80,35 @@ fun DownloadsApp(
         while (true) {
             activeDownloads =
                 withContext(Dispatchers.IO) {
-                    val registeredIds =
-                        PocketDownloadRegistry(
-                            context
-                        ).ids()
-                    queryDownloads(
-                        manager = manager,
-                        allowedIds =
-                            registeredIds,
-                    )
+                    val registry =
+                        PocketDownloadRegistry(context)
+                    var registeredIds = registry.ids()
+                    var downloads =
+                        queryDownloads(
+                            manager = manager,
+                            allowedIds = registeredIds,
+                        )
+
+                    if (
+                        rootUri != null &&
+                        downloads.any {
+                            it.status ==
+                                DownloadManager.STATUS_SUCCESSFUL
+                        }
+                    ) {
+                        PocketDownloadImporter.importReady(
+                            context = context,
+                            storage = repository,
+                        )
+                        registeredIds = registry.ids()
+                        downloads =
+                            queryDownloads(
+                                manager = manager,
+                                allowedIds = registeredIds,
+                            )
+                    }
+
+                    downloads
                 }
 
             pocketFiles =
@@ -280,11 +301,15 @@ fun DownloadsApp(
                             onRemove = {
                                 val removed =
                                     manager.remove(item.id)
+                                PocketDownloadRegistry(
+                                    context
+                                ).remove(item.id)
                                 statusMessage =
                                     if (removed > 0) {
                                         "Download cancelado/removido."
                                     } else {
-                                        "Não foi possível remover o download."
+                                        "Download removido do PocketPC; " +
+                                            "o Android já não tinha essa entrada."
                                     }
                                 refreshToken++
                             },
