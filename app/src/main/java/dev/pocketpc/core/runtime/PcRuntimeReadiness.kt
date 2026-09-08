@@ -141,6 +141,7 @@ object PcRuntimeReadinessProbe {
                         if (
                             probeEvidence?.wineSmokePassed ==
                                 true &&
+                            probeEvidence.windowsProcessSmokePassed &&
                             windowsStateReady
                         ) {
                             PcRuntimeStageState.READY
@@ -152,10 +153,12 @@ object PcRuntimeReadinessProbe {
                             probeEvidence?.wineSmokePassed !=
                                 true ->
                                 "O Wine ainda precisa passar pelo smoke Win64 antes do estado Windows ser aceito."
+                            !probeEvidence.windowsProcessSmokePassed ->
+                                "O Wine passou, mas CreateProcess/IPC por pipe ainda precisa ser comprovado."
                             windowsStateReady ->
-                                "Prefixo Wine possui drive_c, dosdevices e registros estruturais válidos."
+                                "Prefixo Wine válido e processo filho/IPC por pipe comprovados."
                             else ->
-                                "O smoke Wine passou, mas o prefixo ainda não possui a estrutura Windows esperada."
+                                "Wine e processo/IPC passaram, mas o prefixo não possui a estrutura Windows esperada."
                         },
                 ),
                 PcRuntimeStage(
@@ -195,10 +198,26 @@ object PcRuntimeReadinessProbe {
                                     ioHost.networkInternetCapable -> "detectada"
                                     else -> "indisponível"
                                 }
+                            val winsock =
+                                if (
+                                    probeEvidence?.winsockSmokePassed ==
+                                    true
+                                ) "PASS_LOCAL_API" else "PENDING"
+                            val winmm =
+                                if (
+                                    probeEvidence?.winmmAudioApiSmokePassed ==
+                                    true
+                                ) "API_PASS" else "PENDING"
+                            val rawInput =
+                                if (
+                                    probeEvidence?.rawInputApiSmokePassed ==
+                                    true
+                                ) "API_PASS" else "PENDING"
                             "Host Android: áudio=${ioHost.audioOutputCount} saída(s), " +
                                 "teclados=${ioHost.keyboardCount}, mouses=${ioHost.mouseCount}, " +
                                 "gamepads=${ioHost.gamepadCount}, internet=$networkState. " +
-                                "A ponte Win32 ainda não está implementada."
+                                "Wine: Winsock=$winsock, WinMM=$winmm, RawInput=$rawInput. " +
+                                "Esses smokes não provam streaming de áudio, eventos de input nem internet externa."
                         },
                 ),
                 PcRuntimeStage(
