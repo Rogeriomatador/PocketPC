@@ -1,5 +1,8 @@
 package dev.pocketpc.core.runtime
 
+import java.io.EOFException
+import java.io.InputStream
+import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -77,6 +80,89 @@ object RuntimeDisplayBridgeProtocol {
                 put(frame.payload)
             }
             .array()
+    }
+
+    fun readFrame(
+        input: InputStream,
+    ): Result<RuntimeDisplayBridgeFrame> =
+        runCatching {
+            val header =
+                ByteArray(HEADER_BYTES)
+            readFully(
+                input,
+                header,
+            )
+
+            val headerBuffer =
+                ByteBuffer.wrap(header)
+                    .order(
+                        ByteOrder.LITTLE_ENDIAN,
+                    )
+            val magic =
+                headerBuffer.int
+            require(magic == MAGIC) {
+                "DISPLAY_BRIDGE_MAGIC_INVALID"
+            }
+
+            headerBuffer.short
+            headerBuffer.short
+            val payloadBytes =
+                headerBuffer.int
+            require(
+                payloadBytes in
+                    0..MAX_PAYLOAD_BYTES,
+            ) {
+                "DISPLAY_BRIDGE_PAYLOAD_LENGTH_INVALID"
+            }
+
+            val payload =
+                ByteArray(payloadBytes)
+            readFully(
+                input,
+                payload,
+            )
+
+            decode(
+                header + payload,
+            ).getOrThrow()
+        }
+
+    fun writeFrame(
+        output: OutputStream,
+        frame: RuntimeDisplayBridgeFrame,
+    ) {
+        output.write(
+            encode(frame),
+        )
+        output.flush()
+    }
+
+    private fun readFully(
+        input: InputStream,
+        destination: ByteArray,
+    ) {
+        var offset = 0
+        while (
+            offset <
+            destination.size
+        ) {
+            val read =
+                input.read(
+                    destination,
+                    offset,
+                    destination.size -
+                        offset,
+                )
+            if (read < 0) {
+                throw EOFException(
+                    "DISPLAY_BRIDGE_STREAM_TRUNCATED",
+                )
+            }
+            if (read == 0) {
+                continue
+            }
+            offset += read
+        }
     }
 
     fun decode(
