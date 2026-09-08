@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.pocketpc.core.runtime.PcApplicationTarget
 import dev.pocketpc.core.storage.PocketDownloadImporter
 import dev.pocketpc.core.storage.PocketDriveDirectory
 import dev.pocketpc.core.storage.PocketDriveMount
@@ -41,7 +42,7 @@ fun FilesApp(
     pickerError: String?,
     onChooseStorage: () -> Unit,
     onDisconnectStorage: () -> Unit,
-    onOpenRuntime: () -> Unit,
+    onOpenRuntime: (PcApplicationTarget) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current.applicationContext
@@ -158,7 +159,13 @@ fun FilesApp(
         when (classifyPocketFile(entry.name)) {
             PocketFileClass.PC_INSTALLER -> {
                 error = null
-                onOpenRuntime()
+                onOpenRuntime(
+                    PcApplicationTarget(
+                        uri = entry.uri,
+                        fileName = entry.name,
+                        sizeBytes = entry.size,
+                    )
+                )
             }
 
             else ->
