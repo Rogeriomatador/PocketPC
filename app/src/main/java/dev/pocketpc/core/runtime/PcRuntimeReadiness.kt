@@ -162,10 +162,23 @@ object PcRuntimeReadinessProbe {
                     id = "graphics-bridge",
                     label = "Direct3D → Vulkan",
                     state =
-                        PcRuntimeStageState.NOT_IMPLEMENTED,
+                        if (
+                            probeEvidence?.d3d11SmokePassed ==
+                            true
+                        ) {
+                            PcRuntimeStageState.READY
+                        } else {
+                            PcRuntimeStageState.BLOCKED
+                        },
                     detail =
-                        "DXVK 3.0.2 e vkd3d-proton 3.0.1 estão fixados por commit. " +
-                            "Nenhuma ponte Direct3D foi construída ou validada até a GPU Android.",
+                        if (
+                            probeEvidence?.d3d11SmokePassed ==
+                            true
+                        ) {
+                            "D3D11 criou dispositivo com DXVK nativo forçado; a evidência está vinculada ao rootfs, Box64, Wine e DLLs atuais."
+                        } else {
+                            "DXVK/vkd3d possuem supply-chain e implantação preparada, mas o smoke D3D11→Vulkan atual ainda não foi comprovado."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "io-integration",
