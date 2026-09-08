@@ -1568,7 +1568,6 @@ fun RuntimeApp(
                                                                 " " +
                                                                 it.manifest.version
                                                         reload()
-                                                        reload()
                                                         evidenceRevision +=
                                                             1
                                                     }
@@ -1619,6 +1618,7 @@ fun RuntimeApp(
                                                             } else {
                                                                 "Camada não removida."
                                                             }
+                                                        reload()
                                                         evidenceRevision +=
                                                             1
                                                     }
