@@ -157,6 +157,12 @@ CHECKS = {
         "wallpaperViewportGeometry",
         "ContentScale.FillBounds",
     ),
+    "app/src/main/java/dev/pocketpc/core/runtime/ProotInvocationPlan.kt": (
+        "EXECUTION_REQUIRES_USER_APPROVAL",
+        '"/home/pocket"',
+        "normalizeGuestPath",
+        "RuntimeBindPolicy.validate",
+    ),
     "app/src/main/java/dev/pocketpc/core/runtime/ProotExecutionController.kt": (
         "ProotExecutionController",
         "EXECUTION_REQUIRES_USER_APPROVAL",
@@ -193,6 +199,9 @@ CHECKS = {
         '"Probe ARM64"',
         "ProotInvocationPlanner.build",
         "ProotExecutionController",
+        "RuntimeBindPlanner",
+        "bindPlanner.base(runtime)",
+        "allowedHostRoots",
         "onClearTarget",
     ),
     "app/src/test/java/dev/pocketpc/core/ui/WallpaperViewportMathTest.kt": (
