@@ -43,7 +43,7 @@
     ]
   },
   "gates": {
-    "protocolImplemented": false,
+    "protocolImplemented": true,
     "hostBrokerImplemented": false,
     "guestDriverImplemented": false,
     "surfacePresented": false,
