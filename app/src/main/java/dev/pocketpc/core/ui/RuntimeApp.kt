@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.selection.SelectionContainer
 import dev.pocketpc.core.runtime.GuestRuntimeProbe
+import dev.pocketpc.core.runtime.GuestProbeRequirements
 import dev.pocketpc.core.runtime.GuestToolInstallManager
 import dev.pocketpc.core.runtime.GuestToolOverlayPlanner
 import dev.pocketpc.core.runtime.GuestToolPackageManager
@@ -911,7 +912,21 @@ fun RuntimeApp(
                         }
                     }
                     Text(selectedProbe.description, style = MaterialTheme.typography.bodySmall)
-                    Text("Os testes ficam disponíveis quando o PRoot e o rootfs estiverem prontos.",
+                    val requiredTools =
+                        GuestProbeRequirements
+                            .requiredToolIds(selectedProbe)
+                    if (requiredTools.isNotEmpty()) {
+                        Text(
+                            "Requer: " +
+                                requiredTools
+                                    .sorted()
+                                    .joinToString(),
+                            style =
+                                MaterialTheme.typography
+                                    .labelSmall,
+                        )
+                    }
+                    Text("Os testes ficam disponíveis quando o PRoot, o rootfs e as ferramentas exigidas estiverem prontos.",
                         style = MaterialTheme.typography.bodySmall)
                     probeOutput?.let { output ->
                         TextButton(onClick = { showProbeOutput = !showProbeOutput }) {
@@ -954,16 +969,26 @@ fun RuntimeApp(
                 ) {
                     value = withContext(Dispatchers.IO) {
                     runCatching {
-                        if (
-                            selectedProbe == GuestRuntimeProbe.TOOLCHAIN &&
-                            installedTools.isNotEmpty() &&
-                            !toolOverlayPlan.valid
-                        ) {
+                        val requirementBlockers =
+                            GuestProbeRequirements.blockers(
+                                probe = selectedProbe,
+                                installedToolIds =
+                                    installedTools
+                                        .map { it.manifest.id }
+                                        .toSet(),
+                                overlayValid =
+                                    toolOverlayPlan.valid,
+                            )
+                        if (requirementBlockers.isNotEmpty()) {
                             ProotInvocationPlan(
                                 ready = false,
                                 argv = emptyList(),
                                 environment = emptyMap(),
-                                blockers = toolOverlayPlan.blockers,
+                                blockers =
+                                    (
+                                        requirementBlockers +
+                                            toolOverlayPlan.blockers
+                                    ).distinct(),
                             )
                         } else {
                             ProotInvocationPlanner.buildProbe(
@@ -1067,7 +1092,7 @@ fun RuntimeApp(
                 pendingExecution = null
             },
             title = {
-                Text("Executar probe ARM64?")
+                Text("Executar probe do runtime?")
             },
             text = {
                 Column(
@@ -1262,7 +1287,7 @@ private fun InstalledRuntimeCard(
                         onClick = onRunProbe,
                         enabled = enabled,
                     ) {
-                        Text("Probe ARM64")
+                        Text("Executar probe")
                     }
                 }
                 if (onPrepareLinks != null) {
