@@ -44,6 +44,9 @@ import dev.pocketpc.core.runtime.StagedRuntime
 import dev.pocketpc.core.runtime.StagedGuestToolPackage
 import dev.pocketpc.core.runtime.WindowsPrefixPlanner
 import dev.pocketpc.core.runtime.WindowsPrefixReadinessProbe
+import dev.pocketpc.core.runtime.WindowsRuntimeLayerPackageManager
+import dev.pocketpc.core.runtime.StagedWindowsRuntimeLayer
+import dev.pocketpc.core.runtime.WindowsRuntimeLayerDeployManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -56,6 +59,7 @@ fun RuntimeApp(
     guestToolInstaller: GuestToolInstallManager,
     guestToolPackages: GuestToolPackageManager,
     probeEvidenceStore: RuntimeProbeEvidenceStore,
+    windowsLayerPackages: WindowsRuntimeLayerPackageManager,
     linkManager: RootfsLinkManager,
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
@@ -64,10 +68,13 @@ fun RuntimeApp(
     manifestUri: String?,
     rootfsUri: String?,
     toolPackageUri: String?,
+    windowsLayerUri: String?,
     onChooseManifest: () -> Unit,
     onChooseRootfs: () -> Unit,
     onChooseToolPackage: () -> Unit,
     onClearToolPackage: () -> Unit,
+    onChooseWindowsLayer: () -> Unit,
+    onClearWindowsLayer: () -> Unit,
     onClearSelection: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -104,6 +111,7 @@ fun RuntimeApp(
     }
     var staged by remember { mutableStateOf<List<StagedRuntime>>(emptyList()) }
     var stagedTools by remember { mutableStateOf<List<StagedGuestToolPackage>>(emptyList()) }
+    var stagedWindowsLayers by remember { mutableStateOf<List<StagedWindowsRuntimeLayer>>(emptyList()) }
     var installed by remember { mutableStateOf<List<InstalledRuntime>>(emptyList()) }
     var installedTools by remember { mutableStateOf<List<InstalledGuestTool>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
@@ -118,6 +126,7 @@ fun RuntimeApp(
     suspend fun reload() {
         staged = manager.discover()
         stagedTools = guestToolPackages.discover()
+        stagedWindowsLayers = windowsLayerPackages.discover()
         installed = installer.discover()
         installedTools = guestToolInstaller.discover()
     }
@@ -903,6 +912,176 @@ fun RuntimeApp(
                             },
                         ) {
                             Text("Desinstalar")
+                        }
+                    }
+                }
+            }
+
+            item(key = "windows-layer-import") {
+                Column(
+                    verticalArrangement =
+                        Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Camadas Direct3D → Vulkan",
+                        style =
+                            MaterialTheme.typography
+                                .titleSmall,
+                    )
+                    Text(
+                        "DXVK/vkd3d são verificados separadamente do Wine. Aplicação no prefixo só é liberada após o smoke Win64.",
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                    )
+                    FlowRow(
+                        horizontalArrangement =
+                            Arrangement.spacedBy(8.dp),
+                        verticalArrangement =
+                            Arrangement.spacedBy(4.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick =
+                                onChooseWindowsLayer,
+                            enabled = !busy,
+                        ) {
+                            Text(
+                                if (
+                                    windowsLayerUri ==
+                                    null
+                                ) {
+                                    "Selecionar camada"
+                                } else {
+                                    "Camada ✓"
+                                }
+                            )
+                        }
+                        Button(
+                            enabled =
+                                !busy &&
+                                    windowsLayerUri !=
+                                    null,
+                            onClick = {
+                                val uri =
+                                    windowsLayerUri
+                                        ?: return@Button
+                                busy = true
+                                status =
+                                    "Verificando camada gráfica…"
+                                scope.launch {
+                                    windowsLayerPackages
+                                        .stageZip(uri)
+                                        .onSuccess {
+                                            status =
+                                                "WINDOWS_LAYER_STAGED_VERIFIED: " +
+                                                    it.manifest.id +
+                                                    " " +
+                                                    it.manifest.version
+                                            onClearWindowsLayer()
+                                            reload()
+                                        }
+                                        .onFailure {
+                                            status =
+                                                "WINDOWS LAYER STAGING FAILED: " +
+                                                    (
+                                                        it.message
+                                                            ?: it.javaClass
+                                                                .simpleName
+                                                    )
+                                        }
+                                    busy = false
+                                }
+                            },
+                        ) {
+                            Text("Verificar camada")
+                        }
+                        TextButton(
+                            onClick =
+                                onClearWindowsLayer,
+                            enabled =
+                                !busy &&
+                                    windowsLayerUri !=
+                                    null,
+                        ) {
+                            Text("Limpar")
+                        }
+                    }
+                }
+            }
+
+            if (stagedWindowsLayers.isNotEmpty()) {
+                item(key = "windows-layers-staged-title") {
+                    Text(
+                        "WINDOWS_LAYERS_STAGED_VERIFIED",
+                        style =
+                            MaterialTheme.typography
+                                .titleSmall,
+                    )
+                }
+            }
+
+            items(
+                items = stagedWindowsLayers,
+                key = {
+                    "windows-layer:" +
+                        it.manifest.id +
+                        ":" +
+                        it.manifest.version
+                },
+            ) { layer ->
+                Surface(
+                    tonalElevation = 2.dp,
+                    shape =
+                        MaterialTheme.shapes
+                            .medium,
+                ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement =
+                            Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            layer.manifest.id +
+                                " " +
+                                layer.manifest.version
+                        )
+                        Text(
+                            layer.manifest.files
+                                .joinToString {
+                                    it.destinationName
+                                },
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall,
+                        )
+                        Text(
+                            "Aguardando prefixo Wine validado para implantação.",
+                            style =
+                                MaterialTheme.typography
+                                    .labelSmall,
+                        )
+                        TextButton(
+                            enabled = !busy,
+                            onClick = {
+                                busy = true
+                                scope.launch {
+                                    val removed =
+                                        windowsLayerPackages
+                                            .remove(layer)
+                                    status =
+                                        if (removed) {
+                                            "Staging gráfico removido."
+                                        } else {
+                                            "Não foi possível remover staging gráfico."
+                                        }
+                                    reload()
+                                    busy = false
+                                }
+                            },
+                        ) {
+                            Text("Remover staging")
                         }
                     }
                 }
