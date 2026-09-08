@@ -5,6 +5,8 @@ on:
   pull_request:
     paths:
       - 'scripts/build-proot-ndk.py'
+      - 'scripts/stage-proot-apk-candidate.py'
+      - 'scripts/test-proot-apk-staging-policy.py'
       - 'third_party/proot/NDK_BUILD.json'
       - 'third_party/proot/cross-answers-aarch64.txt'
       - 'third_party/proot/patches/**'
@@ -22,6 +24,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Verify staging policy remains fail-closed
+        run: python3 scripts/test-proot-apk-staging-policy.py
       - name: Install pinned NDK
         run: sdkmanager 'ndk;29.0.14206865'
       - name: Build outside the APK
@@ -30,6 +34,12 @@ jobs:
             --ndk "$ANDROID_HOME/ndk/29.0.14206865" \
             --work "$RUNNER_TEMP/pocketpc-proot-ndk" \
             --source-cache "$RUNNER_TEMP/pocketpc-proot-sources"
+      - name: Stage Android aliases outside repository
+        run: |
+          python3 scripts/stage-proot-apk-candidate.py \
+            --artifact-dir "$RUNNER_TEMP/pocketpc-proot-ndk/quarantine/arm64-v8a" \
+            --audit "$RUNNER_TEMP/pocketpc-proot-ndk/proot-elf-audit.json" \
+            --out "$RUNNER_TEMP/pocketpc-proot-apk-candidate"
       - name: Retain build evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -38,6 +48,7 @@ jobs:
           path: |
             ${{ runner.temp }}/pocketpc-proot-ndk/*.json
             ${{ runner.temp }}/pocketpc-proot-ndk/*.log
+            ${{ runner.temp }}/pocketpc-proot-apk-candidate/STAGING_EVIDENCE.json
           if-no-files-found: warn
       - name: Retain review-only binaries and corresponding sources
         uses: actions/upload-artifact@v4
@@ -45,10 +56,12 @@ jobs:
           name: PocketPC-PRoot-NDK-unapproved-source-bundle
           path: |
             ${{ runner.temp }}/pocketpc-proot-ndk/quarantine/
+            ${{ runner.temp }}/pocketpc-proot-apk-candidate/
             ${{ runner.temp }}/pocketpc-proot-sources/
             third_party/proot/
             scripts/build-proot-ndk.py
             scripts/audit-proot-artifacts.py
+            scripts/stage-proot-apk-candidate.py
           if-no-files-found: error
       - name: Verify build did not change runtime approvals
         run: |
