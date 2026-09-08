@@ -82,4 +82,65 @@ class RuntimeProbeEvidenceFingerprintTest {
                 .isEmpty(),
         )
     }
+    @Test
+    fun graphicsLayerFingerprintChangesWhenDllHashChanges() {
+        val base =
+            WindowsRuntimeLayerManifest(
+                schemaVersion = 1,
+                id = "dxvk",
+                version = "3.0.2",
+                sourceCommit =
+                    "6b20f622a77b87b2921fe5d2c1774d2f2ba3e9b7",
+                license = "Zlib",
+                windowsArchitecture =
+                    "x86_64-windows",
+                targetDirectory =
+                    "drive_c/windows/system32",
+                files =
+                    listOf(
+                        WindowsRuntimeLayerFile(
+                            path = "dll/d3d11.dll",
+                            destinationName =
+                                "d3d11.dll",
+                            sha256 =
+                                "a".repeat(64),
+                            bytes = 100,
+                        ),
+                        WindowsRuntimeLayerFile(
+                            path = "dll/dxgi.dll",
+                            destinationName =
+                                "dxgi.dll",
+                            sha256 =
+                                "b".repeat(64),
+                            bytes = 200,
+                        ),
+                    ),
+            )
+
+        val changed =
+            base.copy(
+                files =
+                    base.files.map {
+                        if (
+                            it.destinationName ==
+                            "d3d11.dll"
+                        ) {
+                            it.copy(
+                                sha256 =
+                                    "c".repeat(64),
+                            )
+                        } else {
+                            it
+                        }
+                    },
+            )
+
+        assertNotEquals(
+            WindowsRuntimeLayerFingerprint
+                .of(base),
+            WindowsRuntimeLayerFingerprint
+                .of(changed),
+        )
+    }
+
 }
