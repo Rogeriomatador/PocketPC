@@ -8,6 +8,7 @@ on:
       - 'scripts/build-box64-aarch64.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - 'third_party/wine/POCKETPC_DISPLAY_BRIDGE_PROTOCOL.json'
+      - 'third_party/wine/pocketpc-display-bridge/**'
       - 'scripts/test-pc-runtime-source-locks.py'
       - '.github/workflows/box64-aarch64-build.yml'
 
@@ -28,6 +29,9 @@ jobs:
 
       - name: Validate runtime source locks
         run: python3 scripts/test-pc-runtime-source-locks.py
+
+      - name: Validate display bridge protocol lock
+        run: python3 scripts/test-display-bridge-protocol-lock.py
 
       - name: Build pinned Box64 for Linux AArch64
         run: |
