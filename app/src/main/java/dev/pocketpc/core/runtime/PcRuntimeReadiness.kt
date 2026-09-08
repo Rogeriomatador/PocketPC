@@ -33,6 +33,7 @@ object PcRuntimeReadinessProbe {
         substrate: ExecutionSubstrateStatus,
         installedRuntimeCount: Int,
         preparedRuntimeCount: Int = installedRuntimeCount,
+        ioHost: RuntimeIoHostCapabilities? = null,
     ): PcRuntimeReadiness {
         val stages =
             listOf(
@@ -128,7 +129,15 @@ object PcRuntimeReadinessProbe {
                     state =
                         PcRuntimeStageState.NOT_IMPLEMENTED,
                     detail =
-                        "O host Android possui recursos, mas a integração Windows ainda não existe.",
+                        if (ioHost == null) {
+                            "Capacidades Android de áudio/input/rede ainda não foram medidas nesta sessão."
+                        } else {
+                            "Host Android: áudio=${ioHost.audioOutputCount} saída(s), " +
+                                "teclados=${ioHost.keyboardCount}, mouses=${ioHost.mouseCount}, " +
+                                "gamepads=${ioHost.gamepadCount}, internet=" +
+                                if (ioHost.networkValidated) "validada" else if (ioHost.networkInternetCapable) "detectada" else "indisponível" +
+                                ". A ponte Win32 ainda não está implementada."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "roblox-compatibility",
