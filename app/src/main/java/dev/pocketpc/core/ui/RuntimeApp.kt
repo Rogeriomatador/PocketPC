@@ -10,6 +10,8 @@ import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.InstalledRuntime
 import dev.pocketpc.core.runtime.NativeHostStatus
+import dev.pocketpc.core.runtime.PcRuntimeReadinessProbe
+import dev.pocketpc.core.runtime.PcRuntimeStageState
 import dev.pocketpc.core.runtime.RootfsLinkManager
 import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimeManifestValidator
@@ -67,6 +69,144 @@ fun RuntimeApp(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
+            }
+        }
+
+        val pcReadiness =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost = nativeHost,
+                substrate = substrate,
+                installedRuntimeCount =
+                    installed.size,
+            )
+
+        Surface(
+            tonalElevation = 2.dp,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    "Compatibilidade de PC",
+                    style =
+                        MaterialTheme.typography
+                            .titleSmall,
+                )
+                Text(
+                    pcReadiness.target,
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                )
+                Text(
+                    pcReadiness.readyCount
+                        .toString() +
+                        "/" +
+                        pcReadiness.stages.size +
+                        " estágios READY",
+                    style =
+                        MaterialTheme.typography
+                            .labelSmall,
+                )
+
+                pcReadiness.stages.forEach {
+                    stage ->
+                    val stateText =
+                        when (stage.state) {
+                            PcRuntimeStageState.READY ->
+                                "READY"
+                            PcRuntimeStageState.BLOCKED ->
+                                "BLOCKED"
+                            PcRuntimeStageState.NOT_IMPLEMENTED ->
+                                "NOT_IMPLEMENTED"
+                            PcRuntimeStageState.UNKNOWN ->
+                                "UNKNOWN"
+                        }
+
+                    Surface(
+                        tonalElevation = 1.dp,
+                        shape =
+                            MaterialTheme.shapes.small,
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            verticalArrangement =
+                                Arrangement.spacedBy(2.dp),
+                        ) {
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+                                horizontalArrangement =
+                                    Arrangement
+                                        .SpaceBetween,
+                            ) {
+                                Text(
+                                    stage.label,
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall,
+                                )
+                                Text(
+                                    stateText,
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .labelSmall,
+                                    color =
+                                        when (
+                                            stage.state
+                                        ) {
+                                            PcRuntimeStageState.READY ->
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .primary
+                                            PcRuntimeStageState.BLOCKED ->
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .error
+                                            else ->
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .onSurfaceVariant
+                                        },
+                                )
+                            }
+                            Text(
+                                stage.detail,
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelSmall,
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    if (pcReadiness.executableReady) {
+                        "EXECUTION_READY"
+                    } else {
+                        "Execução de .exe continua bloqueada. " +
+                            "O PocketPC não marcará Roblox/Windows " +
+                            "como pronto antes de todos os gates " +
+                            "necessários passarem."
+                    },
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                )
             }
         }
 
