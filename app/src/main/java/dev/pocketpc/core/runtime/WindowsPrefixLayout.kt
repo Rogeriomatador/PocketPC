@@ -5,6 +5,7 @@ import java.io.File
 data class WindowsPrefixLayout(
     val profileId: String,
     val prefixRoot: File,
+    val guestPrefixRoot: String,
     val driveC: File,
     val usersRoot: File,
     val pocketUser: File,
@@ -96,6 +97,7 @@ object WindowsPrefixPlanner {
                 WindowsPrefixLayout(
                     profileId = profileId,
                     prefixRoot = canonicalPrefix,
+                    guestPrefixRoot = "/home/pocket/windows-prefixes/$profileId",
                     driveC = driveC,
                     usersRoot = users,
                     pocketUser = pocketUser,
