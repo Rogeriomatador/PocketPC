@@ -29,6 +29,7 @@ class PcRuntimeReadinessTest {
                         artifactIntegrityVerified = true,
                     ),
                 installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
             )
 
         assertEquals(3, result.readyCount)
@@ -70,6 +71,7 @@ class PcRuntimeReadinessTest {
                         state = "BLOCKED",
                     ),
                 installedRuntimeCount = 0,
+                preparedRuntimeCount = 0,
             )
 
         assertEquals(0, result.readyCount)
@@ -81,5 +83,36 @@ class PcRuntimeReadinessTest {
                     PcRuntimeStageState.BLOCKED
             },
         )
+    }
+    @Test
+    fun installedButUnpreparedRootfsStaysBlocked() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 0,
+            )
+
+        val rootfs = result.stages.single { it.id == "rootfs" }
+        assertEquals(PcRuntimeStageState.BLOCKED, rootfs.state)
+        assertTrue(rootfs.detail.contains("nenhum está preparado"))
+        assertFalse(result.executableReady)
     }
 }
