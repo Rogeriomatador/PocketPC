@@ -321,6 +321,16 @@ fun DesktopWallpaper(
         }
 
     val colors = preset.colors.map { argb -> Color(argb) }
+    val backgroundColors =
+        if (
+            !customUri.isNullOrBlank() &&
+            customTransform.fitMode ==
+                WallpaperFitMode.FIT
+        ) {
+            listOf(Color.Black, Color.Black)
+        } else {
+            colors
+        }
     val context = LocalContext.current
     val customBitmap by produceState<ImageBitmap?>(
         initialValue = null,
@@ -342,7 +352,7 @@ fun DesktopWallpaper(
     Box(
         modifier = modifier.background(
             Brush.linearGradient(
-                colors = colors,
+                colors = backgroundColors,
                 start = Offset(0f, 0f),
                 end = Offset(
                     x = 900f + animatedMotion * 1100f,
@@ -558,50 +568,122 @@ fun PersonalizationApp(
             }
         }
 
-        WallpaperPreset.entries.chunked(2).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                row.forEach { preset ->
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
-                        tonalElevation = if (preset == selected) 8.dp else 2.dp,
+        val solidPresets =
+            WallpaperPreset.entries.filter {
+                it.colors.distinct().size == 1
+            }
+        val visualPresets =
+            WallpaperPreset.entries.filterNot {
+                it.colors.distinct().size == 1
+            }
+
+        Text(
+            "Cores sólidas",
+            style =
+                MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            "Opções simples e leves para quem quer um desktop limpo.",
+            style =
+                MaterialTheme.typography.bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant,
+        )
+        WallpaperPresetGrid(
+            presets = solidPresets,
+            selected = selected,
+            customUri = customUri,
+            onSelect = onSelect,
+        )
+
+        Text(
+            "Gradientes e animações",
+            style =
+                MaterialTheme.typography.titleSmall,
+        )
+        WallpaperPresetGrid(
+            presets = visualPresets,
+            selected = selected,
+            customUri = customUri,
+            onSelect = onSelect,
+        )
+    }
+}
+
+@Composable
+private fun WallpaperPresetGrid(
+    presets: List<WallpaperPreset>,
+    selected: WallpaperPreset,
+    customUri: String?,
+    onSelect: (WallpaperPreset) -> Unit,
+) {
+    presets.chunked(2).forEach { row ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.spacedBy(10.dp),
+        ) {
+            row.forEach { preset ->
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                    tonalElevation =
+                        if (preset == selected) {
+                            8.dp
+                        } else {
+                            2.dp
+                        },
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement =
+                            Arrangement.spacedBy(8.dp),
                     ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        DesktopWallpaper(
+                            preset = preset,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(88.dp),
+                        )
+                        Text(preset.label)
+                        Text(
+                            when {
+                                preset.animated ->
+                                    "ANIMADO"
+                                preset.colors
+                                    .distinct()
+                                    .size == 1 ->
+                                    "SÓLIDO"
+                                else ->
+                                    "ESTÁTICO"
+                            }
+                        )
+                        if (
+                            preset == selected &&
+                            customUri == null
                         ) {
-                            DesktopWallpaper(
-                                preset = preset,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(88.dp),
-                            )
-                            Text(preset.label)
-                            Text(
-                                when {
-                                    preset.animated ->
-                                        "ANIMADO"
-                                    preset.colors
-                                        .distinct()
-                                        .size == 1 ->
-                                        "SÓLIDO"
-                                    else ->
-                                        "ESTÁTICO"
+                            Button(
+                                onClick = {},
+                                enabled = false,
+                            ) {
+                                Text("Em uso")
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = {
+                                    onSelect(preset)
                                 }
-                            )
-                            if (preset == selected && customUri == null) {
-                                Button(onClick = {}, enabled = false) { Text("Em uso") }
-                            } else {
-                                OutlinedButton(onClick = { onSelect(preset) }) {
-                                    Text("Aplicar")
-                                }
+                            ) {
+                                Text("Aplicar")
                             }
                         }
                     }
                 }
+            }
+
+            if (row.size == 1) {
+                Spacer(Modifier.weight(1f))
             }
         }
     }
