@@ -301,6 +301,11 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                                 storageRoot = null
                                 storagePickerError = null
                             },
+                            onOpenRuntime = {
+                                desktop.open(
+                                    DesktopApp.RUNTIMES
+                                )
+                            },
                         )
                         DesktopApp.TERMINAL -> TerminalApp(terminal)
                         DesktopApp.APPS -> InstalledAppsApp(desktopCapabilities)
