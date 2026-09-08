@@ -261,4 +261,98 @@ class PcRuntimeReadinessTest {
         )
     }
 
+    @Test
+    fun graphicsDeviceWithoutPresentStaysBlocked() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                        d3d11SmokePassed = true,
+                        graphicsPresentationSmokePassed = false,
+                        windowsProcessSmokePassed = true,
+                    ),
+                windowsStateReady = true,
+            )
+
+        val graphics =
+            result.stages.single {
+                it.id == "graphics-bridge"
+            }
+        assertEquals(
+            PcRuntimeStageState.BLOCKED,
+            graphics.state,
+        )
+        assertTrue(
+            graphics.detail.contains(
+                "swapchain/Present",
+            ),
+        )
+    }
+
+    @Test
+    fun graphicsDeviceAndPresentCanPromoteGraphicsStage() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                        d3d11SmokePassed = true,
+                        graphicsPresentationSmokePassed = true,
+                        windowsProcessSmokePassed = true,
+                    ),
+                windowsStateReady = true,
+            )
+
+        assertEquals(
+            PcRuntimeStageState.READY,
+            result.stages.single {
+                it.id == "graphics-bridge"
+            }.state,
+        )
+        assertFalse(result.executableReady)
+    }
+
 }
