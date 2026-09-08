@@ -27,6 +27,7 @@ import dev.pocketpc.core.runtime.ProotExecutionController
 import dev.pocketpc.core.runtime.ProotInvocationPlan
 import dev.pocketpc.core.runtime.ProotInvocationPlanner
 import dev.pocketpc.core.runtime.RootfsLinkManager
+import dev.pocketpc.core.runtime.RootfsExecutionReadinessProbe
 import dev.pocketpc.core.runtime.RuntimeBindPlanner
 import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimeManifestValidator
@@ -102,7 +103,9 @@ fun RuntimeApp(
                     installed.size,
                 preparedRuntimeCount =
                     installed.count { runtime ->
-                        runtime.stats.linksRecorded == 0 || runtime.linksPrepared
+                        RootfsExecutionReadinessProbe
+                            .assess(runtime)
+                            .ready
                     },
             )
 
