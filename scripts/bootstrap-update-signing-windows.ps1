@@ -5,6 +5,7 @@ param(
     [string]$StorePassword = "android",
     [string]$KeyAlias = "androiddebugkey",
     [string]$KeyPassword = "android",
+    [switch]$ValidateOnly,
     [switch]$PublishNow
 )
 
@@ -117,6 +118,11 @@ try {
     }
 
     Write-Host "Signer fisico: PASS" -ForegroundColor Green
+
+    if ($ValidateOnly) {
+        Write-Host "POCKETPC_UPDATE_BOOTSTRAP_VALIDATE_OK" -ForegroundColor Green
+        return
+    }
 
     $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
     if (-not $gh) {
