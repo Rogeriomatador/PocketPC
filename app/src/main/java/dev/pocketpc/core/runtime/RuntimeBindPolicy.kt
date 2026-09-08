@@ -107,16 +107,29 @@ object RuntimeBindPolicy {
 }
 
 class RuntimeBindPlanner(private val context: Context) {
-    fun base(runtime: InstalledRuntime): List<RuntimeBindSpec> {
-        val home = File(
+    fun homeDirectory(
+        runtime: InstalledRuntime,
+    ): File =
+        File(
             context.filesDir,
             "runtime-home/${runtime.manifest.id}/${runtime.manifest.version}",
-        ).apply { require(mkdirs() || isDirectory) }
+        ).apply {
+            require(mkdirs() || isDirectory)
+        }
 
-        val temp = File(
+    private fun tempDirectory(
+        runtime: InstalledRuntime,
+    ): File =
+        File(
             context.cacheDir,
             "runtime-tmp/${runtime.manifest.id}/${runtime.manifest.version}",
-        ).apply { require(mkdirs() || isDirectory) }
+        ).apply {
+            require(mkdirs() || isDirectory)
+        }
+
+    fun base(runtime: InstalledRuntime): List<RuntimeBindSpec> {
+        val home = homeDirectory(runtime)
+        val temp = tempDirectory(runtime)
 
         return listOf(
             RuntimeBindSpec(
