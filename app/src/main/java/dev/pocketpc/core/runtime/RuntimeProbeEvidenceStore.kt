@@ -8,6 +8,7 @@ data class RuntimeProbeEvidenceState(
     val box64SmokePassed: Boolean,
     val wineSmokePassed: Boolean,
     val d3d11SmokePassed: Boolean = false,
+    val graphicsPresentationSmokePassed: Boolean = false,
     val windowsProcessSmokePassed: Boolean = false,
     val winsockSmokePassed: Boolean = false,
     val winmmAudioApiSmokePassed: Boolean = false,
