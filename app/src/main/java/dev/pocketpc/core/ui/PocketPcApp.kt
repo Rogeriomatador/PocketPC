@@ -43,6 +43,7 @@ import dev.pocketpc.core.desktop.WindowGeometry
 import dev.pocketpc.core.desktop.WindowSnap
 import dev.pocketpc.core.desktop.windowSpec
 import dev.pocketpc.core.runtime.ExecutionSubstrateProbe
+import dev.pocketpc.core.runtime.GuestToolInstallManager
 import dev.pocketpc.core.runtime.PcApplicationTarget
 import dev.pocketpc.core.runtime.NativeRuntimeHost
 import dev.pocketpc.core.runtime.RootfsLinkManager
@@ -56,6 +57,7 @@ import dev.pocketpc.core.terminal.LocalShellEngine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import java.io.File
 
 @Composable
 fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
@@ -100,6 +102,11 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val terminal = remember { LocalShellEngine(appContext) }
     val runtimes = remember { RuntimePackageManager(appContext) }
     val installer = remember { RuntimeInstallManager(appContext, runtimes) }
+    val guestToolInstaller = remember {
+        GuestToolInstallManager(
+            File(appContext.noBackupFilesDir, "runtime-tools")
+        )
+    }
     val linkManager = remember { RootfsLinkManager() }
     val nativeHost = remember { NativeRuntimeHost.status(appContext) }
     val substrate = remember { ExecutionSubstrateProbe.inspect(appContext) }
@@ -421,6 +428,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                         DesktopApp.RUNTIMES -> RuntimeApp(
                             manager = runtimes,
                             installer = installer,
+                            guestToolInstaller = guestToolInstaller,
                             linkManager = linkManager,
                             nativeHost = nativeHost,
                             substrate = substrate,
