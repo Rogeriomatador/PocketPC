@@ -593,9 +593,7 @@ class PocketPcUpdater(
                         -1L,
                     ) == verified.id
                 ) {
-                    return@runCatching
-                        PocketPcInstallResult
-                            .SESSION_ALREADY_PENDING
+                    return@runCatching PocketPcInstallResult.SESSION_ALREADY_PENDING
                 }
 
                 if (
@@ -618,9 +616,7 @@ class PocketPcUpdater(
                             )
                         }
                     appContext.startActivity(intent)
-                    return@runCatching
-                        PocketPcInstallResult
-                            .NEEDS_UNKNOWN_SOURCE_PERMISSION
+                    return@runCatching PocketPcInstallResult.NEEDS_UNKNOWN_SOURCE_PERMISSION
                 }
 
                 val downloadManager =
