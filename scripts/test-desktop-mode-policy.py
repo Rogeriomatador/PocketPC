@@ -120,7 +120,7 @@ CHECKS = {
         '"C: para o sistema. P: para você."',
         '"Entrar no PocketPC"',
         '"Downloads concluídos podem ser "',
-        '"PocketDrive"',
+        "PocketDrive",
         '"Downloads, Documentos, Apps, Jogos e Projetos."',
     ),
     "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt": (
