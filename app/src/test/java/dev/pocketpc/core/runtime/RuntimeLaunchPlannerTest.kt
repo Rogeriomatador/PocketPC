@@ -45,7 +45,7 @@ class RuntimeLaunchPlannerTest {
             val result = RuntimeLaunchPlanner.assess(runtime, substrate)
 
             assertFalse(result.ready)
-            assertTrue(LaunchBlocker.EXECUTOR_NOT_IMPLEMENTED in result.blockers)
+            assertTrue(LaunchBlocker.EXECUTOR_DISABLED in result.blockers)
         } finally {
             base.deleteRecursively()
         }
