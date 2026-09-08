@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets
 
 data class RuntimeProbeEvidenceState(
     val box64SmokePassed: Boolean,
+    val displayBridgeSmokePassed: Boolean = false,
     val wineSmokePassed: Boolean,
     val d3d11SmokePassed: Boolean = false,
     val graphicsPresentationSmokePassed: Boolean = false,
@@ -111,6 +112,12 @@ class RuntimeProbeEvidenceStore(
                 tools,
                 listOf("box64"),
             )
+        val displayBridgeKey =
+            fullRuntimeEvidenceKey(
+                runtime,
+                tools,
+                layers,
+            )
         val wineKey =
             evidenceKey(
                 runtime,
@@ -140,6 +147,11 @@ class RuntimeProbeEvidenceStore(
                 matches(
                     KEY_BOX64,
                     box64Key,
+                ),
+            displayBridgeSmokePassed =
+                matches(
+                    KEY_DISPLAY_BRIDGE,
+                    displayBridgeKey,
                 ),
             wineSmokePassed =
                 matches(
@@ -210,6 +222,28 @@ class RuntimeProbeEvidenceStore(
                                 runtime,
                                 tools,
                                 listOf("box64"),
+                            )
+                    } else {
+                        null
+                    }
+
+                GuestRuntimeProbe.DISPLAY_BRIDGE_SMOKE ->
+                    if (
+                        result.output.contains(
+                            "POCKETPC_DISPLAY_BRIDGE_SMOKE_OK",
+                        ) &&
+                        result.output.contains(
+                            "display_bridge_smoke=passed",
+                        ) &&
+                        result.output.contains(
+                            "POCKETPC_DISPLAY_BRIDGE_HOST_AUTH_OK",
+                        )
+                    ) {
+                        KEY_DISPLAY_BRIDGE to
+                            fullRuntimeEvidenceKey(
+                                runtime,
+                                tools,
+                                layers,
                             )
                     } else {
                         null
@@ -421,6 +455,18 @@ class RuntimeProbeEvidenceStore(
         )
     }
 
+    private fun fullRuntimeEvidenceKey(
+        runtime: InstalledRuntime,
+        tools: List<InstalledGuestTool>,
+        layers:
+            List<DeployedWindowsRuntimeLayer>,
+    ): String =
+        RuntimeExecutionIdentity.of(
+            runtime = runtime,
+            tools = tools,
+            layers = layers,
+        )
+
     private fun graphicsEvidenceKey(
         runtime: InstalledRuntime,
         tools: List<InstalledGuestTool>,
@@ -461,6 +507,8 @@ class RuntimeProbeEvidenceStore(
             "runtime-probe-evidence-v3"
         private const val KEY_BOX64 =
             "box64-smoke-key"
+        private const val KEY_DISPLAY_BRIDGE =
+            "display-bridge-smoke-key"
         private const val KEY_WINE =
             "wine-smoke-key"
         private const val KEY_D3D11 =
