@@ -396,6 +396,7 @@ function Invoke-PythonPolicyChecks {
         "scripts\test-desktop-enum-coverage.py",
         "scripts\test-ci-version-policy.py",
         "scripts\test-update-feed-policy.py",
+        "scripts\test-bootstrap-signer-verifier.py",
         "scripts\test-pocketdrive-research-policy.py"
     )
 
