@@ -35,6 +35,57 @@ data class PocketDriveMount(
         directories[directory]
 }
 
+data class PocketDriveMetadata(
+    val schemaVersion: Int,
+    val volumeId: String,
+    val label: String,
+) {
+    fun encode(): String =
+        listOf(
+            "schemaVersion=$schemaVersion",
+            "volumeId=$volumeId",
+            "label=$label",
+        ).joinToString("\n") + "\n"
+
+    companion object {
+        fun decode(raw: String): PocketDriveMetadata? {
+            val values =
+                raw.lineSequence()
+                    .mapNotNull { line ->
+                        val index = line.indexOf('=')
+                        if (index <= 0) {
+                            null
+                        } else {
+                            line.substring(0, index) to
+                                line.substring(index + 1)
+                        }
+                    }
+                    .toMap()
+
+            val schema =
+                values["schemaVersion"]
+                    ?.toIntOrNull()
+                    ?: return null
+            val volumeId =
+                values["volumeId"]
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: return null
+            val label =
+                values["label"]
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: return null
+
+            return PocketDriveMetadata(
+                schemaVersion = schema,
+                volumeId = volumeId,
+                label = label,
+            )
+        }
+    }
+}
+
 data class PocketSystemVolume(
     val rootPath: String,
     val cachePath: String,
@@ -46,6 +97,8 @@ data class PocketSystemVolume(
 const val POCKET_DRIVE_LETTER = "P:"
 const val POCKET_SYSTEM_LETTER = "C:"
 const val POCKET_DRIVE_SCHEMA_VERSION = 1
+const val POCKET_DRIVE_METADATA_FILE = "PocketDrive.meta"
+const val POCKET_DRIVE_DEFAULT_LABEL = "PocketDrive"
 
 fun pocketPath(
     directory: PocketDriveDirectory,
