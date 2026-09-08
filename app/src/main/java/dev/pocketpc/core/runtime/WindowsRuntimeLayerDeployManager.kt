@@ -84,6 +84,19 @@ class WindowsRuntimeLayerDeployManager(
                             "/" +
                             layer.manifest.version,
                     )
+
+                if (layerState.exists()) {
+                    val existing =
+                        loadDeployment(
+                            layerState,
+                            system32,
+                        )
+                    require(existing != null) {
+                        "WINDOWS_LAYER_EXISTING_DEPLOYMENT_INVALID"
+                    }
+                    return@runCatching existing
+                }
+
                 val transaction =
                     File(
                         layerState.parentFile,
@@ -213,6 +226,19 @@ class WindowsRuntimeLayerDeployManager(
                                     backup
                         }
 
+                    Files.copy(
+                        File(
+                            layer.directory,
+                            "windows-layer-manifest.json",
+                        ).toPath(),
+                        File(
+                            transaction,
+                            "windows-layer-manifest.json",
+                        ).toPath(),
+                        StandardCopyOption
+                            .REPLACE_EXISTING,
+                    )
+
                     val deploymentManifest =
                         File(
                             transaction,
@@ -262,11 +288,6 @@ class WindowsRuntimeLayerDeployManager(
                         },
                     )
 
-                    if (layerState.exists()) {
-                        SafeTreeOps.deleteNoFollow(
-                            layerState,
-                        )
-                    }
                     require(
                         layerState.parentFile
                             .mkdirs() ||
@@ -415,6 +436,121 @@ class WindowsRuntimeLayerDeployManager(
                 )
             }
         }
+
+    suspend fun discover(
+        prefixPlan: WindowsPrefixPlan,
+    ): List<DeployedWindowsRuntimeLayer> =
+        withContext(Dispatchers.IO) {
+            val prefix =
+                prefixPlan.layout
+                    ?: return@withContext emptyList()
+            val system32 =
+                File(
+                    prefix.prefixRoot,
+                    "drive_c/windows/system32",
+                ).canonicalFile
+
+            stateRoot.listFiles()
+                .orEmpty()
+                .filter {
+                    SafeTreeOps.isPlainDirectory(
+                        it.toPath(),
+                    ) &&
+                        !it.name.startsWith(".")
+                }
+                .flatMap { idDir ->
+                    idDir.listFiles()
+                        .orEmpty()
+                        .filter {
+                            SafeTreeOps.isPlainDirectory(
+                                it.toPath(),
+                            ) &&
+                                !it.name.startsWith(".")
+                        }
+                }
+                .mapNotNull {
+                    loadDeployment(
+                        it,
+                        system32,
+                    )
+                }
+                .sortedWith(
+                    compareBy<DeployedWindowsRuntimeLayer> {
+                        it.manifest.id
+                    }.thenBy {
+                        it.manifest.version
+                    },
+                )
+        }
+
+    private fun loadDeployment(
+        directory: File,
+        system32: File,
+    ): DeployedWindowsRuntimeLayer? =
+        runCatching {
+            if (
+                !SafeTreeOps.isPlainDirectory(
+                    directory.toPath(),
+                )
+            ) {
+                return@runCatching null
+            }
+            val manifestFile =
+                File(
+                    directory,
+                    "windows-layer-manifest.json",
+                )
+            val marker =
+                File(
+                    directory,
+                    "DEPLOYMENT.tsv",
+                )
+            if (
+                !SafeTreeOps.isPlainFile(
+                    manifestFile.toPath(),
+                ) ||
+                !SafeTreeOps.isPlainFile(
+                    marker.toPath(),
+                )
+            ) {
+                return@runCatching null
+            }
+
+            val manifest =
+                WindowsRuntimeLayerManifestCodec
+                    .parse(
+                        manifestFile.readText(),
+                    )
+            if (
+                WindowsRuntimeLayerManifestValidator
+                    .errors(manifest)
+                    .isNotEmpty() ||
+                WindowsRuntimeLayerTrustPolicy
+                    .errors(manifest)
+                    .isNotEmpty()
+            ) {
+                return@runCatching null
+            }
+            if (
+                directory.name !=
+                    manifest.version ||
+                directory.parentFile?.name !=
+                    manifest.id
+            ) {
+                return@runCatching null
+            }
+
+            verifyDeployment(
+                manifest,
+                system32,
+            )
+
+            DeployedWindowsRuntimeLayer(
+                manifest = manifest,
+                deploymentDirectory =
+                    directory,
+            )
+        }.getOrNull()
 
     private fun verifyDeployment(
         manifest: WindowsRuntimeLayerManifest,
