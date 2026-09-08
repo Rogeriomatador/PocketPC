@@ -232,6 +232,22 @@ fun RuntimeApp(
                     states.any {
                         it.d3d11SmokePassed
                     },
+                windowsProcessSmokePassed =
+                    states.any {
+                        it.windowsProcessSmokePassed
+                    },
+                winsockSmokePassed =
+                    states.any {
+                        it.winsockSmokePassed
+                    },
+                winmmAudioApiSmokePassed =
+                    states.any {
+                        it.winmmAudioApiSmokePassed
+                    },
+                rawInputApiSmokePassed =
+                    states.any {
+                        it.rawInputApiSmokePassed
+                    },
             )
         }
 
@@ -256,6 +272,7 @@ fun RuntimeApp(
                         layers = layers,
                     )
                 evidence.wineSmokePassed &&
+                    evidence.windowsProcessSmokePassed &&
                     runCatching {
                         val home =
                             bindPlanner
