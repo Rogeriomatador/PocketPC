@@ -1,0 +1,44 @@
+name: Wine 11 Source Prepare
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'third_party/wine/**'
+      - 'scripts/prepare-wine-source.py'
+      - 'scripts/test-pc-runtime-source-locks.py'
+      - '.github/workflows/wine-source-prepare.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Validate PC runtime locks
+        run: python3 scripts/test-pc-runtime-source-locks.py
+
+      - name: Verify pinned Wine source and emit build plan
+        run: |
+          python3 scripts/prepare-wine-source.py \
+            --work "$RUNNER_TEMP/pocketpc-wine"
+
+      - name: Retain review-only build plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Wine11-source-review
+          path: |
+            ${{ runner.temp }}/pocketpc-wine/wine-build-plan.json
+          if-no-files-found: error
+
+      - name: Prove no Wine binary entered the app
+        run: |
+          test -z "$(find app -type f \( -name 'wine' -o -name 'wine64' -o -name 'wineserver' \) -print)"
+          git diff --exit-code -- app third_party
