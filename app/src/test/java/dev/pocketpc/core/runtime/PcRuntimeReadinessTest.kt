@@ -1,0 +1,85 @@
+package dev.pocketpc.core.runtime
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class PcRuntimeReadinessTest {
+    @Test
+    fun windowsExecutionRemainsFailClosedWithoutTranslationAndWin32() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+            )
+
+        assertEquals(3, result.readyCount)
+        assertFalse(result.executableReady)
+        assertTrue(
+            result.stages.any {
+                it.id == "x86-64-translation" &&
+                    it.state ==
+                        PcRuntimeStageState
+                            .NOT_IMPLEMENTED
+            }
+        )
+        assertTrue(
+            result.stages.any {
+                it.id == "roblox-compatibility" &&
+                    it.state ==
+                        PcRuntimeStageState.UNKNOWN
+            }
+        )
+    }
+
+    @Test
+    fun missingHostSubstrateAndRootfsStayBlocked() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = false,
+                        probe = "failed",
+                        graphicsProbe = "not-probed",
+                        nativeLibraryDir = "",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "",
+                        packagedHostReady = false,
+                        prootReady = false,
+                        components = emptyList(),
+                        state = "BLOCKED",
+                    ),
+                installedRuntimeCount = 0,
+            )
+
+        assertEquals(0, result.readyCount)
+        assertFalse(result.executableReady)
+        assertEquals(
+            3,
+            result.stages.count {
+                it.state ==
+                    PcRuntimeStageState.BLOCKED
+            },
+        )
+    }
+}
