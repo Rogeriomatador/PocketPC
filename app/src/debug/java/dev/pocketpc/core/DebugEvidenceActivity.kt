@@ -1,5 +1,6 @@
 package dev.pocketpc.core
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -21,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.File
@@ -53,6 +55,8 @@ class DebugEvidenceActivity : ComponentActivity() {
             runEvidence()
                 .onSuccess {
                     status.value = "AUTOMATION_EVIDENCE_PASS"
+                    delay(350)
+                    returnToPocketPc()
                 }
                 .onFailure { error ->
                     status.value =
@@ -65,6 +69,21 @@ class DebugEvidenceActivity : ComponentActivity() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
+    }
+
+    private fun returnToPocketPc() {
+        startActivity(
+            Intent(
+                this,
+                MainActivity::class.java,
+            ).apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                )
+            }
+        )
+        finish()
     }
 
     private suspend fun runEvidence(): Result<Unit> = runCatching {
