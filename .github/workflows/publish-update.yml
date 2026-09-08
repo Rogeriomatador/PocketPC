@@ -48,6 +48,17 @@ jobs:
           feed = json.loads(
               Path("updates/stable.json").read_text(encoding="utf-8")
           )
+          lock = json.loads(
+              Path("toolchains/android-build-lock.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          app = lock["app"]
+          locked_code = int(app["versionCode"])
+          locked_name = str(app["versionName"])
+          feed_code = int(feed.get("versionCode", -1))
+          feed_name = str(feed.get("versionName", ""))
+
           required = (
               os.environ.get("KEYSTORE_B64", ""),
               os.environ.get("STORE_PASSWORD", ""),
@@ -55,14 +66,33 @@ jobs:
               os.environ.get("KEY_PASSWORD", ""),
           )
 
-          if feed.get("published") is True:
-              print("PUBLISH_UPDATE_SKIPPED_ALREADY_PUBLISHED")
+          if feed_code > locked_code:
+              raise SystemExit(
+                  "PUBLISH_UPDATE_BLOCKED_FEED_AHEAD_OF_SOURCE"
+              )
+
+          if (
+              feed.get("published") is True
+              and feed_code == locked_code
+              and feed_name == locked_name
+          ):
+              print("PUBLISH_UPDATE_SKIPPED_CURRENT_VERSION_ALREADY_PUBLISHED")
               publish = False
+          elif (
+              feed_code == locked_code
+              and feed_name != locked_name
+          ):
+              raise SystemExit(
+                  "PUBLISH_UPDATE_BLOCKED_VERSION_IDENTITY_MISMATCH"
+              )
           elif not all(required):
               print("PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED")
               publish = False
           else:
-              print("PUBLISH_UPDATE_READY")
+              if feed.get("published") is True and feed_code < locked_code:
+                  print("PUBLISH_UPDATE_READY_NEWER_VERSION")
+              else:
+                  print("PUBLISH_UPDATE_READY_BOOTSTRAP")
               publish = True
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
@@ -228,5 +258,5 @@ jobs:
         if: steps.gate.outputs.publish != 'true'
         run: |
           echo "PocketPC release publication did not run."
-          echo "This is expected while stable signing secrets are not configured"
-          echo "or when the current stable feed is already published."
+          echo "This is expected when signing secrets are not configured"
+          echo "or when the current locked version is already published."
