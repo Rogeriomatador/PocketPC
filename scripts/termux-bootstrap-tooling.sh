@@ -40,13 +40,52 @@ GRADLE_URL="$(read_lock gradle.distributionUrl)"
 GRADLE_SHA256="$(read_lock gradle.distributionSha256)"
 JDK_MAJOR="$(read_lock jdk.major)"
 
-if [ "$JDK_MAJOR" != "17" ]; then
+if [ "$JDK_MAJOR" -lt 17 ]; then
     echo "UNSUPPORTED_TERMUX_JDK_LOCK=$JDK_MAJOR" >&2
     exit 3
 fi
 
+choose_jdk_package() {
+    if pkg show "openjdk-$JDK_MAJOR" >/dev/null 2>&1; then
+        printf '%s' "openjdk-$JDK_MAJOR"
+        return 0
+    fi
+
+    # AGP 9.4 requires JDK 17 or newer. Current Termux repositories may
+    # no longer ship openjdk-17, so use JDK 21 as an explicit on-device
+    # compatibility variance rather than changing the repository lock.
+    if [ "$JDK_MAJOR" -le 21 ] &&
+       pkg show openjdk-21 >/dev/null 2>&1; then
+        printf '%s' "openjdk-21"
+        return 0
+    fi
+
+    return 1
+}
+
+JDK_PACKAGE="$(choose_jdk_package || true)"
+if [ -z "$JDK_PACKAGE" ]; then
+    echo "TERMUX_COMPATIBLE_JDK_PACKAGE_NOT_FOUND" >&2
+    echo "locked_jdk=$JDK_MAJOR" >&2
+    exit 3
+fi
+
+TERMUX_JDK_MAJOR="${JDK_PACKAGE#openjdk-}"
+
+echo "JDK selection"
+echo "  locked_jdk=$JDK_MAJOR"
+echo "  termux_package=$JDK_PACKAGE"
+echo "  termux_jdk=$TERMUX_JDK_MAJOR"
+if [ "$TERMUX_JDK_MAJOR" = "$JDK_MAJOR" ]; then
+    echo "  lock_exact=true"
+else
+    echo "  lock_exact=false"
+    echo "  compatibility_variance=TERMUX_JDK_NEWER_THAN_LOCK"
+fi
+echo
+
 echo "Installing Termux-native prerequisites..."
-pkg install -y openjdk-17 cmake ninja curl unzip coreutils
+pkg install -y "$JDK_PACKAGE" cmake ninja curl unzip coreutils
 
 if ! command -v aapt2 >/dev/null 2>&1; then
     echo "Installing Termux Android packaging tools..."
@@ -125,6 +164,19 @@ export PATH="$POCKETPC_GRADLE_HOME/bin:$PATH"
 
 echo
 echo "Installed tooling"
+JAVA_ACTUAL_MAJOR="$(
+    java -version 2>&1 |
+      awk -F'[".]' '/version/ {print $2; exit}'
+)"
+echo "java_actual_major=${JAVA_ACTUAL_MAJOR:-unknown}"
+echo "java_locked_major=$JDK_MAJOR"
+if [ "${JAVA_ACTUAL_MAJOR:-0}" -ge "$JDK_MAJOR" ] 2>/dev/null; then
+    echo "java_meets_agp_minimum=true"
+else
+    echo "java_meets_agp_minimum=false"
+    echo "JAVA_RUNTIME_BELOW_LOCK" >&2
+    exit 7
+fi
 java -version 2>&1 | head -3
 echo "aapt2=$(command -v aapt2)"
 echo "cmake=$(command -v cmake)"
