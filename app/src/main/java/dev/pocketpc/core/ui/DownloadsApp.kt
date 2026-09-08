@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.pocketpc.core.runtime.PcApplicationTarget
 import dev.pocketpc.core.storage.PocketDownloadImporter
 import dev.pocketpc.core.storage.PocketDownloadRegistry
 import dev.pocketpc.core.storage.PocketDriveDirectory
@@ -42,6 +43,7 @@ private data class PocketDownload(
 fun DownloadsApp(
     repository: StorageRepository,
     rootUri: String?,
+    onOpenRuntime: (PcApplicationTarget) -> Unit,
 ) {
     val context = LocalContext.current
     val manager =
@@ -332,7 +334,18 @@ fun DownloadsApp(
                             "pc-package-${it.uri}"
                         },
                     ) { record ->
-                        PcPackageRow(record)
+                        PcPackageRow(
+                            record = record,
+                            onCompatibility = {
+                                onOpenRuntime(
+                                    PcApplicationTarget(
+                                        uri = record.uri,
+                                        fileName = record.name,
+                                        sizeBytes = record.size,
+                                    )
+                                )
+                            },
+                        )
                     }
                 }
 
@@ -405,6 +418,7 @@ private fun DownloadSectionHeader(
 @Composable
 private fun PcPackageRow(
     record: PocketPcPackageRecord,
+    onCompatibility: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -472,10 +486,10 @@ private fun PcPackageRow(
             }
 
             AssistChip(
-                onClick = {},
+                onClick = onCompatibility,
                 label = {
                     Text(
-                        "Runtime necessário",
+                        "Ver compatibilidade",
                         fontSize = 8.sp,
                     )
                 },
