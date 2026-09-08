@@ -93,6 +93,7 @@ jobs:
         run: |
           python3 -m json.tool third_party/box64/LOCK.json >/dev/null
           python3 -m json.tool third_party/wine/LOCK.json >/dev/null
+          python3 -m json.tool third_party/wine/ANDROID_DRIVER_REUSE.json >/dev/null
           python3 -m json.tool third_party/graphics/LOCK.json >/dev/null
           python3 scripts/test-pc-runtime-source-locks.py
 
