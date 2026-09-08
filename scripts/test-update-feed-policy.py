@@ -23,6 +23,7 @@ PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-update.yml"
 BOOTSTRAP_SIGNER = ROOT / "updates" / "bootstrap-signer.json"
 VERIFY_BOOTSTRAP_SIGNER = ROOT / "scripts" / "verify-bootstrap-signer.py"
 TEST_BOOTSTRAP_SIGNER = ROOT / "scripts" / "test-bootstrap-signer-verifier.py"
+BOOTSTRAP_WINDOWS = ROOT / "scripts" / "bootstrap-update-signing-windows.ps1"
 BUILD_GRADLE = ROOT / "app" / "build.gradle.kts"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -262,6 +263,19 @@ def main() -> int:
             "negative_signer_rejected=true",
             "malformed_signer_rejected=true",
             "run_verifier",
+        ),
+        BOOTSTRAP_WINDOWS: (
+            "POCKETPC_UPDATE_BOOTSTRAP_OK",
+            "POCKETPC_UPDATE_BOOTSTRAP_FAILED",
+            "updates\\bootstrap-signer.json",
+            "Signer físico: PASS",
+            "POCKETPC_SIGNING_KEYSTORE_BASE64",
+            "POCKETPC_SIGNING_STORE_PASSWORD",
+            "POCKETPC_SIGNING_KEY_ALIAS",
+            "POCKETPC_SIGNING_KEY_PASSWORD",
+            "gh",
+            "publish-update.yml",
+            "Nenhum Secret foi enviado",
         ),
         PUBLISH_WORKFLOW: (
             "PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED",
