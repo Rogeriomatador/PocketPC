@@ -577,7 +577,7 @@ class PocketPcUpdater(
             PocketPcUpdateDownload,
     ): Result<PocketPcInstallResult> =
         withContext(Dispatchers.IO) {
-            runCatching {
+            runCatching<PocketPcInstallResult> {
                 val verified =
                     verifyPendingDownload()
                         .getOrThrow()
