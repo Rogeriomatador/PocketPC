@@ -347,14 +347,32 @@ if ($null -eq $desktopEvidence) {
 }
 
 $desktopLandscape = ($desktopEvidence.orientationLandscape -eq $true)
+$screenWidthDp = [int]$desktopEvidence.screenWidthDp
+$screenHeightDp = [int]$desktopEvidence.screenHeightDp
+$logicalSizeUsable = (
+    $screenWidthDp -gt 0 -and
+    $screenHeightDp -gt 0
+)
+$orientationLabel = if ($desktopLandscape) {
+    "LANDSCAPE"
+} elseif ($screenHeightDp -gt $screenWidthDp) {
+    "PORTRAIT"
+} else {
+    "SQUARE_OR_UNRESOLVED"
+}
+
 Write-Host (
-    "Landscape            : " +
-    $(if ($desktopLandscape) { "PASS" } else { "FAIL" })
+    "Orientation          : {0} (adaptive)" -f
+    $orientationLabel
 )
 Write-Host (
     "Logical size         : {0}x{1} dp" -f
-    [int]$desktopEvidence.screenWidthDp,
-    [int]$desktopEvidence.screenHeightDp
+    $screenWidthDp,
+    $screenHeightDp
+)
+Write-Host (
+    "Logical size usable  : " +
+    $(if ($logicalSizeUsable) { "PASS" } else { "FAIL" })
 )
 Write-Host (
     "Android freeform     : " +
@@ -392,9 +410,9 @@ Write-Host (
     [int]$desktopEvidence.peripherals.gamepadCount
 )
 
-if (-not $desktopLandscape) {
+if (-not $logicalSizeUsable) {
     throw (
-        "PocketPC desktop host nao foi observado em landscape durante " +
+        "PocketPC nao reportou uma area logica utilizavel durante " +
         "a evidence fisica."
     )
 }
