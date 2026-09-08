@@ -34,6 +34,7 @@ object PcRuntimeReadinessProbe {
         installedRuntimeCount: Int,
         preparedRuntimeCount: Int = installedRuntimeCount,
         ioHost: RuntimeIoHostCapabilities? = null,
+        probeEvidence: RuntimeProbeEvidenceState? = null,
     ): PcRuntimeReadiness {
         val stages =
             listOf(
@@ -92,19 +93,45 @@ object PcRuntimeReadinessProbe {
                     id = "x86-64-translation",
                     label = "Tradução x86_64 → ARM64",
                     state =
-                        PcRuntimeStageState.NOT_IMPLEMENTED,
+                        if (
+                            probeEvidence?.box64SmokePassed ==
+                            true
+                        ) {
+                            PcRuntimeStageState.READY
+                        } else {
+                            PcRuntimeStageState.BLOCKED
+                        },
                     detail =
-                        "Box64 v0.4.4 está fixado por commit e possui build AArch64 de revisão. " +
-                            "Ainda não está integrado ao rootfs nem executado pelo PocketPC.",
+                        if (
+                            probeEvidence?.box64SmokePassed ==
+                            true
+                        ) {
+                            "Box64 executou o ELF x86-64 de smoke com evidência vinculada ao rootfs e pacote atuais."
+                        } else {
+                            "Box64 v0.4.4 possui pipeline/pacote e smoke x86-64, mas a execução atual ainda não foi comprovada."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "win32-compat",
                     label = "Camada Win32 / NT user-mode",
                     state =
-                        PcRuntimeStageState.NOT_IMPLEMENTED,
+                        if (
+                            probeEvidence?.wineSmokePassed ==
+                            true
+                        ) {
+                            PcRuntimeStageState.READY
+                        } else {
+                            PcRuntimeStageState.BLOCKED
+                        },
                     detail =
-                        "Wine 11.0 estável está fixado por commit e possui preparação de build Win64. " +
-                            "Loader PE, DLLs e APIs Win32 ainda não executam no PocketPC.",
+                        if (
+                            probeEvidence?.wineSmokePassed ==
+                            true
+                        ) {
+                            "Wine 11 executou o PE64 de smoke através do Box64 com evidência vinculada às versões atuais."
+                        } else {
+                            "Wine 11 possui build headless/pacote Win64 preparado, mas o primeiro PE64 ainda não foi comprovado."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "windows-state",
