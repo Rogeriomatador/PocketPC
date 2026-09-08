@@ -27,7 +27,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential flex bison git \
-            gcc-mingw-w64-x86-64
+            gcc-mingw-w64-x86-64 libvulkan-dev
 
       - name: Validate pinned runtime source locks
         run: python3 scripts/test-pc-runtime-source-locks.py
