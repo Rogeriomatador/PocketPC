@@ -90,6 +90,9 @@ CHECKS = {
         ".height(34.dp)",
         "BrowserWindowActions",
         "BrowserWindowControl",
+        "BrowserAddressField",
+        "BasicTextField",
+        '"Pesquisar ou digitar endereço"',
         "compactWindowControls",
         'label = "×"',
         "DownloadManager",
@@ -562,6 +565,15 @@ CHECKS = {
         '"desktopOrientationLandscape": False',
         '"screenWidthDp": 469',
         '"screenHeightDp": 1043',
+    ),
+    "scripts/verify-first-physical-test-record.py": (
+        '"final desktopOrientationLandscape must be boolean"',
+        '"physical record desktopOrientationLandscape must be boolean"',
+        '"desktopOrientationLandscape"',
+    ),
+    "scripts/test-first-physical-test-record-verifier.py": (
+        '"desktopOrientationLandscape": False',
+        "FIRST_PHYSICAL_TEST_RECORD_SELFTEST_OK",
     ),
     "app/src/main/java/dev/pocketpc/core/desktop/DesktopLaunchPolicy.kt": (
         "data class DesktopLaunchPlan",
