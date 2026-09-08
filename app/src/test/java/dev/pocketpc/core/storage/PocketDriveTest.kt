@@ -1,9 +1,65 @@
 package dev.pocketpc.core.storage
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PocketDriveTest {
+
+    @Test
+    fun pocketDriveMetadataRoundTripsWithoutLosingIdentity() {
+        val metadata =
+            newPocketDriveMetadata(
+                volumeId =
+                    "123e4567-e89b-12d3-a456-426614174000",
+                label = "PocketDrive",
+            )
+
+        assertEquals(
+            metadata,
+            PocketDriveMetadata.decode(metadata.encode()),
+        )
+    }
+
+    @Test
+    fun rejectsInvalidPocketDriveVolumeIdentity() {
+        val result =
+            runCatching {
+                validatePocketDriveMetadata(
+                    PocketDriveMetadata(
+                        schemaVersion =
+                            POCKET_DRIVE_SCHEMA_VERSION,
+                        volumeId = "not-a-uuid",
+                        label = "PocketDrive",
+                    )
+                )
+            }
+
+        assertTrue(result.isFailure)
+        assertTrue(
+            result.exceptionOrNull() is
+                IllegalArgumentException
+        )
+    }
+
+    @Test
+    fun rejectsFuturePocketDriveSchemaFailClosed() {
+        val result =
+            runCatching {
+                validatePocketDriveMetadata(
+                    PocketDriveMetadata(
+                        schemaVersion =
+                            POCKET_DRIVE_SCHEMA_VERSION + 1,
+                        volumeId =
+                            "123e4567-e89b-12d3-a456-426614174000",
+                        label = "PocketDrive",
+                    )
+                )
+            }
+
+        assertTrue(result.isFailure)
+    }
+
     @Test
     fun buildsStablePocketPaths() {
         assertEquals(
