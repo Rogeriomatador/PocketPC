@@ -19,6 +19,7 @@ CHECKS = {
         "validatePocketDriveMetadata", "POCKET_DRIVE_METADATA_FILE", 'DOWNLOADS("Downloads"', 'APPLICATIONS("Apps"', 'GAMES("Games"',
         'BACKUPS("Backups"', "sanitizePocketImportedFileName", "validateStorageName", '"CON"', '"LPT1"',
         "PocketFileClass.PC_INSTALLER", "PocketFileClass.ANDROID_PACKAGE",
+        "withoutDispositionTail", 'tail.startsWith(', '"filename"',
     ),
     "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt": (
         "ensurePocketDrive", "readPocketDriveMetadata", "createPocketDriveMetadata",
@@ -44,6 +45,8 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt": (
         "PocketDownloadRegistry", "setDestinationInExternalFilesDir",
         "pocketDriveConfigured", "PocketDownloadRegistry(context).register(downloadId)",
+        "contentDispositionFileName", "resolvePocketDownloadFileName",
+        "sanitizePocketImportedFileName", "URLDecoder.decode",
         "Baixando $fileName",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DownloadsApp.kt": (
@@ -56,7 +59,8 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt": (
         "PocketDriveMount", "PocketDriveDirectory.DOWNLOADS", "PocketDriveDirectory.APPLICATIONS",
         "PocketDriveDirectory.GAMES", "mount.volumeId.take(8)", "mount.schemaVersion",
-        "Trocar PocketDrive", "Desconectar P:",
+        "Trocar PocketDrive", "Desconectar P:", "Corrigir nome",
+        "sanitizePocketImportedFileName",
     ),
     "app/src/main/java/dev/pocketpc/core/research/PocketPcResearchProbe.kt": (
         "VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY", "createVirtualDisplay", "MediaCodecList",
@@ -83,7 +87,13 @@ CHECKS = {
         "rejectsFuturePocketDriveSchemaFailClosed", "buildsStablePocketPaths",
         "classifiesWindowsInstallerAsPcPackage", "distinguishesAndroidPackage",
         "userVolumeContainsExpectedDesktopFolders", "sanitizesImportedLeafNamesForPcNamespace",
-        "prefixesWindowsReservedDeviceNames", "importedFilenameNeverCarriesParentPath",
+        "prefixesWindowsReservedDeviceNames", "stripsMalformedContentDispositionTailFromImportedName",
+        "keepsLegitimateSemicolonWhenItIsNotDispositionMetadata",
+        "importedFilenameNeverCarriesParentPath",
+    ),
+    "app/src/test/java/dev/pocketpc/core/ui/BrowserDownloadNameTest.kt": (
+        "decodesRfc5987Utf8Filename", "readsQuotedClassicFilename",
+        "acceptsObservedAndroidFilenameUnderscoreVariant", "absentFilenameReturnsNull",
     ),
     "app/src/test/java/dev/pocketpc/core/research/PocketPcResearchProbeTest.kt": (
         "prefersHardwareAv1OverOtherCodecs", "surfaceInput = true", "ignoresSoftwareOnlyCodecForRemotePreference",
