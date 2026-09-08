@@ -53,6 +53,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
+private data class PendingRuntimeProbeExecution(
+    val runtime: InstalledRuntime,
+    val plan: ProotInvocationPlan,
+    val probe: GuestRuntimeProbe,
+    val layers: List<DeployedWindowsRuntimeLayer>,
+)
+
+private fun runtimeLayerStateKey(
+    runtime: InstalledRuntime,
+): String =
+    runtime.manifest.id +
+        "|" +
+        runtime.manifest.version +
+        "|" +
+        runtime.manifest.rootfsSha256.lowercase()
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RuntimeApp(
@@ -104,11 +120,7 @@ fun RuntimeApp(
     var showProbeOutput by rememberSaveable { mutableStateOf(false) }
     var pendingExecution by remember {
         mutableStateOf<
-            Triple<
-                InstalledRuntime,
-                ProotInvocationPlan,
-                GuestRuntimeProbe
-            >?
+            PendingRuntimeProbeExecution?
         >(null)
     }
     var staged by remember { mutableStateOf<List<StagedRuntime>>(emptyList()) }
@@ -116,6 +128,15 @@ fun RuntimeApp(
     var stagedWindowsLayers by remember { mutableStateOf<List<StagedWindowsRuntimeLayer>>(emptyList()) }
     var installed by remember { mutableStateOf<List<InstalledRuntime>>(emptyList()) }
     var installedTools by remember { mutableStateOf<List<InstalledGuestTool>>(emptyList()) }
+    var deployedWindowsLayersByRuntime by
+        remember {
+            mutableStateOf<
+                Map<
+                    String,
+                    List<DeployedWindowsRuntimeLayer>
+                >
+            >(emptyMap())
+        }
     var busy by remember { mutableStateOf(false) }
     var evidenceRevision by remember {
         mutableIntStateOf(0)
@@ -128,9 +149,45 @@ fun RuntimeApp(
     suspend fun reload() {
         staged = manager.discover()
         stagedTools = guestToolPackages.discover()
-        stagedWindowsLayers = windowsLayerPackages.discover()
-        installed = installer.discover()
-        installedTools = guestToolInstaller.discover()
+        stagedWindowsLayers =
+            windowsLayerPackages.discover()
+        val discoveredInstalled =
+            installer.discover()
+        installed = discoveredInstalled
+        installedTools =
+            guestToolInstaller.discover()
+
+        val layerMap =
+            linkedMapOf<
+                String,
+                List<DeployedWindowsRuntimeLayer>
+            >()
+        for (runtime in discoveredInstalled) {
+            val layers =
+                try {
+                    val home =
+                        bindPlanner
+                            .homeDirectory(runtime)
+                    val prefix =
+                        WindowsPrefixPlanner.plan(
+                            storageRoot = home,
+                            profileId = "smoke",
+                        )
+                    WindowsRuntimeLayerDeployManager(
+                        File(
+                            home,
+                            ".pocketpc/windows-layers",
+                        ),
+                    ).discover(prefix)
+                } catch (_: Throwable) {
+                    emptyList()
+                }
+            layerMap[
+                runtimeLayerStateKey(runtime)
+            ] = layers
+        }
+        deployedWindowsLayersByRuntime =
+            layerMap
     }
 
     LaunchedEffect(Unit) { reload() }
@@ -146,6 +203,7 @@ fun RuntimeApp(
         remember(
             installed,
             installedTools,
+            deployedWindowsLayersByRuntime,
             evidenceRevision,
         ) {
             val states =
@@ -153,6 +211,12 @@ fun RuntimeApp(
                     probeEvidenceStore.stateFor(
                         runtime = runtime,
                         tools = installedTools,
+                        layers =
+                            deployedWindowsLayersByRuntime[
+                                runtimeLayerStateKey(
+                                    runtime,
+                                )
+                            ].orEmpty(),
                     )
                 }
             RuntimeProbeEvidenceState(
@@ -164,29 +228,48 @@ fun RuntimeApp(
                     states.any {
                         it.wineSmokePassed
                     },
+                d3d11SmokePassed =
+                    states.any {
+                        it.d3d11SmokePassed
+                    },
             )
         }
 
     val windowsStateReady =
         remember(
             installed,
+            installedTools,
+            deployedWindowsLayersByRuntime,
             evidenceRevision,
         ) {
             preparedRuntimes.any { runtime ->
-                runCatching {
-                    val home =
-                        bindPlanner
-                            .homeDirectory(runtime)
-                    val prefix =
-                        WindowsPrefixPlanner
-                            .plan(
-                                storageRoot = home,
-                                profileId = "smoke",
-                            )
-                    WindowsPrefixReadinessProbe
-                        .assess(prefix)
-                        .ready
-                }.getOrDefault(false)
+                val layers =
+                    deployedWindowsLayersByRuntime[
+                        runtimeLayerStateKey(
+                            runtime,
+                        )
+                    ].orEmpty()
+                val evidence =
+                    probeEvidenceStore.stateFor(
+                        runtime = runtime,
+                        tools = installedTools,
+                        layers = layers,
+                    )
+                evidence.wineSmokePassed &&
+                    runCatching {
+                        val home =
+                            bindPlanner
+                                .homeDirectory(runtime)
+                        val prefix =
+                            WindowsPrefixPlanner
+                                .plan(
+                                    storageRoot = home,
+                                    profileId = "smoke",
+                                )
+                        WindowsPrefixReadinessProbe
+                            .assess(prefix)
+                            .ready
+                    }.getOrDefault(false)
             }
         }
 
