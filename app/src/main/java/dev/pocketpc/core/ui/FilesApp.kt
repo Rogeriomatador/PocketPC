@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -47,12 +48,12 @@ fun FilesApp(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current.applicationContext
 
-    var pathStack by remember(rootUri) {
+    var pathStack by rememberSaveable(rootUri) {
         mutableStateOf(
             rootUri?.let { listOf(it) } ?: emptyList()
         )
     }
-    val currentUri = pathStack.lastOrNull()
+    val currentUri = if (pathStack.firstOrNull() == rootUri) pathStack.lastOrNull() else rootUri
 
     var listing by remember(currentUri) {
         mutableStateOf<StorageListing?>(null)
@@ -67,8 +68,8 @@ fun FilesApp(
         mutableStateOf<PocketDriveMount?>(null)
     }
     var refreshToken by remember { mutableIntStateOf(0) }
-    var query by remember(currentUri) { mutableStateOf("") }
-    var selectedUri by remember(currentUri) {
+    var query by rememberSaveable(currentUri) { mutableStateOf("") }
+    var selectedUri by rememberSaveable(currentUri) {
         mutableStateOf<String?>(null)
     }
     var createFolderOpen by remember { mutableStateOf(false) }
@@ -82,6 +83,10 @@ fun FilesApp(
             ?.firstOrNull { it.uri == selectedUri }
 
     LaunchedEffect(rootUri) {
+        if (pathStack.firstOrNull() != rootUri) {
+            pathStack = rootUri?.let { listOf(it) } ?: emptyList()
+            selectedUri = null
+        }
         driveMount = null
         if (rootUri != null) {
             repository.ensurePocketDrive(rootUri)

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+import json
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -360,8 +361,6 @@ CHECKS = {
     "updates/stable.json": (
         "\"schemaVersion\": 1",
         "\"channel\": \"stable\"",
-        "\"versionCode\": 21",
-        "\"versionName\": \"0.1.0-alpha21\"",
         "\"published\": false",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DesktopChrome.kt": (
@@ -427,7 +426,7 @@ CHECKS = {
         "custom_wallpaper_zoom",
         "custom_wallpaper_offset_x",
         "custom_wallpaper_offset_y",
-        "ContentScale.Fit",
+        "wallpaperViewportGeometry",
         "graphicsLayer",
         '"Ajustar enquadramento"',
         "performance_hud",
@@ -444,7 +443,7 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/WallpaperEditor.kt": (
         '"Ajustar papel de parede"',
         "A prévia usa a proporção atual da tela.",
-        "detectDragGestures",
+        "detectTransformGestures",
         "WallpaperFitMode.CROP",
         "WallpaperFitMode.FIT",
         "Slider(",
@@ -717,6 +716,15 @@ CHECKS = {
 
 def main() -> int:
     failures: list[str] = []
+    try:
+        feed = json.loads((ROOT / "updates/stable.json").read_text(encoding="utf-8"))
+        version = json.loads((ROOT / "toolchains/android-build-lock.json").read_text(encoding="utf-8"))["app"]
+        if not feed.get("published"):
+            for field in ("versionCode", "versionName"):
+                if feed.get(field) != version[field]:
+                    failures.append(f"unpublished update feed {field} differs from the build lock")
+    except (OSError, ValueError, KeyError) as error:
+        failures.append(f"cannot validate bootstrap feed version: {error}")
 
     for relative, sentinels in CHECKS.items():
         path = ROOT / relative

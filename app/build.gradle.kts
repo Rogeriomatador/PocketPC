@@ -56,8 +56,8 @@ android {
         applicationId = "dev.pocketpc.core"
         minSdk = 26
         targetSdk = 37
-        versionCode = 21
-        versionName = "0.1.0-alpha21"
+        versionCode = 22
+        versionName = "0.1.0-alpha22"
 
         if (!pocketPcSkipNativeBuild) {
             ndk {

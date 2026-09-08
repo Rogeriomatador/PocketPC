@@ -4,12 +4,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.listSaver
 
 class DesktopController(
     initialPinnedApps: List<DesktopApp> = defaultDesktopPins(),
     private val onPinnedAppsChanged: ((List<DesktopApp>) -> Unit)? = null,
+    initialWindows: List<DesktopWindow> = emptyList(),
 ) {
-    val windows = mutableStateListOf<DesktopWindow>()
+    val windows = mutableStateListOf<DesktopWindow>().apply { addAll(initialWindows) }
     val pinnedApps = mutableStateListOf<DesktopApp>().apply {
         addAll(initialPinnedApps.distinct())
     }
@@ -21,8 +23,9 @@ class DesktopController(
     var contextMenuTarget by mutableStateOf<DesktopApp?>(null)
         private set
 
-    private var nextZ = 1
-    private var nextWindowId = 1L
+    private var nextZ = (initialWindows.maxOfOrNull { it.zIndex } ?: 0) + 1
+    private var nextWindowId =
+        (initialWindows.mapNotNull { it.id.substringAfterLast('-').toLongOrNull() }.maxOrNull() ?: 0L) + 1L
 
     val activeWindow: DesktopWindow?
         get() = windows
@@ -171,4 +174,34 @@ class DesktopController(
     }
 
     private fun allocateZ(): Int = nextZ++
+
+    companion object {
+        fun saver(
+            pinnedApps: () -> List<DesktopApp>,
+            onPinnedAppsChanged: (List<DesktopApp>) -> Unit,
+        ) = listSaver<DesktopController, String>(
+            save = { controller ->
+                listOf("1") + controller.windows.sortedBy { it.zIndex }.flatMap { window ->
+                    listOf(window.app.name, window.id, window.minimized.toString(),
+                        window.maximized.toString(), window.snap.name)
+                }
+            },
+            restore = { saved ->
+                if (saved.firstOrNull() != "1") return@listSaver null
+                val windows = saved.drop(1).chunked(5).mapIndexedNotNull { index, values ->
+                    if (values.size != 5) return@mapIndexedNotNull null
+                    val app = DesktopApp.entries.firstOrNull { it.name == values[0] }
+                        ?: return@mapIndexedNotNull null
+                    if (values[1].isBlank()) return@mapIndexedNotNull null
+                    DesktopWindow(
+                        id = values[1], title = app.label, app = app,
+                        minimized = values[2] == "true", maximized = values[3] == "true",
+                        snap = WindowSnap.entries.firstOrNull { it.name == values[4] } ?: WindowSnap.NONE,
+                        zIndex = index + 1,
+                    )
+                }.distinctBy { it.id }.distinctBy { it.app }
+                DesktopController(pinnedApps(), onPinnedAppsChanged, windows)
+            },
+        )
+    }
 }

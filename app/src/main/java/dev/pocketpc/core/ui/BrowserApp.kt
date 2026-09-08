@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.Modifier
@@ -52,11 +53,13 @@ class BrowserSessionState {
     val tabs = mutableStateListOf(BrowserTabState(1L, "Google", POCKETPC_HOME))
     var activeTabId by mutableStateOf(1L)
     var desktopMode by mutableStateOf(true)
+    val canAddTab: Boolean get() = tabs.size < 32
 
     val activeTab: BrowserTabState
         get() = tabs.firstOrNull { it.id == activeTabId } ?: tabs.first()
 
     fun newTab(url: String = POCKETPC_HOME): BrowserTabState {
+        if (!canAddTab) return activeTab
         val tab = BrowserTabState(nextTabId++, "Nova aba", url)
         tabs += tab
         activeTabId = tab.id
@@ -65,14 +68,18 @@ class BrowserSessionState {
 
     fun selectTab(id: Long) { if (tabs.any { it.id == id }) activeTabId = id }
 
-    fun updateActive(url: String, title: String? = null) {
-        val index = tabs.indexOfFirst { it.id == activeTabId }
+    fun updateActive(url: String, title: String? = null) = updateTab(activeTabId, url, title)
+
+    fun updateTab(tabId: Long, url: String, title: String? = null) {
+        val index = tabs.indexOfFirst { it.id == tabId }
         if (index < 0) return
         val current = tabs[index]
         tabs[index] = current.copy(url = url, title = title?.takeIf { it.isNotBlank() }?.take(60) ?: current.title)
     }
 
-    fun saveWebViewState(tabId: Long, bundle: Bundle) { webViewStates[tabId] = Bundle(bundle) }
+    fun saveWebViewState(tabId: Long, bundle: Bundle) {
+        if (tabs.any { it.id == tabId }) webViewStates[tabId] = Bundle(bundle)
+    }
     fun webViewState(tabId: Long): Bundle? = webViewStates[tabId]?.let(::Bundle)
     fun clearWebViewState(tabId: Long) { webViewStates.remove(tabId) }
 
@@ -81,7 +88,7 @@ class BrowserSessionState {
         if (index < 0) return
         if (tabs.size == 1) {
             clearWebViewState(id)
-            tabs[0] = BrowserTabState(tabs[0].id, "Google", POCKETPC_HOME)
+            tabs[0] = BrowserTabState(nextTabId++, "Google", POCKETPC_HOME)
             activeTabId = tabs[0].id
             return
         }
@@ -90,6 +97,32 @@ class BrowserSessionState {
         tabs.removeAt(index)
         if (wasActive) activeTabId = tabs[index.coerceAtMost(tabs.lastIndex)].id
     }
+    companion object {
+        // Keep WebView history in memory; only lightweight tab metadata goes into saved state.
+        val Saver = listSaver<BrowserSessionState, Any>(
+            save = { session ->
+                listOf(session.activeTabId, session.desktopMode) + session.tabs.flatMap {
+                    listOf(it.id, it.title, it.url.takeIf { url -> url.length <= 4096 } ?: POCKETPC_HOME)
+                }
+            },
+            restore = { saved -> BrowserSessionState().apply {
+                val restored = saved.drop(2).chunked(3).mapNotNull { values ->
+                    if (values.size != 3) return@mapNotNull null
+                    val id = values[0] as? Long ?: return@mapNotNull null
+                    val title = values[1] as? String ?: return@mapNotNull null
+                    val url = values[2] as? String ?: return@mapNotNull null
+                    if (id <= 0 || id == Long.MAX_VALUE) return@mapNotNull null
+                    BrowserTabState(id, title.take(60), url)
+                }.distinctBy { it.id }.take(32)
+                if (restored.isNotEmpty()) { tabs.clear(); tabs.addAll(restored) }
+                nextTabId = tabs.maxOf { it.id } + 1
+                activeTabId = (saved.firstOrNull() as? Long)
+                    ?.takeIf { id -> tabs.any { it.id == id } } ?: tabs.first().id
+                desktopMode = saved.getOrNull(1) as? Boolean ?: true
+            } },
+        )
+    }
+
 }
 
 data class BrowserWindowActions(
@@ -103,6 +136,7 @@ data class BrowserWindowActions(
 fun BrowserApp(
     session: BrowserSessionState,
     storage: StorageRepository,
+    onOpenDownloads: () -> Unit,
     windowActions: BrowserWindowActions? = null,
 ) {
     val context = LocalContext.current
@@ -127,17 +161,15 @@ fun BrowserApp(
         session.updateActive(target)
         webView?.loadUrl(target)
     }
-    fun saveState() {
-        val view = webView ?: return
-        session.saveWebViewState(session.activeTabId, Bundle().also(view::saveState))
-    }
-    fun loadTab(tab: BrowserTabState) {
-        saveState()
-        session.selectTab(tab.id)
-        address = tab.url
+    var menuOpen by remember { mutableStateOf(false) }
+    fun toggleDesktopMode() {
+        session.desktopMode = !session.desktopMode
         webView?.let { view ->
-            val restored = session.webViewState(tab.id)?.let(view::restoreState)
-            if (restored == null) { view.clearHistory(); view.loadUrl(tab.url) }
+            val base = mobileUserAgent ?: view.settings.userAgentString.orEmpty()
+            view.settings.userAgentString = if (session.desktopMode) desktopUserAgent(base) else base
+            view.settings.useWideViewPort = session.desktopMode
+            view.settings.loadWithOverviewMode = session.desktopMode
+            view.reload()
         }
     }
 
@@ -166,31 +198,23 @@ fun BrowserApp(
                     session.tabs.forEach { tab ->
                     val active = tab.id == session.activeTabId
                     Surface(
-                        Modifier.widthIn(min = 104.dp, max = 210.dp).height(28.dp).clickable { loadTab(tab) },
+                        Modifier.widthIn(min = 104.dp, max = 210.dp).height(28.dp).clickable { session.selectTab(tab.id) },
                         shape = RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp),
                         color = if (active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
                     ) {
                         Row(Modifier.padding(start = 9.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(tab.title.ifBlank { "Nova aba" }, Modifier.weight(1f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             TextButton(onClick = {
-                                val closingActive = session.activeTabId == tab.id
                                 session.closeTab(tab.id)
-                                if (closingActive) {
-                                    address = session.activeTab.url
-                                    webView?.let { view ->
-                                        val restored = session.webViewState(session.activeTabId)?.let(view::restoreState)
-                                        if (restored == null) { view.clearHistory(); view.loadUrl(session.activeTab.url) }
-                                    }
-                                }
                             }, modifier = Modifier.size(24.dp), contentPadding = PaddingValues(0.dp)) { Text("×", fontSize = 12.sp) }
                         }
                     }
                 }
                     TextButton(
                         onClick = {
-                            saveState()
-                            loadTab(session.newTab())
+                            session.newTab()
                         },
+                        enabled = session.canAddTab,
                         modifier = Modifier.size(26.dp),
                         contentPadding = PaddingValues(0.dp),
                     ) {
@@ -311,19 +335,7 @@ fun BrowserApp(
                                     view.reload()
                                 }
                             }
-                            BrowserNavButton("↓") {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(
-                                            DownloadManager
-                                                .ACTION_VIEW_DOWNLOADS
-                                        ).addFlags(
-                                            Intent
-                                                .FLAG_ACTIVITY_NEW_TASK
-                                        )
-                                    )
-                                }
-                            }
+                            BrowserNavButton("↓", onClick = onOpenDownloads)
                             BrowserNavButton("↗") {
                                 runCatching {
                                     context.startActivity(
@@ -341,90 +353,35 @@ fun BrowserApp(
                                 }
                             }
                         }
+                        if (compactToolbar) {
+                            Box {
+                                BrowserNavButton("⋮") { menuOpen = true }
+                                DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
+                                    DropdownMenuItem(text = { Text("Página inicial") },
+                                        onClick = { menuOpen = false; navigate(POCKETPC_HOME) })
+                                    DropdownMenuItem(text = { Text(if (session.desktopMode) "Usar versão para celular" else "Usar versão para computador") },
+                                        onClick = { menuOpen = false; toggleDesktopMode() })
+                                    DropdownMenuItem(text = { Text("Downloads do PocketPC") },
+                                        onClick = { menuOpen = false; onOpenDownloads() })
+                                    DropdownMenuItem(text = { Text("Abrir em outro navegador") }, onClick = {
+                                        menuOpen = false
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webView?.url ?: address))) }
+                                    })
+                                }
+                            }
+                        }
+
                     }
 
-                    if (compactToolbar) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement =
-                                Arrangement.spacedBy(4.dp),
-                            verticalAlignment =
-                                Alignment.CenterVertically,
-                        ) {
-                            BrowserNavButton("⌂") {
-                                navigate(POCKETPC_HOME)
-                            }
-                            BrowserNavButton(
-                                if (session.desktopMode) {
-                                    "PC✓"
-                                } else {
-                                    "PC"
-                                },
-                                true,
-                            ) {
-                                session.desktopMode =
-                                    !session.desktopMode
-                                webView?.let { view ->
-                                    val base =
-                                        mobileUserAgent
-                                            ?: view.settings
-                                                .userAgentString
-                                                .orEmpty()
-                                    view.settings
-                                        .userAgentString =
-                                        if (
-                                            session.desktopMode
-                                        ) {
-                                            desktopUserAgent(base)
-                                        } else {
-                                            base
-                                        }
-                                    view.settings
-                                        .useWideViewPort =
-                                        session.desktopMode
-                                    view.settings
-                                        .loadWithOverviewMode =
-                                        session.desktopMode
-                                    view.reload()
-                                }
-                            }
-                            BrowserNavButton("↓") {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(
-                                            DownloadManager
-                                                .ACTION_VIEW_DOWNLOADS
-                                        ).addFlags(
-                                            Intent
-                                                .FLAG_ACTIVITY_NEW_TASK
-                                        )
-                                    )
-                                }
-                            }
-                            BrowserNavButton("↗") {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(
-                                            Intent.ACTION_VIEW,
-                                            Uri.parse(
-                                                webView?.url
-                                                    ?: address
-                                            ),
-                                        ).addFlags(
-                                            Intent
-                                                .FLAG_ACTIVITY_NEW_TASK
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
+
                 }
             }
         }
 
         if (progress in 0.001f..0.999f) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(2.dp))
 
+        key(session.activeTabId) {
+        val tabId = session.activeTabId
         AndroidView(
             modifier = Modifier.fillMaxWidth().weight(1f),
             factory = { activityContext ->
@@ -458,33 +415,36 @@ fun BrowserApp(
                         }
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            if (!url.isNullOrBlank()) { address = url; session.updateActive(url, view?.title) }
+                            if (!url.isNullOrBlank()) { if (session.activeTabId == tabId) address = url; session.updateTab(tabId, url, view?.title) }
                         }
                     }
                     webChromeClient = object : WebChromeClient() {
                         override fun onProgressChanged(view: WebView?, newProgress: Int) { progress = newProgress.coerceIn(0, 100) / 100f }
                         override fun onReceivedTitle(view: WebView?, title: String?) {
-                            if (!title.isNullOrBlank()) session.updateActive(view?.url ?: session.activeTab.url, title)
+                            if (!title.isNullOrBlank()) session.updateTab(tabId, view?.url ?: session.activeTab.url, title)
                         }
                     }
                     setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
                         enqueueDownload(activityContext, storage, url, userAgent, contentDisposition, mimeType)
                     })
-                    val restored = session.webViewState(session.activeTabId)?.let(::restoreState)
+                    val restored = session.webViewState(tabId)?.let(::restoreState)
                     if (restored == null) loadUrl(session.activeTab.url)
                 }
+            },
+            onRelease = { view ->
+                runCatching { session.saveWebViewState(tabId, Bundle().also(view::saveState)) }
+                view.stopLoading()
+                view.setDownloadListener(null)
+                view.webChromeClient = WebChromeClient()
+                view.webViewClient = WebViewClient()
+                view.destroy()
+                if (webView === view) webView = null
             },
             update = { webView = it },
         )
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            saveState()
-            webView?.apply { stopLoading(); setDownloadListener(null); webChromeClient = WebChromeClient(); webViewClient = WebViewClient(); destroy() }
-            webView = null
-        }
-    }
+}
 }
 
 @Composable

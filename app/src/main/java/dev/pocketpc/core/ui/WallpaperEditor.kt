@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -32,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,9 +66,10 @@ internal fun WallpaperEditorDialog(
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    var transform by remember(
+    var transform by rememberSaveable(
         uri,
         initialTransform,
+        stateSaver = WallpaperTransform.Saver,
     ) {
         mutableStateOf(
             initialTransform.sanitized()
@@ -122,10 +125,9 @@ internal fun WallpaperEditorDialog(
                     minOf(
                         maxWidth,
                         widthFromHeight,
-                    ).coerceAtLeast(180.dp)
+                    ).coerceAtLeast(1.dp)
                 val previewHeight =
                     (previewWidth / screenAspect)
-                        .coerceAtLeast(120.dp)
 
                 Column(
                     modifier = Modifier.verticalScroll(
@@ -173,7 +175,6 @@ internal fun WallpaperEditorDialog(
                                 .pointerInput(
                                     bitmap,
                                     transform.fitMode,
-                                    transform.zoom,
                                 ) {
                                     detectTransformGestures {
                                             _,
@@ -282,8 +283,7 @@ internal fun WallpaperEditorDialog(
                                         .align(
                                             Alignment.Center
                                         )
-                                        .width(renderedWidth)
-                                        .height(renderedHeight)
+                                        .requiredSize(renderedWidth, renderedHeight)
                                         .offset {
                                             IntOffset(
                                                 (

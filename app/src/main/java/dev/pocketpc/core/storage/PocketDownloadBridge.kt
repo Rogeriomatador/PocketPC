@@ -8,7 +8,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.FileInputStream
+import android.os.ParcelFileDescriptor
+import android.util.Log
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class PocketDownloadRegistry(
     context: Context,
@@ -19,7 +23,7 @@ class PocketDownloadRegistry(
             Context.MODE_PRIVATE,
         )
 
-    fun register(downloadId: Long) {
+    fun register(downloadId: Long): Unit = synchronized(registryLock) {
         val ids = ids().toMutableSet()
         ids += downloadId
         writeIds(ids)
@@ -31,7 +35,7 @@ class PocketDownloadRegistry(
             .mapNotNull { it.toLongOrNull() }
             .toSet()
 
-    fun remove(downloadId: Long) {
+    fun remove(downloadId: Long): Unit = synchronized(registryLock) {
         val ids = ids().toMutableSet()
         if (ids.remove(downloadId)) {
             writeIds(ids)
@@ -49,6 +53,7 @@ class PocketDownloadRegistry(
 
     private companion object {
         const val KEY_IDS = "download-ids"
+        val registryLock = Any()
     }
 }
 
@@ -100,13 +105,15 @@ class PocketDownloadReceiver :
 }
 
 object PocketDownloadImporter {
+    private val importMutex = Mutex()
     suspend fun importReady(
         context: Context,
         storage: StorageRepository,
     ): Int =
         withContext(Dispatchers.IO) {
+            importMutex.withLock {
             if (storage.rootUriString == null) {
-                return@withContext 0
+                return@withLock 0
             }
 
             val registry =
@@ -119,6 +126,7 @@ object PocketDownloadImporter {
             var imported = 0
 
             registry.ids().forEach { downloadId ->
+                try {
                 val metadata =
                     queryDownload(
                         manager,
@@ -147,10 +155,7 @@ object PocketDownloadImporter {
                                 ?: return@forEach
 
                         val result =
-                            descriptor.use { parcel ->
-                                FileInputStream(
-                                    parcel.fileDescriptor
-                                ).use { input ->
+                            ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
                                     storage.importIntoPocketDrive(
                                         directory =
                                             PocketDriveDirectory.DOWNLOADS,
@@ -160,24 +165,32 @@ object PocketDownloadImporter {
                                             metadata.mimeType,
                                         source = input,
                                     )
-                                }
                             }
 
                         result.onSuccess { entry ->
                             PocketPcPackageRegistry(
                                 context
                             ).record(entry)
-                            manager.remove(downloadId)
                             registry.remove(downloadId)
                             imported++
+                            // Copy succeeded; failed staging cleanup must not import it again.
+                            runCatching { manager.remove(downloadId) }
+                                .onFailure { Log.w("PocketDownload", "Staging cleanup failed for $downloadId", it) }
                         }
                     }
 
                     else -> Unit
                 }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    // Retain the source when a provider is temporarily unavailable.
+                    Log.w("PocketDownload", "Import deferred for $downloadId", failure)
+                }
             }
 
             imported
+            }
         }
 }
 
@@ -195,7 +208,7 @@ private fun queryDownload(
         DownloadManager.Query()
             .setFilterById(downloadId)
 
-    manager.query(query)?.use { cursor ->
+    checkNotNull(manager.query(query)) { "DownloadManager query unavailable" }.use { cursor ->
         if (!cursor.moveToFirst()) {
             return null
         }
@@ -204,7 +217,7 @@ private fun queryDownload(
             cursor.getColumnIndex(
                 DownloadManager.COLUMN_STATUS
             )
-        if (statusIndex < 0) return null
+        check(statusIndex >= 0) { "DownloadManager status unavailable" }
 
         val titleIndex =
             cursor.getColumnIndex(

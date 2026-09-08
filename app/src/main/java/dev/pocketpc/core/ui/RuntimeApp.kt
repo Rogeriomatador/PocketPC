@@ -1,10 +1,13 @@
 package dev.pocketpc.core.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -27,6 +30,8 @@ import dev.pocketpc.core.runtime.RuntimeManifestValidator
 import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.StagedRuntime
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun RuntimeApp(
@@ -54,6 +59,10 @@ fun RuntimeApp(
         remember {
             ProotExecutionController()
         }
+    DisposableEffect(executionController) {
+        onDispose { executionController.stopActive() }
+    }
+    var showSubstrateDetails by rememberSaveable { mutableStateOf(false) }
     var pendingExecution by remember {
         mutableStateOf<
             Pair<
@@ -85,34 +94,62 @@ fun RuntimeApp(
                 Modifier.fillMaxWidth().padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                Text("Execution substrate", style = MaterialTheme.typography.titleSmall)
-                ValueRow("Native host", if (nativeHost.loaded) "LOADED" else "FAILED")
-                ValueRow("Substrate", substrate.state)
-                ValueRow(
-                    "PRoot components",
+                Text(
                     when {
-                        substrate.prootReady ->
-                            "APPROVED / VERIFIED"
-                        substrate.components.any {
-                            it.exists
-                        } ->
-                            "CANDIDATE / NOT APPROVED"
-                        else ->
-                            "NOT BUNDLED"
+                        !substrate.packagedHostReady -> "O componente nativo desta instalação está indisponível."
+                        !substrate.artifactContractApproved -> "O PRoot ainda precisa ser incluído e aprovado nesta versão."
+                        !substrate.policyDigestsVerified -> "A política do runtime precisa ser verificada."
+                        !substrate.artifactIntegrityVerified -> "Os arquivos do runtime não passaram na verificação de integridade."
+                        substrate.prootReady -> "Componentes verificados. A execução ainda exige rootfs preparado e confirmação."
+                        else -> "O runtime Linux ainda possui requisitos pendentes."
                     },
+                    style = MaterialTheme.typography.bodySmall,
                 )
-                Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
-                Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
-
-                if (!substrate.prootReady) {
-                    Text(
-                        "O substrate continua BLOCKED: componentes podem estar " +
-                            "ausentes ou ainda não aprovados/verificados. " +
-                            "Nenhum candidato é tratado como runtime executável.",
-                        style =
-                            MaterialTheme.typography.bodySmall,
-                    )
+                TextButton(onClick = { showSubstrateDetails = !showSubstrateDetails }) {
+                    Text(if (showSubstrateDetails) "Ocultar diagnóstico" else "Ver requisitos do runtime")
                 }
+                if (showSubstrateDetails) {
+                    Column(Modifier.heightIn(max = 180.dp).verticalScroll(rememberScrollState())) {
+                        Text("Execution substrate", style = MaterialTheme.typography.titleSmall)
+                        ValueRow("Native host", if (nativeHost.loaded) "LOADED" else "FAILED")
+                        ValueRow("Substrate", substrate.state)
+                        ValueRow(
+                            "PRoot components",
+                            when {
+                                substrate.prootReady ->
+                                    "APPROVED / VERIFIED"
+                                substrate.components.any {
+                                    it.exists
+                                } ->
+                                    "CANDIDATE / NOT APPROVED"
+                                else ->
+                                    "NOT BUNDLED"
+                            },
+                        )
+                        Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
+                        Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
+
+                        if (!substrate.prootReady) {
+                            Text(
+                                "O substrate continua BLOCKED: componentes podem estar " +
+                                    "ausentes ou ainda não aprovados/verificados. " +
+                                    "Nenhum candidato é tratado como runtime executável.",
+                                style =
+                                    MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        substrate.components.forEach { component ->
+                            ValueRow(component.fileName, when {
+                                !component.exists -> "AUSENTE"
+                                !component.readable -> "SEM LEITURA"
+                                component.executableRequired && !component.executable -> "SEM EXECUÇÃO"
+                                else -> "PRESENTE"
+                            })
+                        }
+                        substrate.approvalErrors.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    }
+                }
+
             }
         }
 
@@ -553,7 +590,12 @@ fun RuntimeApp(
                 items = installed,
                 key = { "installed:${it.manifest.id}:${it.manifest.version}" },
             ) { runtime ->
-                val invocationPlan =
+                val invocationPlan by produceState(
+                    initialValue = ProotInvocationPlan(false, emptyList(), emptyMap(), listOf("BIND_PLAN_PREPARING")),
+                    key1 = runtime,
+                    key2 = substrate,
+                ) {
+                    value = withContext(Dispatchers.IO) {
                     runCatching {
                         ProotInvocationPlanner.build(
                             runtime = runtime,
@@ -583,6 +625,8 @@ fun RuntimeApp(
                                 ),
                         )
                     }
+                    }
+                }
                 val executionRequestReady =
                     invocationPlan.argv.isNotEmpty() &&
                         invocationPlan.blockers ==

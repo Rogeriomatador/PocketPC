@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -166,10 +167,19 @@ data class WallpaperTransform(
 ) {
     fun sanitized(): WallpaperTransform =
         copy(
-            zoom = zoom.coerceIn(1f, 3f),
-            offsetX = offsetX.coerceIn(-1f, 1f),
-            offsetY = offsetY.coerceIn(-1f, 1f),
+            zoom = (zoom.takeIf { it.isFinite() } ?: 1f).coerceIn(1f, 3f),
+            offsetX = (offsetX.takeIf { it.isFinite() } ?: 0f).coerceIn(-1f, 1f),
+            offsetY = (offsetY.takeIf { it.isFinite() } ?: 0f).coerceIn(-1f, 1f),
         )
+    companion object {
+        val Saver = androidx.compose.runtime.saveable.listSaver<WallpaperTransform, Any>(
+            save = { listOf(it.fitMode.key, it.zoom, it.offsetX, it.offsetY) },
+            restore = { values -> WallpaperTransform(
+                WallpaperFitMode.fromKey(values[0] as String),
+                values[1] as Float, values[2] as Float, values[3] as Float,
+            ).sanitized() },
+        )
+    }
 }
 
 class DesktopAppearanceState(context: Context) {
@@ -404,8 +414,7 @@ fun DesktopWallpaper(
                         .align(
                             androidx.compose.ui.Alignment.Center
                         )
-                        .width(renderedWidth)
-                        .height(renderedHeight)
+                        .requiredSize(renderedWidth, renderedHeight)
                         .offset {
                             IntOffset(
                                 (

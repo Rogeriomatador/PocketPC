@@ -14,6 +14,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -59,13 +60,21 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val scope = rememberCoroutineScope()
     val pinStore = remember { DesktopPinStore(appContext) }
     val windowLayoutStore = remember { DesktopWindowLayoutStore(appContext) }
-    val desktop = remember {
+    val desktop = rememberSaveable(saver = DesktopController.saver(pinStore::load, pinStore::save)) {
         DesktopController(
             initialPinnedApps = pinStore.load(),
             onPinnedAppsChanged = pinStore::save,
         )
     }
-    val browserSession = remember { BrowserSessionState() }
+    val browserSession = rememberSaveable(saver = BrowserSessionState.Saver) { BrowserSessionState() }
+    val windowStateHolder = rememberSaveableStateHolder()
+    val savedWindowIds = remember { mutableSetOf<String>() }
+    val openWindowIds = desktop.windows.map { it.id }.toSet()
+    LaunchedEffect(openWindowIds) {
+        (savedWindowIds - openWindowIds).forEach(windowStateHolder::removeState)
+        savedWindowIds.clear()
+        savedWindowIds.addAll(openWindowIds)
+    }
     val appearance = remember { DesktopAppearanceState(appContext) }
     val systemDark = isSystemInDarkTheme()
     val useDarkTheme =
@@ -144,10 +153,10 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
         runtimeTargetSize = 0L
     }
 
-    var wallpaperEditorUri by remember {
+    var wallpaperEditorUri by rememberSaveable {
         mutableStateOf<String?>(null)
     }
-    var wallpaperEditorTransform by remember {
+    var wallpaperEditorTransform by rememberSaveable(stateSaver = WallpaperTransform.Saver) {
         mutableStateOf(
             appearance.customWallpaperTransform
         )
@@ -287,6 +296,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             .filterNot { it.minimized }
             .sortedBy { it.zIndex }
             .forEach { window ->
+                key(window.id) {
+                windowStateHolder.SaveableStateProvider(window.id) {
                 val alignment =
                     when (window.snap) {
                         WindowSnap.LEFT -> Alignment.CenterStart
@@ -305,6 +316,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             BrowserApp(
                                 session = browserSession,
                                 storage = storage,
+                                onOpenDownloads = { desktop.open(DesktopApp.DOWNLOADS) },
                                 windowActions =
                                     BrowserWindowActions(
                                         minimized = {
@@ -426,6 +438,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                         )
                         DesktopApp.PERFORMANCE -> PerformanceApp(sample)
                     }
+                }
+                }
                 }
             }
 
