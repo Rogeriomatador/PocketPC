@@ -1,7 +1,13 @@
 # Desktop adaptado ao celular — alpha22
 
 Data: 2026-09-08. Alterações de interface: IMPLEMENTED. Experimentos abaixo: DESIGN.
-Os resultados de compilação e testes devem ser consultados no PR que acompanha esta revisão.
+A revisão `5bb598351c0cafdc9270dc6d7ce33abcda0c5bb4` foi compilada localmente:
+140 testes unitários passaram, sem falhas, e o lint terminou com 0 erros,
+69 avisos e 1 sugestão. Os 20 verificadores Python também passaram.
+Foi usado `-Ppocketpc.skipNativeBuild=true`: não valida o APK completo nem o runtime
+nativo. Instalação, validação visual no aparelho e benchmarks não foram executados.
+Veja o [registro com tarefas, testes e avisos](validation/alpha22-mobile-local.json).
+O CI desta revisão encerrou sem runner e sem etapas executadas.
 
 ## Problema confirmado
 
