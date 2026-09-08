@@ -47,6 +47,7 @@ import dev.pocketpc.core.runtime.WindowsPrefixReadinessProbe
 import dev.pocketpc.core.runtime.WindowsRuntimeLayerPackageManager
 import dev.pocketpc.core.runtime.StagedWindowsRuntimeLayer
 import dev.pocketpc.core.runtime.WindowsRuntimeLayerDeployManager
+import dev.pocketpc.core.runtime.DeployedWindowsRuntimeLayer
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -1321,7 +1322,10 @@ fun RuntimeApp(
                     }
                 val deployedWindowsLayers by
                     produceState(
-                        initialValue = emptyList(),
+                        initialValue =
+                            emptyList<
+                                DeployedWindowsRuntimeLayer
+                            >(),
                         key1 = runtime,
                         key2 = evidenceRevision,
                         key3 = stagedWindowsLayers,
