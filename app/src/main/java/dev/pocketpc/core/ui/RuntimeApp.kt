@@ -100,6 +100,10 @@ fun RuntimeApp(
                 substrate = substrate,
                 installedRuntimeCount =
                     installed.size,
+                preparedRuntimeCount =
+                    installed.count { runtime ->
+                        runtime.stats.linksRecorded == 0 || runtime.linksPrepared
+                    },
             )
 
 
