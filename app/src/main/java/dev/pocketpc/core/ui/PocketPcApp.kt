@@ -110,9 +110,40 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     var storagePickerError by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeManifestUri by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeRootfsUri by rememberSaveable { mutableStateOf<String?>(null) }
-    var runtimeTarget by remember {
-        mutableStateOf<PcApplicationTarget?>(null)
+    var runtimeTargetUri by rememberSaveable {
+        mutableStateOf<String?>(null)
     }
+    var runtimeTargetName by rememberSaveable {
+        mutableStateOf<String?>(null)
+    }
+    var runtimeTargetSize by rememberSaveable {
+        mutableLongStateOf(0L)
+    }
+    val runtimeTarget =
+        runtimeTargetUri?.let { uri ->
+            runtimeTargetName?.let { name ->
+                PcApplicationTarget(
+                    uri = uri,
+                    fileName = name,
+                    sizeBytes = runtimeTargetSize,
+                )
+            }
+        }
+
+    fun selectRuntimeTarget(
+        target: PcApplicationTarget,
+    ) {
+        runtimeTargetUri = target.uri
+        runtimeTargetName = target.fileName
+        runtimeTargetSize = target.sizeBytes
+    }
+
+    fun clearRuntimeTarget() {
+        runtimeTargetUri = null
+        runtimeTargetName = null
+        runtimeTargetSize = 0L
+    }
+
     var wallpaperEditorUri by remember {
         mutableStateOf<String?>(null)
     }
@@ -306,7 +337,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                                 storagePickerError = null
                             },
                             onOpenRuntime = { target ->
-                                runtimeTarget = target
+                                selectRuntimeTarget(target)
                                 desktop.open(
                                     DesktopApp.RUNTIMES
                                 )
@@ -319,7 +350,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                                 repository = storage,
                                 rootUri = storageRoot,
                                 onOpenRuntime = { target ->
-                                    runtimeTarget = target
+                                    selectRuntimeTarget(target)
                                     desktop.open(
                                         DesktopApp.RUNTIMES
                                     )
@@ -363,9 +394,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             nativeHost = nativeHost,
                             substrate = substrate,
                             target = runtimeTarget,
-                            onClearTarget = {
-                                runtimeTarget = null
-                            },
+                            onClearTarget =
+                                ::clearRuntimeTarget,
                             manifestUri = runtimeManifestUri,
                             rootfsUri = runtimeRootfsUri,
                             onChooseManifest = {
