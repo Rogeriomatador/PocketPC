@@ -16,6 +16,10 @@ import dev.pocketpc.core.runtime.PcRuntimeExecutionGateState
 import dev.pocketpc.core.runtime.PcRuntimeExecutionPlanner
 import dev.pocketpc.core.runtime.PcRuntimeReadinessProbe
 import dev.pocketpc.core.runtime.PcRuntimeStageState
+import dev.pocketpc.core.runtime.ProotExecutionController
+import dev.pocketpc.core.runtime.ProotExecutionState
+import dev.pocketpc.core.runtime.ProotInvocationPlan
+import dev.pocketpc.core.runtime.ProotInvocationPlanner
 import dev.pocketpc.core.runtime.RootfsLinkManager
 import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimeManifestValidator
@@ -39,6 +43,18 @@ fun RuntimeApp(
     onClearSelection: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val executionController =
+        remember {
+            ProotExecutionController()
+        }
+    var pendingExecution by remember {
+        mutableStateOf<
+            Pair<
+                InstalledRuntime,
+                ProotInvocationPlan
+            >?
+        >(null)
+    }
     var staged by remember { mutableStateOf<List<StagedRuntime>>(emptyList()) }
     var installed by remember { mutableStateOf<List<InstalledRuntime>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
@@ -521,10 +537,40 @@ fun RuntimeApp(
                 items = installed,
                 key = { "installed:${it.manifest.id}:${it.manifest.version}" },
             ) { runtime ->
+                val invocationPlan =
+                    ProotInvocationPlanner.build(
+                        runtime = runtime,
+                        substrate = substrate,
+                        binds = emptyList(),
+                        allowedHostRoots =
+                            emptyList(),
+                    )
+                val executionRequestReady =
+                    invocationPlan.argv.isNotEmpty() &&
+                        invocationPlan.blockers ==
+                        listOf(
+                            ProotExecutionController
+                                .EXECUTION_APPROVAL_BLOCKER
+                        )
+
                 InstalledRuntimeCard(
                     runtime = runtime,
                     enabled = !busy,
-                    executionReady = substrate.prootReady,
+                    executionReady =
+                        executionRequestReady,
+                    onRunProbe =
+                        if (
+                            executionRequestReady &&
+                            !busy
+                        ) {
+                            {
+                                pendingExecution =
+                                    runtime to
+                                        invocationPlan
+                            }
+                        } else {
+                            null
+                        },
                     onPrepareLinks = if (runtime.stats.linksRecorded > 0 && !runtime.linksPrepared) {
                         {
                             busy = true
@@ -561,6 +607,116 @@ fun RuntimeApp(
                 )
             }
         }
+    }
+
+    pendingExecution?.let {
+        (runtime, plan) ->
+        AlertDialog(
+            onDismissRequest = {
+                pendingExecution = null
+            },
+            title = {
+                Text("Executar probe ARM64?")
+            },
+            text = {
+                Column(
+                    verticalArrangement =
+                        Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        runtime.manifest.name +
+                            " " +
+                            runtime.manifest.version
+                    )
+                    Text(
+                        "Entrypoint: " +
+                            runtime.manifest.entrypoint,
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                    )
+                    Text(
+                        "Este é um teste R1 do userspace Linux. " +
+                            "Não executa Wine, Box64 ou Roblox. " +
+                            "O processo terá timeout e saída " +
+                            "capturada pelo PocketPC.",
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        pendingExecution = null
+                        busy = true
+                        status =
+                            "R1_EXECUTION_ATTEMPT"
+                        scope.launch {
+                            val result =
+                                executionController
+                                    .executeOneShot(
+                                        plan = plan,
+                                        userApproved =
+                                            true,
+                                    )
+                            status =
+                                buildString {
+                                    append(
+                                        "R1_"
+                                    )
+                                    append(
+                                        result.state.name
+                                    )
+                                    result.exitCode
+                                        ?.let {
+                                            append(
+                                                " exit="
+                                            )
+                                            append(it)
+                                        }
+                                    if (
+                                        result.output
+                                            .isNotBlank()
+                                    ) {
+                                        append(
+                                            " • "
+                                        )
+                                        append(
+                                            result.output
+                                                .replace(
+                                                    "\n",
+                                                    " "
+                                                )
+                                                .take(300)
+                                        )
+                                    }
+                                    result.error
+                                        ?.let {
+                                            append(
+                                                " • "
+                                            )
+                                            append(it)
+                                        }
+                                }
+                            busy = false
+                        }
+                    },
+                ) {
+                    Text("Executar uma vez")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingExecution = null
+                    }
+                ) {
+                    Text("Cancelar")
+                }
+            },
+        )
     }
 }
 
@@ -601,6 +757,7 @@ private fun InstalledRuntimeCard(
     runtime: InstalledRuntime,
     enabled: Boolean,
     executionReady: Boolean,
+    onRunProbe: (() -> Unit)?,
     onPrepareLinks: (() -> Unit)?,
     onVerifyLinks: (() -> Unit)?,
     onRemove: () -> Unit,
@@ -626,11 +783,26 @@ private fun InstalledRuntimeCard(
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                "Execução Linux: ${if (executionReady) "SUBSTRATE PRESENT / EXECUTOR DESLIGADO" else "BLOQUEADA"}",
-                style = MaterialTheme.typography.labelSmall,
+                "R1 Linux: " +
+                    if (executionReady) {
+                        "PRONTO PARA CONFIRMAÇÃO"
+                    } else {
+                        "BLOQUEADO"
+                    },
+                style =
+                    MaterialTheme.typography
+                        .labelSmall,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (onRunProbe != null) {
+                    Button(
+                        onClick = onRunProbe,
+                        enabled = enabled,
+                    ) {
+                        Text("Probe ARM64")
+                    }
+                }
                 if (onPrepareLinks != null) {
                     TextButton(onClick = onPrepareLinks, enabled = enabled) { Text("Preparar links") }
                 }
