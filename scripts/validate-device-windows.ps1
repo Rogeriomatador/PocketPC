@@ -618,7 +618,14 @@ Write-Host "PocketPC Physical Validation concluída." -ForegroundColor Green
 Write-Host "Classification : PHYSICAL_DEVICE_CHAIN_VERIFIED"
 Write-Host "Source commit  : $expectedCommit"
 Write-Host "Bundle SHA-256 : $bundleHash"
-Write-Host "Landscape      : $desktopLandscape"
+Write-Host (
+    "Orientation    : {0} (adaptive)" -f
+    $(if ($desktopLandscape) {
+        "LANDSCAPE"
+    } else {
+        "PORTRAIT"
+    })
+)
 Write-Host "PC hardware    : $($desktopEvidence.pcHardwareType)"
 Write-Host "Host filesystem: $hostFilesystemPassed"
 Write-Host "Linux links    : $runtimeLinksReady"
