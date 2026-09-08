@@ -37,6 +37,9 @@ fun RuntimeApp(
     var installed by remember { mutableStateOf<List<InstalledRuntime>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
+    var showPcRuntimeStages by remember {
+        mutableStateOf(false)
+    }
 
     suspend fun reload() {
         staged = manager.discover()
@@ -114,8 +117,24 @@ fun RuntimeApp(
                             .labelSmall,
                 )
 
-                pcReadiness.stages.forEach {
-                    stage ->
+                TextButton(
+                    onClick = {
+                        showPcRuntimeStages =
+                            !showPcRuntimeStages
+                    },
+                ) {
+                    Text(
+                        if (showPcRuntimeStages) {
+                            "Ocultar etapas"
+                        } else {
+                            "Ver etapas"
+                        }
+                    )
+                }
+
+                if (showPcRuntimeStages) {
+                    pcReadiness.stages.forEach {
+                        stage ->
                     val stateText =
                         when (stage.state) {
                             PcRuntimeStageState.READY ->
@@ -191,6 +210,9 @@ fun RuntimeApp(
                                         .onSurfaceVariant,
                             )
                         }
+                    }
+                }
+
                     }
                 }
 
