@@ -24,6 +24,32 @@ class WallpaperTransformTest {
     }
 
     @Test
+    fun simpleSolidWallpaperPresetsRemainAvailable() {
+        assertEquals(
+            WallpaperPreset.SOLID_BLACK,
+            WallpaperPreset.fromKey(
+                "solid_black"
+            ),
+        )
+        assertEquals(
+            WallpaperPreset.SOLID_WHITE,
+            WallpaperPreset.fromKey(
+                "solid_white"
+            ),
+        )
+        assertEquals(
+            1,
+            WallpaperPreset.SOLID_BLACK
+                .colors.distinct().size,
+        )
+        assertEquals(
+            1,
+            WallpaperPreset.SOLID_WHITE
+                .colors.distinct().size,
+        )
+    }
+
+    @Test
     fun defaultTransformIsCenteredCrop() {
         val safe =
             WallpaperTransform().sanitized()
