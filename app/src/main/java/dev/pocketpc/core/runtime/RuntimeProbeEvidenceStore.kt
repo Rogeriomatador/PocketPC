@@ -6,8 +6,8 @@ import java.nio.charset.StandardCharsets
 
 data class RuntimeProbeEvidenceState(
     val box64SmokePassed: Boolean,
-    val displayBridgeSmokePassed: Boolean = false,
     val wineSmokePassed: Boolean,
+    val displayBridgeSmokePassed: Boolean = false,
     val d3d11SmokePassed: Boolean = false,
     val graphicsPresentationSmokePassed: Boolean = false,
     val windowsProcessSmokePassed: Boolean = false,
