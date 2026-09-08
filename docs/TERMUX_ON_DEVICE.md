@@ -65,9 +65,34 @@ through `~/.profile`.
 It deliberately does **not** claim the Android SDK 37 or NDK host-toolchain problem is
 solved. A successful base-tooling bootstrap is not an APK build.
 
+## Bootstrap the Android SDK base
+
+After Java/Gradle/aapt2/CMake/Ninja are available, install the architecture-independent
+Android platform plus the Java payload from the locked build-tools archive:
+
+```bash
+bash scripts/termux-bootstrap-android-sdk.sh
+source ~/.profile
+bash scripts/termux-on-device-preflight.sh
+```
+
+The script resolves the official Google repository index, downloads the locked
+platform/build-tools archives, verifies the checksums published in that index, creates
+`local.properties`, and configures the Termux-native `aapt2` override.
+
+This still does not prove the Google Linux build-tools native executables work on
+ARM64. The next safe gate is a Kotlin/unit-test smoke that does not assemble an APK:
+
+```bash
+bash scripts/termux-kotlin-unit-test.sh
+```
+
+Only a final `TERMUX_KOTLIN_COMPILE_UNIT_TEST_PASS` is a software-test PASS for that
+exact revision. It is not an APK/native/physical PASS.
+
 ## Useful Termux packages
 
-Current Termux repositories provide OpenJDK 17 and Android packaging tools such as
+Current Termux repositories provide OpenJDK and Android packaging tools such as
 aapt2. A typical research environment can therefore include tools such as:
 
 ```text
