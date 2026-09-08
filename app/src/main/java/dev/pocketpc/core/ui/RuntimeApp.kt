@@ -246,19 +246,28 @@ fun RuntimeApp(
                             )
                         }
 
-                    Button(
-                        onClick = {},
-                        enabled =
-                            executionPlan.launchEligible,
+                    Surface(
+                        tonalElevation = 1.dp,
+                        shape =
+                            MaterialTheme.shapes.small,
                     ) {
                         Text(
                             if (
                                 executionPlan.launchEligible
                             ) {
-                                "Executar com evidência"
+                                "Runtime base elegível; " +
+                                    "o executor Windows " +
+                                    "específico ainda precisa " +
+                                    "ser conectado antes de " +
+                                    "oferecer execução."
                             } else {
                                 "Execução bloqueada pelos gates"
-                            }
+                            },
+                            modifier =
+                                Modifier.padding(8.dp),
+                            style =
+                                MaterialTheme.typography
+                                    .labelSmall,
                         )
                     }
                 }
