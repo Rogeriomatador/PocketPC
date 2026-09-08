@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RuntimeApp(
     manager: RuntimePackageManager,
@@ -75,7 +77,7 @@ fun RuntimeApp(
     var installed by remember { mutableStateOf<List<InstalledRuntime>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
-    var showPcRuntimeStages by remember {
+    var showPcRuntimeStages by rememberSaveable {
         mutableStateOf(false)
     }
 
@@ -86,9 +88,28 @@ fun RuntimeApp(
 
     LaunchedEffect(Unit) { reload() }
 
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Runtimes", style = MaterialTheme.typography.titleMedium)
+        val pcReadiness =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost = nativeHost,
+                substrate = substrate,
+                installedRuntimeCount =
+                    installed.size,
+            )
 
+
+    val scrollState = rememberLazyListState()
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        state = scrollState,
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item(key = "heading") {
+            Text("Runtimes", style = MaterialTheme.typography.titleMedium)
+            Text("Role para ver todas as etapas e opções.", style = MaterialTheme.typography.bodySmall)
+        }
+
+        item(key = "diagnostic") {
         Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
             Column(
                 Modifier.fillMaxWidth().padding(12.dp),
@@ -109,11 +130,14 @@ fun RuntimeApp(
                     Text(if (showSubstrateDetails) "Ocultar diagnóstico" else "Ver requisitos do runtime")
                 }
                 if (showSubstrateDetails) {
-                    Column(Modifier.heightIn(max = 180.dp).verticalScroll(rememberScrollState())) {
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Text("Execution substrate", style = MaterialTheme.typography.titleSmall)
-                        ValueRow("Native host", if (nativeHost.loaded) "LOADED" else "FAILED")
-                        ValueRow("Substrate", substrate.state)
-                        ValueRow(
+                        RuntimeDetailRow("Native host", if (nativeHost.loaded) "LOADED" else "FAILED")
+                        RuntimeDetailRow("Substrate", substrate.state)
+                        RuntimeDetailRow(
                             "PRoot components",
                             when {
                                 substrate.prootReady ->
@@ -139,7 +163,7 @@ fun RuntimeApp(
                             )
                         }
                         substrate.components.forEach { component ->
-                            ValueRow(component.fileName, when {
+                            RuntimeDetailRow(component.fileName, when {
                                 !component.exists -> "AUSENTE"
                                 !component.readable -> "SEM LEITURA"
                                 component.executableRequired && !component.executable -> "SEM EXECUÇÃO"
@@ -153,13 +177,7 @@ fun RuntimeApp(
             }
         }
 
-        val pcReadiness =
-            PcRuntimeReadinessProbe.assess(
-                nativeHost = nativeHost,
-                substrate = substrate,
-                installedRuntimeCount =
-                    installed.size,
-            )
+        }
 
         target?.let { selectedTarget ->
             val compatibility =
@@ -175,6 +193,7 @@ fun RuntimeApp(
                     compatibility = compatibility,
                 )
 
+            item(key = "selected-target") {
             Surface(
                 tonalElevation = 3.dp,
                 shape = MaterialTheme.shapes.medium,
@@ -186,13 +205,12 @@ fun RuntimeApp(
                     verticalArrangement =
                         Arrangement.spacedBy(6.dp),
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement =
-                            Arrangement.SpaceBetween,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Column(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalArrangement =
                                 Arrangement.spacedBy(2.dp),
                         ) {
@@ -311,6 +329,9 @@ fun RuntimeApp(
             }
         }
 
+        }
+
+        item(key = "compatibility") {
         Surface(
             tonalElevation = 2.dp,
             shape = MaterialTheme.shapes.medium,
@@ -387,26 +408,23 @@ fun RuntimeApp(
                             verticalArrangement =
                                 Arrangement.spacedBy(2.dp),
                         ) {
-                            Row(
-                                modifier =
-                                    Modifier.fillMaxWidth(),
-                                horizontalArrangement =
-                                    Arrangement
-                                        .SpaceBetween,
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 Text(
                                     stage.label,
                                     style =
                                         MaterialTheme
                                             .typography
-                                            .bodySmall,
+                                            .bodyMedium,
                                 )
                                 Text(
                                     stateText,
                                     style =
                                         MaterialTheme
                                             .typography
-                                            .labelSmall,
+                                            .bodySmall,
                                     color =
                                         when (
                                             stage.state
@@ -431,7 +449,7 @@ fun RuntimeApp(
                                 style =
                                     MaterialTheme
                                         .typography
-                                        .labelSmall,
+                                        .bodySmall,
                                 color =
                                     MaterialTheme
                                         .colorScheme
@@ -458,8 +476,12 @@ fun RuntimeApp(
             }
         }
 
+        }
+
+        item(key = "import-controls") {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Importar rootfs", style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             OutlinedButton(onClick = onChooseManifest, enabled = !busy) {
                 Text(if (manifestUri == null) "Manifesto" else "Manifesto ✓")
             }
@@ -468,7 +490,7 @@ fun RuntimeApp(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Button(
                 enabled = !busy && manifestUri != null && rootfsUri != null,
                 onClick = {
@@ -512,10 +534,9 @@ fun RuntimeApp(
 
         HorizontalDivider()
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        }
+        }
+
             item {
                 Text("STAGED_VERIFIED", style = MaterialTheme.typography.titleSmall)
             }
@@ -688,7 +709,6 @@ fun RuntimeApp(
                     },
                 )
             }
-        }
     }
 
     pendingExecution?.let {
@@ -702,6 +722,7 @@ fun RuntimeApp(
             },
             text = {
                 Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement =
                         Arrangement.spacedBy(6.dp),
                 ) {
@@ -802,6 +823,7 @@ fun RuntimeApp(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StagedRuntimeCard(
     runtime: StagedRuntime,
@@ -823,7 +845,7 @@ private fun StagedRuntimeCard(
             Text("archive: ${runtime.manifest.archiveFormat}", style = MaterialTheme.typography.bodySmall)
             Text("sha256: ${runtime.manifest.rootfsSha256.take(16)}…", style = MaterialTheme.typography.bodySmall)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onAudit, enabled = enabled) { Text("Auditar") }
                 if (onInstall != null) {
                     TextButton(onClick = onInstall, enabled = enabled) { Text("Extrair dados") }
@@ -834,6 +856,7 @@ private fun StagedRuntimeCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun InstalledRuntimeCard(
     runtime: InstalledRuntime,
@@ -876,7 +899,7 @@ private fun InstalledRuntimeCard(
                         .labelSmall,
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (onRunProbe != null) {
                     Button(
                         onClick = onRunProbe,
@@ -894,5 +917,14 @@ private fun InstalledRuntimeCard(
                 TextButton(onClick = onRemove, enabled = enabled) { Text("Remover") }
             }
         }
+    }
+}
+
+@Composable
+private fun RuntimeDetailRow(label: String, value: String) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }

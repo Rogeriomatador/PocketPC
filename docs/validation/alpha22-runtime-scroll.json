@@ -1,0 +1,43 @@
+{
+  "kind": "runtime-scroll-local-validation",
+  "baseRevision": "f9519a72f928f9ff037fd2ba74f0ef7d2e1e100e",
+  "changedSource": {
+    "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt": "d6a1331dcb77b89520b05ef5f0639b8d83468741"
+  },
+  "changes": [
+    "One LazyColumn contains all screen sections; no nested diagnostic scroll.",
+    "rememberLazyListState and rememberSaveable preserve scroll/expanded state during recreation.",
+    "Stage labels and statuses stack; action groups use FlowRow.",
+    "Confirmation text remains vertically scrollable."
+  ],
+  "gradle": {
+    "tasks": [
+      ":app:testDebugUnitTest",
+      ":app:lintDebug"
+    ],
+    "property": "pocketpc.skipNativeBuild=true",
+    "exitCode": 0,
+    "result": "BUILD SUCCESSFUL in 1m 26s"
+  },
+  "unitTests": {
+    "tests": 140,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": {
+    "Warning": 69,
+    "Hint": 1
+  },
+  "desktopPolicy": "PASS",
+  "notExecuted": [
+    "full native APK build",
+    "device installation",
+    "portrait/landscape UI gesture and screenshot verification"
+  ],
+  "deviceChecks": [
+    "Open both diagnostic and stages, scroll from title to last installed-runtime entry.",
+    "Rotate with stages open, then scroll both directions.",
+    "Verify narrow window and enlarged font keep all action buttons reachable."
+  ]
+}
