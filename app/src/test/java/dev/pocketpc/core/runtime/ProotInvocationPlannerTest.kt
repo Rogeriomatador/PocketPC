@@ -74,7 +74,7 @@ class ProotInvocationPlannerTest {
             )
 
             assertFalse(plan.ready)
-            assertEquals(listOf("EXECUTOR_NOT_ENABLED"), plan.blockers)
+            assertEquals(listOf("EXECUTION_REQUIRES_USER_APPROVAL"), plan.blockers)
             assertTrue(plan.argv.contains("-r"))
             assertTrue(plan.argv.contains("-b"))
             assertTrue(plan.argv.last() == "/bin/sh")
