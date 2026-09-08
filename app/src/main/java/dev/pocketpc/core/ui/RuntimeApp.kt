@@ -1356,15 +1356,22 @@ fun RuntimeApp(
                             ProotExecutionController
                                 .EXECUTION_APPROVAL_BLOCKER
                         )
+                val deployedWindowsLayers =
+                    deployedWindowsLayersByRuntime[
+                        runtimeLayerStateKey(runtime)
+                    ].orEmpty()
                 val runtimeProbeEvidence =
                     remember(
                         runtime,
                         installedTools,
+                        deployedWindowsLayers,
                         evidenceRevision,
                     ) {
                         probeEvidenceStore.stateFor(
                             runtime = runtime,
                             tools = installedTools,
+                            layers =
+                                deployedWindowsLayers,
                         )
                     }
                 val runtimeHome =
@@ -1403,35 +1410,6 @@ fun RuntimeApp(
                             )
                         }
                     }
-                val deployedWindowsLayers by
-                    produceState(
-                        initialValue =
-                            emptyList<
-                                DeployedWindowsRuntimeLayer
-                            >(),
-                        key1 = runtime,
-                        key2 = evidenceRevision,
-                        key3 = stagedWindowsLayers,
-                    ) {
-                        value =
-                            withContext(
-                                Dispatchers.IO,
-                            ) {
-                                val manager =
-                                    windowsLayerDeployManager
-                                val plan =
-                                    runtimePrefixPlan
-                                if (
-                                    manager != null &&
-                                    plan != null &&
-                                    runtimePrefixReady
-                                ) {
-                                    manager.discover(plan)
-                                } else {
-                                    emptyList()
-                                }
-                            }
-                    }
 
                 InstalledRuntimeCard(
                     runtime = runtime,
@@ -1445,10 +1423,15 @@ fun RuntimeApp(
                         ) {
                             {
                                 pendingExecution =
-                                    Triple(
-                                        runtime,
-                                        invocationPlan,
-                                        selectedProbe,
+                                    PendingRuntimeProbeExecution(
+                                        runtime =
+                                            runtime,
+                                        plan =
+                                            invocationPlan,
+                                        probe =
+                                            selectedProbe,
+                                        layers =
+                                            deployedWindowsLayers,
                                     )
                             }
                         } else {
@@ -1557,6 +1540,8 @@ fun RuntimeApp(
                                                                 it.manifest.id +
                                                                 " " +
                                                                 it.manifest.version
+                                                        reload()
+                                                        reload()
                                                         evidenceRevision +=
                                                             1
                                                     }
@@ -1637,7 +1622,12 @@ fun RuntimeApp(
     }
 
     pendingExecution?.let {
-        (runtime, plan, probe) ->
+        (
+            runtime,
+            plan,
+            probe,
+            executedLayers,
+        ) ->
         AlertDialog(
             onDismissRequest = {
                 pendingExecution = null
@@ -1696,6 +1686,8 @@ fun RuntimeApp(
                                         result = result,
                                         runtime = runtime,
                                         tools = installedTools,
+                                        layers =
+                                            executedLayers,
                                     )
                             if (evidenceRecorded) {
                                 evidenceRevision += 1
