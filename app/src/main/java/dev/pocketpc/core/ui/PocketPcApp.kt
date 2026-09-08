@@ -77,6 +77,12 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val capabilityMonitor = remember { DesktopCapabilityMonitor(appContext) }
     val telemetry = remember { TelemetryMonitor(appContext) }
     val storage = remember { StorageRepository(appContext) }
+    val firstRunStore = remember {
+        PocketPcFirstRunStore(appContext)
+    }
+    var showFirstRun by rememberSaveable {
+        mutableStateOf(firstRunStore.shouldShow())
+    }
     val terminal = remember { LocalShellEngine(appContext) }
     val runtimes = remember { RuntimePackageManager(appContext) }
     val installer = remember { RuntimeInstallManager(appContext, runtimes) }
@@ -360,6 +366,15 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+
+        if (showFirstRun) {
+            PocketPcFirstRunExperience(
+                onComplete = {
+                    firstRunStore.complete()
+                    showFirstRun = false
+                },
+            )
+        }
     }
     }
 }
