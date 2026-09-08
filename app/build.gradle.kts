@@ -37,10 +37,20 @@ val pocketPcReleaseSigningConfigured =
         pocketPcSigningKeyPassword,
     ).all { !it.isNullOrBlank() }
 
+val pocketPcSkipNativeBuild =
+    providers.gradleProperty(
+        "pocketpc.skipNativeBuild"
+    )
+        .orNull
+        ?.toBooleanStrictOrNull()
+        ?: false
+
 android {
     namespace = "dev.pocketpc.core"
     compileSdk = 37
-    ndkVersion = "29.0.14206865"
+    if (!pocketPcSkipNativeBuild) {
+        ndkVersion = "29.0.14206865"
+    }
 
     defaultConfig {
         applicationId = "dev.pocketpc.core"
@@ -49,8 +59,11 @@ android {
         versionCode = 21
         versionName = "0.1.0-alpha21"
 
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+        if (!pocketPcSkipNativeBuild) {
+            ndk {
+                abiFilters +=
+                    listOf("arm64-v8a", "x86_64")
+            }
         }
 
         buildConfigField(
@@ -71,9 +84,11 @@ android {
             "pocketPcSourceRevisionPinned"
         ] = pocketPcSourceRevisionPinned.toString()
 
-        externalNativeBuild {
-            cmake {
-                cppFlags += "-std=c++20"
+        if (!pocketPcSkipNativeBuild) {
+            externalNativeBuild {
+                cmake {
+                    cppFlags += "-std=c++20"
+                }
             }
         }
     }
@@ -123,10 +138,12 @@ android {
         }
     }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+    if (!pocketPcSkipNativeBuild) {
+        externalNativeBuild {
+            cmake {
+                path = file("src/main/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
         }
     }
 
