@@ -121,4 +121,34 @@ class GuestRuntimeProbeTest {
         assertTrue(script.contains("exit 8"))
         assertTrue(script.contains("exit 9"))
     }
+    @Test
+    fun wineSmokeProbeUsesIsolatedPrefixAndEmbeddedPe64() {
+        val script = GuestRuntimeProbe.WINE_SMOKE.script
+        assertTrue(
+            script.contains(
+                "POCKETPC_WINE_WIN64_SMOKE_PROBE_V1",
+            ),
+        )
+        assertTrue(
+            script.contains(
+                "/home/pocket/windows-prefixes/smoke",
+            ),
+        )
+        assertTrue(
+            script.contains(
+                "/opt/pocketpc/wine/share/tests/pocketpc-win64-smoke.exe",
+            ),
+        )
+        assertTrue(
+            script.contains(
+                "WINEARCH=win64",
+            ),
+        )
+        assertTrue(
+            script.contains(
+                "wine_win64_smoke=passed",
+            ),
+        )
+    }
+
 }
