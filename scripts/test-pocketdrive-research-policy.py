@@ -115,7 +115,7 @@ CHECKS = {
         "This bootstrap does not install Android SDK platform 37 or an NDK host toolchain.",
     ),
     "scripts/termux-bootstrap-android-sdk.sh": (
-        "SDK_INSTALL_ONLY_NOT_A_BUILD", "repository2-1.xml", "SDK_ARCHIVE_CHECKSUM_MISMATCH",
+        "SDK_INSTALL_ONLY_NOT_A_BUILD", "repository2-3.xml", "SDK_ARCHIVE_CHECKSUM_MISMATCH",
         "android.aapt2FromMavenOverride", "TERMUX_ANDROID_SDK_BASE_INSTALLED",
         "This script does not compile Kotlin, build an APK, sign, install, or update PocketPC.",
     ),
