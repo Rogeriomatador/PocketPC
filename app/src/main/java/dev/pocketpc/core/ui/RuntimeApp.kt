@@ -554,15 +554,35 @@ fun RuntimeApp(
                 key = { "installed:${it.manifest.id}:${it.manifest.version}" },
             ) { runtime ->
                 val invocationPlan =
-                    ProotInvocationPlanner.build(
-                        runtime = runtime,
-                        substrate = substrate,
-                        binds =
-                            bindPlanner.base(runtime),
-                        allowedHostRoots =
-                            bindPlanner
-                                .allowedHostRoots(),
-                    )
+                    runCatching {
+                        ProotInvocationPlanner.build(
+                            runtime = runtime,
+                            substrate = substrate,
+                            binds =
+                                bindPlanner
+                                    .base(runtime),
+                            allowedHostRoots =
+                                bindPlanner
+                                    .allowedHostRoots(),
+                        )
+                    }.getOrElse { failure ->
+                        ProotInvocationPlan(
+                            ready = false,
+                            argv = emptyList(),
+                            environment =
+                                emptyMap(),
+                            blockers =
+                                listOf(
+                                    "BIND_PLAN_FAILED:" +
+                                        (
+                                            failure.message
+                                                ?: failure
+                                                    .javaClass
+                                                    .simpleName
+                                            )
+                                ),
+                        )
+                    }
                 val executionRequestReady =
                     invocationPlan.argv.isNotEmpty() &&
                         invocationPlan.blockers ==
