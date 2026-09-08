@@ -1,0 +1,23 @@
+{
+  "proot": {
+    "status": "SOURCE_TEXT_INSPECTED",
+    "files": {
+      "COPYING": "0ffa6454acbe7e410ac6f0007df83b9b3161fe55484c1f4b87487c0f2d228a6d",
+      "src/arch.h": "7aca7be2d1a1c89c5164dd5b959d174ac5a6ba847a791b400da8ec2c36cfea0d"
+    }
+  },
+  "libtalloc": {
+    "status": "SOURCE_TEXT_INSPECTED",
+    "files": {
+      "LICENSE": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+      "talloc.c": "eeefb4b7545b7411d2fd0d7fdce4a2f0c3ebdb2153215dd1494e1f61fd73bb73"
+    },
+    "libraryHeaderDeclaration": "LGPL-3.0-or-later; the pinned Termux recipe still declares GPL-3.0"
+  },
+  "libandroid-shmem": {
+    "status": "SOURCE_TEXT_INSPECTED",
+    "files": {
+      "LICENSE": "0dd43abe17196b0224cb0b159819af798cd508a82a21e5870126fff4e899a7eb"
+    }
+  }
+}

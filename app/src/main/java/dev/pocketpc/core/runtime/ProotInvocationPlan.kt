@@ -53,7 +53,15 @@ object ProotInvocationPlanner {
                 blockers += "READ_ONLY_BIND_UNIMPLEMENTED:${bind.guestPath}"
             }
 
-        val environment = RuntimeEnvironment.forProot(substrate.nativeLibraryDir)
+        val tempBind = binds.singleOrNull {
+            RuntimeBindPolicy.normalizeGuestPath(it.guestPath) == "/tmp" &&
+                it.authority == BindAuthority.SYSTEM && !it.readOnly
+        }
+        if (tempBind == null) blockers += "HOST_TEMP_BIND_MISSING"
+        val environment = RuntimeEnvironment.forProot(
+            substrate.nativeLibraryDir,
+            tempBind?.hostPath?.canonicalPath,
+        )
         blockers += RuntimeEnvironment.validate(environment)
 
         val proot = File(substrate.nativeLibraryDir, "libproot.so")

@@ -1,0 +1,56 @@
+name: PRoot NDK Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/build-proot-ndk.py'
+      - 'third_party/proot/NDK_BUILD.json'
+      - 'third_party/proot/cross-answers-aarch64.txt'
+      - 'third_party/proot/patches/**'
+      - '.github/workflows/proot-ndk-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ndk-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install pinned NDK
+        run: sdkmanager 'ndk;29.0.14206865'
+      - name: Build outside the APK
+        run: |
+          python3 scripts/build-proot-ndk.py \
+            --ndk "$ANDROID_HOME/ndk/29.0.14206865" \
+            --work "$RUNNER_TEMP/pocketpc-proot-ndk" \
+            --source-cache "$RUNNER_TEMP/pocketpc-proot-sources"
+      - name: Retain build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-PRoot-NDK-review-evidence
+          path: |
+            ${{ runner.temp }}/pocketpc-proot-ndk/*.json
+            ${{ runner.temp }}/pocketpc-proot-ndk/*.log
+          if-no-files-found: warn
+      - name: Retain review-only binaries and corresponding sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-PRoot-NDK-unapproved-source-bundle
+          path: |
+            ${{ runner.temp }}/pocketpc-proot-ndk/quarantine/
+            ${{ runner.temp }}/pocketpc-proot-sources/
+            third_party/proot/
+            scripts/build-proot-ndk.py
+            scripts/audit-proot-artifacts.py
+          if-no-files-found: error
+      - name: Verify build did not change runtime approvals
+        run: |
+          git diff --exit-code -- app third_party
+          test -z "$(find app -name 'libproot*.so' -print)"

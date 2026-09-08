@@ -36,4 +36,12 @@ class RuntimeEnvironmentTest {
         val errors = RuntimeEnvironment.validate(mapOf("LD-PRELOAD" to "x"))
         assertFalse(errors.isEmpty())
     }
+
+    @Test
+    fun prootHostTempDoesNotReplaceGuestTmpdir() {
+        val env = RuntimeEnvironment.forProot("/native", "/data/user/0/dev.pocketpc.core/cache/runtime-tmp")
+        assertTrue(env["PROOT_TMP_DIR"] == "/data/user/0/dev.pocketpc.core/cache/runtime-tmp")
+        assertTrue(env["TMPDIR"] == "/tmp")
+        assertTrue(RuntimeEnvironment.validate(env).isEmpty())
+    }
 }

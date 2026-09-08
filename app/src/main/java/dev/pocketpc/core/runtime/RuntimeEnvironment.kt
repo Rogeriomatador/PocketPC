@@ -18,8 +18,9 @@ object RuntimeEnvironment {
         "TERM" to term,
     )
 
-    fun forProot(nativeLibraryDir: String): Map<String, String> =
+    fun forProot(nativeLibraryDir: String, hostTempDirectory: String? = null): Map<String, String> =
         LinkedHashMap(minimal()).apply {
+            hostTempDirectory?.let { put("PROOT_TMP_DIR", it) }
             put(
                 "PROOT_LOADER",
                 File(nativeLibraryDir, "libproot_loader.so").path,
