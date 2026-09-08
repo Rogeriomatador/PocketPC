@@ -223,8 +223,7 @@ if [ ! -f "$PLATFORM_DIR/android.jar" ]; then
     exit 7
 fi
 
-if [ ! -f "$BUILD_TOOLS_DIR/lib/d8.jar" ] &&
-   [ ! -f "$BUILD_TOOLS_DIR/lib/d8.jar" ]; then
+if [ ! -f "$BUILD_TOOLS_DIR/lib/d8.jar" ]; then
     echo "BUILD_TOOLS_JAVA_PAYLOAD_MISSING=$BUILD_TOOLS_DIR" >&2
     exit 8
 fi
