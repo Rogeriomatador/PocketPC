@@ -135,7 +135,7 @@ object GuestToolManifestValidator {
             if (!sha256Regex.matches(item.sha256)) {
                 errors += "GUEST_TOOL_FILE_SHA256_INVALID:" + item.path
             }
-            if (item.bytes <= 0L) {
+            if (item.bytes < 0L) {
                 errors += "GUEST_TOOL_FILE_BYTES_INVALID:" + item.path
             } else {
                 if (Long.MAX_VALUE - totalBytes < item.bytes) {
