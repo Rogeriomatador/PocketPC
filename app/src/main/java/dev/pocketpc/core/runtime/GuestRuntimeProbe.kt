@@ -55,18 +55,50 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 exit 5
             """.trimIndent()
             TOOLCHAIN -> """
-                printf 'POCKETPC_TOOLCHAIN_PROBE_V1\n'
-                for tool in box64 wine wine64; do
-                    if command -v "${'$'}tool" >/dev/null 2>&1; then
-                        printf '\ncomponent=%s\npath=' "${'$'}tool"
-                        command -v "${'$'}tool"
-                        "${'$'}tool" --version
-                        result=${'$'}?
-                        printf 'version_exit=%s\n' "${'$'}result"
+                printf 'POCKETPC_TOOLCHAIN_PROBE_V2\n'
+                probe_tool() {
+                    name="${'
+        }
+}
+}1"
+                    path="${'
+        }
+}
+}2"
+                    printf '\ncomponent=%s\n' "${'
+        }
+}
+}name"
+                    if [ -f "${'
+        }
+}
+}path" ] && [ -x "${'
+        }
+}
+}path" ]; then
+                        printf 'path=%s\n' "${'
+        }
+}
+}path"
+                        "${'
+        }
+}
+}path" --version
+                        result=${'
+        }
+}
+}?
+                        printf 'version_exit=%s\n' "${'
+        }
+}
+}result"
                     else
-                        printf '\ncomponent=%s\nstate=missing\n' "${'$'}tool"
+                        printf 'state=missing_or_not_executable\n'
                     fi
-                done
+                }
+                probe_tool box64 /opt/pocketpc/box64/bin/box64
+                probe_tool wine /opt/pocketpc/wine/bin/wine
+                probe_tool wine64 /opt/pocketpc/wine/bin/wine64
                 printf '\nprobe=complete\napplication_compatibility=not_tested\n'
             """.trimIndent()
         }
