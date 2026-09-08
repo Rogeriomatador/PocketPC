@@ -154,4 +154,56 @@ class PcRuntimeReadinessTest {
         assertFalse(result.executableReady)
     }
 
+    @Test
+    fun smokeEvidencePromotesTranslationAndWineOnly() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                    ),
+            )
+
+        assertEquals(
+            PcRuntimeStageState.READY,
+            result.stages.single {
+                it.id == "x86-64-translation"
+            }.state,
+        )
+        assertEquals(
+            PcRuntimeStageState.READY,
+            result.stages.single {
+                it.id == "win32-compat"
+            }.state,
+        )
+        assertEquals(
+            PcRuntimeStageState.NOT_IMPLEMENTED,
+            result.stages.single {
+                it.id == "graphics-bridge"
+            }.state,
+        )
+        assertFalse(result.executableReady)
+    }
+
 }
