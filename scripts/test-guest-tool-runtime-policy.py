@@ -45,7 +45,7 @@ CHECKS = {
         "BindAuthority.SYSTEM",
     ),
     "app/src/main/java/dev/pocketpc/core/runtime/GuestRuntimeProbe.kt": (
-        "POCKETPC_TOOLCHAIN_PROBE_V2",
+        "POCKETPC_TOOLCHAIN_PROBE_V3",
         "/opt/pocketpc/box64/bin/box64",
         "/opt/pocketpc/wine/bin/wine",
     ),
@@ -86,12 +86,33 @@ def main() -> int:
     wine_build = (ROOT / "scripts/build-wine-x86_64.py").read_text(encoding="utf-8")
     for sentinel in (
         "POCKETPC_WIN64_SMOKE_OK",
+        "POCKETPC_WIN_PROCESS_IPC_SMOKE_OK",
+        "POCKETPC_WINSOCK_SMOKE_OK",
+        "POCKETPC_WINMM_AUDIO_API_OK",
+        "POCKETPC_RAW_INPUT_API_OK",
+        "POCKETPC_D3D11_SMOKE_OK",
+        "POCKETPC_D3D11_PRESENT_SMOKE_OK",
         '"executionMode": "box64-x86_64"',
         '"architecture": "x86_64"',
         "guest-package.zip",
     ):
         if sentinel not in wine_build:
             failures.append("Wine build missing sentinel: " + sentinel)
+
+    android_driver = ROOT / "third_party/wine/ANDROID_DRIVER_REUSE.json"
+    if not android_driver.is_file():
+        failures.append("missing Wine Android driver reuse audit")
+    else:
+        android_text = android_driver.read_text(encoding="utf-8")
+        for sentinel in (
+            '"status": "UPSTREAM_PRESENT_DIRECT_REUSE_BLOCKED_BROKER_REQUIRED"',
+            '"wineSourceCommit": "db11d0fe6a169c457e23d007e20404643d067aa8"',
+            '"guestWineArchitecture": "x86_64"',
+            '"hostArchitecture": "arm64-v8a"',
+            '"protocolImplemented": false',
+        ):
+            if sentinel not in android_text:
+                failures.append("Wine Android reuse audit missing sentinel: " + sentinel)
 
     approval = ROOT / "app/src/main/assets/proot-substrate-approval.json"
     if approval.is_file():
