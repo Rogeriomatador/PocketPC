@@ -22,7 +22,7 @@ object ProotInvocationPlanner {
 
         val launch = RuntimeLaunchPlanner.assess(runtime, substrate)
         launch.blockers
-            .filter { it != LaunchBlocker.EXECUTOR_NOT_IMPLEMENTED }
+            .filter { it != LaunchBlocker.EXECUTOR_DISABLED }
             .forEach { blockers += it.name }
 
         val bindValidation = RuntimeBindPolicy.validate(binds, allowedHostRoots)
@@ -54,7 +54,15 @@ object ProotInvocationPlanner {
                 add("-r")
                 add(runtime.rootfsData.path)
                 add("-w")
-                add("/home/pocket")
+                add(
+                    binds.firstOrNull {
+                        it.purpose == "home"
+                    }?.guestPath
+                        ?.let(
+                            RuntimeBindPolicy::normalizeGuestPath
+                        )
+                        ?: "/"
+                )
                 binds.forEach { bind ->
                     val guest = RuntimeBindPolicy.normalizeGuestPath(bind.guestPath)
                         ?: error("bind guest became invalid after validation")
@@ -67,9 +75,14 @@ object ProotInvocationPlanner {
             emptyList()
         }
 
-        // Foundation only. The executor remains deliberately disabled until
-        // PRoot provenance, packaging, link semantics and device behavior pass.
-        val finalBlockers = (blockers + "EXECUTOR_NOT_ENABLED").distinct()
+        // The candidate is executable only after explicit user approval.
+        // All substrate, path, link, environment and artifact gates above must
+        // already be clear before argv is exposed.
+        val finalBlockers =
+            (
+                blockers +
+                    "EXECUTION_REQUIRES_USER_APPROVAL"
+            ).distinct()
 
         return ProotInvocationPlan(
             ready = false,
