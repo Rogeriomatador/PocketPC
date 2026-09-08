@@ -22,6 +22,7 @@ PREPARE = ROOT / "scripts" / "prepare-update-feed.py"
 PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-update.yml"
 BOOTSTRAP_SIGNER = ROOT / "updates" / "bootstrap-signer.json"
 VERIFY_BOOTSTRAP_SIGNER = ROOT / "scripts" / "verify-bootstrap-signer.py"
+TEST_BOOTSTRAP_SIGNER = ROOT / "scripts" / "test-bootstrap-signer-verifier.py"
 BUILD_GRADLE = ROOT / "app" / "build.gradle.kts"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -242,6 +243,12 @@ def main() -> int:
             "BOOTSTRAP_SIGNER_VERIFY_FAILED",
             "candidate APK signer does not match",
             "--signer-sha256",
+        ),
+        TEST_BOOTSTRAP_SIGNER: (
+            "BOOTSTRAP_SIGNER_SELFTEST_OK",
+            "negative_signer_rejected=true",
+            "malformed_signer_rejected=true",
+            "test-bootstrap-signer-verifier.py",
         ),
         PUBLISH_WORKFLOW: (
             "PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED",
