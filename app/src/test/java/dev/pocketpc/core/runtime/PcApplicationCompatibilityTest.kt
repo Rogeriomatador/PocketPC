@@ -76,7 +76,7 @@ class PcApplicationCompatibilityTest {
             )
 
         assertEquals(
-            PcApplicationCompatibilityKindOrWindows(),
+            PcApplicationKind.WINDOWS_INSTALLER,
             result.kind,
         )
         assertTrue(result.runtimeReady)
@@ -87,8 +87,4 @@ class PcApplicationCompatibilityTest {
             result.state,
         )
     }
-
-    private fun PcApplicationCompatibilityKindOrWindows():
-        PcApplicationKind =
-        PcApplicationKind.WINDOWS_INSTALLER
 }
