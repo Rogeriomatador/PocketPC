@@ -83,9 +83,24 @@ class BrowserSessionState {
     }
 }
 
+data class BrowserWindowActions(
+    val minimized: () -> Unit,
+    val toggleMaximize: () -> Unit,
+    val close: () -> Unit,
+    val maximized: Boolean,
+)
+
 @Composable
-fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+fun BrowserApp(
+    session: BrowserSessionState,
+    storage: StorageRepository,
+    windowActions: BrowserWindowActions? = null,
+) {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val compactWindowControls =
+        configuration.screenWidthDp < 700 ||
+            configuration.screenHeightDp < 500
     var webView by remember { mutableStateOf<WebView?>(null) }
     var address by remember(session.activeTabId) { mutableStateOf(session.activeTab.url) }
     var progress by remember { mutableFloatStateOf(0f) }
@@ -112,13 +127,28 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
             Row(
-                Modifier.fillMaxWidth().height(30.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(30.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                session.tabs.forEach { tab ->
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(
+                            rememberScrollState()
+                        )
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment =
+                        Alignment.CenterVertically,
+                    horizontalArrangement =
+                        Arrangement.spacedBy(3.dp),
+                ) {
+                    session.tabs.forEach { tab ->
                     val active = tab.id == session.activeTabId
                     Surface(
                         Modifier.widthIn(min = 104.dp, max = 210.dp).height(28.dp).clickable { loadTab(tab) },
@@ -141,7 +171,41 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
                         }
                     }
                 }
-                TextButton(onClick = { saveState(); loadTab(session.newTab()) }, modifier = Modifier.size(26.dp), contentPadding = PaddingValues(0.dp)) { Text("+", fontSize = 15.sp) }
+                    TextButton(
+                        onClick = {
+                            saveState()
+                            loadTab(session.newTab())
+                        },
+                        modifier = Modifier.size(26.dp),
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Text("+", fontSize = 15.sp)
+                    }
+                }
+
+                if (
+                    compactWindowControls &&
+                    windowActions != null
+                ) {
+                    BrowserWindowControl("—") {
+                        windowActions.minimized()
+                    }
+                    BrowserWindowControl(
+                        if (windowActions.maximized) {
+                            "▣"
+                        } else {
+                            "□"
+                        }
+                    ) {
+                        windowActions.toggleMaximize()
+                    }
+                    BrowserWindowControl(
+                        label = "×",
+                        danger = true,
+                    ) {
+                        windowActions.close()
+                    }
+                }
             }
         }
 
@@ -433,6 +497,33 @@ fun BrowserApp(session: BrowserSessionState, storage: StorageRepository) {
             webView?.apply { stopLoading(); setDownloadListener(null); webChromeClient = WebChromeClient(); webViewClient = WebViewClient(); destroy() }
             webView = null
         }
+    }
+}
+
+@Composable
+private fun BrowserWindowControl(
+    label: String,
+    danger: Boolean = false,
+    onClick: () -> Unit,
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier
+            .height(30.dp)
+            .widthIn(min = 34.dp),
+        contentPadding = PaddingValues(0.dp),
+    ) {
+        Text(
+            label,
+            fontSize = 13.sp,
+            color =
+                if (danger) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+                },
+        )
     }
 }
 
