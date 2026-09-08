@@ -50,3 +50,26 @@ GitHub Actions jobs on the current PR are being created but terminate in a few
 seconds with no workflow steps exposed. Until a runner actually starts, those
 runs are infrastructure failures and cannot validate or invalidate the new
 build/runtime code.
+
+
+## Guest-tool package chain
+
+Box64/Wine are kept outside the immutable Ubuntu Base rootfs.
+
+The implemented chain is:
+
+1. pinned source identity;
+2. review build outside app/src;
+3. deterministic guest-tool ZIP;
+4. manifest with architecture, guest root, entrypoint, source commit, file size and SHA-256;
+5. trust policy matching the exact pinned version/commit/license;
+6. bounded ZIP staging with traversal/duplicate/size rejection;
+7. full package attestation;
+8. transactional install under app-private noBackup storage;
+9. second attestation after copy;
+10. re-attestation before a SYSTEM bind is exposed under /opt/pocketpc/<tool>;
+11. explicit user-approved PRoot diagnostic execution.
+
+A modified installed tool therefore fails closed on a subsequent overlay plan.
+
+This chain is IMPLEMENTED in source. Package build, Android import/install, guest bind and Box64 execution remain NOT_EXECUTED until valid runner/device evidence exists.
