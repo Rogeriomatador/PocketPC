@@ -212,8 +212,6 @@ fun RuntimeApp(
                         }
                     }
                 }
-
-                    }
                 }
 
                 Text(
