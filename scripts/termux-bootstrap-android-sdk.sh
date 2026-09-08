@@ -189,18 +189,25 @@ install_package() {
 
     unzip -q "$zip" -d "$extract"
 
-    local source_properties
-    source_properties="$(
-        find "$extract" -type f -name source.properties -print |
-            head -1
-    )"
-    if [ -z "$source_properties" ]; then
+    local source_dir
+    source_dir="$(
+        python - "$extract" <<'PY'
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+matches = sorted(
+    root.rglob("source.properties"),
+    key=lambda path: (len(path.parts), str(path)),
+)
+if not matches:
+    raise SystemExit(1)
+print(matches[0].parent)
+PY
+    )" || {
         echo "SDK_ARCHIVE_SOURCE_PROPERTIES_MISSING=$package_path" >&2
         exit 6
-    fi
-
-    local source_dir
-    source_dir="$(dirname "$source_properties")"
+    }
 
     rm -rf "$target"
     mkdir -p "$target"
