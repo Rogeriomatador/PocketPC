@@ -35,6 +35,7 @@ object PcRuntimeReadinessProbe {
         preparedRuntimeCount: Int = installedRuntimeCount,
         ioHost: RuntimeIoHostCapabilities? = null,
         probeEvidence: RuntimeProbeEvidenceState? = null,
+        windowsStateReady: Boolean = false,
     ): PcRuntimeReadiness {
         val stages =
             listOf(
@@ -137,9 +138,25 @@ object PcRuntimeReadinessProbe {
                     id = "windows-state",
                     label = "Filesystem, registro e processos Windows",
                     state =
-                        PcRuntimeStageState.NOT_IMPLEMENTED,
+                        if (
+                            probeEvidence?.wineSmokePassed ==
+                                true &&
+                            windowsStateReady
+                        ) {
+                            PcRuntimeStageState.READY
+                        } else {
+                            PcRuntimeStageState.BLOCKED
+                        },
                     detail =
-                        "Prefixo Windows, registry, processos filhos e IPC ainda precisam de backend.",
+                        when {
+                            probeEvidence?.wineSmokePassed !=
+                                true ->
+                                "O Wine ainda precisa passar pelo smoke Win64 antes do estado Windows ser aceito."
+                            windowsStateReady ->
+                                "Prefixo Wine possui drive_c, dosdevices e registros estruturais válidos."
+                            else ->
+                                "O smoke Wine passou, mas o prefixo ainda não possui a estrutura Windows esperada."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "graphics-bridge",
