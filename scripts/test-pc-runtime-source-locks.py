@@ -63,6 +63,8 @@ def main() -> int:
         failures.append("DXVK signed tag object changed without review")
     if dxvk.get("commit") != "6b20f622a77b87b2921fe5d2c1774d2f2ba3e9b7":
         failures.append("DXVK source commit changed without review")
+    if dxvk.get("license") != "Zlib":
+        failures.append("DXVK license evidence changed without review")
     for gate in ("built", "wineIntegrated", "vulkanGuestTested"):
         if dxvk.get(gate) is not False:
             failures.append(f"DXVK gate must remain false until evidence exists: {gate}")
@@ -72,6 +74,8 @@ def main() -> int:
         failures.append("vkd3d-proton version must remain pinned to 3.0.1")
     if vkd3d.get("commit") != "3b10bd7a7ec6a7347e616cf8bea59333afec2255":
         failures.append("vkd3d-proton source commit changed without review")
+    if vkd3d.get("license") != "LGPL-2.1-or-later":
+        failures.append("vkd3d-proton license evidence changed without review")
     for gate in ("built", "wineIntegrated", "vulkanGuestTested"):
         if vkd3d.get(gate) is not False:
             failures.append(f"vkd3d-proton gate must remain false until evidence exists: {gate}")
