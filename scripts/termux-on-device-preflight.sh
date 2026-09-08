@@ -148,6 +148,20 @@ else
   echo "  android_jar=MISSING"
 fi
 
+BUILD_TOOLS_DIR="$ANDROID_HOME_CANDIDATE/build-tools/$BUILD_TOOLS"
+BUILD_TOOLS_READY=false
+if [ -f "$BUILD_TOOLS_DIR/source.properties" ] &&
+   [ -f "$BUILD_TOOLS_DIR/lib/d8.jar" ]; then
+  BUILD_TOOLS_READY=true
+  echo "  build_tools=FOUND:$BUILD_TOOLS_DIR"
+else
+  echo "  build_tools=MISSING_OR_INCOMPLETE:$BUILD_TOOLS_DIR"
+fi
+
+if has aapt2; then
+  echo "  aapt2_version=$(aapt2 version 2>&1 | head -1)"
+fi
+
 NDK_ROOT="${ANDROID_NDK_HOME:-$ANDROID_HOME_CANDIDATE/ndk/$NDK_VERSION}"
 NDK_CLANG=""
 if [ -d "$NDK_ROOT/toolchains/llvm/prebuilt" ]; then
@@ -187,6 +201,7 @@ JAVA_UI_CANDIDATE=false
 if [ "$STATIC_READY" = true ] &&
    [ "$AAPT2_OK" = true ] &&
    [ "$GRADLE_OK" = true ] &&
+   [ "$BUILD_TOOLS_READY" = true ] &&
    [ -n "$ANDROID_JAR" ]; then
   JAVA_UI_CANDIDATE=true
 fi
