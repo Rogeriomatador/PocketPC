@@ -491,7 +491,7 @@ class GuestToolPackageManager(
         private const val MAX_ENTRIES =
             100_000
         private const val MAX_MANIFEST_BYTES =
-            2L * 1024L * 1024L
+            16L * 1024L * 1024L
         private const val MAX_SINGLE_FILE_BYTES =
             2L * 1024L * 1024L * 1024L
         private const val MAX_TOTAL_BYTES =
