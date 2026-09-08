@@ -52,5 +52,79 @@
     "surfaceRoundTrip": false,
     "pointerRoundTrip": false,
     "keyboardRoundTrip": false
+  },
+  "direction": {
+    "HELLO": "guest-to-host",
+    "HELLO_ACK": "host-to-guest",
+    "WINDOW_CREATE": "guest-to-host",
+    "WINDOW_GEOMETRY": "guest-to-host",
+    "WINDOW_DESTROY": "guest-to-host",
+    "SURFACE_AVAILABLE": "host-to-guest",
+    "POINTER_EVENT": "host-to-guest",
+    "KEY_EVENT": "host-to-guest",
+    "GAMEPAD_EVENT": "host-to-guest",
+    "FRAME_PRESENTED": "host-to-guest",
+    "ERROR": "bidirectional"
+  },
+  "payloadLayouts": {
+    "WINDOW_CREATE": {
+      "bytes": 28,
+      "fields": [
+        "windowId:u64",
+        "parentId:u64",
+        "flags:u32",
+        "width:i32",
+        "height:i32"
+      ]
+    },
+    "WINDOW_GEOMETRY": {
+      "bytes": 32,
+      "fields": [
+        "windowId:u64",
+        "x:i32",
+        "y:i32",
+        "width:i32",
+        "height:i32",
+        "visible:u32",
+        "zOrder:i32"
+      ]
+    },
+    "WINDOW_DESTROY": {
+      "bytes": 8,
+      "fields": [
+        "windowId:u64"
+      ]
+    },
+    "POINTER_EVENT": {
+      "bytes": 32,
+      "fields": [
+        "windowId:u64",
+        "action:u32",
+        "x:i32",
+        "y:i32",
+        "buttons:u32",
+        "verticalScroll:i32",
+        "modifiers:u32"
+      ]
+    },
+    "KEY_EVENT": {
+      "bytes": 28,
+      "fields": [
+        "windowId:u64",
+        "action:u32",
+        "keyCode:u32",
+        "scanCode:u32",
+        "modifiers:u32",
+        "repeatCount:u32"
+      ]
+    },
+    "FRAME_PRESENTED": {
+      "bytes": 20,
+      "fields": [
+        "windowId:u64",
+        "frameId:u64",
+        "status:u32"
+      ]
+    }
   }
 }
