@@ -8,6 +8,7 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
     BOX64_SMOKE("Box64 x86-64", "Executa um ELF x86-64 mínimo e estático através do Box64; não testa Wine nem Roblox."),
     WINE_SMOKE("Wine Win64", "Executa um PE64 mínimo pelo Wine através do Box64, usando um prefixo isolado; não testa gráficos nem Roblox."),
     D3D11_SMOKE("D3D11 → Vulkan", "Força DXVK nativo e cria um dispositivo D3D11; sucesso comprova a ponte gráfica básica, não Roblox."),
+    D3D11_PRESENT_SMOKE("D3D11 Present", "Cria janela, swapchain e chama Present(); sucesso comprova apresentação básica via DXVK."),
     WINDOWS_PROCESS_SMOKE("Processos / IPC", "Cria um processo Win64 filho e confirma IPC por pipe anônimo no Wine."),
     WINSOCK_SMOKE("Winsock", "Valida WSAStartup, socket e resolução de localhost no Wine; não prova internet externa."),
     WINMM_AUDIO_API_SMOKE("WinMM áudio", "Consulta a API WinMM e enumera saídas quando existirem; não prova reprodução de áudio."),
@@ -114,6 +115,19 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 fi
                 printf 'd3d11_dxvk_smoke=failed\nprobe=failed\n'
                 exit 19
+            """.trimIndent()
+            D3D11_PRESENT_SMOKE -> """
+                printf 'POCKETPC_D3D11_PRESENT_SMOKE_PROBE_V1\n'
+                [ -x /opt/pocketpc/box64/bin/box64 ] || { printf 'box64=missing\nprobe=failed\n'; exit 36; }
+                [ -x /opt/pocketpc/wine/bin/wine ] || { printf 'wine=missing\nprobe=failed\n'; exit 37; }
+                [ -f /opt/pocketpc/wine/share/tests/pocketpc-d3d11-present-smoke.exe ] || { printf 'present_smoke=missing\nprobe=failed\n'; exit 38; }
+                [ -f /home/pocket/.pocketpc/windows-layers/dxvk/3.0.2/DEPLOYMENT.tsv ] || { printf 'dxvk=not_deployed\nprobe=failed\n'; exit 39; }
+                if WINEDLLOVERRIDES='d3d11=n;dxgi=n' WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine /opt/pocketpc/wine/share/tests/pocketpc-d3d11-present-smoke.exe; then
+                    printf 'd3d11_present_smoke=passed\nprobe=complete\n'
+                    exit 0
+                fi
+                printf 'd3d11_present_smoke=failed\nprobe=failed\n'
+                exit 40
             """.trimIndent()
             WINDOWS_PROCESS_SMOKE -> """
                 printf 'POCKETPC_WINDOWS_PROCESS_SMOKE_PROBE_V1\n'
