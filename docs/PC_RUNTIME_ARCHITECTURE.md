@@ -1,6 +1,6 @@
 # PocketPC PC Runtime Architecture
 
-Status: **DESIGN / NOT_IMPLEMENTED**
+Status: **PARTIALLY_IMPLEMENTED / EXECUTION_GATED / NOT_EXECUTED**
 
 This document defines the candidate compatibility stack for running legitimate
 Windows x86/x64 software on Android ARM64. It is not evidence that `.exe` files,
@@ -26,7 +26,11 @@ any required gate is BLOCKED, NOT_IMPLEMENTED or UNKNOWN.
      license review before it can become executable.
 
 3. **x86_64 -> ARM64 translation**
-   - Primary candidate: Box64 built explicitly for the Android target.
+   - Primary candidate: Box64 built explicitly for the Android/ARM64 runtime
+     environment.
+   - Upstream exposes Android/Termux build modes, but PocketPC must use the path
+     that runs inside its approved Linux userspace rather than assuming a native
+     Termux build is equivalent to the final runtime.
    - No unreviewed prebuilt Box64 binary may be silently downloaded or bundled.
 
 4. **Windows user-mode compatibility**
@@ -79,8 +83,21 @@ A third-party runtime component can move from candidate to packaged only after:
 ## Milestones
 
 ### R1 — ARM64 Linux command gate
-Execute one controlled ARM64 binary inside the approved substrate and capture
-stdout/stderr/exit code.
+Implementation now includes:
+- fail-closed invocation planning;
+- normalized rootfs entrypoint resolution;
+- environment and bind validation;
+- explicit user approval before process start;
+- supervised one-shot execution with timeout and capped output capture;
+- cancellation through the process supervisor.
+
+**Current evidence:** IMPLEMENTED / NOT_EXECUTED for the new controller. The
+physical device still reports `prootReady=false`, so R1 has not passed and the
+UI must keep the probe blocked until the substrate approval/integrity gates are
+real.
+
+The target result for R1 remains: execute one controlled ARM64 entrypoint inside
+the approved substrate and capture a clean exit code on a physical device.
 
 ### R2 — Box64 probe
 Execute a harmless x86_64 Linux probe through an approved Box64 build and verify
