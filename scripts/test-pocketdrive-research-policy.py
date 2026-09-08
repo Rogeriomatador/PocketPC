@@ -120,9 +120,15 @@ CHECKS = {
         "This script does not compile Kotlin, build an APK, sign, install, or update PocketPC.",
     ),
     "scripts/termux-kotlin-unit-test.sh": (
-        "SOFTWARE_TEST_ATTEMPT", ":app:testDebugUnitTest", "TERMUX_KOTLIN_UNIT_TEST_FAIL",
+        "SOFTWARE_TEST_ATTEMPT", "-Ppocketpc.skipNativeBuild=true",
+        ":app:testDebugUnitTest", "TERMUX_KOTLIN_UNIT_TEST_FAIL",
         "TERMUX_KOTLIN_COMPILE_UNIT_TEST_PASS", "tested_revision=", "tested_tree=",
+        "Native CMake configuration is explicitly disabled",
         "It does not run Android Lint, assemble an APK",
+    ),
+    "app/build.gradle.kts": (
+        'providers.gradleProperty(', '"pocketpc.skipNativeBuild"',
+        "toBooleanStrictOrNull", "if (!pocketPcSkipNativeBuild)",
     ),
 }
 
