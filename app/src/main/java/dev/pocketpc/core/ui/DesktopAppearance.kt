@@ -192,6 +192,8 @@ class DesktopAppearanceState(context: Context) {
     fun selectWallpaper(preset: WallpaperPreset) {
         wallpaper = preset
         customWallpaperUri = null
+        customWallpaperTransform =
+            WallpaperTransform()
         preferences.edit()
             .putString("wallpaper", preset.key)
             .remove("custom_wallpaper_uri")
