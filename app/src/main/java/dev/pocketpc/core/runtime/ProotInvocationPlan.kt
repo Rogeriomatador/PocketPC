@@ -56,11 +56,16 @@ object ProotInvocationPlanner {
                 add("-w")
                 add(
                     binds.firstOrNull {
-                        it.purpose == "home"
+                        RuntimeBindPolicy
+                            .normalizeGuestPath(
+                                it.guestPath
+                            ) ==
+                            "/home/pocket"
                     }?.guestPath
-                        ?.let(
-                            RuntimeBindPolicy::normalizeGuestPath
-                        )
+                        ?.let {
+                            RuntimeBindPolicy
+                                .normalizeGuestPath(it)
+                        }
                         ?: "/"
                 )
                 binds.forEach { bind ->
