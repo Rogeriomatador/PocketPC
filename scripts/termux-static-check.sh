@@ -6,6 +6,31 @@ cd "$ROOT"
 
 echo "PocketPC Termux static repository checks"
 echo "Classification : STATIC_SOURCE_VALIDATION_ONLY"
+
+SOURCE_REVISION="$(git rev-parse HEAD 2>/dev/null || printf 'UNKNOWN')"
+if git diff --quiet --ignore-submodules -- 2>/dev/null &&
+   git diff --cached --quiet --ignore-submodules -- 2>/dev/null; then
+    SOURCE_TREE_STATE="CLEAN"
+else
+    SOURCE_TREE_STATE="DIRTY_OR_UNKNOWN"
+fi
+
+VERSION_INFO="$(
+    python - <<'PY'
+import json
+from pathlib import Path
+lock = json.loads(Path("toolchains/android-build-lock.json").read_text())
+app = lock["app"]
+print(f"{app['versionName']}|{app['versionCode']}")
+PY
+)"
+VERSION_NAME="${VERSION_INFO%%|*}"
+VERSION_CODE="${VERSION_INFO##*|}"
+
+echo "source_revision=$SOURCE_REVISION"
+echo "source_tree=$SOURCE_TREE_STATE"
+echo "version_name=$VERSION_NAME"
+echo "version_code=$VERSION_CODE"
 echo
 
 if ! command -v python >/dev/null 2>&1; then
@@ -51,6 +76,10 @@ done
 echo "PocketPC Termux static checks complete."
 echo "checks_passed=$PASS"
 echo "Classification : TERMUX_STATIC_POLICY_PASS"
+echo "validated_revision=$SOURCE_REVISION"
+echo "validated_version=$VERSION_NAME"
+echo "validated_version_code=$VERSION_CODE"
+echo "validated_tree=$SOURCE_TREE_STATE"
 echo
 echo "Important:"
 echo "  This does not compile Kotlin, run Android Lint, build an APK,"
