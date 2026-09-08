@@ -110,6 +110,12 @@ fun BrowserApp(
     val compactWindowControls =
         configuration.screenWidthDp < 700 ||
             configuration.screenHeightDp < 500
+    val integratedWindowControls =
+        windowActions != null &&
+            (
+                compactWindowControls ||
+                    windowActions.maximized
+            )
     var webView by remember { mutableStateOf<WebView?>(null) }
     var address by remember(session.activeTabId) { mutableStateOf(session.activeTab.url) }
     var progress by remember { mutableFloatStateOf(0f) }
@@ -192,27 +198,24 @@ fun BrowserApp(
                     }
                 }
 
-                if (
-                    compactWindowControls &&
-                    windowActions != null
-                ) {
+                if (integratedWindowControls) {
                     BrowserWindowControl("—") {
-                        windowActions.minimized()
+                        windowActions?.minimized()
                     }
                     BrowserWindowControl(
-                        if (windowActions.maximized) {
+                        if (windowActions?.maximized == true) {
                             "▣"
                         } else {
                             "□"
                         }
                     ) {
-                        windowActions.toggleMaximize()
+                        windowActions?.toggleMaximize()
                     }
                     BrowserWindowControl(
                         label = "×",
                         danger = true,
                     ) {
-                        windowActions.close()
+                        windowActions?.close()
                     }
                 }
             }
