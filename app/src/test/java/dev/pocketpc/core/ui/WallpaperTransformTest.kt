@@ -18,9 +18,9 @@ class WallpaperTransformTest {
             WallpaperFitMode.FIT,
             safe.fitMode,
         )
-        assertEquals(3f, safe.zoom)
-        assertEquals(-1f, safe.offsetX)
-        assertEquals(1f, safe.offsetY)
+        assertEquals(3f, safe.zoom, 0.0001f)
+        assertEquals(-1f, safe.offsetX, 0.0001f)
+        assertEquals(1f, safe.offsetY, 0.0001f)
     }
 
     @Test
@@ -32,8 +32,8 @@ class WallpaperTransformTest {
             WallpaperFitMode.CROP,
             safe.fitMode,
         )
-        assertEquals(1f, safe.zoom)
-        assertEquals(0f, safe.offsetX)
-        assertEquals(0f, safe.offsetY)
+        assertEquals(1f, safe.zoom, 0.0001f)
+        assertEquals(0f, safe.offsetX, 0.0001f)
+        assertEquals(0f, safe.offsetY, 0.0001f)
     }
 }
