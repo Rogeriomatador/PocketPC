@@ -6,7 +6,8 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
     ROOTFS("Rootfs Linux", "Verifica diretórios essenciais, /proc, /dev, escrita em /tmp e identidade do guest sem alterar o sistema."),
     TOOLCHAIN("Box64 / Wine", "Consulta as ferramentas instaladas nos overlays confiáveis do PocketPC."),
     BOX64_SMOKE("Box64 x86-64", "Executa um ELF x86-64 mínimo e estático através do Box64; não testa Wine nem Roblox."),
-    WINE_SMOKE("Wine Win64", "Executa um PE64 mínimo pelo Wine através do Box64, usando um prefixo isolado; não testa gráficos nem Roblox.");
+    WINE_SMOKE("Wine Win64", "Executa um PE64 mínimo pelo Wine através do Box64, usando um prefixo isolado; não testa gráficos nem Roblox."),
+    D3D11_SMOKE("D3D11 → Vulkan", "Força DXVK nativo e cria um dispositivo D3D11; sucesso comprova a ponte gráfica básica, não Roblox.");
 
     val arguments: List<String>
         get() = listOf("-c", script)
@@ -96,6 +97,19 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 fi
                 printf 'wine_win64_smoke=failed\nprobe=failed\n'
                 exit 14
+            """.trimIndent()
+            D3D11_SMOKE -> """
+                printf 'POCKETPC_D3D11_VULKAN_SMOKE_PROBE_V1\n'
+                [ -x /opt/pocketpc/box64/bin/box64 ] || { printf 'box64=missing\nprobe=failed\n'; exit 15; }
+                [ -x /opt/pocketpc/wine/bin/wine ] || { printf 'wine=missing\nprobe=failed\n'; exit 16; }
+                [ -f /opt/pocketpc/wine/share/tests/pocketpc-d3d11-smoke.exe ] || { printf 'd3d11_smoke=missing\nprobe=failed\n'; exit 17; }
+                [ -f /home/pocket/.pocketpc/windows-layers/dxvk/3.0.2/DEPLOYMENT.tsv ] || { printf 'dxvk=not_deployed\nprobe=failed\n'; exit 18; }
+                if WINEDLLOVERRIDES='d3d11=n;dxgi=n' WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine /opt/pocketpc/wine/share/tests/pocketpc-d3d11-smoke.exe; then
+                    printf 'd3d11_dxvk_smoke=passed\nprobe=complete\n'
+                    exit 0
+                fi
+                printf 'd3d11_dxvk_smoke=failed\nprobe=failed\n'
+                exit 19
             """.trimIndent()
         }
 }
