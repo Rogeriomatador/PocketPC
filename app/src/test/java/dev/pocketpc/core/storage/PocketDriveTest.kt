@@ -165,6 +165,27 @@ class PocketDriveTest {
     }
 
     @Test
+    fun stripsMalformedContentDispositionTailFromImportedName() {
+        assertEquals(
+            "RobloxPlayerInstaller-478HPBWJ4Y.exe",
+            sanitizePocketImportedFileName(
+                "RobloxPlayerInstaller-478HPBWJ4Y.exe; " +
+                    "filename_=UTF-8''RobloxPlayerInstaller-478HPBWJ4Y.exe"
+            ),
+        )
+    }
+
+    @Test
+    fun keepsLegitimateSemicolonWhenItIsNotDispositionMetadata() {
+        assertEquals(
+            "notes;draft.txt",
+            sanitizePocketImportedFileName(
+                "notes;draft.txt"
+            ),
+        )
+    }
+
+    @Test
     fun importedFilenameNeverCarriesParentPath() {
         assertEquals(
             "game.msi",
