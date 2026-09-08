@@ -40,6 +40,7 @@ import dev.pocketpc.core.runtime.RuntimeManifestValidator
 import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceState
+import dev.pocketpc.core.runtime.RuntimeDisplayBridgeProbeController
 import dev.pocketpc.core.runtime.StagedRuntime
 import dev.pocketpc.core.runtime.StagedGuestToolPackage
 import dev.pocketpc.core.runtime.WindowsPrefixPlanner
@@ -109,6 +110,12 @@ fun RuntimeApp(
     val executionController =
         remember {
             ProotExecutionController()
+        }
+    val displayBridgeProbeController =
+        remember(executionController) {
+            RuntimeDisplayBridgeProbeController(
+                executionController,
+            )
         }
     DisposableEffect(executionController) {
         onDispose { executionController.stopActive() }
@@ -1704,12 +1711,31 @@ fun RuntimeApp(
                             "R1_EXECUTION_ATTEMPT"
                         scope.launch {
                             val result =
-                                executionController
-                                    .executeOneShot(
-                                        plan = plan,
-                                        userApproved =
-                                            true,
-                                    )
+                                if (
+                                    probe ==
+                                    GuestRuntimeProbe
+                                        .DISPLAY_BRIDGE_SMOKE
+                                ) {
+                                    displayBridgeProbeController
+                                        .execute(
+                                            basePlan = plan,
+                                            runtime = runtime,
+                                            tools =
+                                                installedTools,
+                                            layers =
+                                                executedLayers,
+                                            userApproved =
+                                                true,
+                                        )
+                                        .process
+                                } else {
+                                    executionController
+                                        .executeOneShot(
+                                            plan = plan,
+                                            userApproved =
+                                                true,
+                                        )
+                                }
                             val evidenceRecorded =
                                 probeEvidenceStore
                                     .recordIfValid(
