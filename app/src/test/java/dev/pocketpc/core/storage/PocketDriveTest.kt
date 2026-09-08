@@ -81,4 +81,40 @@ class PocketDriveTest {
             ),
         )
     }
+
+    @Test
+    fun sanitizesImportedLeafNamesForPcNamespace() {
+        assertEquals(
+            "setup_.exe",
+            sanitizePocketImportedFileName(
+                "folder/setup?.exe",
+            ),
+        )
+    }
+
+    @Test
+    fun prefixesWindowsReservedDeviceNames() {
+        assertEquals(
+            "_CON.txt",
+            sanitizePocketImportedFileName(
+                "CON.txt",
+            ),
+        )
+        assertEquals(
+            "_LPT1",
+            sanitizePocketImportedFileName(
+                "LPT1",
+            ),
+        )
+    }
+
+    @Test
+    fun importedFilenameNeverCarriesParentPath() {
+        assertEquals(
+            "game.msi",
+            sanitizePocketImportedFileName(
+                "../downloads/game.msi",
+            ),
+        )
+    }
 }
