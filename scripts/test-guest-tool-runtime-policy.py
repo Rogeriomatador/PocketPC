@@ -110,6 +110,7 @@ def main() -> int:
             '"guestWineArchitecture": "x86_64"',
             '"hostArchitecture": "arm64-v8a"',
             '"protocolImplemented": true',
+            '"hostBrokerImplemented": true',
         ):
             if sentinel not in android_text:
                 failures.append("Wine Android reuse audit missing sentinel: " + sentinel)
