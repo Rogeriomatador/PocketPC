@@ -72,6 +72,27 @@ def main() -> int:
             if sentinel not in text:
                 failures.append(f"{relative}: missing sentinel {sentinel!r}")
 
+    box64_build = (ROOT / "scripts/build-box64-aarch64.py").read_text(encoding="utf-8")
+    if "run([\n        [" in box64_build:
+        failures.append("Box64 build contains nested run argv")
+    for sentinel in (
+        "POCKETPC_BOX64_SMOKE_OK",
+        '"executionMode": "native-aarch64"',
+        "guest-package.zip",
+    ):
+        if sentinel not in box64_build:
+            failures.append("Box64 build missing sentinel: " + sentinel)
+
+    wine_build = (ROOT / "scripts/build-wine-x86_64.py").read_text(encoding="utf-8")
+    for sentinel in (
+        "POCKETPC_WIN64_SMOKE_OK",
+        '"executionMode": "box64-x86_64"',
+        '"architecture": "x86_64"',
+        "guest-package.zip",
+    ):
+        if sentinel not in wine_build:
+            failures.append("Wine build missing sentinel: " + sentinel)
+
     approval = ROOT / "app/src/main/assets/proot-substrate-approval.json"
     if approval.is_file():
         text = approval.read_text(encoding="utf-8")
