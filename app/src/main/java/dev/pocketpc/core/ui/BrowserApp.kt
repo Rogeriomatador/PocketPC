@@ -200,7 +200,7 @@ fun BrowserApp(
 
                 if (integratedWindowControls) {
                     BrowserWindowControl("—") {
-                        windowActions?.minimized()
+                        windowActions?.minimized?.invoke()
                     }
                     BrowserWindowControl(
                         if (windowActions?.maximized == true) {
@@ -209,13 +209,13 @@ fun BrowserApp(
                             "□"
                         }
                     ) {
-                        windowActions?.toggleMaximize()
+                        windowActions?.toggleMaximize?.invoke()
                     }
                     BrowserWindowControl(
                         label = "×",
                         danger = true,
                     ) {
-                        windowActions?.close()
+                        windowActions?.close?.invoke()
                     }
                 }
             }
