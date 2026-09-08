@@ -30,6 +30,8 @@ object GuestProbeRequirements {
         probe: GuestRuntimeProbe,
         installedToolIds: Set<String>,
         overlayValid: Boolean,
+        installedWindowsLayerIds: Set<String> =
+            emptySet(),
     ): List<String> {
         val blockers = mutableListOf<String>()
         if (!overlayValid && installedToolIds.isNotEmpty()) {
@@ -41,6 +43,16 @@ object GuestProbeRequirements {
             .forEach {
                 blockers +=
                     "GUEST_TOOL_REQUIRED_MISSING:" + it
+            }
+        requiredWindowsLayerIds(probe)
+            .filterNot(
+                installedWindowsLayerIds::contains,
+            )
+            .sorted()
+            .forEach {
+                blockers +=
+                    "WINDOWS_LAYER_REQUIRED_MISSING:" +
+                        it
             }
         return blockers
     }
