@@ -50,6 +50,7 @@ import dev.pocketpc.core.runtime.NativeRuntimeHost
 import dev.pocketpc.core.runtime.RootfsLinkManager
 import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimePackageManager
+import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
 import dev.pocketpc.core.storage.PocketDownloadImporter
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.system.collectSystemSnapshot
@@ -111,6 +112,12 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     val guestToolPackages = remember {
         GuestToolPackageManager(appContext)
     }
+    val runtimeProbeEvidence =
+        remember {
+            RuntimeProbeEvidenceStore(
+                appContext,
+            )
+        }
     val linkManager = remember { RootfsLinkManager() }
     val nativeHost = remember { NativeRuntimeHost.status(appContext) }
     val substrate = remember { ExecutionSubstrateProbe.inspect(appContext) }
@@ -445,6 +452,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             installer = installer,
                             guestToolInstaller = guestToolInstaller,
                             guestToolPackages = guestToolPackages,
+                            probeEvidenceStore = runtimeProbeEvidence,
                             linkManager = linkManager,
                             nativeHost = nativeHost,
                             substrate = substrate,
