@@ -96,6 +96,9 @@ jobs:
           python3 -m json.tool third_party/graphics/LOCK.json >/dev/null
           python3 scripts/test-pc-runtime-source-locks.py
 
+      - name: Guest tool runtime policy
+        run: python3 scripts/test-guest-tool-runtime-policy.py
+
       - name: PRoot ELF policy self-test
         run: python3 scripts/test-proot-artifact-policy.py
 
