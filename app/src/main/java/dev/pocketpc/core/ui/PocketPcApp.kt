@@ -109,6 +109,14 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     var storagePickerError by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeManifestUri by rememberSaveable { mutableStateOf<String?>(null) }
     var runtimeRootfsUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var wallpaperEditorUri by remember {
+        mutableStateOf<String?>(null)
+    }
+    var wallpaperEditorTransform by remember {
+        mutableStateOf(
+            appearance.customWallpaperTransform
+        )
+    }
 
     fun persistRead(uri: Uri) {
         runCatching {
@@ -162,7 +170,9 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
         ) { uri ->
             if (uri != null) {
                 persistRead(uri)
-                appearance.selectCustomWallpaper(uri.toString())
+                wallpaperEditorUri = uri.toString()
+                wallpaperEditorTransform =
+                    WallpaperTransform()
             }
         }
 
@@ -217,6 +227,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
         DesktopWallpaper(
             preset = appearance.wallpaper,
             customUri = appearance.customWallpaperUri,
+            customTransform =
+                appearance.customWallpaperTransform,
             modifier = Modifier
                 .fillMaxSize()
                 .desktopSecondaryClick { desktop.openContextMenu(null) }
@@ -307,6 +319,16 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                                     arrayOf("image/*")
                                 )
                             },
+                            onEditCustom = {
+                                appearance
+                                    .customWallpaperUri
+                                    ?.let { uri ->
+                                        wallpaperEditorUri = uri
+                                        wallpaperEditorTransform =
+                                            appearance
+                                                .customWallpaperTransform
+                                    }
+                            },
                             onClearCustom =
                                 appearance::clearCustomWallpaper,
                             showPerformanceHud =
@@ -396,6 +418,26 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 onComplete = {
                     firstRunStore.complete()
                     showFirstRun = false
+                },
+            )
+        }
+
+        wallpaperEditorUri?.let { uri ->
+            WallpaperEditorDialog(
+                uri = uri,
+                initialTransform =
+                    wallpaperEditorTransform,
+                onDismiss = {
+                    wallpaperEditorUri = null
+                },
+                onConfirm = { transform ->
+                    appearance.selectCustomWallpaper(
+                        uri = uri,
+                        transform = transform,
+                    )
+                    wallpaperEditorTransform =
+                        transform
+                    wallpaperEditorUri = null
                 },
             )
         }
