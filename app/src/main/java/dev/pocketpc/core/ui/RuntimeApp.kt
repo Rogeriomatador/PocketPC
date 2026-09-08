@@ -1078,8 +1078,11 @@ fun RuntimeApp(
                         ) {
                             {
                                 pendingExecution =
-                                    runtime to
-                                        invocationPlan
+                                    Triple(
+                                        runtime,
+                                        invocationPlan,
+                                        selectedProbe,
+                                    )
                             }
                         } else {
                             null
@@ -1122,7 +1125,7 @@ fun RuntimeApp(
     }
 
     pendingExecution?.let {
-        (runtime, plan) ->
+        (runtime, plan, probe) ->
         AlertDialog(
             onDismissRequest = {
                 pendingExecution = null
@@ -1143,7 +1146,7 @@ fun RuntimeApp(
                     )
                     Text(
                         "Entrypoint: " +
-                            "/bin/sh • " + selectedProbe.label,
+                            "/bin/sh • " + probe.label,
                         style =
                             MaterialTheme.typography
                                 .bodySmall,
@@ -1174,8 +1177,19 @@ fun RuntimeApp(
                                         userApproved =
                                             true,
                                     )
+                            val evidenceRecorded =
+                                probeEvidenceStore
+                                    .recordIfValid(
+                                        probe = probe,
+                                        result = result,
+                                        runtime = runtime,
+                                        tools = installedTools,
+                                    )
+                            if (evidenceRecorded) {
+                                evidenceRevision += 1
+                            }
                             probeOutput = buildString {
-                                appendLine("${selectedProbe.label}: ${result.state} • exit=${result.exitCode ?: "—"}")
+                                appendLine("${probe.label}: ${result.state} • exit=${result.exitCode ?: "—"}")
                                 appendLine(result.output.take(16_000))
                                 if (result.outputTruncated || result.output.length > 16_000) appendLine("[saída truncada]")
                                 result.error?.let { appendLine(it) }
