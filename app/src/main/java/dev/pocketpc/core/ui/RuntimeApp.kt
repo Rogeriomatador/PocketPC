@@ -171,16 +171,19 @@ fun RuntimeApp(
                         )
                         Text(nativeHost.probe, style = MaterialTheme.typography.bodySmall)
                         Text(nativeHost.graphicsProbe, style = MaterialTheme.typography.bodySmall)
+                        val hostNetworkState =
+                            when {
+                                ioHostCapabilities.networkValidated -> "VALIDATED"
+                                ioHostCapabilities.networkInternetCapable -> "INTERNET"
+                                else -> "OFFLINE"
+                            }
                         RuntimeDetailRow(
                             "Host IO",
                             "audio=${ioHostCapabilities.audioOutputCount}, " +
                                 "keyboard=${ioHostCapabilities.keyboardCount}, " +
                                 "mouse=${ioHostCapabilities.mouseCount}, " +
                                 "gamepad=${ioHostCapabilities.gamepadCount}, " +
-                                "network=" +
-                                if (ioHostCapabilities.networkValidated) "VALIDATED"
-                                else if (ioHostCapabilities.networkInternetCapable) "INTERNET"
-                                else "OFFLINE",
+                                "network=$hostNetworkState",
                         )
 
                         if (!substrate.prootReady) {
