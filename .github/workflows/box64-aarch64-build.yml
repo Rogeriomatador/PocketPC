@@ -40,6 +40,8 @@ jobs:
             ${{ runner.temp }}/pocketpc-box64/box64-build-evidence.json
             ${{ runner.temp }}/pocketpc-box64/*.log
             ${{ runner.temp }}/pocketpc-box64/quarantine/box64
+            ${{ runner.temp }}/pocketpc-box64/guest-package.zip
+            ${{ runner.temp }}/pocketpc-box64/guest-package/guest-tool-manifest.json
           if-no-files-found: error
 
       - name: Prove build did not enter runtime tree
