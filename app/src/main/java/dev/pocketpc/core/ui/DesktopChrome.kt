@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -50,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,10 +66,12 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.pocketpc.core.BuildConfig
@@ -85,10 +89,8 @@ fun DesktopIconsV2(
     desktop: DesktopController,
     modifier: Modifier = Modifier,
 ) {
-    val configuration = LocalConfiguration.current
-    val compactMobile =
-        configuration.screenWidthDp < 700 ||
-            configuration.screenHeightDp < 500
+    val layout = LocalDesktopLayout.current
+    val compactMobile = layout.compact
     val iconSize = if (compactMobile) 42 else 48
     val itemWidth = if (compactMobile) 78.dp else 92.dp
     val columnWidth = if (compactMobile) 186.dp else 220.dp
@@ -630,7 +632,8 @@ private fun PocketPcStartButton(
 ) {
     Surface(
         modifier = Modifier
-            .size(44.dp)
+            .size(48.dp)
+            .semantics { contentDescription = "Iniciar"; selected = active }
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
@@ -661,11 +664,9 @@ fun TaskbarV2(
     onUpdateClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val configuration = LocalConfiguration.current
-    val compactMobile =
-        configuration.screenWidthDp < 700 ||
-            configuration.screenHeightDp < 500
-    val taskbarHeight = if (compactMobile) 52.dp else 58.dp
+    val layout = LocalDesktopLayout.current
+    val compactMobile = layout.compact
+    val taskbarHeight = layout.taskbarHeightDp.dp
     val taskIconSize = if (compactMobile) 32 else 36
 
     val apps = remember(desktop.pinnedApps.toList(), desktop.windows.toList()) {
@@ -680,8 +681,9 @@ fun TaskbarV2(
         modifier = modifier
             .fillMaxWidth()
             .height(taskbarHeight),
-        tonalElevation = 12.dp,
-        shadowElevation = 12.dp,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 3.dp,
+        shadowElevation = 8.dp,
     ) {
         Row(
             modifier = Modifier
@@ -717,7 +719,14 @@ fun TaskbarV2(
                         Column(
                             horizontalAlignment =
                                 Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
                             modifier = Modifier
+                                .size(48.dp)
+                                .semantics {
+                                    contentDescription = app.label
+                                    selected = active
+                                    role = Role.Button
+                                }
                                 .pointerHoverIcon(
                                     PointerIcon.Hand
                                 )
@@ -735,9 +744,7 @@ fun TaskbarV2(
                                         },
                                     color =
                                         if (focused) {
-                                            Color.White.copy(
-                                                alpha = 0.85f
-                                            )
+                                            MaterialTheme.colorScheme.primary
                                         } else {
                                             Color.Transparent
                                         },
@@ -748,12 +755,10 @@ fun TaskbarV2(
                                 )
                                 .background(
                                     if (
-                                        hovered ||
+                                        active || hovered ||
                                         focused
                                     ) {
-                                        Color.White.copy(
-                                            alpha = 0.10f
-                                        )
+                                        MaterialTheme.colorScheme.primary.copy(alpha = if (active) 0.14f else 0.08f)
                                     } else {
                                         Color.Transparent
                                     },
@@ -803,9 +808,7 @@ fun TaskbarV2(
                                     .background(
                                         when {
                                             active ->
-                                                Color(
-                                                    0xFF7EC8FF
-                                                )
+                                                MaterialTheme.colorScheme.primary
                                             window != null ->
                                                 Color(
                                                     0xFF8D939C
@@ -1005,6 +1008,7 @@ private fun UpdateAttentionChip(
 
     Surface(
         modifier = Modifier
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(10.dp),
@@ -1029,10 +1033,8 @@ private fun DesktopSystemTray(
     onClick: () -> Unit,
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val compactMobile =
-        configuration.screenWidthDp < 700 ||
-            configuration.screenHeightDp < 500
+    val layout = LocalDesktopLayout.current
+    val compactMobile = layout.compact
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     var battery by remember { mutableIntStateOf(readBatteryPercent(context)) }
     var online by remember { mutableStateOf(isOnline(context)) }
@@ -1052,6 +1054,7 @@ private fun DesktopSystemTray(
 
     Surface(
         modifier = Modifier
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
             .pointerHoverIcon(PointerIcon.Hand)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
@@ -1132,22 +1135,14 @@ fun StartMenuV2(
     peripherals: PeripheralSnapshot,
     modifier: Modifier = Modifier,
 ) {
-    val configuration = LocalConfiguration.current
-    val compactMobile =
-        configuration.screenWidthDp < 700 ||
-            configuration.screenHeightDp < 500
-    val menuWidth =
-        (configuration.screenWidthDp - 16)
-            .coerceIn(280, 390)
-            .dp
-    val menuHeight =
-        (configuration.screenHeightDp - 76)
-            .coerceIn(220, 350)
-            .dp
+    val layout = LocalDesktopLayout.current
+    val compactMobile = layout.compact
+    val menuWidth = layout.startMenuWidthDp.dp
+    val menuHeight = layout.startMenuHeightDp.dp
     val appColumns =
-        if (configuration.screenWidthDp < 380) 3 else 4
+        if (layout.widthDp < 380) 3 else 4
 
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     val visibleApps = remember(query) {
         val normalized = query.trim()
         if (normalized.isBlank()) {
@@ -1171,11 +1166,11 @@ fun StartMenuV2(
             .width(menuWidth)
             .heightIn(max = menuHeight),
         shape = RoundedCornerShape(18.dp),
-        tonalElevation = 14.dp,
-        shadowElevation = 18.dp,
+        tonalElevation = 3.dp,
+        shadowElevation = 16.dp,
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(12.dp),
             verticalArrangement =
                 Arrangement.spacedBy(8.dp),
         ) {
@@ -1197,7 +1192,7 @@ fun StartMenuV2(
                     )
                     Text(
                         BuildConfig.VERSION_NAME,
-                        fontSize = 8.sp,
+                        fontSize = 11.sp,
                         color =
                             MaterialTheme.colorScheme
                                 .onSurfaceVariant,
@@ -1206,11 +1201,11 @@ fun StartMenuV2(
 
                 Text(
                     if (peripherals.desktopInputActive) {
-                        "Desktop input"
+                        "Mouse / teclado"
                     } else {
-                        "Touch"
+                        "Toque"
                     },
-                    fontSize = 8.sp,
+                    fontSize = 11.sp,
                     color =
                         MaterialTheme.colorScheme
                             .onSurfaceVariant,
@@ -1222,28 +1217,28 @@ fun StartMenuV2(
                 onValueChange = { query = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp),
+                    .heightIn(min = 56.dp),
                 singleLine = true,
                 placeholder = {
                     Text("Pesquisar aplicativos")
                 },
                 textStyle =
                     LocalTextStyle.current.copy(
-                        fontSize = 11.sp
+                        fontSize = 14.sp
                     ),
             )
 
             HorizontalDivider()
 
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(
-                        rememberScrollState()
-                    ),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement =
                     Arrangement.spacedBy(5.dp),
             ) {
+                if (visibleApps.isEmpty()) {
+                    Text("Nenhum aplicativo encontrado.", Modifier.padding(vertical = 12.dp),
+                        style = MaterialTheme.typography.bodyMedium)
+                }
                 visibleApps.chunked(appColumns)
                     .forEach { rowApps ->
                         Row(
@@ -1262,7 +1257,7 @@ fun StartMenuV2(
                                     contentPadding =
                                         PaddingValues(
                                             horizontal = 3.dp,
-                                            vertical = 4.dp,
+                                            vertical = 8.dp,
                                         ),
                                 ) {
                                     Column(
@@ -1271,15 +1266,16 @@ fun StartMenuV2(
                                     ) {
                                         AppIconTile(
                                             app = app,
-                                            size = 32,
+                                            size = 36,
                                         )
                                         Spacer(
                                             Modifier.height(3.dp)
                                         )
                                         Text(
                                             app.label,
-                                            fontSize = 8.sp,
-                                            maxLines = 1,
+                                            fontSize = 11.sp,
+                                            maxLines = 2,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                         )
                                     }
                                 }
@@ -1298,16 +1294,13 @@ fun StartMenuV2(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    if (compactMobile) {
-                        "Toque e segure para opções"
-                    } else {
-                        "Meta+E Arquivos • Meta+B Web • Alt+Tab"
-                    },
-                    fontSize = 8.sp,
+                    if (compactMobile) "Seus aplicativos"
+                    else "Meta+E • Meta+B • Alt+Tab",
+                    fontSize = 11.sp,
                     color =
                         MaterialTheme.colorScheme
                             .onSurfaceVariant,
@@ -1318,7 +1311,7 @@ fun StartMenuV2(
                 ) {
                     Text(
                         "Mostrar desktop",
-                        fontSize = 8.sp,
+                        fontSize = 11.sp,
                     )
                 }
             }

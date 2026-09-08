@@ -2,8 +2,10 @@ package dev.pocketpc.core.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -20,9 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -265,11 +269,24 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     PocketPcTheme(
         darkTheme = useDarkTheme,
     ) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .imePadding(),
     ) {
+    val desktopLayout = DesktopLayout(maxWidth.value, maxHeight.value)
+    CompositionLocalProvider(LocalDesktopLayout provides desktopLayout) {
+    Box(Modifier.fillMaxSize()) {
+        BackHandler(enabled = desktop.startMenuOpen || desktop.contextMenuOpen || desktop.activeWindow != null) {
+            if (desktop.startMenuOpen) desktop.closeStartMenu()
+            else if (desktop.contextMenuOpen) desktop.closeContextMenu()
+            else desktop.activeWindow?.let { desktop.minimize(it.id) }
+        }
         DesktopWallpaper(
             preset = appearance.wallpaper,
+            animationEnabled = desktop.windows.none {
+                !it.minimized && (desktopLayout.compact || it.maximized)
+            },
             customUri = appearance.customWallpaperUri,
             customTransform =
                 appearance.customWallpaperTransform,
@@ -289,7 +306,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
 
         DesktopIconsV2(
             desktop = desktop,
-            modifier = Modifier.padding(start = 18.dp, top = 24.dp, bottom = 72.dp),
+            modifier = Modifier.padding(start = 18.dp, top = 24.dp, bottom = (desktopLayout.taskbarHeightDp + 16f).dp),
         )
 
         desktop.windows
@@ -316,6 +333,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             BrowserApp(
                                 session = browserSession,
                                 storage = storage,
+                                isActive = desktop.activeWindow?.id == window.id &&
+                                    !desktop.startMenuOpen && !desktop.contextMenuOpen,
                                 onOpenDownloads = { desktop.open(DesktopApp.DOWNLOADS) },
                                 windowActions =
                                     BrowserWindowActions(
@@ -457,7 +476,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 desktop = desktop,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 14.dp, bottom = 68.dp),
+                    .padding(start = 14.dp, bottom = (desktopLayout.taskbarHeightDp + 8f).dp),
             )
         }
 
@@ -467,7 +486,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 peripherals = peripherals,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 8.dp, bottom = 66.dp),
+                    .padding(start = 8.dp, bottom = (desktopLayout.taskbarHeightDp + 8f).dp),
             )
         }
 
@@ -512,6 +531,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
     }
     }
 }
+}
+}
 
 @Composable
 private fun DesktopWindowView(
@@ -521,19 +542,16 @@ private fun DesktopWindowView(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val configuration = LocalConfiguration.current
+    val layout = LocalDesktopLayout.current
     val density = LocalDensity.current
     val screenWidthPx =
-        with(density) { configuration.screenWidthDp.dp.toPx() }
+        with(density) { layout.widthDp.dp.toPx() }
             .coerceAtLeast(1f)
     val screenHeightPx =
-        with(density) { configuration.screenHeightDp.dp.toPx() }
+        with(density) { layout.heightDp.dp.toPx() }
             .coerceAtLeast(1f)
-    val compactMobile =
-        configuration.screenWidthDp < 700 ||
-            configuration.screenHeightDp < 500
-    val taskbarHeightDp =
-        if (compactMobile) 52.dp else 58.dp
+    val compactMobile = layout.compact
+    val taskbarHeightDp = layout.taskbarHeightDp.dp
     val taskbarHeightPx =
         with(density) { taskbarHeightDp.toPx() }
     val workspaceHeightPx =
@@ -611,9 +629,16 @@ private fun DesktopWindowView(
         )
     }
 
+    LaunchedEffect(screenWidthPx, workspaceHeightPx) {
+        widthFraction = widthFraction.coerceIn(minWidthFraction, spec.maxWidthFraction)
+        heightFraction = heightFraction.coerceIn(minHeightFraction, spec.maxHeightFraction)
+        x = x.coerceIn(0f, screenWidthPx * (1f - widthFraction))
+        y = y.coerceIn(0f, workspaceHeightPx * (1f - heightFraction))
+    }
+
     val canHalfSnap =
         !compactMobile &&
-            configuration.screenWidthDp / 2 >=
+            layout.widthDp / 2 >=
                 spec.minWidthDp
 
     val integratedBrowserHeader =
@@ -637,7 +662,7 @@ private fun DesktopWindowView(
 
             window.snap != WindowSnap.NONE -> {
                 val snapFraction =
-                    if (configuration.screenWidthDp / 2 >= spec.minWidthDp) {
+                    if (layout.widthDp / 2 >= spec.minWidthDp) {
                         0.5f
                     } else {
                         1.0f
@@ -653,7 +678,7 @@ private fun DesktopWindowView(
                     .widthIn(min = spec.minWidthDp.dp)
                     .heightIn(min = spec.minHeightDp.dp)
                     .fillMaxWidth(widthFraction)
-                    .fillMaxHeight(heightFraction)
+                    .height(with(density) { (workspaceHeightPx * heightFraction).toDp() })
                     .offset {
                         IntOffset(
                             x.roundToInt(),
@@ -662,6 +687,7 @@ private fun DesktopWindowView(
                     }
         }
 
+    val focused = desktop.activeWindow?.id == window.id
     Surface(
         modifier = windowModifier.clickable(
             indication = null,
@@ -680,8 +706,10 @@ private fun DesktopWindowView(
                 14.dp
             }
         ),
-        shadowElevation = 14.dp,
-        tonalElevation = 5.dp,
+        border = BorderStroke(1.dp, if (focused) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            else MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation = if (focused) 16.dp else 4.dp,
+        tonalElevation = 1.dp,
     ) {
         Box {
             Column(Modifier.fillMaxSize()) {
@@ -692,16 +720,19 @@ private fun DesktopWindowView(
                             if (integratedBrowserHeader) {
                                 0.dp
                             } else {
-                                38.dp
+                                48.dp
                             }
                         )
                         .background(
-                            MaterialTheme.colorScheme.surfaceVariant
+                            if (focused) MaterialTheme.colorScheme.surfaceContainerHigh
+                            else MaterialTheme.colorScheme.surfaceContainer
                         )
                         .pointerInput(
                             window.id,
                             window.maximized,
                             window.snap,
+                            screenWidthPx,
+                            workspaceHeightPx,
                         ) {
                             if (
                                 !compactMobile &&
@@ -734,11 +765,14 @@ private fun DesktopWindowView(
                         .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    AppIconTile(app = window.app, size = 24)
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         window.title,
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     if (canHalfSnap) {
                         WindowControlButton("◧") {
@@ -800,7 +834,7 @@ private fun DesktopWindowView(
                         .align(Alignment.BottomEnd)
                         .size(30.dp)
                         .pointerHoverIcon(PointerIcon.Crosshair)
-                        .pointerInput(window.id) {
+                        .pointerInput(window.id, screenWidthPx, workspaceHeightPx) {
                             detectDragGestures(
                                 onDragEnd = { persistGeometry() },
                                 onDragCancel = { persistGeometry() },
@@ -852,40 +886,32 @@ private fun DesktopWindowView(
 }
 
 @Composable
-private fun WindowControlButton(
+internal fun WindowControlButton(
     label: String,
     danger: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val background =
-        if (danger) {
-            MaterialTheme.colorScheme.errorContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        }
-    val foreground =
-        if (danger) {
-            MaterialTheme.colorScheme.onErrorContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        }
-
-    Box(
-        modifier = Modifier
-            .size(width = 34.dp, height = 30.dp)
+    val description = when (label) {
+        "×" -> "Fechar janela"
+        "—" -> "Minimizar janela"
+        "□" -> "Maximizar janela"
+        "▣", "↙" -> "Restaurar janela"
+        "◧" -> "Encaixar à esquerda"
+        "◨" -> "Encaixar à direita"
+        else -> label
+    }
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.size(48.dp)
             .pointerHoverIcon(PointerIcon.Hand)
-            .clickable(onClick = onClick)
-            .background(
-                background.copy(alpha = 0.55f),
-                RoundedCornerShape(8.dp),
-            ),
-        contentAlignment = Alignment.Center,
+            .semantics { contentDescription = description },
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = if (danger) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurface,
+        ),
+        contentPadding = PaddingValues(0.dp),
     ) {
-        Text(
-            label,
-            color = foreground,
-            fontSize = 11.sp,
-        )
+        Text(label, fontSize = 16.sp)
     }
 }
-

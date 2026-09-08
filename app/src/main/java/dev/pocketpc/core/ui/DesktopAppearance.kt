@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,17 +28,21 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -310,13 +315,14 @@ fun DesktopWallpaper(
     customUri: String? = null,
     customTransform: WallpaperTransform =
         WallpaperTransform(),
+    animationEnabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    val animatedMotion =
-        if (preset.animated) {
+    val animatedMotion: State<Float> =
+        if (preset.animated && animationEnabled && customUri.isNullOrBlank()) {
             val transition =
                 rememberInfiniteTransition(label = "PocketPCWallpaper")
-            val motion by transition.animateFloat(
+            transition.animateFloat(
                 initialValue = 0f,
                 targetValue = 1f,
                 animationSpec = infiniteRepeatable(
@@ -325,9 +331,8 @@ fun DesktopWallpaper(
                 ),
                 label = "wallpaperMotion",
             )
-            motion
         } else {
-            0.35f
+            rememberUpdatedState(0.35f)
         }
 
     val colors = preset.colors.map { argb -> Color(argb) }
@@ -360,16 +365,17 @@ fun DesktopWallpaper(
     }
 
     Box(
-        modifier = modifier.background(
-            Brush.linearGradient(
-                colors = backgroundColors,
-                start = Offset(0f, 0f),
-                end = Offset(
-                    x = 900f + animatedMotion * 1100f,
-                    y = 650f + animatedMotion * 450f,
-                ),
+        // Read animation state during drawing: no per-frame recomposition of the bitmap/layout.
+        modifier = modifier.drawBehind {
+            val motion = animatedMotion.value
+            drawRect(
+                brush = Brush.linearGradient(
+                    colors = backgroundColors,
+                    start = Offset.Zero,
+                    end = Offset(size.width * (0.7f + motion), size.height * (0.8f + motion * 0.4f)),
+                )
             )
-        )
+        }
     ) {
         customBitmap?.let { bitmap ->
             androidx.compose.foundation.layout.BoxWithConstraints(
