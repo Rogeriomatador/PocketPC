@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "status": "UPSTREAM_PRESENT_DIRECT_REUSE_BLOCKED_BROKER_REQUIRED",
+  "wineVersion": "11.0",
+  "wineSourceCommit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+  "driverPath": "dlls/wineandroid.drv",
+  "license": "LGPL-2.1-or-later",
+  "directReuse": {
+    "supported": false,
+    "reason": "WineActivity loads a Wine runtime matching the Android process ABI; PocketPC needs x86_64 Wine under Box64 inside an ARM64 app process.",
+    "evidence": [
+      "WineActivity.java selects ABI from Build.SUPPORTED_ABIS and getFilesDir()/ABI/bin/wineserver.",
+      "WineActivity.java loads ABI-specific ntdll.so with System.load.",
+      "window.c exchanges Android Surface/ANativeWindow state through JNI callbacks.",
+      "keyboard.c and window.c translate Android input into Wine input."
+    ]
+  },
+  "sourceBlobs": {
+    "AndroidManifest.xml": "574b98e3820b1379b133e32893e3443ff0391b3c",
+    "Makefile.in": "9a8be0ef90ae51f2ace35c5b93ef4df27471bf9d",
+    "WineActivity.java": "a47a4f892907d6fc97323490b9276f64e279c460",
+    "device.c": "1c7985ca1a59a9130764a9a066303415d989ca29",
+    "dllmain.c": "c8495d679f9c72758345cb296eee6850d5b61240",
+    "init.c": "472de7b8317f937ad951717adac83733097623bc",
+    "keyboard.c": "b53bf64abc1d7dc4cd434f36bb091240bdb49a6e",
+    "window.c": "1dca70a20d34c9ae8f5eca849fdf3345043662f6"
+  },
+  "pocketPcPlan": {
+    "hostArchitecture": "arm64-v8a",
+    "guestWineArchitecture": "x86_64",
+    "transport": "authenticated local IPC broker",
+    "hostResponsibilities": [
+      "Android Surface lifecycle",
+      "window geometry and z-order",
+      "pointer/touch/keyboard/gamepad capture",
+      "frame presentation acknowledgement"
+    ],
+    "guestResponsibilities": [
+      "Wine user32/window state",
+      "DXVK/vkd3d rendering",
+      "guest display driver shim",
+      "input injection into Win32"
+    ]
+  },
+  "gates": {
+    "protocolImplemented": false,
+    "hostBrokerImplemented": false,
+    "guestDriverImplemented": false,
+    "surfacePresented": false,
+    "pointerRoundTrip": false,
+    "keyboardRoundTrip": false,
+    "robloxWindowPresented": false
+  }
+}
