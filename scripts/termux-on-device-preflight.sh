@@ -68,10 +68,21 @@ tool_line() {
   fi
 }
 
+PINNED_GRADLE="$HOME/.local/pocketpc/gradle/gradle-$GRADLE_REQUIRED/bin/gradle"
+if [ -x "$PINNED_GRADLE" ]; then
+  export POCKETPC_GRADLE_HOME="$(dirname "$(dirname "$PINNED_GRADLE")")"
+  export PATH="$POCKETPC_GRADLE_HOME/bin:$PATH"
+fi
+
 echo "Tooling"
 for tool in git python java javac aapt2 gradle cmake ninja clang; do
   tool_line "$tool"
 done
+if [ -x "$PINNED_GRADLE" ]; then
+  echo "  pinned_gradle=FOUND:$PINNED_GRADLE"
+else
+  echo "  pinned_gradle=MISSING"
+fi
 echo
 
 JAVA_OK=false
