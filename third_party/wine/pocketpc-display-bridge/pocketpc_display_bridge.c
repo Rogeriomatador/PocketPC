@@ -367,6 +367,110 @@ int pdb_receive_frame(
     return 0;
 }
 
+int pdb_send_window_create(
+    struct pdb_connection *connection,
+    uint64_t window_id,
+    uint64_t parent_id,
+    uint32_t flags,
+    int32_t width,
+    int32_t height,
+    char *error,
+    size_t error_bytes
+) {
+    unsigned char payload[PDB_WINDOW_CREATE_BYTES];
+    if (!window_id || parent_id == window_id) {
+        set_error(error, error_bytes, "PDB_WINDOW_ID_INVALID");
+        return -1;
+    }
+    if (width <= 0 || width > 16384 || height <= 0 || height > 16384) {
+        set_error(error, error_bytes, "PDB_WINDOW_DIMENSION_INVALID");
+        return -1;
+    }
+
+    put_u64le(payload + 0, window_id);
+    put_u64le(payload + 8, parent_id);
+    put_u32le(payload + 16, flags);
+    put_u32le(payload + 20, (uint32_t)width);
+    put_u32le(payload + 24, (uint32_t)height);
+    return pdb_send_frame(
+        connection,
+        PDB_MSG_WINDOW_CREATE,
+        payload,
+        sizeof(payload),
+        error,
+        error_bytes
+    );
+}
+
+int pdb_send_window_geometry(
+    struct pdb_connection *connection,
+    uint64_t window_id,
+    int32_t x,
+    int32_t y,
+    int32_t width,
+    int32_t height,
+    uint32_t visible,
+    int32_t z_order,
+    char *error,
+    size_t error_bytes
+) {
+    unsigned char payload[PDB_WINDOW_GEOMETRY_BYTES];
+    if (!window_id) {
+        set_error(error, error_bytes, "PDB_WINDOW_ID_INVALID");
+        return -1;
+    }
+    if (width <= 0 || width > 16384 || height <= 0 || height > 16384) {
+        set_error(error, error_bytes, "PDB_WINDOW_DIMENSION_INVALID");
+        return -1;
+    }
+    if (x < -1000000 || x > 1000000 || y < -1000000 || y > 1000000) {
+        set_error(error, error_bytes, "PDB_WINDOW_COORDINATE_INVALID");
+        return -1;
+    }
+    if (visible > 1u) {
+        set_error(error, error_bytes, "PDB_WINDOW_VISIBLE_INVALID");
+        return -1;
+    }
+
+    put_u64le(payload + 0, window_id);
+    put_u32le(payload + 8, (uint32_t)x);
+    put_u32le(payload + 12, (uint32_t)y);
+    put_u32le(payload + 16, (uint32_t)width);
+    put_u32le(payload + 20, (uint32_t)height);
+    put_u32le(payload + 24, visible);
+    put_u32le(payload + 28, (uint32_t)z_order);
+    return pdb_send_frame(
+        connection,
+        PDB_MSG_WINDOW_GEOMETRY,
+        payload,
+        sizeof(payload),
+        error,
+        error_bytes
+    );
+}
+
+int pdb_send_window_destroy(
+    struct pdb_connection *connection,
+    uint64_t window_id,
+    char *error,
+    size_t error_bytes
+) {
+    unsigned char payload[PDB_WINDOW_DESTROY_BYTES];
+    if (!window_id) {
+        set_error(error, error_bytes, "PDB_WINDOW_ID_INVALID");
+        return -1;
+    }
+    put_u64le(payload, window_id);
+    return pdb_send_frame(
+        connection,
+        PDB_MSG_WINDOW_DESTROY,
+        payload,
+        sizeof(payload),
+        error,
+        error_bytes
+    );
+}
+
 void pdb_release_frame(struct pdb_frame *frame) {
     if (!frame) return;
     free(frame->payload);
