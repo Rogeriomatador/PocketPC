@@ -104,8 +104,24 @@ object RuntimeDisplayBridgeProtocol {
                 "DISPLAY_BRIDGE_MAGIC_INVALID"
             }
 
-            headerBuffer.short
-            headerBuffer.short
+            val version =
+                headerBuffer.short
+                    .toInt() and 0xffff
+            require(version == VERSION) {
+                "DISPLAY_BRIDGE_VERSION_UNSUPPORTED"
+            }
+
+            val typeId =
+                headerBuffer.short
+                    .toInt() and 0xffff
+            require(
+                RuntimeDisplayBridgeMessageType
+                    .fromWireId(typeId) !=
+                    null,
+            ) {
+                "DISPLAY_BRIDGE_TYPE_UNKNOWN"
+            }
+
             val payloadBytes =
                 headerBuffer.int
             require(
@@ -113,6 +129,12 @@ object RuntimeDisplayBridgeProtocol {
                     0..MAX_PAYLOAD_BYTES,
             ) {
                 "DISPLAY_BRIDGE_PAYLOAD_LENGTH_INVALID"
+            }
+
+            val sequence =
+                headerBuffer.long
+            require(sequence >= 0L) {
+                "DISPLAY_BRIDGE_SEQUENCE_INVALID"
             }
 
             val payload =
@@ -159,7 +181,9 @@ object RuntimeDisplayBridgeProtocol {
                 )
             }
             if (read == 0) {
-                continue
+                throw EOFException(
+                    "DISPLAY_BRIDGE_STREAM_NO_PROGRESS",
+                )
             }
             offset += read
         }
