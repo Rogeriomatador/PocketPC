@@ -122,21 +122,50 @@ fun RuntimeApp(
 
     LaunchedEffect(Unit) { reload() }
 
-        val pcReadiness =
-            PcRuntimeReadinessProbe.assess(
-                nativeHost = nativeHost,
-                substrate = substrate,
-                installedRuntimeCount =
-                    installed.size,
-                preparedRuntimeCount =
-                    installed.count { runtime ->
-                        RootfsExecutionReadinessProbe
-                            .assess(runtime)
-                            .ready
-                    },
-                ioHost = ioHostCapabilities,
-            )
+    val preparedRuntimes =
+        installed.filter { runtime ->
+            RootfsExecutionReadinessProbe
+                .assess(runtime)
+                .ready
+        }
 
+    val currentProbeEvidence =
+        remember(
+            installed,
+            installedTools,
+            evidenceRevision,
+        ) {
+            val states =
+                preparedRuntimes.map { runtime ->
+                    probeEvidenceStore.stateFor(
+                        runtime = runtime,
+                        tools = installedTools,
+                    )
+                }
+            RuntimeProbeEvidenceState(
+                box64SmokePassed =
+                    states.any {
+                        it.box64SmokePassed
+                    },
+                wineSmokePassed =
+                    states.any {
+                        it.wineSmokePassed
+                    },
+            )
+        }
+
+    val pcReadiness =
+        PcRuntimeReadinessProbe.assess(
+            nativeHost = nativeHost,
+            substrate = substrate,
+            installedRuntimeCount =
+                installed.size,
+            preparedRuntimeCount =
+                preparedRuntimes.size,
+            ioHost = ioHostCapabilities,
+            probeEvidence =
+                currentProbeEvidence,
+        )
 
     val toolOverlayPlan =
         GuestToolOverlayPlanner.plan(
