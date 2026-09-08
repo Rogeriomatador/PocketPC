@@ -232,6 +232,10 @@ fun RuntimeApp(
                     states.any {
                         it.d3d11SmokePassed
                     },
+                graphicsPresentationSmokePassed =
+                    states.any {
+                        it.graphicsPresentationSmokePassed
+                    },
                 windowsProcessSmokePassed =
                     states.any {
                         it.windowsProcessSmokePassed
