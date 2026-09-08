@@ -40,6 +40,7 @@ if ! command -v python >/dev/null 2>&1; then
 fi
 
 CHECKS=(
+    "scripts/test-python-script-syntax.py"
     "scripts/verify-android-build-lock.py"
     "scripts/test-gitignore-policy.py"
     "scripts/test-proot-artifact-policy.py"
