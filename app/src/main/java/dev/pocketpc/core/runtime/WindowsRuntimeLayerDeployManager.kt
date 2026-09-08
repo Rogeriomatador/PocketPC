@@ -294,6 +294,11 @@ class WindowsRuntimeLayerDeployManager(
                         },
                     )
 
+                    verifyDeployment(
+                        layer.manifest,
+                        system32,
+                    )
+
                     require(
                         layerState.parentFile
                             .mkdirs() ||
@@ -307,11 +312,6 @@ class WindowsRuntimeLayerDeployManager(
                     ) {
                         "WINDOWS_LAYER_DEPLOY_STATE_PROMOTION_FAILED"
                     }
-
-                    verifyDeployment(
-                        layer.manifest,
-                        system32,
-                    )
 
                     DeployedWindowsRuntimeLayer(
                         manifest =
