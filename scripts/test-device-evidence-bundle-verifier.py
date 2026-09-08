@@ -39,9 +39,9 @@ def make_bundle(path: pathlib.Path, tamper: bool = False) -> None:
             "pocketPcVersion": "0.1.0-alpha19",
             "buildIdentity": identity_obj,
             "desktop": {
-                "orientationLandscape": True,
-                "screenWidthDp": 915,
-                "screenHeightDp": 412,
+                "orientationLandscape": False,
+                "screenWidthDp": 469,
+                "screenHeightDp": 1043,
                 "secondaryDisplayActivities": True,
                 "freeformWindowManagement": False,
                 "pcHardwareType": False,
