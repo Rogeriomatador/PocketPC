@@ -10,6 +10,10 @@ import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.runtime.ExecutionSubstrateStatus
 import dev.pocketpc.core.runtime.InstalledRuntime
 import dev.pocketpc.core.runtime.NativeHostStatus
+import dev.pocketpc.core.runtime.PcApplicationCompatibilityProbe
+import dev.pocketpc.core.runtime.PcApplicationTarget
+import dev.pocketpc.core.runtime.PcRuntimeExecutionGateState
+import dev.pocketpc.core.runtime.PcRuntimeExecutionPlanner
 import dev.pocketpc.core.runtime.PcRuntimeReadinessProbe
 import dev.pocketpc.core.runtime.PcRuntimeStageState
 import dev.pocketpc.core.runtime.RootfsLinkManager
@@ -26,6 +30,8 @@ fun RuntimeApp(
     linkManager: RootfsLinkManager,
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
+    target: PcApplicationTarget?,
+    onClearTarget: () -> Unit,
     manifestUri: String?,
     rootfsUri: String?,
     onChooseManifest: () -> Unit,
@@ -94,6 +100,147 @@ fun RuntimeApp(
                 installedRuntimeCount =
                     installed.size,
             )
+
+        target?.let { selectedTarget ->
+            val compatibility =
+                PcApplicationCompatibilityProbe.assess(
+                    fileName =
+                        selectedTarget.fileName,
+                    readiness = pcReadiness,
+                )
+            val executionPlan =
+                PcRuntimeExecutionPlanner.build(
+                    target = selectedTarget,
+                    readiness = pcReadiness,
+                    compatibility = compatibility,
+                )
+
+            Surface(
+                tonalElevation = 3.dp,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.SpaceBetween,
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement =
+                                Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                "Alvo do Explorador",
+                                style =
+                                    MaterialTheme.typography
+                                        .titleSmall,
+                            )
+                            Text(
+                                selectedTarget.fileName,
+                                style =
+                                    MaterialTheme.typography
+                                        .bodyMedium,
+                            )
+                            if (
+                                selectedTarget.sizeBytes > 0L
+                            ) {
+                                Text(
+                                    formatBytes(
+                                        selectedTarget
+                                            .sizeBytes
+                                    ),
+                                    style =
+                                        MaterialTheme.typography
+                                            .labelSmall,
+                                )
+                            }
+                        }
+                        TextButton(
+                            onClick = onClearTarget,
+                        ) {
+                            Text("Limpar alvo")
+                        }
+                    }
+
+                    Text(
+                        compatibility.displayName +
+                            " • " +
+                            compatibility.state.name,
+                        style =
+                            MaterialTheme.typography
+                                .labelMedium,
+                        color =
+                            if (
+                                executionPlan
+                                    .launchEligible
+                            ) {
+                                MaterialTheme
+                                    .colorScheme.primary
+                            } else {
+                                MaterialTheme
+                                    .colorScheme.error
+                            },
+                    )
+                    Text(
+                        compatibility.detail,
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                    )
+                    Text(
+                        executionPlan.nextAction,
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant,
+                    )
+
+                    executionPlan.gates
+                        .filter {
+                            it.state !=
+                                PcRuntimeExecutionGateState
+                                    .READY
+                        }
+                        .take(4)
+                        .forEach { gate ->
+                            Text(
+                                "• " +
+                                    gate.label +
+                                    ": " +
+                                    gate.state.name,
+                                style =
+                                    MaterialTheme.typography
+                                        .labelSmall,
+                            )
+                        }
+
+                    Button(
+                        onClick = {},
+                        enabled =
+                            executionPlan.launchEligible,
+                    ) {
+                        Text(
+                            if (
+                                executionPlan.launchEligible
+                            ) {
+                                "Executar com evidência"
+                            } else {
+                                "Execução bloqueada pelos gates"
+                            }
+                        )
+                    }
+                }
+            }
+        }
 
         Surface(
             tonalElevation = 2.dp,
