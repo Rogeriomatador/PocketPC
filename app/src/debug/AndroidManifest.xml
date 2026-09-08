@@ -7,6 +7,6 @@
             android:exported="true"
             android:noHistory="true"
             android:resizeableActivity="true"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="fullUser" />
     </application>
 </manifest>
