@@ -39,9 +39,11 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -103,6 +105,33 @@ enum class WallpaperPreset(
     }
 }
 
+enum class WallpaperFitMode(
+    val key: String,
+    val label: String,
+) {
+    CROP("crop", "Preencher"),
+    FIT("fit", "Encaixar");
+
+    companion object {
+        fun fromKey(key: String?): WallpaperFitMode =
+            entries.firstOrNull { it.key == key } ?: CROP
+    }
+}
+
+data class WallpaperTransform(
+    val fitMode: WallpaperFitMode = WallpaperFitMode.CROP,
+    val zoom: Float = 1f,
+    val offsetX: Float = 0f,
+    val offsetY: Float = 0f,
+) {
+    fun sanitized(): WallpaperTransform =
+        copy(
+            zoom = zoom.coerceIn(1f, 3f),
+            offsetX = offsetX.coerceIn(-1f, 1f),
+            offsetY = offsetY.coerceIn(-1f, 1f),
+        )
+}
+
 class DesktopAppearanceState(context: Context) {
     private val preferences =
         context.getSharedPreferences("pocketpc-desktop", Context.MODE_PRIVATE)
@@ -122,6 +151,34 @@ class DesktopAppearanceState(context: Context) {
     )
         private set
 
+    var customWallpaperTransform by mutableStateOf(
+        WallpaperTransform(
+            fitMode =
+                WallpaperFitMode.fromKey(
+                    preferences.getString(
+                        "custom_wallpaper_fit_mode",
+                        null,
+                    )
+                ),
+            zoom =
+                preferences.getFloat(
+                    "custom_wallpaper_zoom",
+                    1f,
+                ),
+            offsetX =
+                preferences.getFloat(
+                    "custom_wallpaper_offset_x",
+                    0f,
+                ),
+            offsetY =
+                preferences.getFloat(
+                    "custom_wallpaper_offset_y",
+                    0f,
+                ),
+        ).sanitized()
+    )
+        private set
+
     var showPerformanceHud by mutableStateOf(
         preferences.getBoolean("performance_hud", false)
     )
@@ -138,20 +195,52 @@ class DesktopAppearanceState(context: Context) {
         preferences.edit()
             .putString("wallpaper", preset.key)
             .remove("custom_wallpaper_uri")
+            .remove("custom_wallpaper_fit_mode")
+            .remove("custom_wallpaper_zoom")
+            .remove("custom_wallpaper_offset_x")
+            .remove("custom_wallpaper_offset_y")
             .apply()
     }
 
-    fun selectCustomWallpaper(uri: String) {
+    fun selectCustomWallpaper(
+        uri: String,
+        transform: WallpaperTransform =
+            WallpaperTransform(),
+    ) {
+        val safe = transform.sanitized()
         customWallpaperUri = uri
+        customWallpaperTransform = safe
         preferences.edit()
             .putString("custom_wallpaper_uri", uri)
+            .putString(
+                "custom_wallpaper_fit_mode",
+                safe.fitMode.key,
+            )
+            .putFloat(
+                "custom_wallpaper_zoom",
+                safe.zoom,
+            )
+            .putFloat(
+                "custom_wallpaper_offset_x",
+                safe.offsetX,
+            )
+            .putFloat(
+                "custom_wallpaper_offset_y",
+                safe.offsetY,
+            )
             .apply()
     }
 
     fun clearCustomWallpaper() {
         customWallpaperUri = null
+        customWallpaperTransform =
+            WallpaperTransform()
         preferences.edit()
             .remove("custom_wallpaper_uri")
+            .remove("custom_wallpaper_fit_mode")
+            .remove("custom_wallpaper_zoom")
+            .remove("custom_wallpaper_offset_x")
+            .remove("custom_wallpaper_offset_y")
             .apply()
     }
 
@@ -167,6 +256,8 @@ class DesktopAppearanceState(context: Context) {
 fun DesktopWallpaper(
     preset: WallpaperPreset,
     customUri: String? = null,
+    customTransform: WallpaperTransform =
+        WallpaperTransform(),
     modifier: Modifier = Modifier,
 ) {
     val animatedMotion =
@@ -219,17 +310,59 @@ fun DesktopWallpaper(
         )
     ) {
         customBitmap?.let { bitmap ->
-            Image(
-                bitmap = bitmap,
-                contentDescription = "Papel de parede personalizado",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
+            androidx.compose.foundation.layout.BoxWithConstraints(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                val density = LocalDensity.current
+                val safe =
+                    customTransform.sanitized()
+                val widthPx =
+                    with(density) {
+                        maxWidth.toPx()
+                    }
+                val heightPx =
+                    with(density) {
+                        maxHeight.toPx()
+                    }
+                val extraX =
+                    widthPx *
+                        (safe.zoom - 1f) /
+                        2f
+                val extraY =
+                    heightPx *
+                        (safe.zoom - 1f) /
+                        2f
+
+                Image(
+                    bitmap = bitmap,
+                    contentDescription =
+                        "Papel de parede personalizado",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = safe.zoom
+                            scaleY = safe.zoom
+                            translationX =
+                                safe.offsetX * extraX
+                            translationY =
+                                safe.offsetY * extraY
+                        },
+                    contentScale =
+                        if (
+                            safe.fitMode ==
+                            WallpaperFitMode.FIT
+                        ) {
+                            ContentScale.Fit
+                        } else {
+                            ContentScale.Crop
+                        },
+                )
+            }
         }
     }
 }
 
-private fun decodeWallpaperBitmap(
+internal fun decodeWallpaperBitmap(
     context: Context,
     uri: Uri,
 ): ImageBitmap? =
@@ -272,6 +405,7 @@ fun PersonalizationApp(
     onSelect: (WallpaperPreset) -> Unit,
     onThemeSelect: (DesktopThemeMode) -> Unit,
     onChooseCustom: () -> Unit,
+    onEditCustom: () -> Unit,
     onClearCustom: () -> Unit,
     showPerformanceHud: Boolean,
     onPerformanceHudChange: (Boolean) -> Unit,
@@ -347,7 +481,27 @@ fun PersonalizationApp(
         }
 
         customUri?.let {
-            Text("Imagem personalizada em uso")
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                tonalElevation = 2.dp,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
+                    horizontalArrangement =
+                        Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        "Imagem personalizada em uso"
+                    )
+                    OutlinedButton(
+                        onClick = onEditCustom,
+                    ) {
+                        Text("Ajustar enquadramento")
+                    }
+                }
+            }
         }
 
         WallpaperPreset.entries.chunked(2).forEach { row ->
