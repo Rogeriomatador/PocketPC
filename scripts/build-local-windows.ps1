@@ -379,6 +379,7 @@ function Invoke-PythonPolicyChecks {
 
     $readelf = Resolve-NdkReadelf $SdkRoot
     $scripts = @(
+        "scripts\test-python-script-syntax.py",
         "scripts\verify-android-build-lock.py",
         "scripts\test-gitignore-policy.py",
         "scripts\test-proot-artifact-policy.py",
