@@ -35,7 +35,7 @@ function Resolve-Keytool {
         }
     }
 
-    Fail "keytool.exe não foi encontrado. Use o JDK 17 do PocketPC."
+    Fail "keytool.exe nao foi encontrado. Use o JDK 17 do PocketPC."
 }
 
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
@@ -47,13 +47,13 @@ if ([string]::IsNullOrWhiteSpace($KeystorePath)) {
     $KeystorePath = Join-Path $env:USERPROFILE ".android\debug.keystore"
 }
 if (-not (Test-Path -LiteralPath $KeystorePath)) {
-    Fail ("Keystore não encontrada em: " + $KeystorePath)
+    Fail ("Keystore nao encontrada em: " + $KeystorePath)
 }
 $KeystorePath = (Resolve-Path -LiteralPath $KeystorePath).Path
 
 $pinPath = Join-Path $RepoRoot "updates\bootstrap-signer.json"
 if (-not (Test-Path -LiteralPath $pinPath)) {
-    Fail ("Pin físico de assinatura não encontrado: " + $pinPath)
+    Fail ("Pin fisico de assinatura nao encontrado: " + $pinPath)
 }
 
 $pin = Get-Content -LiteralPath $pinPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -65,7 +65,7 @@ $allowed = @(
 )
 
 if ($allowed.Count -eq 0) {
-    Fail "bootstrap-signer.json não contém signer permitido."
+    Fail "bootstrap-signer.json nao contem signer permitido."
 }
 
 $keytool = Resolve-Keytool
@@ -87,7 +87,7 @@ try {
         $LASTEXITCODE -ne 0 -or
         -not (Test-Path -LiteralPath $tempCert)
     ) {
-        Fail "Não foi possível exportar o certificado da keystore."
+        Fail "Nao foi possivel exportar o certificado da keystore."
     }
 
     $candidate = (
@@ -103,12 +103,12 @@ try {
 
     if ($allowed -notcontains $candidate) {
         Fail (
-            "A keystore não corresponde ao APK Alpha 20 fisicamente " +
+            "A keystore nao corresponde ao APK Alpha 20 fisicamente " +
             "validado. Nenhum Secret foi enviado."
         )
     }
 
-    Write-Host "Signer físico: PASS" -ForegroundColor Green
+    Write-Host "Signer fisico: PASS" -ForegroundColor Green
 
     $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
     if (-not $gh) {
@@ -116,14 +116,14 @@ try {
     }
     if (-not $gh) {
         Fail (
-            "GitHub CLI (gh) não está instalado. A assinatura foi validada, " +
-            "mas os Secrets ainda não foram configurados."
+            "GitHub CLI (gh) nao esta instalado. A assinatura foi validada, " +
+            "mas os Secrets ainda nao foram configurados."
         )
     }
 
     & $gh.Source auth status 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
-        Fail "GitHub CLI não está autenticado. Execute gh auth login uma vez."
+        Fail "GitHub CLI nao esta autenticado. Execute gh auth login uma vez."
     }
 
     $keystoreBase64 = [Convert]::ToBase64String(
@@ -154,7 +154,7 @@ try {
     Write-Host "GitHub signing Secrets: CONFIGURED" -ForegroundColor Green
     Write-Host (
         "A chave privada foi enviada apenas para GitHub Actions Secrets; " +
-        "ela não foi adicionada ao repositório."
+        "ela nao foi adicionada ao repositorio."
     )
 
     if ($PublishNow) {
@@ -171,8 +171,8 @@ try {
         Write-Host "Publisher Alpha 21: REQUESTED" -ForegroundColor Green
     } else {
         Write-Host (
-            "Publisher ainda não disparado. Rode este script novamente com " +
-            "-PublishNow quando quiser publicar a versão do build lock."
+            "Publisher ainda nao disparado. Rode este script novamente com " +
+            "-PublishNow quando quiser publicar a versao do build lock."
         )
     }
 
