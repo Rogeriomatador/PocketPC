@@ -4,7 +4,8 @@ package dev.pocketpc.core.runtime
 enum class GuestRuntimeProbe(val label: String, val description: String) {
     SHELL("Shell Linux", "Executa o shell, identifica a arquitetura e mostra a pasta do guest."),
     ROOTFS("Rootfs Linux", "Verifica diretórios essenciais, /proc, /dev, escrita em /tmp e identidade do guest sem alterar o sistema."),
-    TOOLCHAIN("Box64 / Wine", "Procura Box64 e Wine dentro do Linux e consulta as versões encontradas.");
+    TOOLCHAIN("Box64 / Wine", "Consulta as ferramentas instaladas nos overlays confiáveis do PocketPC."),
+    BOX64_SMOKE("Box64 x86-64", "Executa um ELF x86-64 mínimo e estático através do Box64; não testa Wine nem Roblox.");
 
     val arguments: List<String>
         get() = listOf("-c", script)
@@ -20,86 +21,78 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 printf 'probe=complete\n'
             """.trimIndent()
             ROOTFS -> """
-                printf 'POCKETPC_ROOTFS_PROBE_V1\n'
-                failed=0
-                for path in /bin /etc /usr /tmp; do
-                    if [ -d "${'$'}path" ]; then
-                        printf 'path=%s state=present\n' "${'$'}path"
-                    else
-                        printf 'path=%s state=missing\n' "${'$'}path"
-                        failed=1
-                    fi
-                done
-                for path in /proc /dev; do
-                    if [ -d "${'$'}path" ]; then
-                        printf 'kernel_path=%s state=present\n' "${'$'}path"
-                    else
-                        printf 'kernel_path=%s state=missing\n' "${'$'}path"
-                        failed=1
-                    fi
-                done
-                marker=/tmp/.pocketpc-runtime-probe-${'$'}${'$'}
-                if (umask 077 && : > "${'$'}marker" && rm -f "${'$'}marker"); then
+                printf 'POCKETPC_ROOTFS_PROBE_V2\n'
+                [ -d /bin ] || { printf 'path=/bin state=missing\n'; exit 5; }
+                printf 'path=/bin state=present\n'
+                [ -d /etc ] || { printf 'path=/etc state=missing\n'; exit 5; }
+                printf 'path=/etc state=present\n'
+                [ -d /usr ] || { printf 'path=/usr state=missing\n'; exit 5; }
+                printf 'path=/usr state=present\n'
+                [ -d /tmp ] || { printf 'path=/tmp state=missing\n'; exit 5; }
+                printf 'path=/tmp state=present\n'
+                [ -d /proc ] || { printf 'kernel_path=/proc state=missing\n'; exit 5; }
+                printf 'kernel_path=/proc state=present\n'
+                [ -d /dev ] || { printf 'kernel_path=/dev state=missing\n'; exit 5; }
+                printf 'kernel_path=/dev state=present\n'
+                rm -f /tmp/.pocketpc-runtime-probe
+                if (umask 077 && : > /tmp/.pocketpc-runtime-probe && rm -f /tmp/.pocketpc-runtime-probe); then
                     printf 'tmp_write=ok\n'
                 else
-                    printf 'tmp_write=failed\n'
-                    failed=1
+                    printf 'tmp_write=failed\nrootfs=incomplete\nprobe=failed\n'
+                    exit 5
                 fi
-                printf 'uid='; id -u 2>/dev/null || printf 'unknown\n'
-                printf 'home=%s\n' "${'$'}{HOME:-unset}"
-                if [ "${'$'}failed" -eq 0 ]; then
-                    printf 'rootfs=structurally_ready\nprobe=complete\n'
-                    exit 0
-                fi
-                printf 'rootfs=incomplete\nprobe=failed\n'
-                exit 5
+                printf 'uid='
+                id -u 2>/dev/null || printf 'unknown\n'
+                env | grep '^HOME=' || printf 'HOME=unset\n'
+                printf 'rootfs=structurally_ready\nprobe=complete\n'
             """.trimIndent()
             TOOLCHAIN -> """
-                printf 'POCKETPC_TOOLCHAIN_PROBE_V2\n'
-                probe_tool() {
-                    name="${'
-        }
-}
-}1"
-                    path="${'
-        }
-}
-}2"
-                    printf '\ncomponent=%s\n' "${'
-        }
-}
-}name"
-                    if [ -f "${'
-        }
-}
-}path" ] && [ -x "${'
-        }
-}
-}path" ]; then
-                        printf 'path=%s\n' "${'
-        }
-}
-}path"
-                        "${'
-        }
-}
-}path" --version
-                        result=${'
-        }
-}
-}?
-                        printf 'version_exit=%s\n' "${'
-        }
-}
-}result"
+                printf 'POCKETPC_TOOLCHAIN_PROBE_V3\n'
+                printf '\ncomponent=box64\n'
+                if [ -x /opt/pocketpc/box64/bin/box64 ]; then
+                    printf 'path=/opt/pocketpc/box64/bin/box64\n'
+                    if /opt/pocketpc/box64/bin/box64 --version; then
+                        printf 'version_exit=0\n'
                     else
-                        printf 'state=missing_or_not_executable\n'
+                        printf 'version_exit=nonzero\n'
                     fi
-                }
-                probe_tool box64 /opt/pocketpc/box64/bin/box64
-                probe_tool wine /opt/pocketpc/wine/bin/wine
-                probe_tool wine64 /opt/pocketpc/wine/bin/wine64
+                else
+                    printf 'state=missing_or_not_executable\n'
+                fi
+                printf '\ncomponent=wine\n'
+                if [ -x /opt/pocketpc/wine/bin/wine ]; then
+                    printf 'path=/opt/pocketpc/wine/bin/wine\n'
+                    if /opt/pocketpc/wine/bin/wine --version; then
+                        printf 'version_exit=0\n'
+                    else
+                        printf 'version_exit=nonzero\n'
+                    fi
+                else
+                    printf 'state=missing_or_not_executable\n'
+                fi
+                printf '\ncomponent=wine64\n'
+                if [ -x /opt/pocketpc/wine/bin/wine64 ]; then
+                    printf 'path=/opt/pocketpc/wine/bin/wine64\n'
+                    if /opt/pocketpc/wine/bin/wine64 --version; then
+                        printf 'version_exit=0\n'
+                    else
+                        printf 'version_exit=nonzero\n'
+                    fi
+                else
+                    printf 'state=missing_or_not_executable\n'
+                fi
                 printf '\nprobe=complete\napplication_compatibility=not_tested\n'
+            """.trimIndent()
+            BOX64_SMOKE -> """
+                printf 'POCKETPC_BOX64_SMOKE_PROBE_V1\n'
+                [ -x /opt/pocketpc/box64/bin/box64 ] || { printf 'box64=missing\nprobe=failed\n'; exit 7; }
+                [ -x /opt/pocketpc/box64/share/tests/box64-smoke-x86_64 ] || { printf 'smoke=missing\nprobe=failed\n'; exit 8; }
+                if /opt/pocketpc/box64/bin/box64 /opt/pocketpc/box64/share/tests/box64-smoke-x86_64; then
+                    printf 'box64_x86_64_smoke=passed\nprobe=complete\n'
+                    exit 0
+                fi
+                printf 'box64_x86_64_smoke=failed\nprobe=failed\n'
+                exit 9
             """.trimIndent()
         }
 }
