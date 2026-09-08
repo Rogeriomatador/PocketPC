@@ -2,6 +2,8 @@ package dev.pocketpc.core.ui
 
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.pocketpc.core.BuildConfig
 
 internal class PocketPcFirstRunStore(
     context: Context,
@@ -86,15 +89,20 @@ internal fun PocketPcFirstRunExperience(
                     .fillMaxWidth(
                         if (compact) 1f else 0.72f
                     )
-                    .widthIn(max = 760.dp),
+                    .widthIn(max = 760.dp)
+                    .heightIn(max = maxHeight),
                 shape = RoundedCornerShape(28.dp),
                 tonalElevation = 12.dp,
                 shadowElevation = 18.dp,
             ) {
                 Column(
-                    modifier = Modifier.padding(
-                        if (compact) 22.dp else 34.dp
-                    ),
+                    modifier = Modifier
+                        .padding(
+                            if (compact) 22.dp else 34.dp
+                        )
+                        .verticalScroll(
+                            rememberScrollState()
+                        ),
                     verticalArrangement =
                         Arrangement.spacedBy(18.dp),
                 ) {
@@ -113,7 +121,7 @@ internal fun PocketPcFirstRunExperience(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            "ALPHA 21",
+                            BuildConfig.VERSION_NAME.uppercase(),
                             color =
                                 MaterialTheme.colorScheme
                                     .primary,
