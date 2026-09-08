@@ -62,6 +62,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -82,14 +83,23 @@ fun DesktopIconsV2(
     desktop: DesktopController,
     modifier: Modifier = Modifier,
 ) {
+    val configuration = LocalConfiguration.current
+    val compactMobile =
+        configuration.screenWidthDp < 700 ||
+            configuration.screenHeightDp < 500
+    val iconSize = if (compactMobile) 42 else 48
+    val itemWidth = if (compactMobile) 78.dp else 92.dp
+    val columnWidth = if (compactMobile) 186.dp else 220.dp
+    val spacing = if (compactMobile) 8.dp else 12.dp
+
     Column(
-        modifier = modifier.width(220.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.width(columnWidth),
+        verticalArrangement = Arrangement.spacedBy(spacing),
     ) {
         defaultDesktopShortcuts().chunked(2).forEach { rowApps ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(spacing),
             ) {
                 rowApps.forEach { app ->
                     val hoverSource = remember(app) { MutableInteractionSource() }
@@ -99,7 +109,7 @@ fun DesktopIconsV2(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .width(92.dp)
+                            .width(itemWidth)
                             .pointerHoverIcon(PointerIcon.Hand)
                             .hoverable(hoverSource)
                             .focusable(interactionSource = hoverSource)
@@ -130,7 +140,7 @@ fun DesktopIconsV2(
                             )
                             .padding(4.dp),
                     ) {
-                        AppIconTile(app = app, size = 48)
+                        AppIconTile(app = app, size = iconSize)
                         Spacer(Modifier.height(5.dp))
                         Surface(
                             color = Color.Black.copy(alpha = 0.48f),
@@ -649,6 +659,13 @@ fun TaskbarV2(
     onUpdateClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val configuration = LocalConfiguration.current
+    val compactMobile =
+        configuration.screenWidthDp < 700 ||
+            configuration.screenHeightDp < 500
+    val taskbarHeight = if (compactMobile) 52.dp else 58.dp
+    val taskIconSize = if (compactMobile) 32 else 36
+
     val apps = remember(desktop.pinnedApps.toList(), desktop.windows.toList()) {
         (desktop.pinnedApps + desktop.windows.map { it.app }).distinct()
     }
@@ -657,14 +674,17 @@ fun TaskbarV2(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(58.dp),
+            .height(taskbarHeight),
         tonalElevation = 12.dp,
         shadowElevation = 12.dp,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 5.dp),
+                .padding(
+                    horizontal = if (compactMobile) 5.dp else 10.dp,
+                    vertical = 4.dp,
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PocketPcStartButton(
@@ -672,7 +692,7 @@ fun TaskbarV2(
                 onClick = desktop::toggleStartMenu,
             )
 
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(if (compactMobile) 4.dp else 8.dp))
 
             Row(
                 modifier = Modifier
@@ -721,7 +741,7 @@ fun TaskbarV2(
                             )
                             .padding(horizontal = 3.dp),
                     ) {
-                        AppIconTile(app = app, size = 36, active = active)
+                        AppIconTile(app = app, size = taskIconSize, active = active)
                         Box(
                             Modifier
                                 .padding(top = 2.dp)
@@ -829,6 +849,10 @@ private fun DesktopSystemTray(
     onClick: () -> Unit,
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val compactMobile =
+        configuration.screenWidthDp < 700 ||
+            configuration.screenHeightDp < 500
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     var battery by remember { mutableIntStateOf(readBatteryPercent(context)) }
     var online by remember { mutableStateOf(isOnline(context)) }
@@ -855,13 +879,19 @@ private fun DesktopSystemTray(
     ) {
         Row(
             modifier = Modifier.padding(
-                horizontal = 9.dp,
+                horizontal = if (compactMobile) 5.dp else 9.dp,
                 vertical = 4.dp,
             ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            horizontalArrangement =
+                Arrangement.spacedBy(
+                    if (compactMobile) 4.dp else 7.dp
+                ),
         ) {
-            if (peripherals.desktopInputActive) {
+            if (
+                peripherals.desktopInputActive &&
+                !compactMobile
+            ) {
                 Text(
                     "INPUT",
                     fontSize = 8.sp,
@@ -884,24 +914,33 @@ private fun DesktopSystemTray(
                 "${battery.coerceIn(0, 100)}%",
                 fontSize = 9.sp,
             )
-            Column(
-                horizontalAlignment = Alignment.End
-            ) {
+            if (compactMobile) {
                 Text(
                     now.format(
                         DateTimeFormatter.ofPattern("HH:mm")
                     ),
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                 )
-                Text(
-                    now.format(
-                        DateTimeFormatter.ofPattern("dd/MM")
-                    ),
-                    fontSize = 8.sp,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant,
-                )
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        now.format(
+                            DateTimeFormatter.ofPattern("HH:mm")
+                        ),
+                        fontSize = 11.sp,
+                    )
+                    Text(
+                        now.format(
+                            DateTimeFormatter.ofPattern("dd/MM")
+                        ),
+                        fontSize = 8.sp,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -913,6 +952,21 @@ fun StartMenuV2(
     peripherals: PeripheralSnapshot,
     modifier: Modifier = Modifier,
 ) {
+    val configuration = LocalConfiguration.current
+    val compactMobile =
+        configuration.screenWidthDp < 700 ||
+            configuration.screenHeightDp < 500
+    val menuWidth =
+        (configuration.screenWidthDp - 16)
+            .coerceIn(280, 390)
+            .dp
+    val menuHeight =
+        (configuration.screenHeightDp - 76)
+            .coerceIn(220, 350)
+            .dp
+    val appColumns =
+        if (configuration.screenWidthDp < 380) 3 else 4
+
     var query by remember { mutableStateOf("") }
     val visibleApps = remember(query) {
         val normalized = query.trim()
@@ -934,8 +988,8 @@ fun StartMenuV2(
 
     Surface(
         modifier = modifier
-            .width(390.dp)
-            .heightIn(max = 350.dp),
+            .width(menuWidth)
+            .heightIn(max = menuHeight),
         shape = RoundedCornerShape(18.dp),
         tonalElevation = 14.dp,
         shadowElevation = 18.dp,
@@ -1010,7 +1064,7 @@ fun StartMenuV2(
                 verticalArrangement =
                     Arrangement.spacedBy(5.dp),
             ) {
-                visibleApps.chunked(4)
+                visibleApps.chunked(appColumns)
                     .forEach { rowApps ->
                         Row(
                             modifier =
@@ -1051,7 +1105,7 @@ fun StartMenuV2(
                                 }
                             }
 
-                            repeat(4 - rowApps.size) {
+                            repeat(appColumns - rowApps.size) {
                                 Spacer(
                                     Modifier.weight(1f)
                                 )
@@ -1068,7 +1122,11 @@ fun StartMenuV2(
                     Arrangement.SpaceBetween,
             ) {
                 Text(
-                    "Meta+E Arquivos • Meta+B Web • Alt+Tab",
+                    if (compactMobile) {
+                        "Toque e segure para opções"
+                    } else {
+                        "Meta+E Arquivos • Meta+B Web • Alt+Tab"
+                    },
                     fontSize = 8.sp,
                     color =
                         MaterialTheme.colorScheme
