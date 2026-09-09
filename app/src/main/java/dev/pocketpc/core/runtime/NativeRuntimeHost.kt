@@ -7,6 +7,8 @@ data class NativeHostStatus(
     val probe: String,
     val graphicsProbe: String,
     val nativeLibraryDir: String,
+    val hardwareBufferProbe: String =
+        "ahardwarebuffer=not-probed",
 )
 
 object NativeRuntimeHost {
@@ -16,6 +18,7 @@ object NativeRuntimeHost {
 
     private external fun nativeProbe(): String
     private external fun nativeGraphicsProbe(): String
+    private external fun nativeHardwareBufferProbe(): String
 
     fun status(context: Context): NativeHostStatus {
         val appInfo = context.applicationInfo
@@ -34,11 +37,22 @@ object NativeRuntimeHost {
             "vulkan=not-probed;native-host-not-loaded"
         }
 
+        val hardwareBufferProbe = if (loaded) {
+            runCatching {
+                nativeHardwareBufferProbe()
+            }.getOrElse {
+                "ahardwarebuffer=probe-failed;error=${it.javaClass.simpleName}"
+            }
+        } else {
+            "ahardwarebuffer=not-probed;native-host-not-loaded"
+        }
+
         return NativeHostStatus(
             loaded = loaded,
             probe = probe,
             graphicsProbe = graphicsProbe,
             nativeLibraryDir = appInfo.nativeLibraryDir ?: "indisponível",
+            hardwareBufferProbe = hardwareBufferProbe,
         )
     }
 }
