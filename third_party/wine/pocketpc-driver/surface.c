@@ -649,6 +649,11 @@ static BOOL request_surface(
             sizeof(error)
         ) != 0
     ) {
+        POCKETPC_FailBridgeLocked(
+            error[0]
+                ? error
+                : "PDB_SURFACE_REQUEST_SEND_FAILED"
+        );
         pthread_mutex_unlock(&pocketpc_bridge_mutex);
         ERR(
             "surface request send failed hwnd=%p: %s\n",
@@ -747,6 +752,14 @@ static BOOL request_surface(
         break;
     }
 
+    if (!got_surface) {
+        POCKETPC_FailBridgeLocked(
+            error[0]
+                ? error
+                : "PDB_SURFACE_RESPONSE_MISSING"
+        );
+    }
+
     pthread_mutex_unlock(
         &pocketpc_bridge_mutex
     );
@@ -773,6 +786,15 @@ static BOOL request_surface(
         available.pixel_format !=
             request.pixel_format
     ) {
+        pthread_mutex_lock(
+            &pocketpc_bridge_mutex
+        );
+        POCKETPC_FailBridgeLocked(
+            "PDB_SURFACE_IDENTITY_MISMATCH"
+        );
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
         ERR(
             "surface identity mismatch hwnd=%p\n",
             hwnd
@@ -792,6 +814,17 @@ static BOOL request_surface(
             sizeof(error)
         ) != 0
     ) {
+        pthread_mutex_lock(
+            &pocketpc_bridge_mutex
+        );
+        POCKETPC_FailBridgeLocked(
+            error[0]
+                ? error
+                : "PDB_SURFACE_WRITER_OPEN_FAILED"
+        );
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
         ERR(
             "surface writer open failed hwnd=%p: %s\n",
             hwnd,
