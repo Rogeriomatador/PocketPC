@@ -197,7 +197,7 @@ internal fun RuntimeDesktopWindowLayer(
                             modifiers =
                                 RuntimeWindowsKeyMapper
                                     .modifiers(
-                                        native.metaState,
+                                        metaState,
                                     ),
                             repeatCount = 0,
                         ),
