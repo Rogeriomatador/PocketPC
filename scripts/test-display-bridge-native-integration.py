@@ -166,6 +166,9 @@ def main() -> int:
         window_bridge_executable =
             work /
             "window_bridge_smoke"
+        failstop_executable =
+            work /
+            "transport_failstop_smoke"
 
         run(
             [
@@ -285,6 +288,50 @@ def main() -> int:
         ):
             raise RuntimeError(
                 "WINE_WINDOW_BRIDGE_MARKER_MISSING"
+            )
+
+        run(
+            [
+                compiler,
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-Wpedantic",
+                "-O2",
+                "-I",
+                str(BRIDGE),
+                str(
+                    BRIDGE /
+                    "pocketpc_display_bridge.c"
+                ),
+                str(
+                    BRIDGE /
+                    "transport_failstop_smoke.c"
+                ),
+                "-o",
+                str(failstop_executable),
+            ],
+            work,
+        )
+        failstop_result =
+            subprocess.run(
+                [
+                    str(
+                        failstop_executable,
+                    )
+                ],
+                cwd=work,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        if (
+            "POCKETPC_DISPLAY_BRIDGE_FAILSTOP_OK"
+            not in failstop_result.stdout
+        ):
+            raise RuntimeError(
+                "DISPLAY_BRIDGE_FAILSTOP_MARKER_MISSING"
             )
 
 
@@ -570,6 +617,9 @@ def main() -> int:
             )
             print(
                 "wine_window_bridge=native-software-pass"
+            )
+            print(
+                "transport_failstop=native-software-pass"
             )
             print(
                 "transport=x86_64-native-host-fixture"
