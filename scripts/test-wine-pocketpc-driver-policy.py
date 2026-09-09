@@ -224,6 +224,8 @@ def main() -> int:
             "cancel_surface_frame",
             "POCKETPC_HandleFramePresented",
             "coalescing frame while ACK pending",
+            "Wine dirty bounds retained",
+            "Wine 11 win32u offsets the dirty rectangle",
             "POCKETPC_QueueHostEventLocked",
             "PDB_MSG_FRAME_PRESENTED",
             "PDB_MSG_SURFACE_AVAILABLE",
