@@ -208,6 +208,24 @@ class RuntimeDisplayExecutionController(
                         .windows
                         .collect {
                             windows ->
+                            windows.forEach {
+                                window ->
+                                val processPid =
+                                    window.windowId
+                                        ushr 32
+                                if (
+                                    processPid >
+                                        0L &&
+                                    processPid <=
+                                        Int.MAX_VALUE
+                                ) {
+                                    executionController
+                                        .associateActiveFamilyPid(
+                                            processPid,
+                                        )
+                                }
+                            }
+
                             mutableWindows.value =
                                 windows
                         }
