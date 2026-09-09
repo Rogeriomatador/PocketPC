@@ -193,6 +193,9 @@ def main() -> int:
                 '"value": "pocketpc"',
                 '"resolvedLibrary": "winepocketpc.drv"',
                 '"surfaceCallbackImplemented": False',
+                "UNIX_MAKEDEP_PREAMBLE",
+                "#pragma makedep unix",
+                '"bridgeSourcesMarkedUnixOnly": True',
                 '"runtime_execution_evidence=false"',
             ),
         )
