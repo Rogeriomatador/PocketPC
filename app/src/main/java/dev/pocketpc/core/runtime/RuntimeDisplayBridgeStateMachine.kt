@@ -23,6 +23,11 @@ sealed interface RuntimeDisplayBridgeEvent {
         val windowId: Long,
     ) : RuntimeDisplayBridgeEvent
 
+    data class FrameReady(
+        val frame:
+            RuntimeBridgeFrameReady,
+    ) : RuntimeDisplayBridgeEvent
+
     data class Pointer(
         val event:
             RuntimeBridgePointerEvent,
@@ -76,6 +81,9 @@ class RuntimeDisplayBridgeStateMachine(
                     RuntimeDisplayBridgeMessageType
                         .WINDOW_DESTROY ->
                         destroyWindow(frame)
+                    RuntimeDisplayBridgeMessageType
+                        .FRAME_READY ->
+                        frameReady(frame)
                     RuntimeDisplayBridgeMessageType
                         .HELLO,
                     RuntimeDisplayBridgeMessageType
@@ -192,6 +200,28 @@ class RuntimeDisplayBridgeStateMachine(
             .WindowGeometryChanged(
                 geometry,
             )
+    }
+
+    private fun frameReady(
+        frame: RuntimeDisplayBridgeFrame,
+    ): RuntimeDisplayBridgeEvent {
+        requireCapability(
+            RuntimeDisplayBridgeCapabilities
+                .WINDOW_SURFACE,
+        )
+        val ready =
+            RuntimeDisplayBridgePayloadCodec
+                .decodeFrameReady(
+                    frame.payload,
+                )
+                .getOrThrow()
+        require(
+            ready.windowId in windows,
+        ) {
+            "DISPLAY_BRIDGE_WINDOW_MISSING"
+        }
+        return RuntimeDisplayBridgeEvent
+            .FrameReady(ready)
     }
 
     private fun destroyWindow(
