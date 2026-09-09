@@ -51,11 +51,13 @@ def main() -> int:
         "processFamilySupervisionImplemented",
         "displayPeerProcessFamilyAssociationImplemented",
         "taskManagerProcessFamilyUiImplemented",
+        "taskManagerIndividualProcessControlImplemented",
     )
     expected_false = (
         "processFamilySupervisionSoftwareTestExecuted",
         "displayPeerProcessFamilyAssociationSoftwareTestExecuted",
         "taskManagerProcessFamilyUiSoftwareTestExecuted",
+        "taskManagerIndividualProcessControlSoftwareTestExecuted",
     )
 
     for label, document in (
@@ -126,6 +128,7 @@ def main() -> int:
             "OsConstants.SIGKILL",
             "compareByDescending",
             "destroyForcibly()",
+            "terminateMember(",
             "activeRegistryId",
             "stopActive()",
         ),
@@ -167,6 +170,8 @@ def main() -> int:
             "PIDs da família:",
             "Finalizar família",
             "Forçar família",
+            "Subprocessos",
+            "terminateMember(",
         ),
     )
     require(
