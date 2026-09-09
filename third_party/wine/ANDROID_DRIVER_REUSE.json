@@ -66,6 +66,10 @@
     "surfaceWriterNativeSoftwareTestExecuted": false,
     "surfaceRequestProtocolImplemented": true,
     "surfaceWriterAttestationImplemented": true,
-    "surfaceTransactionDemuxImplemented": true
+    "surfaceTransactionDemuxImplemented": true,
+    "hostSurfaceRegistryImplemented": true,
+    "singleBufferOwnershipAckImplemented": true,
+    "doubleBufferingImplemented": false,
+    "surfaceVisibilityCrossProcessSoftwareTestExecuted": false
   }
 }
