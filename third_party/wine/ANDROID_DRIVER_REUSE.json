@@ -63,6 +63,9 @@
     "surfaceCallbackTemplateImplemented": true,
     "inputInjectionTemplateImplemented": true,
     "protocolV3NativeIntegrationExecuted": false,
-    "surfaceWriterNativeSoftwareTestExecuted": false
+    "surfaceWriterNativeSoftwareTestExecuted": false,
+    "surfaceRequestProtocolImplemented": true,
+    "surfaceWriterAttestationImplemented": true,
+    "asyncFrameAckDrainImplemented": true
   }
 }
