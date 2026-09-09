@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.desktop.DesktopApp
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.DesktopWindow
+import dev.pocketpc.core.runtime.RuntimeDesktopBridge
+import dev.pocketpc.core.runtime.RuntimeDisplayCompositorWindow
 import dev.pocketpc.core.runtime.RuntimeProcessRegistry
 import dev.pocketpc.core.runtime.RuntimeProcessSnapshot
 import kotlinx.coroutines.delay
@@ -48,6 +50,11 @@ private enum class TaskManagerSection {
 @Composable
 fun TaskManagerApp(
     desktop: DesktopController,
+    runtimeWindows:
+        List<RuntimeDisplayCompositorWindow> =
+        emptyList(),
+    runtimeBridge:
+        RuntimeDesktopBridge? = null,
 ) {
     var section by remember {
         mutableStateOf(TaskManagerSection.APPLICATIONS)
@@ -93,6 +100,24 @@ fun TaskManagerApp(
                     it.zIndex
                 },
             )
+    val filteredRuntimeWindows =
+        runtimeWindows
+            .filter { window ->
+                normalizedQuery.isBlank() ||
+                    "win32"
+                        .contains(
+                            normalizedQuery,
+                        ) ||
+                    window.windowId
+                        .toString()
+                        .contains(
+                            normalizedQuery,
+                        )
+            }
+            .sortedByDescending {
+                it.zIndex
+            }
+
     val processes =
         runtimeProcesses.filter {
             normalizedQuery.isBlank() ||
@@ -128,7 +153,7 @@ fun TaskManagerApp(
                         FontWeight.SemiBold,
                 )
                 Text(
-                    "${desktop.windows.size} app(s) • " +
+                    "${desktop.windows.size + runtimeWindows.size} app(s) • " +
                         "${runtimeProcesses.size} processo(s) runtime",
                     style =
                         MaterialTheme.typography
@@ -210,6 +235,10 @@ fun TaskManagerApp(
                 ApplicationsSection(
                     desktop = desktop,
                     windows = windows,
+                    runtimeWindows =
+                        filteredRuntimeWindows,
+                    runtimeBridge =
+                        runtimeBridge,
                 )
 
             TaskManagerSection.PROCESSES ->
@@ -227,8 +256,15 @@ fun TaskManagerApp(
 private fun ApplicationsSection(
     desktop: DesktopController,
     windows: List<DesktopWindow>,
+    runtimeWindows:
+        List<RuntimeDisplayCompositorWindow>,
+    runtimeBridge:
+        RuntimeDesktopBridge?,
 ) {
-    if (windows.isEmpty()) {
+    if (
+        windows.isEmpty() &&
+        runtimeWindows.isEmpty()
+    ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -280,6 +316,19 @@ private fun ApplicationsSection(
                 onEndTask = {
                     desktop.close(window.id)
                 },
+            )
+        }
+
+        items(
+            items = runtimeWindows,
+            key = {
+                "win32:" +
+                    it.windowId
+            },
+        ) { window ->
+            RuntimeTaskWindowRow(
+                window = window,
+                bridge = runtimeBridge,
             )
         }
     }
@@ -418,6 +467,215 @@ private fun TaskWindowRow(
                             if (
                                 window.app !=
                                 DesktopApp.TASK_MANAGER
+                            ) {
+                                MaterialTheme
+                                    .colorScheme
+                                    .error
+                            } else {
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurfaceVariant
+                            },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RuntimeTaskWindowRow(
+    window:
+        RuntimeDisplayCompositorWindow,
+    bridge: RuntimeDesktopBridge?,
+) {
+    val visible =
+        window.geometry?.visible ==
+            true
+
+    Surface(
+        shape =
+            RoundedCornerShape(12.dp),
+        tonalElevation =
+            if (visible) {
+                3.dp
+            } else {
+                1.dp
+            },
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically,
+            ) {
+                Surface(
+                    shape =
+                        RoundedCornerShape(
+                            9.dp,
+                        ),
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .secondaryContainer,
+                ) {
+                    Text(
+                        "WIN",
+                        modifier =
+                            Modifier.padding(
+                                horizontal =
+                                    9.dp,
+                                vertical =
+                                    7.dp,
+                            ),
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelSmall,
+                        fontWeight =
+                            FontWeight.Bold,
+                    )
+                }
+                Spacer(
+                    Modifier.width(10.dp),
+                )
+                Column(
+                    modifier =
+                        Modifier.weight(1f),
+                ) {
+                    Text(
+                        "Win32 #" +
+                            window.windowId,
+                        fontWeight =
+                            FontWeight.Medium,
+                    )
+                    Text(
+                        buildString {
+                            append(
+                                when {
+                                    window.geometry ==
+                                        null ->
+                                        "Inicializando"
+
+                                    visible ->
+                                        "Visível"
+
+                                    else ->
+                                        "Oculta/minimizada"
+                                },
+                            )
+                            append(
+                                " • z=" +
+                                    window.zIndex,
+                            )
+                            if (
+                                window.frameId >
+                                0L
+                            ) {
+                                append(
+                                    " • frame=" +
+                                        window.frameId,
+                                )
+                            }
+                            window.surfaceGeneration
+                                ?.let {
+                                    generation ->
+                                    append(
+                                        " • gen=" +
+                                            generation,
+                                    )
+                                }
+                        },
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant,
+                    )
+                }
+            }
+
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(
+                            rememberScrollState(),
+                        ),
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        4.dp,
+                    ),
+            ) {
+                TextButton(
+                    onClick = {
+                        if (visible) {
+                            bridge?.activate(
+                                window.windowId,
+                            )
+                        } else {
+                            bridge?.restore(
+                                window.windowId,
+                            )
+                        }
+                    },
+                    enabled =
+                        bridge != null,
+                ) {
+                    Text(
+                        if (visible) {
+                            "Ativar"
+                        } else {
+                            "Restaurar"
+                        },
+                    )
+                }
+                TextButton(
+                    onClick = {
+                        bridge?.minimize(
+                            window.windowId,
+                        )
+                    },
+                    enabled =
+                        bridge != null &&
+                            visible,
+                ) {
+                    Text("Minimizar")
+                }
+                TextButton(
+                    onClick = {
+                        bridge?.maximize(
+                            window.windowId,
+                        )
+                    },
+                    enabled =
+                        bridge != null,
+                ) {
+                    Text("Maximizar")
+                }
+                TextButton(
+                    onClick = {
+                        bridge?.closeWindow(
+                            window.windowId,
+                        )
+                    },
+                    enabled =
+                        bridge != null,
+                ) {
+                    Text(
+                        "Finalizar tarefa",
+                        color =
+                            if (
+                                bridge != null
                             ) {
                                 MaterialTheme
                                     .colorScheme
