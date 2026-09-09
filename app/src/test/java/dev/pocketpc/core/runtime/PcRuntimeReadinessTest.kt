@@ -387,10 +387,17 @@ class PcRuntimeReadinessTest {
                         d3d11SmokePassed = true,
                         graphicsPresentationSmokePassed = true,
                         windowsProcessSmokePassed = true,
+                        winePocketPcWindowSmokePassed = true,
                     ),
                 windowsStateReady = true,
             )
 
+        assertEquals(
+            PcRuntimeStageState.READY,
+            result.stages.single {
+                it.id == "wine-display-driver"
+            }.state,
+        )
         assertTrue(
             result.controlledAttemptReady,
         )
