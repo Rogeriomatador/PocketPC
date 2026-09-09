@@ -117,6 +117,16 @@ object RuntimeDisplayBridgePayloadCodec {
     const val KEY_ACTION_UP = 2
     const val KEY_ACTION_REPEAT = 3
 
+    const val MODIFIER_SHIFT = 1 shl 0
+    const val MODIFIER_CONTROL = 1 shl 1
+    const val MODIFIER_ALT = 1 shl 2
+    const val MODIFIER_META = 1 shl 3
+    private const val MODIFIER_ALLOWED_MASK =
+        MODIFIER_SHIFT or
+            MODIFIER_CONTROL or
+            MODIFIER_ALT or
+            MODIFIER_META
+
     const val WINDOW_COMMAND_ACTIVATE = 1
     const val WINDOW_COMMAND_MINIMIZE = 2
     const val WINDOW_COMMAND_RESTORE = 3
@@ -288,6 +298,13 @@ object RuntimeDisplayBridgePayloadCodec {
         ) {
             "DISPLAY_BRIDGE_POINTER_BUTTON_MASK_INVALID"
         }
+        require(
+            value.modifiers and
+                MODIFIER_ALLOWED_MASK ==
+                value.modifiers,
+        ) {
+            "DISPLAY_BRIDGE_POINTER_MODIFIER_MASK_INVALID"
+        }
         return buffer(
             POINTER_EVENT_BYTES,
         ).apply {
@@ -321,6 +338,13 @@ object RuntimeDisplayBridgePayloadCodec {
             value.scanCode in 0..0xffff,
         ) {
             "DISPLAY_BRIDGE_SCAN_CODE_INVALID"
+        }
+        require(
+            value.modifiers and
+                MODIFIER_ALLOWED_MASK ==
+                value.modifiers,
+        ) {
+            "DISPLAY_BRIDGE_MODIFIER_MASK_INVALID"
         }
         require(
             value.repeatCount in
@@ -517,6 +541,13 @@ object RuntimeDisplayBridgePayloadCodec {
                 ) {
                     "DISPLAY_BRIDGE_POINTER_BUTTON_MASK_INVALID"
                 }
+                require(
+                    it.modifiers and
+                        MODIFIER_ALLOWED_MASK ==
+                        it.modifiers,
+                ) {
+                    "DISPLAY_BRIDGE_POINTER_MODIFIER_DECODE_INVALID"
+                }
             }
         }
 
@@ -558,6 +589,13 @@ object RuntimeDisplayBridgePayloadCodec {
                         0..0xffff,
                 ) {
                     "DISPLAY_BRIDGE_SCAN_CODE_INVALID"
+                }
+                require(
+                    it.modifiers and
+                        MODIFIER_ALLOWED_MASK ==
+                        it.modifiers,
+                ) {
+                    "DISPLAY_BRIDGE_KEY_MODIFIER_MASK_INVALID"
                 }
                 require(
                     it.repeatCount in
