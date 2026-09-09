@@ -129,13 +129,29 @@ object RuntimeDisplayBridgeAuthenticator {
             }
         }
 
-        val negotiated =
-            if (
-                blockers.isEmpty() &&
-                hello != null
-            ) {
+        val candidateNegotiated =
+            if (hello != null) {
                 hello.capabilities and
                     session.hostCapabilities
+            } else {
+                0
+            }
+
+        if (
+            blockers.isEmpty() &&
+            candidateNegotiated and
+                RuntimeDisplayBridgeCapabilities
+                    .HOST_BASELINE !=
+                RuntimeDisplayBridgeCapabilities
+                    .HOST_BASELINE
+        ) {
+            blockers +=
+                "DISPLAY_BRIDGE_BASELINE_CAPABILITIES_MISSING"
+        }
+
+        val negotiated =
+            if (blockers.isEmpty()) {
+                candidateNegotiated
             } else {
                 0
             }
