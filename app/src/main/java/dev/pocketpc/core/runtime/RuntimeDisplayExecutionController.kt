@@ -5,6 +5,7 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
@@ -20,6 +21,7 @@ data class RuntimeDisplayExecutionResult(
     val process: ProotExecutionResult,
     val bridgeAuthenticated: Boolean,
     val bridgeError: String?,
+    val authenticatedPeerCount: Int = 0,
 )
 
 private sealed interface RuntimeDisplayStartup {
@@ -32,18 +34,6 @@ private sealed interface RuntimeDisplayStartup {
         val result:
             ProotExecutionResult,
     ) : RuntimeDisplayStartup
-}
-
-private sealed interface RuntimeDisplayCompletion {
-    data class Process(
-        val result:
-            ProotExecutionResult,
-    ) : RuntimeDisplayCompletion
-
-    data class Bridge(
-        val result:
-            Result<Unit>,
-    ) : RuntimeDisplayCompletion
 }
 
 class RuntimeDisplayExecutionController(
@@ -189,9 +179,151 @@ class RuntimeDisplayExecutionController(
                 RuntimeDisplayBridgeHost(
                     session,
                 )
-            var displaySession:
-                RuntimeDisplaySessionController? =
-                null
+            val desktopMultiplexer =
+                desktopBridge
+                    ?: RuntimeDesktopBridge()
+            val stateLock = Any()
+            val activeSessions =
+                LinkedHashMap<
+                    Int,
+                    RuntimeDisplaySessionController
+                >()
+            val activeJobs =
+                LinkedHashMap<
+                    Int,
+                    Job
+                >()
+            val peerFailures =
+                mutableListOf<String>()
+            var nextPeerId = 1
+            var authenticatedPeerCount = 0
+            var acceptLoop: Job? = null
+
+            val windowCollector =
+                launch {
+                    desktopMultiplexer
+                        .windows
+                        .collect {
+                            windows ->
+                            mutableWindows.value =
+                                windows
+                        }
+                }
+
+            fun rememberFailure(
+                value: String,
+            ) {
+                synchronized(stateLock) {
+                    if (
+                        peerFailures.size <
+                            MAX_RECORDED_PEER_FAILURES
+                    ) {
+                        peerFailures +=
+                            value
+                    }
+                }
+            }
+
+            fun startPeer(
+                peer:
+                    RuntimeDisplayBridgePeer,
+            ) {
+                val peerId =
+                    synchronized(stateLock) {
+                        if (
+                            authenticatedPeerCount >=
+                                MAX_AUTHENTICATED_PEERS
+                        ) {
+                            0
+                        } else {
+                            val allocated =
+                                nextPeerId
+                            nextPeerId += 1
+                            authenticatedPeerCount +=
+                                1
+                            allocated
+                        }
+                    }
+
+                if (peerId == 0) {
+                    rememberFailure(
+                        "DISPLAY_BRIDGE_PEER_LIMIT_REACHED",
+                    )
+                    peer.close()
+                    return
+                }
+
+                val activeSession =
+                    try {
+                        RuntimeDisplaySessionController(
+                            endpoint = peer,
+                            hostTempDirectory =
+                                hostTemp,
+                            desktopBridge =
+                                desktopMultiplexer,
+                        )
+                    } catch (
+                        failure: Throwable
+                    ) {
+                        rememberFailure(
+                            "DISPLAY_BRIDGE_PEER_SESSION_CREATE_FAILED:" +
+                                (
+                                    failure.message
+                                        ?: failure
+                                            .javaClass
+                                            .simpleName
+                                ),
+                        )
+                        peer.close()
+                        return
+                    }
+
+                synchronized(stateLock) {
+                    activeSessions[
+                        peerId
+                    ] = activeSession
+                }
+
+                val job =
+                    launch {
+                        val result =
+                            activeSession
+                                .runSession()
+                        result
+                            .exceptionOrNull()
+                            ?.let {
+                                failure ->
+                                rememberFailure(
+                                    "DISPLAY_BRIDGE_PEER_SESSION_FAILED:" +
+                                        (
+                                            failure.message
+                                                ?: failure
+                                                    .javaClass
+                                                    .simpleName
+                                        ),
+                                )
+                            }
+
+                        activeSession.close()
+                        synchronized(
+                            stateLock,
+                        ) {
+                            activeSessions
+                                .remove(
+                                    peerId,
+                                )
+                            activeJobs
+                                .remove(
+                                    peerId,
+                                )
+                        }
+                    }
+
+                synchronized(stateLock) {
+                    activeJobs[peerId] =
+                        job
+                }
+            }
 
             val handshakeSocketTimeoutMillis =
                 handshakeTimeoutMillis
@@ -285,7 +417,7 @@ class RuntimeDisplayExecutionController(
                         )
                 }
 
-                val peer =
+                val firstPeer =
                     (
                         startup as
                             RuntimeDisplayStartup.Peer
@@ -314,111 +446,113 @@ class RuntimeDisplayExecutionController(
                                 )
                         }
 
-                val activeSession =
-                    RuntimeDisplaySessionController(
-                        endpoint = peer,
-                        hostTempDirectory =
-                            hostTemp,
-                        desktopBridge =
-                            desktopBridge,
-                    )
-                displaySession =
-                    activeSession
+                startPeer(
+                    firstPeer,
+                )
 
-                val collector =
-                    launch {
-                        activeSession.windows
-                            .collect {
-                                windows ->
-                                mutableWindows.value =
-                                    windows
-                            }
-                    }
-                val bridgeDeferred =
-                    async {
-                        activeSession
-                            .runSession()
-                    }
+                acceptLoop =
+                    launch(Dispatchers.IO) {
+                        while (
+                            !closed.get() &&
+                            processDeferred
+                                .isActive
+                        ) {
+                            val accepted =
+                                host.acceptAuthenticated(
+                                    readTimeoutMillis =
+                                        handshakeSocketTimeoutMillis,
+                                )
 
-                val first =
-                    select<RuntimeDisplayCompletion> {
-                        processDeferred
-                            .onAwait {
-                                RuntimeDisplayCompletion
-                                    .Process(it)
-                            }
-                        bridgeDeferred
-                            .onAwait {
-                                RuntimeDisplayCompletion
-                                    .Bridge(it)
-                            }
-                    }
-
-                val result =
-                    when (first) {
-                        is RuntimeDisplayCompletion.Process -> {
-                            activeSession.close()
-                            runCatching {
-                                bridgeDeferred.await()
-                            }
-                            RuntimeDisplayExecutionResult(
-                                process =
-                                    first.result,
-                                bridgeAuthenticated =
-                                    true,
-                                bridgeError =
-                                    null,
-                            )
-                        }
-
-                        is RuntimeDisplayCompletion.Bridge -> {
-                            val bridgeFailure =
-                                first.result
-                                    .exceptionOrNull()
-                            if (
-                                processDeferred
-                                    .isActive
-                            ) {
-                                executionController
-                                    .stopActive()
-                            }
-                            val process =
-                                processDeferred.await()
-
-                            RuntimeDisplayExecutionResult(
-                                process = process,
-                                bridgeAuthenticated =
-                                    true,
-                                bridgeError =
-                                    bridgeFailure
-                                        ?.let {
-                                            "DISPLAY_BRIDGE_SESSION_FAILED:" +
+                            accepted
+                                .onSuccess {
+                                    peer ->
+                                    startPeer(
+                                        peer,
+                                    )
+                                }
+                                .onFailure {
+                                    failure ->
+                                    if (
+                                        processDeferred
+                                            .isActive
+                                    ) {
+                                        rememberFailure(
+                                            "DISPLAY_BRIDGE_ADDITIONAL_HANDSHAKE_FAILED:" +
                                                 (
-                                                    it.message
-                                                        ?: it
+                                                    failure.message
+                                                        ?: failure
                                                             .javaClass
                                                             .simpleName
-                                                )
-                                        }
-                                        ?: "DISPLAY_BRIDGE_SESSION_ENDED_BEFORE_PROCESS",
-                            )
+                                                ),
+                                        )
+                                    }
+                                }
                         }
                     }
 
-                collector.cancelAndJoin()
-                activeSession.close()
-                mutableWindows.value =
-                    emptyList()
-                result
+                val process =
+                    processDeferred.await()
+                val peers =
+                    synchronized(stateLock) {
+                        authenticatedPeerCount
+                    }
+                val failures =
+                    synchronized(stateLock) {
+                        peerFailures.toList()
+                    }
+
+                RuntimeDisplayExecutionResult(
+                    process = process,
+                    bridgeAuthenticated =
+                        peers > 0,
+                    bridgeError =
+                        failures
+                            .takeIf {
+                                it.isNotEmpty()
+                            }
+                            ?.joinToString(
+                                separator = " | ",
+                            ),
+                    authenticatedPeerCount =
+                        peers,
+                )
             } finally {
-                displaySession?.close()
                 host.close()
+
                 if (
                     !acceptDeferred
                         .isCompleted
                 ) {
                     acceptDeferred.cancel()
                 }
+
+                acceptLoop
+                    ?.cancelAndJoin()
+
+                val sessions =
+                    synchronized(stateLock) {
+                        activeSessions
+                            .values
+                            .toList()
+                    }
+                sessions.forEach {
+                    activeSession ->
+                    activeSession.close()
+                }
+
+                val jobs =
+                    synchronized(stateLock) {
+                        activeJobs
+                            .values
+                            .toList()
+                    }
+                jobs.forEach {
+                    job ->
+                    job.cancelAndJoin()
+                }
+
+                windowCollector
+                    .cancelAndJoin()
                 mutableWindows.value =
                     emptyList()
             }
@@ -456,4 +590,13 @@ class RuntimeDisplayExecutionController(
                 listOf(blocker),
             error = error,
         )
+
+    companion object {
+        private const val
+            MAX_AUTHENTICATED_PEERS =
+            16
+        private const val
+            MAX_RECORDED_PEER_FAILURES =
+            8
+    }
 }
