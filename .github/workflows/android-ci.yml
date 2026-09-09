@@ -116,6 +116,9 @@ jobs:
       - name: Wine PocketPC driver ABI lock
         run: python3 scripts/test-wine-pocketpc-driver-abi-lock.py
 
+      - name: Vulkan WSI fail-closed policy
+        run: python3 scripts/test-vulkan-wsi-policy.py
+
       - name: Native display bridge integration
         run: python3 scripts/test-display-bridge-native-integration.py
 
