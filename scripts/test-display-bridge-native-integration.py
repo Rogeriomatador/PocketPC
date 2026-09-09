@@ -172,6 +172,9 @@ def main() -> int:
         surface_writer_executable =
             work /
             "surface_writer_smoke"
+        surface_visibility_executable =
+            work /
+            "surface_writer_visibility_smoke"
 
         run(
             [
@@ -384,6 +387,57 @@ def main() -> int:
         ):
             raise RuntimeError(
                 "SURFACE_WRITER_MARKER_MISSING"
+            )
+
+        run(
+            [
+                compiler,
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-Wpedantic",
+                "-O2",
+                "-I",
+                str(BRIDGE),
+                str(
+                    BRIDGE /
+                    "pocketpc_display_bridge.c"
+                ),
+                str(
+                    BRIDGE /
+                    "pocketpc_surface_writer.c"
+                ),
+                str(
+                    BRIDGE /
+                    "surface_writer_visibility_smoke.c"
+                ),
+                "-o",
+                str(
+                    surface_visibility_executable
+                ),
+            ],
+            work,
+        )
+        surface_visibility_result =
+            subprocess.run(
+                [
+                    str(
+                        surface_visibility_executable
+                    )
+                ],
+                cwd=work,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        if (
+            "POCKETPC_SURFACE_VISIBILITY_SMOKE_OK"
+            not in
+            surface_visibility_result.stdout
+        ):
+            raise RuntimeError(
+                "SURFACE_VISIBILITY_MARKER_MISSING"
             )
 
 
@@ -699,6 +753,9 @@ def main() -> int:
             )
             print(
                 "surface_writer=native-software-pass"
+            )
+            print(
+                "surface_visibility=cross-process-native-pass"
             )
             print(
                 "transport=x86_64-native-host-fixture"
