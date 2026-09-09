@@ -191,10 +191,19 @@ class RuntimeDisplayExecutionController(
                 RuntimeDisplaySessionController? =
                 null
 
+            val handshakeSocketTimeoutMillis =
+                handshakeTimeoutMillis
+                    .coerceIn(
+                        1_000L,
+                        30_000L,
+                    )
+                    .toInt()
+
             val acceptDeferred =
                 async(Dispatchers.IO) {
                     host.acceptAuthenticated(
-                        readTimeoutMillis = 0,
+                        readTimeoutMillis =
+                            handshakeSocketTimeoutMillis,
                     )
                 }
             val processDeferred =
