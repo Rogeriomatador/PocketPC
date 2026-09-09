@@ -245,13 +245,16 @@ def main() -> int:
         )
 
     smoke = build_x86_64_smoke(work)
-    display_bridge_smoke =
+    display_bridge_smoke = (
         build_display_bridge_smoke(work)
+    )
     staged = quarantine / "box64"
     packaged = package_bin / "box64"
     packaged_smoke = package_tests / "box64-smoke-x86_64"
-    packaged_bridge_smoke =
-        package_tests / "display-bridge-smoke-x86_64"
+    packaged_bridge_smoke = (
+        package_tests /
+        "display-bridge-smoke-x86_64"
+    )
     shutil.copy2(candidate, staged)
     shutil.copy2(candidate, packaged)
     shutil.copy2(smoke, packaged_smoke)
