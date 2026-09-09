@@ -66,6 +66,6 @@
     "surfaceWriterNativeSoftwareTestExecuted": false,
     "surfaceRequestProtocolImplemented": true,
     "surfaceWriterAttestationImplemented": true,
-    "asyncFrameAckDrainImplemented": true
+    "surfaceTransactionDemuxImplemented": true
   }
 }
