@@ -7,6 +7,9 @@ on:
       - 'third_party/wine/**'
       - 'scripts/build-wine-x86_64.py'
       - 'scripts/test-pc-runtime-source-locks.py'
+      - 'scripts/test-wine-pocketpc-driver-policy.py'
+      - 'scripts/test-wine-pocketpc-driver-abi-lock.py'
+      - 'scripts/test-display-bridge-protocol-lock.py'
       - '.github/workflows/wine-x86_64-build.yml'
 
 permissions:
@@ -34,6 +37,9 @@ jobs:
 
       - name: Validate PocketPC Wine driver policy
         run: python3 scripts/test-wine-pocketpc-driver-policy.py
+
+      - name: Validate PocketPC Wine driver ABI
+        run: python3 scripts/test-wine-pocketpc-driver-abi-lock.py
 
       - name: Validate display bridge protocol
         run: python3 scripts/test-display-bridge-protocol-lock.py
