@@ -6,6 +6,8 @@ on:
     paths:
       - 'scripts/build-proot-ndk.py'
       - 'scripts/stage-proot-apk-candidate.py'
+      - 'scripts/make-proot-device-validation-bundle.py'
+      - 'scripts/audit-proot-source-licenses.py'
       - 'scripts/test-proot-apk-staging-policy.py'
       - 'third_party/proot/NDK_BUILD.json'
       - 'third_party/proot/cross-answers-aarch64.txt'
@@ -40,6 +42,20 @@ jobs:
             --artifact-dir "$RUNNER_TEMP/pocketpc-proot-ndk/quarantine/arm64-v8a" \
             --audit "$RUNNER_TEMP/pocketpc-proot-ndk/proot-elf-audit.json" \
             --out "$RUNNER_TEMP/pocketpc-proot-apk-candidate"
+
+      - name: Audit exact build-source licenses
+        run: |
+          python3 scripts/audit-proot-source-licenses.py \
+            --source-root "$RUNNER_TEMP/pocketpc-proot-ndk/sources" \
+            --out "$RUNNER_TEMP/pocketpc-proot-license-audit.json"
+
+      - name: Build external device-validation bundle
+        run: |
+          python3 scripts/make-proot-device-validation-bundle.py \
+            --staged-dir "$RUNNER_TEMP/pocketpc-proot-apk-candidate" \
+            --license-audit "$RUNNER_TEMP/pocketpc-proot-license-audit.json" \
+            --source-cache "$RUNNER_TEMP/pocketpc-proot-sources" \
+            --out "$RUNNER_TEMP/pocketpc-proot-device-validation"
       - name: Retain build evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -63,6 +79,15 @@ jobs:
             scripts/audit-proot-artifacts.py
             scripts/stage-proot-apk-candidate.py
           if-no-files-found: error
+      - name: Retain external device-validation bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-PRoot-device-validation-bundle
+          path: |
+            ${{ runner.temp }}/pocketpc-proot-device-validation/
+            ${{ runner.temp }}/pocketpc-proot-license-audit.json
+          if-no-files-found: error
+
       - name: Verify build did not change runtime approvals
         run: |
           git diff --exit-code -- app third_party
