@@ -168,10 +168,12 @@ class RuntimeProbeEvidenceStore(
                     d3d,
                 ),
             graphicsPresentationSmokePassed =
-                match(
-                    KEY_D3D11_PRESENT,
-                    d3d,
-                ),
+                PocketPcVulkanWsiContract
+                    .implemented &&
+                    match(
+                        KEY_D3D11_PRESENT,
+                        d3d,
+                    ),
             windowsProcessSmokePassed =
                 match(
                     KEY_WINDOWS_PROCESS,
@@ -355,6 +357,8 @@ class RuntimeProbeEvidenceStore(
                 GuestRuntimeProbe
                     .D3D11_PRESENT_SMOKE ->
                     if (
+                        PocketPcVulkanWsiContract
+                            .implemented &&
                         all(
                             "wine_graphics_driver_config=pocketpc",
                             "POCKETPC_D3D11_PRESENT_SMOKE_OK",
@@ -549,7 +553,7 @@ class RuntimeProbeEvidenceStore(
     companion object {
         private const val
             PREFS =
-            "runtime-probe-evidence-v8"
+            "runtime-probe-evidence-v9"
         private const val
             KEY_BOX64 =
             "box64-smoke-key"
