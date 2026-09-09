@@ -84,6 +84,45 @@ object GuestToolTrustPolicy {
                 "GUEST_TOOL_ENTRYPOINT_NOT_TRUSTED:" +
                     manifest.id
         }
+
+        if (manifest.id == "wine") {
+            val paths =
+                manifest.files
+                    .map { it.path }
+                    .toSet()
+            if (
+                paths.none {
+                    it.endsWith(
+                        "/winepocketpc.drv",
+                    ) ||
+                        it ==
+                        "winepocketpc.drv"
+                }
+            ) {
+                errors +=
+                    "GUEST_TOOL_WINE_DRIVER_PE_MISSING"
+            }
+            if (
+                paths.none {
+                    it.endsWith(
+                        "/winepocketpc.so",
+                    ) ||
+                        it ==
+                        "winepocketpc.so"
+                }
+            ) {
+                errors +=
+                    "GUEST_TOOL_WINE_DRIVER_UNIXLIB_MISSING"
+            }
+            if (
+                "share/tests/pocketpc-win64-smoke.exe"
+                !in paths
+            ) {
+                errors +=
+                    "GUEST_TOOL_WINE_SMOKE_FIXTURE_MISSING"
+            }
+        }
+
         return errors
     }
 }
