@@ -26,6 +26,11 @@ interface RuntimeDisplayBridgeEndpoint {
         event: RuntimeBridgeKeyEvent,
     )
 
+    fun sendWindowCommand(
+        command:
+            RuntimeBridgeWindowCommand,
+    )
+
     fun sendFramePresented(
         event:
             RuntimeBridgeFramePresented,
@@ -185,6 +190,20 @@ class RuntimeDisplayBridgePeer internal constructor(
             .KEYBOARD,
         RuntimeDisplayBridgePayloadCodec
             .encodeKeyEvent(event),
+    )
+
+    override fun sendWindowCommand(
+        command:
+            RuntimeBridgeWindowCommand,
+    ) = send(
+        RuntimeDisplayBridgeMessageType
+            .WINDOW_COMMAND,
+        RuntimeDisplayBridgeCapabilities
+            .WINDOW_SURFACE,
+        RuntimeDisplayBridgePayloadCodec
+            .encodeWindowCommand(
+                command,
+            ),
     )
 
     override fun sendFramePresented(
