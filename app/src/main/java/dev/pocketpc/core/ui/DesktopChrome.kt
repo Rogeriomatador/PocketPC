@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
@@ -718,195 +719,374 @@ fun TaskbarV2(
 ) {
     val layout = LocalDesktopLayout.current
     val compactMobile = layout.compact
-    val taskbarHeight = layout.taskbarHeightDp.dp
-    val taskIconSize = if (compactMobile) 32 else 36
+    val taskbarHeight =
+        layout.taskbarHeightDp.dp
+    val taskIconSize =
+        if (compactMobile) 32 else 36
 
-    val apps = remember(desktop.pinnedApps.toList(), desktop.windows.toList()) {
-        (desktop.pinnedApps + desktop.windows.map { it.app }).distinct()
-    }
-    val activeApp = desktop.activeWindow?.app
+    val apps =
+        remember(
+            desktop.pinnedApps.toList(),
+            desktop.windows.toList(),
+        ) {
+            (
+                desktop.pinnedApps +
+                    desktop.windows.map {
+                        it.app
+                    }
+            ).distinct()
+        }
+    val activeApp =
+        desktop.activeWindow?.app
+
     var taskbarMenuTarget by remember {
         mutableStateOf<DesktopApp?>(null)
     }
+    var systemMenuOpen by remember {
+        mutableStateOf(false)
+    }
+    var systemMenuAnchorX by remember {
+        mutableIntStateOf(0)
+    }
+
+    fun openSystemMenu(
+        x: Int,
+    ) {
+        taskbarMenuTarget = null
+        desktop.closeContextMenu()
+        systemMenuAnchorX =
+            x.coerceAtLeast(0)
+        systemMenuOpen = true
+    }
 
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(taskbarHeight),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(taskbarHeight),
+        color =
+            MaterialTheme.colorScheme
+                .surfaceContainer,
         tonalElevation = 3.dp,
         shadowElevation = 8.dp,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    horizontal = if (compactMobile) 5.dp else 10.dp,
-                    vertical = 4.dp,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal =
+                            if (
+                                compactMobile
+                            ) {
+                                5.dp
+                            } else {
+                                10.dp
+                            },
+                        vertical = 4.dp,
+                    ),
+            verticalAlignment =
+                Alignment.CenterVertically,
         ) {
             PocketPcStartButton(
-                active = desktop.startMenuOpen,
-                onClick = desktop::toggleStartMenu,
+                active =
+                    desktop.startMenuOpen,
+                onClick = {
+                    systemMenuOpen = false
+                    taskbarMenuTarget = null
+                    desktop.toggleStartMenu()
+                },
             )
 
-            Spacer(Modifier.width(if (compactMobile) 4.dp else 8.dp))
+            Spacer(
+                Modifier.width(
+                    if (
+                        compactMobile
+                    ) {
+                        4.dp
+                    } else {
+                        8.dp
+                    }
+                ),
+            )
 
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxSize(),
             ) {
-                apps.forEach { app ->
-                    val active = activeApp == app
-                    val window = desktop.windows.firstOrNull { it.app == app }
-                    val hoverSource = remember(app) { MutableInteractionSource() }
-                    val hovered by hoverSource.collectIsHoveredAsState()
-                    val focused by hoverSource.collectIsFocusedAsState()
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .desktopSecondaryClickAt {
+                                position ->
+                                openSystemMenu(
+                                    position.x
+                                        .toInt(),
+                                )
+                            }
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        position ->
+                                        openSystemMenu(
+                                            position.x
+                                                .toInt(),
+                                        )
+                                    },
+                                )
+                            },
+                )
 
-                    Box {
-                        Column(
-                            horizontalAlignment =
-                                Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .semantics {
-                                    contentDescription = app.label
-                                    selected = active
-                                    role = Role.Button
-                                }
-                                .pointerHoverIcon(
-                                    PointerIcon.Hand
-                                )
-                                .hoverable(hoverSource)
-                                .focusable(
-                                    interactionSource =
-                                        hoverSource
-                                )
-                                .border(
-                                    width =
-                                        if (focused) {
-                                            2.dp
-                                        } else {
-                                            0.dp
-                                        },
-                                    color =
-                                        if (focused) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            Color.Transparent
-                                        },
-                                    shape =
-                                        RoundedCornerShape(
-                                            10.dp
-                                        ),
-                                )
-                                .background(
-                                    if (
-                                        active || hovered ||
-                                        focused
-                                    ) {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = if (active) 0.14f else 0.08f)
-                                    } else {
-                                        Color.Transparent
-                                    },
-                                    RoundedCornerShape(
-                                        10.dp
-                                    ),
-                                )
-                                .desktopSecondaryClick {
-                                    desktop
-                                        .closeContextMenu()
-                                    taskbarMenuTarget =
-                                        app
-                                }
-                                .combinedClickable(
-                                    onClick = {
-                                        taskbarMenuTarget =
-                                            null
-                                        desktop.activateFromTaskbar(app)
-                                    },
-                                    onLongClick = {
-                                        desktop
-                                            .closeContextMenu()
-                                        taskbarMenuTarget =
-                                            app
-                                    },
-                                )
-                                .padding(
-                                    horizontal = 3.dp
-                                ),
-                        ) {
-                            AppIconTile(
-                                app = app,
-                                size = taskIconSize,
-                                active = active,
+                Row(
+                    modifier =
+                        Modifier
+                            .align(
+                                Alignment
+                                    .CenterStart,
                             )
-                            Box(
-                                Modifier
-                                    .padding(top = 2.dp)
-                                    .width(
-                                        if (active) {
-                                            18.dp
-                                        } else {
-                                            7.dp
+                            .horizontalScroll(
+                                rememberScrollState(),
+                            ),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            6.dp,
+                        ),
+                    verticalAlignment =
+                        Alignment
+                            .CenterVertically,
+                ) {
+                    apps.forEach { app ->
+                        val active =
+                            activeApp == app
+                        val window =
+                            desktop.windows
+                                .firstOrNull {
+                                    it.app == app
+                                }
+                        val hoverSource =
+                            remember(app) {
+                                MutableInteractionSource()
+                            }
+                        val hovered by
+                            hoverSource
+                                .collectIsHoveredAsState()
+                        val focused by
+                            hoverSource
+                                .collectIsFocusedAsState()
+
+                        Box {
+                            Column(
+                                horizontalAlignment =
+                                    Alignment
+                                        .CenterHorizontally,
+                                verticalArrangement =
+                                    Arrangement.Center,
+                                modifier =
+                                    Modifier
+                                        .size(48.dp)
+                                        .semantics {
+                                            contentDescription =
+                                                app.label
+                                            selected =
+                                                active
+                                            role =
+                                                Role.Button
                                         }
-                                    )
-                                    .height(2.dp)
-                                    .background(
-                                        when {
-                                            active ->
-                                                MaterialTheme.colorScheme.primary
-                                            window != null ->
-                                                Color(
-                                                    0xFF8D939C
-                                                )
-                                            else ->
+                                        .pointerHoverIcon(
+                                            PointerIcon
+                                                .Hand
+                                        )
+                                        .hoverable(
+                                            hoverSource
+                                        )
+                                        .focusable(
+                                            interactionSource =
+                                                hoverSource
+                                        )
+                                        .border(
+                                            width =
+                                                if (
+                                                    focused
+                                                ) {
+                                                    2.dp
+                                                } else {
+                                                    0.dp
+                                                },
+                                            color =
+                                                if (
+                                                    focused
+                                                ) {
+                                                    MaterialTheme
+                                                        .colorScheme
+                                                        .primary
+                                                } else {
+                                                    Color
+                                                        .Transparent
+                                                },
+                                            shape =
+                                                RoundedCornerShape(
+                                                    10.dp
+                                                ),
+                                        )
+                                        .background(
+                                            if (
+                                                active ||
+                                                hovered ||
+                                                focused
+                                            ) {
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .primary
+                                                    .copy(
+                                                        alpha =
+                                                            if (
+                                                                active
+                                                            ) {
+                                                                0.14f
+                                                            } else {
+                                                                0.08f
+                                                            },
+                                                    )
+                                            } else {
                                                 Color.Transparent
-                                        },
-                                        RoundedCornerShape(
-                                            2.dp
+                                            },
+                                            RoundedCornerShape(
+                                                10.dp
+                                            ),
+                                        )
+                                        .desktopSecondaryClick {
+                                            desktop
+                                                .closeContextMenu()
+                                            systemMenuOpen =
+                                                false
+                                            taskbarMenuTarget =
+                                                app
+                                        }
+                                        .combinedClickable(
+                                            onClick = {
+                                                systemMenuOpen =
+                                                    false
+                                                taskbarMenuTarget =
+                                                    null
+                                                desktop
+                                                    .activateFromTaskbar(
+                                                        app
+                                                    )
+                                            },
+                                            onLongClick = {
+                                                desktop
+                                                    .closeContextMenu()
+                                                systemMenuOpen =
+                                                    false
+                                                taskbarMenuTarget =
+                                                    app
+                                            },
+                                        )
+                                        .padding(
+                                            horizontal =
+                                                3.dp
                                         ),
-                                    )
+                            ) {
+                                AppIconTile(
+                                    app = app,
+                                    size =
+                                        taskIconSize,
+                                    active =
+                                        active,
+                                )
+                                Box(
+                                    Modifier
+                                        .padding(
+                                            top = 2.dp
+                                        )
+                                        .width(
+                                            if (
+                                                active
+                                            ) {
+                                                18.dp
+                                            } else {
+                                                7.dp
+                                            }
+                                        )
+                                        .height(2.dp)
+                                        .background(
+                                            when {
+                                                active ->
+                                                    MaterialTheme
+                                                        .colorScheme
+                                                        .primary
+                                                window !=
+                                                    null ->
+                                                    Color(
+                                                        0xFF8D939C
+                                                    )
+                                                else ->
+                                                    Color
+                                                        .Transparent
+                                            },
+                                            RoundedCornerShape(
+                                                2.dp
+                                            ),
+                                        )
+                                )
+                            }
+
+                            TaskbarAppMenu(
+                                app = app,
+                                window = window,
+                                desktop = desktop,
+                                expanded =
+                                    taskbarMenuTarget ==
+                                        app,
+                                onDismiss = {
+                                    taskbarMenuTarget =
+                                        null
+                                },
                             )
                         }
-
-                        TaskbarAppMenu(
-                            app = app,
-                            window = window,
-                            desktop = desktop,
-                            expanded =
-                                taskbarMenuTarget ==
-                                    app,
-                            onDismiss = {
-                                taskbarMenuTarget =
-                                    null
-                            },
-                        )
                     }
                 }
+
+                TaskbarSystemMenu(
+                    desktop = desktop,
+                    expanded =
+                        systemMenuOpen,
+                    anchorX =
+                        systemMenuAnchorX,
+                    onDismiss = {
+                        systemMenuOpen = false
+                    },
+                )
             }
 
             if (
                 updateAttention !=
-                    PocketPcUpdateAttention.NONE
+                    PocketPcUpdateAttention
+                        .NONE
             ) {
                 UpdateAttentionChip(
-                    state = updateAttention,
-                    onClick = onUpdateClick,
+                    state =
+                        updateAttention,
+                    onClick = {
+                        systemMenuOpen = false
+                        onUpdateClick()
+                    },
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(
+                    Modifier.width(6.dp)
+                )
             }
 
             DesktopSystemTray(
                 peripherals = peripherals,
                 onClick = {
+                    systemMenuOpen = false
                     desktop.open(
-                        DesktopApp.CONTROL_CENTER
+                        DesktopApp
+                            .CONTROL_CENTER
                     )
                 },
             )
@@ -917,21 +1097,24 @@ fun TaskbarV2(
 @Composable
 private fun TaskbarAppMenu(
     app: DesktopApp,
-    window: dev.pocketpc.core.desktop.DesktopWindow?,
+    window:
+        dev.pocketpc.core.desktop
+            .DesktopWindow?,
     desktop: DesktopController,
     expanded: Boolean,
     onDismiss: () -> Unit,
 ) {
-    DropdownMenu(
+    TaskbarAnchoredPopup(
         expanded = expanded,
-        onDismissRequest = onDismiss,
+        onDismiss = onDismiss,
     ) {
         Text(
             app.label,
-            modifier = Modifier.padding(
-                horizontal = 12.dp,
-                vertical = 7.dp,
-            ),
+            modifier =
+                Modifier.padding(
+                    horizontal = 12.dp,
+                    vertical = 7.dp,
+                ),
             style =
                 MaterialTheme.typography
                     .labelLarge,
@@ -940,7 +1123,10 @@ private fun TaskbarAppMenu(
         DropdownMenuItem(
             text = {
                 Text(
-                    if (window?.minimized == true) {
+                    if (
+                        window?.minimized ==
+                            true
+                    ) {
                         "Restaurar janela"
                     } else {
                         "Abrir / trazer para frente"
@@ -959,14 +1145,21 @@ private fun TaskbarAppMenu(
                     Text("Minimizar")
                 },
                 onClick = {
-                    desktop.minimize(window.id)
+                    desktop.minimize(
+                        window.id
+                    )
                     onDismiss()
                 },
+                enabled =
+                    !window.minimized,
             )
+
             DropdownMenuItem(
                 text = {
                     Text(
-                        if (window.maximized) {
+                        if (
+                            window.maximized
+                        ) {
                             "Restaurar tamanho"
                         } else {
                             "Maximizar"
@@ -974,26 +1167,77 @@ private fun TaskbarAppMenu(
                     )
                 },
                 onClick = {
-                    desktop.toggleMaximize(
+                    desktop
+                        .toggleMaximize(
+                            window.id
+                        )
+                    onDismiss()
+                },
+            )
+
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "Encaixar à esquerda"
+                    )
+                },
+                onClick = {
+                    desktop.snapLeft(
                         window.id
                     )
                     onDismiss()
                 },
             )
+
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "Encaixar à direita"
+                    )
+                },
+                onClick = {
+                    desktop.snapRight(
+                        window.id
+                    )
+                    onDismiss()
+                },
+            )
+
+            HorizontalDivider()
+
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "Mostrar no Gerenciador de Tarefas"
+                    )
+                },
+                onClick = {
+                    desktop.open(
+                        DesktopApp
+                            .TASK_MANAGER
+                    )
+                    onDismiss()
+                },
+            )
+
             DropdownMenuItem(
                 text = {
                     Text(
                         "Fechar janela",
                         color =
                             MaterialTheme
-                                .colorScheme.error,
+                                .colorScheme
+                                .error,
                     )
                 },
                 onClick = {
-                    desktop.close(window.id)
+                    desktop.close(
+                        window.id
+                    )
                     onDismiss()
                 },
             )
+
             HorizontalDivider()
         }
 
@@ -1002,7 +1246,8 @@ private fun TaskbarAppMenu(
                 Text(
                     if (
                         app in
-                        desktop.pinnedApps
+                            desktop
+                                .pinnedApps
                     ) {
                         "Desafixar da barra de tarefas"
                     } else {
@@ -1014,6 +1259,249 @@ private fun TaskbarAppMenu(
                 desktop.togglePin(app)
                 onDismiss()
             },
+        )
+    }
+}
+
+@Composable
+private fun TaskbarSystemMenu(
+    desktop: DesktopController,
+    expanded: Boolean,
+    anchorX: Int,
+    onDismiss: () -> Unit,
+) {
+    TaskbarAnchoredPopup(
+        expanded = expanded,
+        anchorX = anchorX,
+        onDismiss = onDismiss,
+    ) {
+        Text(
+            "Barra de tarefas",
+            modifier =
+                Modifier.padding(
+                    horizontal = 12.dp,
+                    vertical = 7.dp,
+                ),
+            style =
+                MaterialTheme.typography
+                    .labelLarge,
+        )
+
+        DropdownMenuItem(
+            text = {
+                Text(
+                    "Gerenciador de Tarefas"
+                )
+            },
+            onClick = {
+                desktop.open(
+                    DesktopApp.TASK_MANAGER
+                )
+                onDismiss()
+            },
+        )
+
+        DropdownMenuItem(
+            text = {
+                Text(
+                    "Mostrar área de trabalho"
+                )
+            },
+            onClick = {
+                desktop.minimizeAll()
+                onDismiss()
+            },
+        )
+
+        HorizontalDivider()
+
+        DropdownMenuItem(
+            text = {
+                Text(
+                    "Central de controle"
+                )
+            },
+            onClick = {
+                desktop.open(
+                    DesktopApp
+                        .CONTROL_CENTER
+                )
+                onDismiss()
+            },
+        )
+
+        DropdownMenuItem(
+            text = {
+                Text(
+                    "Personalização"
+                )
+            },
+            onClick = {
+                desktop.open(
+                    DesktopApp
+                        .PERSONALIZATION
+                )
+                onDismiss()
+            },
+        )
+    }
+}
+
+@Composable
+private fun TaskbarAnchoredPopup(
+    expanded: Boolean,
+    anchorX: Int? = null,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    if (!expanded) {
+        return
+    }
+
+    val density =
+        LocalDensity.current
+    val gapPx =
+        with(density) {
+            6.dp.roundToPx()
+        }
+    val edgePx =
+        with(density) {
+            8.dp.roundToPx()
+        }
+
+    val provider =
+        remember(
+            anchorX,
+            gapPx,
+            edgePx,
+        ) {
+            TaskbarPopupPositionProvider(
+                localAnchorX =
+                    anchorX,
+                gapPx = gapPx,
+                edgePx = edgePx,
+            )
+        }
+
+    Popup(
+        popupPositionProvider =
+            provider,
+        onDismissRequest =
+            onDismiss,
+        properties =
+            PopupProperties(
+                focusable = true,
+                dismissOnBackPress =
+                    true,
+                dismissOnClickOutside =
+                    true,
+            ),
+    ) {
+        Surface(
+            modifier =
+                Modifier.widthIn(
+                    min = 205.dp,
+                    max = 290.dp,
+                ),
+            shape =
+                RoundedCornerShape(
+                    12.dp
+                ),
+            tonalElevation = 8.dp,
+            shadowElevation = 18.dp,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .surfaceContainer,
+        ) {
+            Column(
+                modifier =
+                    Modifier.padding(
+                        vertical = 6.dp,
+                    ),
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+private class TaskbarPopupPositionProvider(
+    private val localAnchorX: Int?,
+    private val gapPx: Int,
+    private val edgePx: Int,
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection:
+            LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val localX =
+            (
+                localAnchorX
+                    ?: (
+                        anchorBounds.width /
+                            2
+                    )
+            ).coerceIn(
+                0,
+                anchorBounds.width,
+            )
+
+        val centerX =
+            anchorBounds.left +
+                localX
+        val rawX =
+            centerX -
+                popupContentSize.width /
+                    2
+
+        val maxX =
+            (
+                windowSize.width -
+                    popupContentSize.width -
+                    edgePx
+            ).coerceAtLeast(edgePx)
+
+        val x =
+            rawX.coerceIn(
+                edgePx,
+                maxX,
+            )
+
+        val above =
+            anchorBounds.top -
+                popupContentSize.height -
+                gapPx
+
+        val below =
+            anchorBounds.bottom +
+                gapPx
+
+        val maxY =
+            (
+                windowSize.height -
+                    popupContentSize.height -
+                    edgePx
+            ).coerceAtLeast(edgePx)
+
+        val y =
+            if (
+                above >= edgePx
+            ) {
+                above
+            } else {
+                below.coerceIn(
+                    edgePx,
+                    maxY,
+                )
+            }
+
+        return IntOffset(
+            x,
+            y,
         )
     }
 }
