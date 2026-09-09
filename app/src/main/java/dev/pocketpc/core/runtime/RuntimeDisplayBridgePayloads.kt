@@ -80,10 +80,17 @@ data class RuntimeBridgeFramePresented(
     val status: Int,
 )
 
+data class RuntimeBridgeWindowCommand(
+    val windowId: Long,
+    val command: Int,
+    val flags: Int = 0,
+)
+
 object RuntimeDisplayBridgePayloadCodec {
     const val WINDOW_CREATE_BYTES = 28
     const val WINDOW_GEOMETRY_BYTES = 40
     const val WINDOW_DESTROY_BYTES = 8
+    const val WINDOW_COMMAND_BYTES = 16
     const val SURFACE_REQUEST_BYTES = 32
     const val SURFACE_AVAILABLE_BYTES = 56
     const val FRAME_READY_BYTES = 32
@@ -109,6 +116,12 @@ object RuntimeDisplayBridgePayloadCodec {
     const val KEY_ACTION_DOWN = 1
     const val KEY_ACTION_UP = 2
     const val KEY_ACTION_REPEAT = 3
+
+    const val WINDOW_COMMAND_ACTIVATE = 1
+    const val WINDOW_COMMAND_MINIMIZE = 2
+    const val WINDOW_COMMAND_RESTORE = 3
+    const val WINDOW_COMMAND_MAXIMIZE = 4
+    const val WINDOW_COMMAND_CLOSE = 5
 
     const val Z_ORDER_NO_CHANGE = 1 shl 0
     const val Z_ORDER_TOP = 1 shl 1
@@ -326,6 +339,37 @@ object RuntimeDisplayBridgePayloadCodec {
             putInt(value.repeatCount)
         }.array()
     }
+
+    fun encodeWindowCommand(
+        value: RuntimeBridgeWindowCommand,
+    ): ByteArray {
+        validateWindowCommand(value)
+        return buffer(
+            WINDOW_COMMAND_BYTES,
+        ).apply {
+            putLong(value.windowId)
+            putInt(value.command)
+            putInt(value.flags)
+        }.array()
+    }
+
+    fun decodeWindowCommand(
+        payload: ByteArray,
+    ): Result<RuntimeBridgeWindowCommand> =
+        runCatching {
+            val b =
+                fixed(
+                    payload,
+                    WINDOW_COMMAND_BYTES,
+                )
+            RuntimeBridgeWindowCommand(
+                windowId = b.long,
+                command = b.int,
+                flags = b.int,
+            ).also(
+                ::validateWindowCommand,
+            )
+        }
 
     fun encodeFramePresented(
         value: RuntimeBridgeFramePresented,
@@ -553,6 +597,22 @@ object RuntimeDisplayBridgePayloadCodec {
                 }
             }
         }
+
+    private fun validateWindowCommand(
+        value: RuntimeBridgeWindowCommand,
+    ) {
+        requireWindowId(value.windowId)
+        require(
+            value.command in
+                WINDOW_COMMAND_ACTIVATE..
+                    WINDOW_COMMAND_CLOSE,
+        ) {
+            "DISPLAY_BRIDGE_WINDOW_COMMAND_INVALID"
+        }
+        require(value.flags == 0) {
+            "DISPLAY_BRIDGE_WINDOW_COMMAND_FLAGS_INVALID"
+        }
+    }
 
     private fun validateSurfaceRequest(
         value: RuntimeBridgeSurfaceRequest,
