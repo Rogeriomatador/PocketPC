@@ -137,7 +137,9 @@
     "displayPeerProcessFamilyAssociationImplemented": true,
     "displayPeerProcessFamilyAssociationSoftwareTestExecuted": false,
     "taskManagerProcessFamilyUiImplemented": true,
-    "taskManagerProcessFamilyUiSoftwareTestExecuted": false
+    "taskManagerProcessFamilyUiSoftwareTestExecuted": false,
+    "taskManagerIndividualProcessControlImplemented": true,
+    "taskManagerIndividualProcessControlSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -419,7 +421,8 @@
       "launcherExit": "retain an empty family for 5000 ms after root exit so a child PID embedded in a namespaced windowId can attach during display handoff",
       "displayAssociation": "windowId high 32 bits carry the positive Wine PID namespace; authenticated display windows associate that PID with the active supervised family",
       "termination": "signal descendants deepest-first with SIGTERM/SIGKILL and terminate the registered root last",
-      "taskManager": "show family process count, aggregate RSS/threads, family PIDs and family-wide terminate controls"
+      "taskManager": "show family process count, aggregate RSS/threads, family PIDs and family-wide terminate controls",
+      "individualControl": "Task Manager exposes observed non-root members with command name, PID, RSS and thread count; terminateMember validates current PID+startTimeTicks and family membership before SIGTERM/SIGKILL"
     }
   }
 }
