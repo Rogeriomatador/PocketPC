@@ -25,12 +25,115 @@ data class ProcessRunResult(
     val error: String? = null,
 )
 
+data class RuntimeProcessSnapshot(
+    val id: Long,
+    val pid: Long?,
+    val command: String,
+    val argv: List<String>,
+    val startedAtMillis: Long,
+    val alive: Boolean,
+)
+
+object RuntimeProcessRegistry {
+    private data class Entry(
+        val id: Long,
+        val process: Process,
+        val argv: List<String>,
+        val startedAtMillis: Long,
+    )
+
+    private val lock = Any()
+    private val entries = LinkedHashMap<Long, Entry>()
+    private var nextId = 1L
+
+    internal fun register(
+        process: Process,
+        argv: List<String>,
+    ): Long =
+        synchronized(lock) {
+            val id = nextId++
+            entries[id] =
+                Entry(
+                    id = id,
+                    process = process,
+                    argv = argv.toList(),
+                    startedAtMillis =
+                        System.currentTimeMillis(),
+                )
+            id
+        }
+
+    internal fun unregister(
+        id: Long,
+        process: Process,
+    ) {
+        synchronized(lock) {
+            if (
+                entries[id]
+                    ?.process === process
+            ) {
+                entries.remove(id)
+            }
+        }
+    }
+
+    fun snapshots():
+        List<RuntimeProcessSnapshot> =
+        synchronized(lock) {
+            entries.values
+                .map { entry ->
+                    RuntimeProcessSnapshot(
+                        id = entry.id,
+                        pid =
+                            runCatching {
+                                entry.process.pid()
+                            }.getOrNull(),
+                        command =
+                            entry.argv.firstOrNull()
+                                ?.substringAfterLast('/')
+                                ?.ifBlank {
+                                    "processo"
+                                }
+                                ?: "processo",
+                        argv = entry.argv,
+                        startedAtMillis =
+                            entry.startedAtMillis,
+                        alive =
+                            entry.process.isAlive,
+                    )
+                }
+                .sortedBy {
+                    it.startedAtMillis
+                }
+        }
+
+    fun terminate(
+        id: Long,
+        force: Boolean = false,
+    ): Boolean {
+        val process =
+            synchronized(lock) {
+                entries[id]?.process
+            } ?: return false
+
+        return runCatching {
+            if (force) {
+                process.destroyForcibly()
+            } else {
+                process.destroy()
+            }
+            true
+        }.getOrDefault(false)
+    }
+}
+
 class RuntimeProcessSupervisor {
     @Volatile
     private var active: Process? = null
 
     suspend fun runOneShot(spec: ProcessRunSpec): ProcessRunResult =
         withContext(Dispatchers.IO) {
+            var registryId: Long? = null
             if (spec.argv.isEmpty()) {
                 return@withContext ProcessRunResult(
                     started = false,
@@ -58,7 +161,15 @@ class RuntimeProcessSupervisor {
                             environment().putAll(spec.environment)
                         }
                         .start()
-                        .also { active = it }
+                        .also { process ->
+                            active = process
+                            registryId =
+                                RuntimeProcessRegistry
+                                    .register(
+                                        process,
+                                        spec.argv,
+                                    )
+                        }
                 }
             }.getOrElse {
                 return@withContext ProcessRunResult(
@@ -125,8 +236,17 @@ class RuntimeProcessSupervisor {
                 runCatching { process.outputStream.close() }
                 runCatching { process.inputStream.close() }
                 runCatching { process.errorStream.close() }
+                registryId?.let { id ->
+                    RuntimeProcessRegistry
+                        .unregister(
+                            id,
+                            process,
+                        )
+                }
                 synchronized(this@RuntimeProcessSupervisor) {
-                    if (active === process) active = null
+                    if (active === process) {
+                        active = null
+                    }
                 }
             }
         }
