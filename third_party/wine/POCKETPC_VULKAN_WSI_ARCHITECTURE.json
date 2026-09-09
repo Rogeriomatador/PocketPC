@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "status": "AHARDWAREBUFFER_TRANSPORT_FOUNDATION_IMPLEMENTED_NOT_EXECUTED_WSI_NOT_IMPLEMENTED",
+  "wine": {
+    "version": "11.0",
+    "commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+    "vulkanDriverVersion": 47,
+    "driver": "winepocketpc.drv",
+    "requiredEntryPoint": "user_driver_funcs.pVulkanInit",
+    "requiredCallbacks": [
+      "p_vulkan_surface_create",
+      "p_get_physical_device_presentation_support",
+      "p_map_instance_extensions",
+      "p_map_device_extensions"
+    ]
+  },
+  "box64": {
+    "version": "0.4.4",
+    "commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+    "sourceReviewed": true,
+    "vkCreateAndroidSurfaceKHRWrapperPresent": true,
+    "runtimeExecuted": false,
+    "note": "Pinned Box64 source contains a wrapper entry for vkCreateAndroidSurfaceKHR, so the x86_64-to-ARM64 Vulkan call path is structurally represented. This is not runtime evidence."
+  },
+  "androidTransport": {
+    "candidate": "AHardwareBuffer",
+    "minimumApi": 26,
+    "hostProbe": "NativeRuntimeHost.nativeHardwareBufferProbe",
+    "probeSource": "app/src/main/cpp/runtime_host.cpp",
+    "allocation": "AHardwareBuffer_allocate",
+    "socketSend": "AHardwareBuffer_sendHandleToUnixSocket",
+    "socketReceive": "AHardwareBuffer_recvHandleFromUnixSocket",
+    "vulkanExternalMemoryExtension": "VK_ANDROID_external_memory_android_hardware_buffer",
+    "hostProbeImplemented": true,
+    "hostProbeSoftwareTestExecuted": false,
+    "hostProbePhysicalTestExecuted": false,
+    "crossProcessPhysicalTestExecuted": false
+  },
+  "rejectedRoutes": [
+    {
+      "route": "send ANativeWindow pointer over Display Bridge socket",
+      "reason": "ANativeWindow is process-local opaque state; a pointer value is not a transferable cross-process handle."
+    },
+    {
+      "route": "treat GDI window_surface.flush as DXVK Present",
+      "reason": "Wine Vulkan uses the graphics driver's pVulkanInit/WSI contract; GDI framebuffer flush does not establish a Vulkan surface or swapchain."
+    },
+    {
+      "route": "reuse wineandroid.drv as the DXVK WSI backend",
+      "reason": "Pinned Wine 11 wineandroid.drv exposes pOpenGLInit but no pVulkanInit."
+    }
+  ],
+  "targetArchitecture": {
+    "phase1": "Android host proves AHardwareBuffer allocation plus AF_UNIX handle round-trip.",
+    "phase2": "Guest-side transport receives a real transferable graphics buffer identity without trusting raw pointers.",
+    "phase3": "Implement Wine Vulkan driver v47 callbacks and map Win32 surface semantics onto the transferable-buffer backend.",
+    "phase4": "Implement synchronization and image ownership for acquire/render/present.",
+    "phase5": "Run D3D11 Present smoke and require a host-visible frame before recording evidence.",
+    "phase6": "Only then unblock controlled DXVK application attempts."
+  },
+  "gates": {
+    "box64AndroidVulkanWrapperSourceReviewed": true,
+    "ahardwareBufferHostProbeImplemented": true,
+    "ahardwareBufferHostProbeSoftwareTestExecuted": false,
+    "ahardwareBufferHostProbePhysicalTestExecuted": false,
+    "ahardwareBufferCrossProcessPhysicalTestExecuted": false,
+    "guestHardwareBufferReceiveImplemented": false,
+    "wineVulkanWsiImplemented": false,
+    "wineVulkanWsiSoftwareTestExecuted": false,
+    "wineVulkanWsiPhysicalTestExecuted": false,
+    "d3d11PresentHostVisibleFrameExecuted": false,
+    "controlledDxvkApplicationAttemptAllowed": false
+  }
+}
