@@ -62,8 +62,7 @@ class RuntimeDisplayBridgeProbeController(
                             timeoutMillis =
                                 timeoutMillis,
                         )
-                return@coroutineScope
-                    RuntimeDisplayBridgeProbeResult(
+                return@coroutineScope RuntimeDisplayBridgeProbeResult(
                         process = process,
                         bridgeAuthenticated =
                             false,
@@ -78,8 +77,7 @@ class RuntimeDisplayBridgeProbeController(
                 basePlan.environment[
                     "PROOT_TMP_DIR"
                 ]?.let(::File)
-                    ?: return@coroutineScope
-                        RuntimeDisplayBridgeProbeResult(
+                    ?: return@coroutineScope RuntimeDisplayBridgeProbeResult(
                             process =
                                 ProotExecutionResult(
                                     state =
@@ -144,8 +142,7 @@ class RuntimeDisplayBridgeProbeController(
                         error =
                             "DISPLAY_BRIDGE_ENVIRONMENT_INVALID",
                     )
-                return@coroutineScope
-                    RuntimeDisplayBridgeProbeResult(
+                return@coroutineScope RuntimeDisplayBridgeProbeResult(
                         process,
                         false,
                         0,
