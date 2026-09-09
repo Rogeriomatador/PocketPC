@@ -97,6 +97,75 @@ class RuntimeDisplaySessionController(
             processor.sendKey(event)
         }
 
+    fun commandWindow(
+        windowId: Long,
+        command: Int,
+    ): Result<Unit> =
+        runCatching {
+            check(!closed.get()) {
+                "DISPLAY_SESSION_CLOSED"
+            }
+            require(
+                windows.value.any {
+                    it.windowId ==
+                        windowId
+                },
+            ) {
+                "DISPLAY_SESSION_WINDOW_MISSING"
+            }
+            processor.sendWindowCommand(
+                RuntimeBridgeWindowCommand(
+                    windowId = windowId,
+                    command = command,
+                ),
+            )
+        }
+
+    fun activateWindow(
+        windowId: Long,
+    ): Result<Unit> =
+        commandWindow(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_ACTIVATE,
+        )
+
+    fun minimizeWindow(
+        windowId: Long,
+    ): Result<Unit> =
+        commandWindow(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_MINIMIZE,
+        )
+
+    fun restoreWindow(
+        windowId: Long,
+    ): Result<Unit> =
+        commandWindow(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_RESTORE,
+        )
+
+    fun maximizeWindow(
+        windowId: Long,
+    ): Result<Unit> =
+        commandWindow(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_MAXIMIZE,
+        )
+
+    fun closeWindow(
+        windowId: Long,
+    ): Result<Unit> =
+        commandWindow(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_CLOSE,
+        )
+
     override fun close() {
         if (
             closed.compareAndSet(
