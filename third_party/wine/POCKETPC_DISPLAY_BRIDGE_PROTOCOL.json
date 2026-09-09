@@ -30,7 +30,8 @@
     "KEY_EVENT": 31,
     "GAMEPAD_EVENT": 32,
     "FRAME_PRESENTED": 40,
-    "ERROR": 255
+    "ERROR": 255,
+    "FRAME_READY": 21
   },
   "capabilities": {
     "WINDOW_SURFACE": 1,
@@ -64,7 +65,8 @@
     "KEY_EVENT": "host-to-guest",
     "GAMEPAD_EVENT": "host-to-guest",
     "FRAME_PRESENTED": "host-to-guest",
-    "ERROR": "bidirectional"
+    "ERROR": "bidirectional",
+    "FRAME_READY": "guest-to-host"
   },
   "payloadLayouts": {
     "WINDOW_CREATE": {
@@ -125,6 +127,39 @@
         "frameId:u64",
         "status:u32"
       ]
+    },
+    "SURFACE_AVAILABLE": {
+      "bytes": 56,
+      "fields": [
+        "windowId:u64",
+        "surfaceId:u64",
+        "generation:u64",
+        "width:i32",
+        "height:i32",
+        "strideBytes:i32",
+        "pixelFormat:u32",
+        "token:bytes16"
+      ]
+    },
+    "FRAME_READY": {
+      "bytes": 32,
+      "fields": [
+        "windowId:u64",
+        "surfaceId:u64",
+        "generation:u64",
+        "frameId:u64"
+      ]
     }
+  },
+  "sharedFramebuffer": {
+    "pixelFormat": "BGRA8888",
+    "pixelFormatId": 1,
+    "guestPathTemplate": "/tmp/.pocketpc-surface-<tokenHex>.bgra",
+    "tokenBytes": 16,
+    "smokeWidth": 64,
+    "smokeHeight": 64,
+    "smokePattern": "B=x&255,G=y&255,R=(x xor y)&255,A=255",
+    "transport": "host temp file bound into guest /tmp",
+    "productionReplacement": "AHardwareBuffer/Vulkan after shared-framebuffer integration evidence"
   }
 }
