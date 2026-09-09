@@ -5,6 +5,7 @@
 #include "config.h"
 
 #include <string.h>
+#include <unistd.h>
 
 #include "ntstatus.h"
 #define WIN32_NO_STATUS
@@ -86,6 +87,23 @@ static NTSTATUS pocketpcdrv_unix_init(
         &pocketpc_windows,
         &pocketpc_connection
     );
+
+    if (
+        pdb_wine_window_map_set_namespace(
+            &pocketpc_windows.windows,
+            (uint32_t)getpid()
+        ) != 0
+    ) {
+        pdb_close(
+            &pocketpc_connection
+        );
+        ERR(
+            "window namespace setup failed pid=%ld\n",
+            (long)getpid()
+        );
+        return STATUS_UNSUCCESSFUL;
+    }
+
     pocketpc_bridge_ready = TRUE;
 
     __wine_set_user_driver(
@@ -94,8 +112,9 @@ static NTSTATUS pocketpcdrv_unix_init(
     );
 
     TRACE(
-        "PocketPC USER driver registered, protocol=%u\n",
-        PDB_VERSION
+        "PocketPC USER driver registered, protocol=%u pid_namespace=%lu\n",
+        PDB_VERSION,
+        (unsigned long)(uint32_t)getpid()
     );
     return STATUS_SUCCESS;
 }
