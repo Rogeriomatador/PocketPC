@@ -2244,6 +2244,11 @@ fun RuntimeApp(
                                                 result
                                                     .bridgeAuthenticated
                                         )
+                                        appendLine(
+                                            "Peers Wine autenticados: " +
+                                                result
+                                                    .authenticatedPeerCount
+                                        )
                                         result.bridgeError
                                             ?.let {
                                                 appendLine(
