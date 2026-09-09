@@ -41,7 +41,9 @@
     "KEYBOARD": 4,
     "GAMEPAD": 8,
     "FRAME_ACK": 16,
-    "HOST_BASELINE": 23
+    "HOST_BASELINE": 23,
+    "GUEST_IMPLEMENTED": 23,
+    "GUEST_REQUIRED": 23
   },
   "evidence": {
     "hostImplementation": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeProtocol.kt",
@@ -99,7 +101,17 @@
     "surfaceRegistryPublishFailClosedImplemented": true,
     "surfaceRegistryPublishFailClosedSoftwareTestExecuted": false,
     "authTimeoutScopedToHandshakeImplemented": true,
-    "authTimeoutScopedToHandshakeSoftwareTestExecuted": false
+    "authTimeoutScopedToHandshakeSoftwareTestExecuted": false,
+    "guestCapabilityBaselineNegotiationImplemented": true,
+    "guestCapabilityBaselineNegotiationSoftwareTestExecuted": false,
+    "controlledWindowsAttemptPlanningImplemented": true,
+    "controlledWindowsAttemptPlanningSoftwareTestExecuted": false,
+    "pcTargetMaterializationImplemented": true,
+    "pcTargetMaterializationSoftwareTestExecuted": false,
+    "runtimeEvidenceIdentityCoherenceImplemented": true,
+    "runtimeEvidenceIdentityCoherenceSoftwareTestExecuted": false,
+    "continuousAppDesktopBridgeImplemented": true,
+    "continuousAppDesktopBridgeSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -336,6 +348,15 @@
   },
   "transport": {
     "authenticationReadTimeout": "bounded during unauthenticated HELLO/HELLO_ACK only",
-    "establishedSessionReadTimeout": "disabled (blocking read); established desktop idleness must not terminate the bridge"
+    "establishedSessionReadTimeout": "disabled (blocking read); established desktop idleness must not terminate the bridge",
+    "capabilityNegotiation": "guest HELLO advertises only host-offered capabilities that are implemented by the guest; production authentication requires WINDOW_SURFACE|POINTER|KEYBOARD|FRAME_ACK and rejects incomplete baselines"
+  },
+  "controlledWindowsAttempt": {
+    "status": "IMPLEMENTED_NOT_EXECUTED",
+    "targetMaterialization": "content:// SAF target is copied into /home/pocket/windows-targets through a verified host file, SHA-256 named, bounded and no-follow checked",
+    "executionChain": "PRoot -> /bin/sh -c fixed exec \"$@\" -> Box64 -> Wine -> materialized EXE/MSI",
+    "shellSafety": "dynamic Box64/Wine/target values are positional arguments and are never interpolated into shell source",
+    "evidenceRule": "all required smoke evidence must come from one runtime/tool/layer identity; application compatibility remains UNVALIDATED after a mere attempt",
+    "desktopRule": "continuous RuntimeDisplaySessionController publishes compositor windows through RuntimeDesktopBridge"
   }
 }
