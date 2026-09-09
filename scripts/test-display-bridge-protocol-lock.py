@@ -58,6 +58,8 @@ def main() -> int:
     layouts = lock.get("payloadLayouts") or {}
     shared = lock.get("sharedFramebuffer") or {}
     z_order = lock.get("zOrder") or {}
+    input_semantics =
+        lock.get("inputSemantics") or {}
 
     checks = (
         (wire.get("magicHex"), "0x31424450", "wire magic"),
@@ -127,6 +129,36 @@ def main() -> int:
     }
     if direction != expected_direction:
         failures.append("message direction map changed")
+
+    expected_pointer =
+        (input_semantics.get("pointer") or {})
+    expected_keyboard =
+        (input_semantics.get("keyboard") or {})
+    if expected_pointer.get("actions") != {
+        "MOVE": 0,
+        "DOWN": 1,
+        "UP": 2,
+        "SCROLL": 3,
+    }:
+        failures.append(
+            "pointer action semantics changed"
+        )
+    if expected_pointer.get("buttons") != {
+        "PRIMARY": 1,
+        "SECONDARY": 2,
+        "MIDDLE": 4,
+    }:
+        failures.append(
+            "pointer button semantics changed"
+        )
+    if expected_keyboard.get("actions") != {
+        "DOWN": 1,
+        "UP": 2,
+        "REPEAT": 3,
+    }:
+        failures.append(
+            "keyboard action semantics changed"
+        )
 
     expected_sizes = {
         "WINDOW_CREATE": 28,
@@ -262,6 +294,14 @@ def main() -> int:
             "decodeSurfaceAvailable",
             "encodeFrameReady",
             "decodeFrameReady",
+            "POINTER_ACTION_MOVE = 0",
+            "POINTER_ACTION_DOWN = 1",
+            "POINTER_ACTION_UP = 2",
+            "POINTER_ACTION_SCROLL = 3",
+            "KEY_ACTION_DOWN = 1",
+            "KEY_ACTION_UP = 2",
+            "KEY_ACTION_REPEAT = 3",
+            "DISPLAY_BRIDGE_POINTER_BUTTON_MASK_INVALID",
             "encodePointerEvent",
             "encodeKeyEvent",
             "encodeFramePresented",
@@ -341,6 +381,12 @@ def main() -> int:
             "PDB_KEY_PAYLOAD_INVALID",
             "PDB_FRAME_ACK_PAYLOAD_INVALID",
             "PDB_WINDOW_GEOMETRY_INVALID",
+            "PDB_SOCKET_TIMEOUT_SECONDS",
+            "SO_RCVTIMEO",
+            "SO_SNDTIMEO",
+            "PDB_POINTER_BUTTON_ALLOWED",
+            "pdb_peek_message_type",
+            "pdb_receive_host_event",
         ),
     )
     require_sentinels(
