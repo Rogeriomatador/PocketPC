@@ -44,6 +44,73 @@ class RuntimeDisplayBridgePayloadCodecTest {
         assertArrayEquals(RuntimeDisplayBridgePayloadCodec.encodeKeyEvent(value), RuntimeDisplayBridgePayloadCodec.encodeKeyEvent(value))
     }
 
+
+    @Test
+    fun windowCommandRoundTrip() {
+        val expected =
+            RuntimeBridgeWindowCommand(
+                windowId = 42L,
+                command =
+                    RuntimeDisplayBridgePayloadCodec
+                        .WINDOW_COMMAND_CLOSE,
+            )
+
+        val payload =
+            RuntimeDisplayBridgePayloadCodec
+                .encodeWindowCommand(
+                    expected,
+                )
+
+        assertEquals(
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_BYTES,
+            payload.size,
+        )
+        assertEquals(
+            expected,
+            RuntimeDisplayBridgePayloadCodec
+                .decodeWindowCommand(
+                    payload,
+                )
+                .getOrThrow(),
+        )
+    }
+
+    @Test
+    fun windowCommandRejectsUnknownCommand() {
+        val result =
+            runCatching {
+                RuntimeDisplayBridgePayloadCodec
+                    .encodeWindowCommand(
+                        RuntimeBridgeWindowCommand(
+                            windowId = 1L,
+                            command = 6,
+                        ),
+                    )
+            }
+
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun windowCommandRejectsFlags() {
+        val result =
+            runCatching {
+                RuntimeDisplayBridgePayloadCodec
+                    .encodeWindowCommand(
+                        RuntimeBridgeWindowCommand(
+                            windowId = 1L,
+                            command =
+                                RuntimeDisplayBridgePayloadCodec
+                                    .WINDOW_COMMAND_ACTIVATE,
+                            flags = 1,
+                        ),
+                    )
+            }
+
+        assertTrue(result.isFailure)
+    }
+
     @Test
     fun surfaceRequestRoundTrip() {
         val expected =
