@@ -98,6 +98,12 @@ class MainActivity : ComponentActivity() {
                     KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
                 ),
                 KeyboardShortcutInfo(
+                    "Gerenciador de Tarefas",
+                    KeyEvent.KEYCODE_ESCAPE,
+                    KeyEvent.META_CTRL_ON or
+                        KeyEvent.META_SHIFT_ON,
+                ),
+                KeyboardShortcutInfo(
                     "Alternar janelas",
                     KeyEvent.KEYCODE_TAB,
                     KeyEvent.META_ALT_ON,
@@ -147,6 +153,12 @@ class MainActivity : ComponentActivity() {
 
             event.isMetaPressed && event.keyCode == KeyEvent.KEYCODE_B ->
                 DesktopCommand.OPEN_BROWSER
+
+            event.isCtrlPressed &&
+                event.isShiftPressed &&
+                event.keyCode ==
+                    KeyEvent.KEYCODE_ESCAPE ->
+                DesktopCommand.OPEN_TASK_MANAGER
 
             event.isCtrlPressed &&
                 event.isAltPressed &&
