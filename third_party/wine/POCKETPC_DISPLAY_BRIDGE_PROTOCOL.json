@@ -123,7 +123,13 @@
     "wineDriverAbiLockImplemented": true,
     "wineDriverAbiLockSoftwareTestExecuted": false,
     "wineGraphicsConfigurationIsolationImplemented": true,
-    "wineGraphicsConfigurationIsolationSoftwareTestExecuted": false
+    "wineGraphicsConfigurationIsolationSoftwareTestExecuted": false,
+    "wineProcessWindowNamespaceImplemented": true,
+    "wineProcessWindowNamespaceSoftwareTestExecuted": false,
+    "multiPeerDesktopRoutingImplemented": true,
+    "multiPeerDesktopRoutingSoftwareTestExecuted": false,
+    "multiPeerDisplayExecutionImplemented": true,
+    "multiPeerDisplayExecutionSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -387,5 +393,14 @@
       "NtUserSendHardwareInput signature",
       "PE dllmain versus #pragma makedep unix source classification"
     ]
+  },
+  "multiProcessDisplay": {
+    "status": "IMPLEMENTED_STATICALLY_NOT_EXECUTED",
+    "windowIdentity": "guest windowId = (positive 31-bit Linux PID namespace << 32) | monotonic 32-bit local window counter",
+    "peerLimit": 16,
+    "desktopRouting": "RuntimeDesktopBridge keeps concurrent bindings, maps every windowId to one owning binding, and routes window commands, pointer events and keyboard events to that owner",
+    "sessionLifecycle": "RuntimeDisplayExecutionController requires the first authenticated peer, then continues accepting authenticated peers until the launched PRoot/Wine session exits",
+    "zOrderMerge": "per-peer compositor order is merged; topmost windows stay above non-topmost windows and global zIndex is reassigned",
+    "evidence": "source/unit/native smoke prepared; CI/physical execution remains false until a runner/device executes it"
   }
 }
