@@ -147,7 +147,8 @@ int pdb_wine_window_bridge_geometry(
     int32_t width,
     int32_t height,
     uint32_t visible,
-    int32_t z_order,
+    uint32_t z_order_flags,
+    uint64_t insert_after_window_id,
     char *error,
     size_t error_bytes
 ) {
@@ -207,7 +208,8 @@ int pdb_wine_window_bridge_geometry(
             width,
             height,
             visible,
-            z_order,
+            z_order_flags,
+            insert_after_window_id,
             error,
             error_bytes
         ) != 0
