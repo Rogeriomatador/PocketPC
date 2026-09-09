@@ -372,7 +372,14 @@ CHECKS = {
         "DesktopSystemTray",
         "TaskbarAppMenu",
         "taskbarMenuTarget",
-        "DropdownMenu(",
+        "TaskbarAnchoredPopup(",
+        "TaskbarPopupPositionProvider",
+        "TaskbarSystemMenu(",
+        "desktopSecondaryClickAt",
+        '"Gerenciador de Tarefas"',
+        '"Mostrar no Gerenciador de Tarefas"',
+        '"Encaixar à esquerda"',
+        '"Encaixar à direita"',
         '"Fechar janela"',
         "targetWindow",
         '"Minimizar"',
@@ -398,6 +405,28 @@ CHECKS = {
         "isSecondaryPressed",
         "collectIsHoveredAsState",
         "pointerHoverIcon(PointerIcon.Hand)",
+    ),
+    "app/src/main/java/dev/pocketpc/core/ui/TaskManagerApp.kt": (
+        "fun TaskManagerApp(",
+        "TaskManagerSection.APPLICATIONS",
+        "TaskManagerSection.PROCESSES",
+        "RuntimeProcessRegistry.snapshots()",
+        "RuntimeProcessRegistry",
+        ".terminate(",
+        "force = false",
+        "force = true",
+        "Process.myPid()",
+        '"Finalizar tarefa"',
+        '"Forçar encerramento"',
+        '"protegido"',
+    ),
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeProcessSupervisor.kt": (
+        "data class RuntimeProcessSnapshot",
+        "object RuntimeProcessRegistry",
+        "fun snapshots()",
+        "fun terminate(",
+        ".register(",
+        ".unregister(",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/PocketPcTheme.kt": (
         "PocketPcDarkColors",
@@ -766,6 +795,21 @@ def main() -> int:
                 )
 
         if relative.endswith("DesktopChrome.kt"):
+            taskbar_start = text.find("fun TaskbarV2(")
+            taskbar_end = text.find(
+                "@Composable\nprivate fun UpdateAttentionChip",
+                taskbar_start,
+            )
+            taskbar_section = (
+                text[taskbar_start:taskbar_end]
+                if taskbar_start >= 0 and taskbar_end > taskbar_start
+                else ""
+            )
+            if "DropdownMenu(" in taskbar_section:
+                failures.append(
+                    "taskbar section must not use detached DropdownMenu; "
+                    "anchored Popup positioning is required"
+                )
             if (
                 "import androidx.compose.ui.input.pointer."
                 "awaitPointerEventScope" in text
