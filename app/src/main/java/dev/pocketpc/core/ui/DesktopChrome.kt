@@ -1489,7 +1489,7 @@ private fun TaskbarAnchoredPopup(
     }
 }
 
-private class TaskbarPopupPositionProvider(
+internal class TaskbarPopupPositionProvider(
     private val localAnchorX: Int?,
     private val gapPx: Int,
     private val edgePx: Int,
@@ -2319,7 +2319,7 @@ fun DesktopContextMenu(
     }
 }
 
-private class DesktopContextPopupPositionProvider(
+internal class DesktopContextPopupPositionProvider(
     private val anchorX: Int?,
     private val anchorY: Int?,
     private val edgePx: Int,
