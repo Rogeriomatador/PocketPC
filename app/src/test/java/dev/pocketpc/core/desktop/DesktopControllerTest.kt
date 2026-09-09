@@ -224,4 +224,50 @@ class DesktopControllerTest {
         )
     }
 
+    @Test
+    fun contextMenuAnchorIsClearedOnDismiss() {
+        val controller =
+            DesktopController()
+
+        controller.openContextMenu(
+            app = DesktopApp.BROWSER,
+            anchorX = 321,
+            anchorY = 654,
+        )
+
+        assertTrue(
+            controller.contextMenuOpen,
+        )
+        assertEquals(
+            DesktopApp.BROWSER,
+            controller.contextMenuTarget,
+        )
+        assertEquals(
+            321,
+            controller.contextMenuAnchorX,
+        )
+        assertEquals(
+            654,
+            controller.contextMenuAnchorY,
+        )
+
+        controller.closeContextMenu()
+
+        assertFalse(
+            controller.contextMenuOpen,
+        )
+        assertEquals(
+            null,
+            controller.contextMenuTarget,
+        )
+        assertEquals(
+            null,
+            controller.contextMenuAnchorX,
+        )
+        assertEquals(
+            null,
+            controller.contextMenuAnchorY,
+        )
+    }
+
 }
