@@ -139,9 +139,11 @@ object RuntimeDisplayBridgeAuthenticator {
 
         if (
             blockers.isEmpty() &&
-            candidateNegotiated and
-                RuntimeDisplayBridgeCapabilities
-                    .HOST_BASELINE !=
+            (
+                candidateNegotiated and
+                    RuntimeDisplayBridgeCapabilities
+                        .HOST_BASELINE
+            ) !=
                 RuntimeDisplayBridgeCapabilities
                     .HOST_BASELINE
         ) {
