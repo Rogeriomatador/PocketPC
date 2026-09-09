@@ -5,6 +5,7 @@
 
 int main(void) {
     struct pdb_wine_window_map map;
+    struct pdb_wine_window_map namespaced;
     uint64_t parent_id = 0;
     uint64_t child_id = 0;
     uint64_t lookup = 0;
@@ -13,6 +14,33 @@ int main(void) {
     uint64_t last_sequence = 0u;
 
     pdb_wine_window_map_init(&map);
+    pdb_wine_window_map_init(&namespaced);
+
+    if (
+        pdb_wine_window_map_set_namespace(
+            &namespaced,
+            0x1234u
+        ) != 0 ||
+        pdb_wine_window_register(
+            &namespaced,
+            (uintptr_t)0x9000u,
+            (uintptr_t)0u,
+            &lookup
+        ) != 0 ||
+        lookup !=
+            (
+                ((uint64_t)0x1234u << 32) |
+                1u
+            ) ||
+        pdb_wine_window_map_set_namespace(
+            &namespaced,
+            0x5678u
+        ) == 0
+    ) {
+        return 9;
+    }
+
+    lookup = 0u;
 
     if (
         pdb_wine_window_register(
@@ -131,7 +159,7 @@ int main(void) {
     }
 
     printf(
-        "POCKETPC_WINE_WINDOW_MAP_OK id=%llu\n",
+        "POCKETPC_WINE_WINDOW_MAP_OK id=%llu namespace=pid32\n",
         (unsigned long long)lookup
     );
     return 0;
