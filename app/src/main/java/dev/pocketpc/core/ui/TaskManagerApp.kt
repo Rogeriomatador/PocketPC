@@ -756,7 +756,7 @@ private fun ProcessesSection(
                     )
                     Text(
                         "PID ${Process.myPid()} • " +
-                            "${formatBytes(hostMemoryBytes)} heap Java • protegido",
+                            "${formatTaskManagerBytes(hostMemoryBytes)} heap Java • protegido",
                         style =
                             MaterialTheme.typography
                                 .bodySmall,
@@ -871,7 +871,7 @@ private fun RuntimeProcessRow(
                         ?.let { bytes ->
                             append(" • família ")
                             append(
-                                formatBytes(
+                                formatTaskManagerBytes(
                                     bytes,
                                 ),
                             )
@@ -1005,7 +1005,7 @@ private fun RuntimeProcessRow(
                                                 bytes ->
                                                 append(
                                                     " • " +
-                                                        formatBytes(
+                                                        formatTaskManagerBytes(
                                                             bytes,
                                                         )
                                                 )
@@ -1157,7 +1157,7 @@ private fun RuntimeProcessRow(
     }
 }
 
-private fun formatBytes(
+private fun formatTaskManagerBytes(
     bytes: Long,
 ): String {
     val safe = max(0L, bytes)
