@@ -22,6 +22,18 @@ data class RuntimeDisplayExecutionResult(
     val bridgeError: String?,
 )
 
+private sealed interface RuntimeDisplayStartup {
+    data class Peer(
+        val result:
+            Result<RuntimeDisplayBridgePeer>,
+    ) : RuntimeDisplayStartup
+
+    data class Process(
+        val result:
+            ProotExecutionResult,
+    ) : RuntimeDisplayStartup
+}
+
 private sealed interface RuntimeDisplayCompletion {
     data class Process(
         val result:
@@ -195,7 +207,7 @@ class RuntimeDisplayExecutionController(
                 }
 
             try {
-                val peer =
+                val startup =
                     try {
                         withTimeout(
                             handshakeTimeoutMillis
@@ -204,8 +216,20 @@ class RuntimeDisplayExecutionController(
                                     60_000L,
                                 ),
                         ) {
-                            acceptDeferred.await()
-                                .getOrThrow()
+                            select<
+                                RuntimeDisplayStartup
+                            > {
+                                acceptDeferred
+                                    .onAwait {
+                                        RuntimeDisplayStartup
+                                            .Peer(it)
+                                    }
+                                processDeferred
+                                    .onAwait {
+                                        RuntimeDisplayStartup
+                                            .Process(it)
+                                    }
+                            }
                         }
                     } catch (
                         cancellation:
@@ -225,7 +249,7 @@ class RuntimeDisplayExecutionController(
                                 bridgeAuthenticated =
                                     false,
                                 bridgeError =
-                                    "DISPLAY_BRIDGE_HANDSHAKE_FAILED:" +
+                                    "DISPLAY_BRIDGE_HANDSHAKE_TIMEOUT_OR_FAILURE:" +
                                         (
                                             failure.message
                                                 ?: failure
@@ -234,6 +258,50 @@ class RuntimeDisplayExecutionController(
                                         ),
                             )
                     }
+
+                if (
+                    startup is
+                    RuntimeDisplayStartup.Process
+                ) {
+                    return@coroutineScope
+                        RuntimeDisplayExecutionResult(
+                            process =
+                                startup.result,
+                            bridgeAuthenticated =
+                                false,
+                            bridgeError =
+                                "DISPLAY_PROCESS_ENDED_BEFORE_BRIDGE_HANDSHAKE",
+                        )
+                }
+
+                val peer =
+                    (
+                        startup as
+                            RuntimeDisplayStartup.Peer
+                    ).result
+                        .getOrElse {
+                            failure ->
+                            executionController
+                                .stopActive()
+                            val process =
+                                processDeferred
+                                    .await()
+                            return@coroutineScope
+                                RuntimeDisplayExecutionResult(
+                                    process =
+                                        process,
+                                    bridgeAuthenticated =
+                                        false,
+                                    bridgeError =
+                                        "DISPLAY_BRIDGE_HANDSHAKE_FAILED:" +
+                                            (
+                                                failure.message
+                                                    ?: failure
+                                                        .javaClass
+                                                        .simpleName
+                                            ),
+                                )
+                        }
 
                 val activeSession =
                     RuntimeDisplaySessionController(
