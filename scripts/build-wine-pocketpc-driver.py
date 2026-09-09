@@ -106,27 +106,45 @@ def elf_identity(path: Path) -> dict[str, int]:
     }
 
 
-def discover_build_target(
+def discover_build_targets(
     makefile: Path,
-) -> str | None:
+) -> list[str]:
     text = makefile.read_text(
         encoding="utf-8",
         errors="replace",
     )
-    candidates = (
-        "dlls/winepocketpc.drv/winepocketpc.drv",
-        "dlls/winepocketpc.drv/winepocketpc.so",
-        "dlls/winepocketpc.drv",
-    )
     lines = text.splitlines()
-    for candidate in candidates:
-        prefix = candidate + ":"
-        if any(
+
+    def exists(target: str) -> bool:
+        prefix = target + ":"
+        return any(
             line.startswith(prefix)
             for line in lines
-        ):
-            return candidate
-    return None
+        )
+
+    aggregate = (
+        "dlls/winepocketpc.drv"
+    )
+    pe = (
+        "dlls/winepocketpc.drv/"
+        "winepocketpc.drv"
+    )
+    unixlib = (
+        "dlls/winepocketpc.drv/"
+        "winepocketpc.so"
+    )
+
+    if exists(aggregate):
+        return [aggregate]
+
+    targets = [
+        target
+        for target in (pe, unixlib)
+        if exists(target)
+    ]
+    if targets == [pe, unixlib]:
+        return targets
+    return []
 
 
 def write_evidence(
@@ -281,15 +299,15 @@ def main() -> int:
         write_evidence(evidence_path, base)
         return 31
 
-    build_target = discover_build_target(
+    build_targets = discover_build_targets(
         generated_makefile,
     )
-    if not build_target:
+    if not build_targets:
         base["status"] = "BUILD_TARGET_NOT_FOUND"
         base["targetCandidates"] = [
+            "dlls/winepocketpc.drv",
             "dlls/winepocketpc.drv/winepocketpc.drv",
             "dlls/winepocketpc.drv/winepocketpc.so",
-            "dlls/winepocketpc.drv",
         ]
         write_evidence(evidence_path, base)
         print(
@@ -297,20 +315,20 @@ def main() -> int:
         )
         return 32
 
-    base["selectedBuildTarget"] = (
-        build_target
+    base["selectedBuildTargets"] = (
+        build_targets
     )
     base["buildCommand"] = [
         "make",
         "-j2",
-        build_target,
+        *build_targets,
     ]
 
     build_rc = run_logged(
         [
             "make",
             "-j2",
-            build_target,
+            *build_targets,
         ],
         build,
         build_log,
