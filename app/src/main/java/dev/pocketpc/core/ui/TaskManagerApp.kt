@@ -125,7 +125,15 @@ fun TaskManagerApp(
                     .contains(normalizedQuery) ||
                 it.argv.joinToString(" ")
                     .lowercase()
-                    .contains(normalizedQuery)
+                    .contains(normalizedQuery) ||
+                it.familyPids
+                    .any {
+                        pid ->
+                        pid.toString()
+                            .contains(
+                                normalizedQuery,
+                            )
+                    }
         }
 
     Column(
@@ -152,9 +160,26 @@ fun TaskManagerApp(
                     fontWeight =
                         FontWeight.SemiBold,
                 )
+                val runtimeProcessCount =
+                    runtimeProcesses.sumOf {
+                        process ->
+                        (
+                            if (
+                                process.rootAlive
+                            ) {
+                                1
+                            } else {
+                                0
+                            }
+                        ) +
+                            process
+                                .descendantCount
+                    }
+
                 Text(
                     "${desktop.windows.size + runtimeWindows.size} app(s) • " +
-                        "${runtimeProcesses.size} processo(s) runtime",
+                        "${runtimeProcessCount} processo(s) runtime em " +
+                        "${runtimeProcesses.size} família(s)",
                     style =
                         MaterialTheme.typography
                             .bodySmall,
@@ -791,27 +816,59 @@ private fun RuntimeProcessRow(
                 buildString {
                     append(
                         process.pid?.let {
-                            "PID $it"
-                        } ?: "PID indisponível",
+                            "PID raiz $it"
+                        } ?: "PID raiz indisponível",
                     )
                     append(" • ")
                     append(
-                        if (process.alive) {
-                            "em execução"
-                        } else {
-                            "encerrando"
+                        when {
+                            process.rootAlive ->
+                                "launcher/raiz ativo"
+
+                            process.descendantCount >
+                                0 ->
+                                "launcher encerrado • família ativa"
+
+                            process.alive ->
+                                "handoff aguardando processo filho"
+
+                            else ->
+                                "encerrando"
                         },
                     )
-                    process.residentMemoryBytes
+
+                    if (
+                        process.descendantCount >
+                            0
+                    ) {
+                        append(" • ")
+                        append(
+                            process
+                                .descendantCount,
+                        )
+                        append(
+                            if (
+                                process
+                                    .descendantCount ==
+                                1
+                            ) {
+                                " subprocesso"
+                            } else {
+                                " subprocessos"
+                            },
+                        )
+                    }
+
+                    process.familyResidentMemoryBytes
                         ?.let { bytes ->
-                            append(" • ")
+                            append(" • família ")
                             append(
                                 formatBytes(
                                     bytes,
                                 ),
                             )
                         }
-                    process.threadCount
+                    process.familyThreadCount
                         ?.let { threads ->
                             append(" • ")
                             append(threads)
@@ -850,6 +907,34 @@ private fun RuntimeProcessRow(
                 maxLines = 2,
             )
 
+            if (
+                process.familyPids
+                    .isNotEmpty()
+            ) {
+                Text(
+                    "PIDs da família: " +
+                        process.familyPids
+                            .take(12)
+                            .joinToString(", ") +
+                        if (
+                            process.familyPids
+                                .size >
+                            12
+                        ) {
+                            "…"
+                        } else {
+                            ""
+                        },
+                    style =
+                        MaterialTheme.typography
+                            .labelSmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant,
+                    maxLines = 2,
+                )
+            }
+
             HorizontalDivider()
 
             Row(
@@ -865,7 +950,17 @@ private fun RuntimeProcessRow(
                             )
                     },
                 ) {
-                    Text("Finalizar")
+                    Text(
+                        if (
+                            process.descendantCount >
+                                0 ||
+                            !process.rootAlive
+                        ) {
+                            "Finalizar família"
+                        } else {
+                            "Finalizar"
+                        }
+                    )
                 }
                 TextButton(
                     onClick = {
@@ -877,7 +972,15 @@ private fun RuntimeProcessRow(
                     },
                 ) {
                     Text(
-                        "Forçar encerramento",
+                        if (
+                            process.descendantCount >
+                                0 ||
+                            !process.rootAlive
+                        ) {
+                            "Forçar família"
+                        } else {
+                            "Forçar encerramento"
+                        },
                         color =
                             MaterialTheme
                                 .colorScheme
