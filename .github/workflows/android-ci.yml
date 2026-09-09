@@ -95,6 +95,7 @@ jobs:
           python3 -m json.tool third_party/wine/LOCK.json >/dev/null
           python3 -m json.tool third_party/wine/ANDROID_DRIVER_REUSE.json >/dev/null
           python3 -m json.tool third_party/wine/POCKETPC_DISPLAY_BRIDGE_PROTOCOL.json >/dev/null
+          python3 -m json.tool third_party/wine/POCKETPC_VULKAN_WSI_ARCHITECTURE.json >/dev/null
           python3 -m json.tool third_party/graphics/LOCK.json >/dev/null
           python3 scripts/test-pc-runtime-source-locks.py
 
@@ -118,6 +119,9 @@ jobs:
 
       - name: Vulkan WSI fail-closed policy
         run: python3 scripts/test-vulkan-wsi-policy.py
+
+      - name: AHardwareBuffer Vulkan transport policy
+        run: python3 scripts/test-ahardwarebuffer-vulkan-transport-policy.py
 
       - name: Native display bridge integration
         run: python3 scripts/test-display-bridge-native-integration.py
