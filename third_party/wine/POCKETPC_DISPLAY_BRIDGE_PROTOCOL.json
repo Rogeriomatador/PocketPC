@@ -97,7 +97,9 @@
     "frameAckControlPlaneDrainImplemented": true,
     "frameAckControlPlaneDrainSoftwareTestExecuted": false,
     "surfaceRegistryPublishFailClosedImplemented": true,
-    "surfaceRegistryPublishFailClosedSoftwareTestExecuted": false
+    "surfaceRegistryPublishFailClosedSoftwareTestExecuted": false,
+    "authTimeoutScopedToHandshakeImplemented": true,
+    "authTimeoutScopedToHandshakeSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -331,5 +333,9 @@
       "CLOSE": "NtUserPostMessage(WM_CLOSE)"
     },
     "transactionRule": "commands may be queued while SURFACE_AVAILABLE/FRAME_PRESENTED transactions are pending"
+  },
+  "transport": {
+    "authenticationReadTimeout": "bounded during unauthenticated HELLO/HELLO_ACK only",
+    "establishedSessionReadTimeout": "disabled (blocking read); established desktop idleness must not terminate the bridge"
   }
 }
