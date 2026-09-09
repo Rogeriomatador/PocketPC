@@ -84,4 +84,83 @@ class WineLaunchPlanTest {
             root.deleteRecursively()
         }
     }
+    @Test
+    fun validatedDxvkRouteAddsSameDllOverridesAsGraphicsSmoke() {
+        val root =
+            Files.createTempDirectory(
+                "pocketpc-wine-plan-dxvk-",
+            ).toFile()
+        try {
+            val prefix =
+                WindowsPrefixPlanner.plan(
+                    root,
+                    "smoke",
+                )
+            val plan =
+                WineLaunchPlanner.build(
+                    prefixPlan = prefix,
+                    windowsExecutable =
+                        "/home/pocket/windows-targets/app.exe",
+                    box64RuntimeValidated = true,
+                    wineRuntimeValidated = true,
+                    enableDxvk = true,
+                )
+
+            assertTrue(
+                plan.blockers.joinToString(),
+                plan.ready,
+            )
+            assertEquals(
+                WineLaunchPlanner
+                    .DXVK_DLL_OVERRIDES,
+                plan.environment[
+                    "WINEDLLOVERRIDES"
+                ],
+            )
+            assertEquals(
+                "d3d11=n;dxgi=n",
+                plan.environment[
+                    "WINEDLLOVERRIDES"
+                ],
+            )
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun genericWineLaunchDoesNotForceDxvkOverrides() {
+        val root =
+            Files.createTempDirectory(
+                "pocketpc-wine-plan-no-dxvk-",
+            ).toFile()
+        try {
+            val prefix =
+                WindowsPrefixPlanner.plan(
+                    root,
+                    "default",
+                )
+            val plan =
+                WineLaunchPlanner.build(
+                    prefixPlan = prefix,
+                    windowsExecutable =
+                        "C:\\test.exe",
+                    box64RuntimeValidated = true,
+                    wineRuntimeValidated = true,
+                )
+
+            assertTrue(
+                plan.blockers.joinToString(),
+                plan.ready,
+            )
+            assertFalse(
+                plan.environment.containsKey(
+                    "WINEDLLOVERRIDES",
+                ),
+            )
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
 }
