@@ -71,7 +71,7 @@ class RuntimeDisplayExecutionController(
         desktopBridge:
             RuntimeDesktopBridge? = null,
     ): RuntimeDisplayExecutionResult =
-        coroutineScope {
+        coroutineScope<RuntimeDisplayExecutionResult> {
             check(!closed.get()) {
                 "DISPLAY_EXECUTION_CONTROLLER_CLOSED"
             }
