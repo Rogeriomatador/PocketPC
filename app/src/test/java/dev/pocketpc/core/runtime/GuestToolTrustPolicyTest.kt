@@ -46,6 +46,112 @@ class GuestToolTrustPolicyTest {
         )
     }
 
+    @Test
+    fun acceptsPinnedWineWithPocketPcDriver() {
+        val errors =
+            GuestToolTrustPolicy.errors(
+                wineManifest(),
+            )
+        assertTrue(
+            errors.joinToString(),
+            errors.isEmpty(),
+        )
+    }
+
+    @Test
+    fun rejectsWineWithoutPocketPcDriverPe() {
+        val errors =
+            GuestToolTrustPolicy.errors(
+                wineManifest().copy(
+                    files =
+                        wineManifest().files
+                            .filterNot {
+                                it.path.endsWith(
+                                    "/winepocketpc.drv",
+                                )
+                            },
+                ),
+            )
+        assertTrue(
+            errors.contains(
+                "GUEST_TOOL_WINE_DRIVER_PE_MISSING",
+            ),
+        )
+    }
+
+    @Test
+    fun rejectsWineWithoutPocketPcDriverUnixLibrary() {
+        val errors =
+            GuestToolTrustPolicy.errors(
+                wineManifest().copy(
+                    files =
+                        wineManifest().files
+                            .filterNot {
+                                it.path.endsWith(
+                                    "/winepocketpc.so",
+                                )
+                            },
+                ),
+            )
+        assertTrue(
+            errors.contains(
+                "GUEST_TOOL_WINE_DRIVER_UNIXLIB_MISSING",
+            ),
+        )
+    }
+
+    private fun wineManifest() =
+        GuestToolManifest(
+            schemaVersion = 1,
+            id = "wine",
+            version = "11.0",
+            architecture = "x86_64",
+            executionMode =
+                "box64-x86_64",
+            guestRoot =
+                "/opt/pocketpc/wine",
+            entrypoint = "bin/wine",
+            sourceCommit =
+                "db11d0fe6a169c457e23d007e20404643d067aa8",
+            license =
+                "LGPL-2.1-or-later",
+            files =
+                listOf(
+                    GuestToolFile(
+                        path =
+                            "bin/wine",
+                        sha256 =
+                            "a".repeat(64),
+                        bytes = 1,
+                        executable = true,
+                    ),
+                    GuestToolFile(
+                        path =
+                            "lib/wine/x86_64-windows/winepocketpc.drv",
+                        sha256 =
+                            "b".repeat(64),
+                        bytes = 2,
+                        executable = false,
+                    ),
+                    GuestToolFile(
+                        path =
+                            "lib/wine/x86_64-unix/winepocketpc.so",
+                        sha256 =
+                            "c".repeat(64),
+                        bytes = 3,
+                        executable = true,
+                    ),
+                    GuestToolFile(
+                        path =
+                            "share/tests/pocketpc-win64-smoke.exe",
+                        sha256 =
+                            "d".repeat(64),
+                        bytes = 4,
+                        executable = false,
+                    ),
+                ),
+        )
+
     private fun box64Manifest() =
         GuestToolManifest(
             schemaVersion = 1,
