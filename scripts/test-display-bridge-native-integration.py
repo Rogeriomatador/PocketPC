@@ -102,11 +102,11 @@ def validate_pixels(
 
     for y in range(64):
         for x in range(64):
-            offset =
+            offset = (
                 y * 256 +
                 x * 4
-            expected =
-                bytes(
+            )
+            expected = bytes(
                     (
                         x & 0xff,
                         y & 0xff,
@@ -127,26 +127,22 @@ def validate_pixels(
 
 
 def main() -> int:
-    compiler =
-        shutil.which("cc")
+    compiler = shutil.which("cc")
     if not compiler:
         raise SystemExit(
             "DISPLAY_BRIDGE_NATIVE_CC_MISSING"
         )
 
-    token =
-        bytes(range(32))
-    identity =
-        b"a" * 64
-    surface_token =
-        bytes.fromhex(
+    token = bytes(range(32))
+    identity = b"a" * 64
+    surface_token = bytes.fromhex(
             "00112233445566778899aabbccddeeff"
         )
-    socket_name =
+    socket_name = (
         "pocketpc.display.native." +
         os.urandom(6).hex()
-    surface_path =
-        Path(
+    )
+    surface_path = Path(
             "/tmp/.pocketpc-surface-" +
             surface_token.hex() +
             ".bgra"
@@ -155,26 +151,31 @@ def main() -> int:
     with tempfile.TemporaryDirectory(
         prefix="pocketpc-bridge-native-",
     ) as temporary:
-        work =
-            Path(temporary)
-        executable =
+        work = Path(temporary)
+        executable = (
             work /
             "display_bridge_smoke"
-        window_map_executable =
+        )
+        window_map_executable = (
             work /
             "window_map_smoke"
-        window_bridge_executable =
+        )
+        window_bridge_executable = (
             work /
             "window_bridge_smoke"
-        failstop_executable =
+        )
+        failstop_executable = (
             work /
             "transport_failstop_smoke"
-        surface_writer_executable =
+        )
+        surface_writer_executable = (
             work /
             "surface_writer_smoke"
-        surface_visibility_executable =
+        )
+        surface_visibility_executable = (
             work /
             "surface_writer_visibility_smoke"
+        )
 
         run(
             [
@@ -224,8 +225,7 @@ def main() -> int:
             ],
             work,
         )
-        window_map_result =
-            subprocess.run(
+        window_map_result = subprocess.run(
                 [
                     str(
                         window_map_executable,
@@ -276,8 +276,7 @@ def main() -> int:
             ],
             work,
         )
-        window_bridge_result =
-            subprocess.run(
+        window_bridge_result = subprocess.run(
                 [
                     str(
                         window_bridge_executable,
@@ -320,8 +319,7 @@ def main() -> int:
             ],
             work,
         )
-        failstop_result =
-            subprocess.run(
+        failstop_result = subprocess.run(
                 [
                     str(
                         failstop_executable,
@@ -368,8 +366,7 @@ def main() -> int:
             ],
             work,
         )
-        surface_writer_result =
-            subprocess.run(
+        surface_writer_result = subprocess.run(
                 [
                     str(
                         surface_writer_executable,
@@ -419,8 +416,7 @@ def main() -> int:
             ],
             work,
         )
-        surface_visibility_result =
-            subprocess.run(
+        surface_visibility_result = subprocess.run(
                 [
                     str(
                         surface_visibility_executable
@@ -441,8 +437,7 @@ def main() -> int:
             )
 
 
-        server =
-            socket.socket(
+        server = socket.socket(
                 socket.AF_UNIX,
                 socket.SOCK_STREAM,
             )
@@ -484,8 +479,7 @@ def main() -> int:
                 },
             )
 
-            process =
-                subprocess.Popen(
+            process = subprocess.Popen(
                     [
                         str(executable),
                     ],
@@ -496,8 +490,7 @@ def main() -> int:
                     text=True,
                 )
 
-            connection, _ =
-                server.accept()
+            connection, _ = server.accept()
             with connection:
                 msg_type, sequence, payload = (
                     read_frame(
@@ -580,8 +573,7 @@ def main() -> int:
                     )
                 )
 
-                surface =
-                    struct.pack(
+                surface = struct.pack(
                         "<QQQiiiI16s",
                         1,
                         1,
@@ -609,8 +601,7 @@ def main() -> int:
                     msg_type,
                     sequence,
                 ) == (11, 3)
-                geometry =
-                    struct.unpack(
+                geometry = struct.unpack(
                         "<QiiiiIIQ",
                         payload,
                     )
@@ -707,8 +698,7 @@ def main() -> int:
                     1
                 )
 
-            stdout, stderr =
-                process.communicate(
+            stdout, stderr = process.communicate(
                     timeout=5,
                 )
             if process.returncode != 0:
