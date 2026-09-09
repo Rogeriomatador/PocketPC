@@ -49,6 +49,9 @@
     "surfacePresented": false,
     "pointerRoundTrip": false,
     "keyboardRoundTrip": false,
-    "robloxWindowPresented": false
+    "robloxWindowPresented": false,
+    "windowIdentityMapImplemented": true,
+    "windowLifecycleAdapterImplemented": true,
+    "windowLifecycleAdapterSoftwareTestExecuted": false
   }
 }
