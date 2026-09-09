@@ -682,6 +682,18 @@ def main() -> int:
                     ),
                 )
 
+                write_frame(
+                    connection,
+                    13,
+                    5,
+                    struct.pack(
+                        "<QII",
+                        1,
+                        5,
+                        0,
+                    ),
+                )
+
                 msg_type, sequence, payload = (
                     read_frame(
                         connection,
@@ -718,6 +730,7 @@ def main() -> int:
                 "POCKETPC_DISPLAY_BRIDGE_POINTER_OK",
                 "POCKETPC_DISPLAY_BRIDGE_KEY_OK",
                 "POCKETPC_DISPLAY_BRIDGE_FRAME_ACK_OK",
+                "POCKETPC_DISPLAY_BRIDGE_WINDOW_COMMAND_OK",
                 "POCKETPC_DISPLAY_BRIDGE_SMOKE_OK",
             )
             for marker in markers:
