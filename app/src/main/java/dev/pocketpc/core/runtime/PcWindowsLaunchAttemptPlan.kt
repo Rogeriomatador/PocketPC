@@ -36,6 +36,13 @@ object PcWindowsLaunchAttemptPlanner {
                 "DISPLAY_BRIDGE_RUNTIME_NOT_VALIDATED"
         }
         if (
+            !evidence
+                .winePocketPcWindowSmokePassed
+        ) {
+            blockers +=
+                "WINE_POCKETPC_WINDOW_NOT_VALIDATED"
+        }
+        if (
             !evidence.windowsProcessSmokePassed
         ) {
             blockers +=
