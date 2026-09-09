@@ -15,6 +15,7 @@ enum class RuntimeDisplayBridgeMessageType(
     WINDOW_GEOMETRY(11),
     WINDOW_DESTROY(12),
     SURFACE_AVAILABLE(20),
+    FRAME_READY(21),
     POINTER_EVENT(30),
     KEY_EVENT(31),
     GAMEPAD_EVENT(32),
