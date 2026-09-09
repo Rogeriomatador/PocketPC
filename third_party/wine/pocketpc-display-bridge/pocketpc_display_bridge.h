@@ -79,10 +79,20 @@ struct pdb_frame_ready {
 struct pdb_pointer_event { uint64_t window_id; uint32_t action; int32_t x; int32_t y; uint32_t buttons; int32_t vertical_scroll; uint32_t modifiers; };
 struct pdb_key_event { uint64_t window_id; uint32_t action; uint32_t key_code; uint32_t scan_code; uint32_t modifiers; uint32_t repeat_count; };
 struct pdb_frame_presented { uint64_t window_id; uint64_t frame_id; uint32_t status; };
+struct pdb_host_event {
+    uint16_t type;
+    union {
+        struct pdb_surface_available surface;
+        struct pdb_pointer_event pointer;
+        struct pdb_key_event key;
+        struct pdb_frame_presented frame_presented;
+    } data;
+};
 int pdb_connect_from_environment(struct pdb_connection*,char*,size_t);
 int pdb_send_frame(struct pdb_connection*,uint16_t,const void*,uint32_t,char*,size_t);
 int pdb_receive_frame(struct pdb_connection*,struct pdb_frame*,char*,size_t);
 int pdb_connection_has_input(struct pdb_connection*,char*,size_t);
+int pdb_receive_host_event(struct pdb_connection*,struct pdb_host_event*,char*,size_t);
 int pdb_receive_surface_available(struct pdb_connection*,struct pdb_surface_available*,char*,size_t);
 int pdb_surface_guest_path(const struct pdb_surface_available*,char*,size_t);
 int pdb_send_frame_ready(struct pdb_connection*,const struct pdb_frame_ready*,char*,size_t);
