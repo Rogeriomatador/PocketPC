@@ -86,9 +86,18 @@ static BOOL pocketpc_surface_flush(
 
     (void)shape_changed;
     (void)shape_info;
-    (void)shape_bits;
+
     if (!surface || !rect || !color_info || !color_bits)
         return FALSE;
+
+    if (shape_bits)
+    {
+        WARN(
+            "shaped surface unsupported hwnd=%p\n",
+            window_surface->hwnd
+        );
+        return FALSE;
+    }
 
     if (
         color_info->bmiHeader.biBitCount != 32 ||
