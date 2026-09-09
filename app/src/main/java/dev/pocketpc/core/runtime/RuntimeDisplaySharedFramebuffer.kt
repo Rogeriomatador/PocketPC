@@ -218,13 +218,13 @@ class RuntimeDisplaySharedFramebuffer private constructor(
         private val random =
             SecureRandom()
 
-        fun createSmoke(
+        fun create(
             hostTempDirectory: File,
-            windowId: Long = 1L,
-            surfaceId: Long = 1L,
-            generation: Long = 1L,
-            width: Int = 64,
-            height: Int = 64,
+            windowId: Long,
+            surfaceId: Long,
+            generation: Long,
+            width: Int,
+            height: Int,
         ): RuntimeDisplaySharedFramebuffer {
             require(
                 SafeTreeOps.isPlainDirectory(
@@ -322,5 +322,23 @@ class RuntimeDisplaySharedFramebuffer private constructor(
                 ),
             )
         }
+
+        fun createSmoke(
+            hostTempDirectory: File,
+            windowId: Long = 1L,
+            surfaceId: Long = 1L,
+            generation: Long = 1L,
+            width: Int = 64,
+            height: Int = 64,
+        ): RuntimeDisplaySharedFramebuffer =
+            create(
+                hostTempDirectory =
+                    hostTempDirectory,
+                windowId = windowId,
+                surfaceId = surfaceId,
+                generation = generation,
+                width = width,
+                height = height,
+            )
     }
 }
