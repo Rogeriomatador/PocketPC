@@ -382,18 +382,26 @@ static BOOL pocketpc_surface_flush(
         dirty->right > dirty->left &&
         dirty->bottom > dirty->top
     ) {
+        /*
+         * Wine 11 win32u offsets the dirty rectangle to the surface
+         * origin before invoking driver->flush(). The accompanying
+         * rect remains in window coordinates, so subtracting rect.left
+         * or rect.top here would offset the dirty region twice.
+         */
         dirty_rect.left =
-            max(dirty->left, rect->left) -
-            rect->left;
+            max(dirty->left, 0);
         dirty_rect.top =
-            max(dirty->top, rect->top) -
-            rect->top;
+            max(dirty->top, 0);
         dirty_rect.right =
-            min(dirty->right, rect->right) -
-            rect->left;
+            min(
+                dirty->right,
+                surface->writer.surface.width
+            );
         dirty_rect.bottom =
-            min(dirty->bottom, rect->bottom) -
-            rect->top;
+            min(
+                dirty->bottom,
+                surface->writer.surface.height
+            );
     } else {
         dirty_rect.left = 0;
         dirty_rect.top = 0;
