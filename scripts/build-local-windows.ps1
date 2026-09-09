@@ -396,6 +396,7 @@ function Invoke-PythonPolicyChecks {
         "scripts\test-desktop-mode-policy.py",
         "scripts\test-desktop-enum-coverage.py",
         "scripts\test-taskbar-task-manager-policy.py",
+        "scripts\test-wine-pocketpc-driver-policy.py",
         "scripts\test-ci-version-policy.py",
         "scripts\test-update-feed-policy.py",
         "scripts\test-bootstrap-signer-verifier.py",
