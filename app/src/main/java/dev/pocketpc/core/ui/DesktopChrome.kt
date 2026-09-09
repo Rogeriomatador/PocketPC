@@ -91,6 +91,8 @@ import dev.pocketpc.core.desktop.DesktopApp
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.PeripheralSnapshot
 import dev.pocketpc.core.desktop.defaultDesktopShortcuts
+import dev.pocketpc.core.runtime.RuntimeDesktopBridge
+import dev.pocketpc.core.runtime.RuntimeDisplayCompositorWindow
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -770,6 +772,11 @@ private fun PocketPcStartButton(
 fun TaskbarV2(
     desktop: DesktopController,
     peripherals: PeripheralSnapshot,
+    runtimeWindows:
+        List<RuntimeDisplayCompositorWindow> =
+        emptyList(),
+    runtimeBridge:
+        RuntimeDesktopBridge? = null,
     updateAttention: PocketPcUpdateAttention =
         PocketPcUpdateAttention.NONE,
     onUpdateClick: () -> Unit = {},
@@ -800,6 +807,10 @@ fun TaskbarV2(
     var taskbarMenuTarget by remember {
         mutableStateOf<DesktopApp?>(null)
     }
+    var runtimeTaskbarMenuTarget by
+        remember {
+            mutableStateOf<Long?>(null)
+        }
     var systemMenuOpen by remember {
         mutableStateOf(false)
     }
@@ -811,6 +822,7 @@ fun TaskbarV2(
         x: Int,
     ) {
         taskbarMenuTarget = null
+        runtimeTaskbarMenuTarget = null
         desktop.closeStartMenu()
         desktop.closeContextMenu()
         systemMenuAnchorX =
@@ -853,6 +865,7 @@ fun TaskbarV2(
                 onClick = {
                     systemMenuOpen = false
                     taskbarMenuTarget = null
+                    runtimeTaskbarMenuTarget = null
                     desktop.toggleStartMenu()
                 },
             )
@@ -1023,6 +1036,8 @@ fun TaskbarV2(
                                                 .closeContextMenu()
                                             systemMenuOpen =
                                                 false
+                                            runtimeTaskbarMenuTarget =
+                                                null
                                             taskbarMenuTarget =
                                                 app
                                         }
@@ -1044,6 +1059,8 @@ fun TaskbarV2(
                                                     .closeContextMenu()
                                                 systemMenuOpen =
                                                     false
+                                                runtimeTaskbarMenuTarget =
+                                                    null
                                                 taskbarMenuTarget =
                                                     app
                                             },
@@ -1111,6 +1128,38 @@ fun TaskbarV2(
                             )
                         }
                     }
+
+                    runtimeWindows
+                        .forEach {
+                            runtimeWindow ->
+                            RuntimeTaskbarItem(
+                                window =
+                                    runtimeWindow,
+                                desktop =
+                                    desktop,
+                                bridge =
+                                    runtimeBridge,
+                                iconSize =
+                                    taskIconSize,
+                                expanded =
+                                    runtimeTaskbarMenuTarget ==
+                                        runtimeWindow
+                                            .windowId,
+                                onMenuOpen = {
+                                    systemMenuOpen =
+                                        false
+                                    taskbarMenuTarget =
+                                        null
+                                    runtimeTaskbarMenuTarget =
+                                        runtimeWindow
+                                            .windowId
+                                },
+                                onDismiss = {
+                                    runtimeTaskbarMenuTarget =
+                                        null
+                                },
+                            )
+                        }
                 }
 
                 TaskbarSystemMenu(
@@ -1322,6 +1371,311 @@ private fun TaskbarAppMenu(
                 desktop.togglePin(app)
                 onDismiss()
             },
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun RuntimeTaskbarItem(
+    window: RuntimeDisplayCompositorWindow,
+    desktop: DesktopController,
+    bridge: RuntimeDesktopBridge?,
+    iconSize: Int,
+    expanded: Boolean,
+    onMenuOpen: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val visible =
+        window.geometry?.visible ==
+            true
+    val hoverSource =
+        remember(window.windowId) {
+            MutableInteractionSource()
+        }
+    val hovered by
+        hoverSource
+            .collectIsHoveredAsState()
+    val focused by
+        hoverSource
+            .collectIsFocusedAsState()
+
+    Box {
+        Column(
+            horizontalAlignment =
+                Alignment.CenterHorizontally,
+            verticalArrangement =
+                Arrangement.Center,
+            modifier =
+                Modifier
+                    .size(48.dp)
+                    .semantics {
+                        contentDescription =
+                            "Janela Win32 " +
+                                window.windowId
+                        selected = visible
+                        role = Role.Button
+                    }
+                    .pointerHoverIcon(
+                        PointerIcon.Hand,
+                    )
+                    .hoverable(
+                        hoverSource,
+                    )
+                    .focusable(
+                        interactionSource =
+                            hoverSource,
+                    )
+                    .border(
+                        width =
+                            if (focused) {
+                                2.dp
+                            } else {
+                                0.dp
+                            },
+                        color =
+                            if (focused) {
+                                MaterialTheme
+                                    .colorScheme
+                                    .primary
+                            } else {
+                                Color.Transparent
+                            },
+                        shape =
+                            RoundedCornerShape(
+                                10.dp,
+                            ),
+                    )
+                    .background(
+                        if (
+                            visible ||
+                            hovered ||
+                            focused
+                        ) {
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                                .copy(
+                                    alpha =
+                                        if (visible) {
+                                            0.14f
+                                        } else {
+                                            0.08f
+                                        },
+                                )
+                        } else {
+                            Color.Transparent
+                        },
+                        RoundedCornerShape(
+                            10.dp,
+                        ),
+                    )
+                    .desktopSecondaryClick {
+                        onMenuOpen()
+                    }
+                    .combinedClickable(
+                        onClick = {
+                            if (visible) {
+                                bridge?.activate(
+                                    window.windowId,
+                                )
+                            } else {
+                                bridge?.restore(
+                                    window.windowId,
+                                )
+                            }
+                        },
+                        onLongClick =
+                            onMenuOpen,
+                    )
+                    .padding(
+                        horizontal = 3.dp,
+                    ),
+        ) {
+            Surface(
+                modifier =
+                    Modifier.size(
+                        iconSize.dp,
+                    ),
+                shape =
+                    RoundedCornerShape(
+                        9.dp,
+                    ),
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .secondaryContainer,
+            ) {
+                Box(
+                    contentAlignment =
+                        Alignment.Center,
+                ) {
+                    Text(
+                        "WIN",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .labelSmall,
+                    )
+                }
+            }
+            Box(
+                Modifier
+                    .padding(top = 2.dp)
+                    .width(
+                        if (visible) {
+                            18.dp
+                        } else {
+                            7.dp
+                        },
+                    )
+                    .height(2.dp)
+                    .background(
+                        if (visible) {
+                            MaterialTheme
+                                .colorScheme
+                                .primary
+                        } else {
+                            Color(
+                                0xFF8D939C,
+                            )
+                        },
+                        RoundedCornerShape(
+                            2.dp,
+                        ),
+                    )
+            )
+        }
+
+        RuntimeTaskbarMenu(
+            window = window,
+            desktop = desktop,
+            bridge = bridge,
+            expanded = expanded,
+            onDismiss = onDismiss,
+        )
+    }
+}
+
+@Composable
+private fun RuntimeTaskbarMenu(
+    window: RuntimeDisplayCompositorWindow,
+    desktop: DesktopController,
+    bridge: RuntimeDesktopBridge?,
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+) {
+    val visible =
+        window.geometry?.visible ==
+            true
+
+    TaskbarAnchoredPopup(
+        expanded = expanded,
+        onDismiss = onDismiss,
+    ) {
+        Text(
+            "Win32 #" +
+                window.windowId,
+            modifier =
+                Modifier.padding(
+                    horizontal = 12.dp,
+                    vertical = 7.dp,
+                ),
+            style =
+                MaterialTheme
+                    .typography
+                    .labelLarge,
+        )
+
+        DropdownMenuItem(
+            text = {
+                Text(
+                    if (visible) {
+                        "Ativar / trazer para frente"
+                    } else {
+                        "Restaurar janela"
+                    }
+                )
+            },
+            onClick = {
+                if (visible) {
+                    bridge?.activate(
+                        window.windowId,
+                    )
+                } else {
+                    bridge?.restore(
+                        window.windowId,
+                    )
+                }
+                onDismiss()
+            },
+            enabled =
+                bridge != null,
+        )
+
+        DropdownMenuItem(
+            text = {
+                Text("Minimizar")
+            },
+            onClick = {
+                bridge?.minimize(
+                    window.windowId,
+                )
+                onDismiss()
+            },
+            enabled =
+                bridge != null &&
+                    visible,
+        )
+
+        DropdownMenuItem(
+            text = {
+                Text("Maximizar")
+            },
+            onClick = {
+                bridge?.maximize(
+                    window.windowId,
+                )
+                onDismiss()
+            },
+            enabled =
+                bridge != null,
+        )
+
+        HorizontalDivider()
+
+        DropdownMenuItem(
+            text = {
+                Text(
+                    "Mostrar no Gerenciador de Tarefas"
+                )
+            },
+            onClick = {
+                desktop.open(
+                    DesktopApp.TASK_MANAGER,
+                )
+                onDismiss()
+            },
+        )
+
+        DropdownMenuItem(
+            text = {
+                Text(
+                    "Fechar janela",
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .error,
+                )
+            },
+            onClick = {
+                bridge?.closeWindow(
+                    window.windowId,
+                )
+                onDismiss()
+            },
+            enabled =
+                bridge != null,
         )
     }
 }
