@@ -19,6 +19,7 @@ FILES = {
     "dll_header": TEMPLATE / "pocketpcdrv_dll.h",
     "driver_header": TEMPLATE / "pocketpcdrv.h",
     "main": TEMPLATE / "pocketpcdrv_main.c",
+    "surface": TEMPLATE / "surface.c",
     "window": TEMPLATE / "window.c",
 }
 
@@ -71,9 +72,11 @@ def main() -> int:
         "windowLifecycleAdapterImplemented",
         "guestDriverTemplateImplemented",
         "guestDriverOverlayPreparerImplemented",
+        "surfaceCallbackTemplateImplemented",
+        "inputInjectionTemplateImplemented",
     )
     expected_false = (
-        "protocolV2NativeIntegrationExecuted",
+        "protocolV3NativeIntegrationExecuted",
         "windowLifecycleAdapterSoftwareTestExecuted",
         "guestDriverBuilt",
         "guestDriverLoaded",
@@ -96,10 +99,10 @@ def main() -> int:
 
     if (
         (protocol.get("wire") or {})
-            .get("version") != 2
+            .get("version") != 3
     ):
         failures.append(
-            "display bridge protocol is not v2"
+            "display bridge protocol is not v3"
         )
 
     texts: dict[str, str] = {}
@@ -121,7 +124,9 @@ def main() -> int:
             "MODULE = winepocketpc.drv",
             "UNIXLIB = winepocketpc.so",
             "-lwin32u",
+            "surface.c",
             "pocketpc_display_bridge.c",
+            "pocketpc_surface_writer.c",
             "pocketpc_wine_window_map.c",
             "pocketpc_wine_window_bridge.c",
         ),
@@ -148,14 +153,11 @@ def main() -> int:
             ".pCreateWindow",
             ".pDestroyWindow",
             ".pProcessEvents",
+            ".pCreateWindowSurface",
             ".pWindowPosChanging",
             ".pWindowPosChanged",
         ),
     )
-    if ".pCreateWindowSurface" in texts.get("main", ""):
-        failures.append(
-            "surface callback must remain unimplemented until surface bridge exists"
-        )
     require(
         failures,
         "Input pump",
@@ -170,6 +172,22 @@ def main() -> int:
             "PDB_KEY_ACTION_DOWN",
             "PDB_KEY_ACTION_UP",
             "PDB_KEY_ACTION_REPEAT",
+            "POCKETPC_MAX_EVENTS_PER_PUMP",
+        ),
+    )
+    require(
+        failures,
+        "Wine surface callback",
+        texts.get("surface", ""),
+        (
+            "POCKETPC_CreateWindowSurface",
+            "window_surface_create",
+            "pdb_send_surface_request",
+            "pdb_receive_surface_available",
+            "pdb_surface_writer_open",
+            "pdb_surface_writer_copy_bgra",
+            "pdb_surface_writer_commit",
+            "pdb_receive_frame_presented",
             "POCKETPC_MAX_EVENTS_PER_PUMP",
         ),
     )
@@ -211,9 +229,10 @@ def main() -> int:
                 "wine_fn_config_makefile dlls/winepocketpc.drv",
                 '"value": "pocketpc"',
                 '"resolvedLibrary": "winepocketpc.drv"',
-                '"surfaceCallbackImplemented": False',
+                '"surfaceCallbackImplemented": True',
                 '"inputInjectionImplemented": True',
                 '"pProcessEvents"',
+                '"pCreateWindowSurface"',
                 "UNIX_MAKEDEP_PREAMBLE",
                 "#pragma makedep unix",
                 '"bridgeSourcesMarkedUnixOnly": True',
@@ -226,7 +245,7 @@ def main() -> int:
         plan.get("driverName") != "winepocketpc.drv"
         or plan.get("graphicsSelection")
         != "HKCU\\Software\\Wine\\Drivers\\Graphics=pocketpc"
-        or plan.get("protocolVersion") != 2
+        or plan.get("protocolVersion") != 3
     ):
         failures.append(
             "PocketPC Wine driver selection contract changed"
@@ -246,7 +265,7 @@ def main() -> int:
 
     print("WINE_POCKETPC_DRIVER_POLICY_OK")
     print("driver=winepocketpc.drv")
-    print("protocol_version=2")
+    print("protocol_version=3")
     print("driver_build_evidence=false")
     print("runtime_execution_evidence=false")
     return 0
