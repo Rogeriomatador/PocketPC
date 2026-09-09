@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -221,10 +222,13 @@ int pdb_surface_writer_commit(
         return -1;
     }
 
-    if (msync(writer->mapping, writer->mapped_bytes, MS_SYNC) != 0) {
-        set_error(error, error_bytes, "PDB_SURFACE_MSYNC_FAILED");
-        return -1;
-    }
+    /*
+     * MAP_SHARED updates are visible through the page cache without
+     * msync(). We only need ordering before FRAME_READY; forcing
+     * MS_SYNC here would turn every presented frame into synchronous
+     * backing-file I/O.
+     */
+    atomic_thread_fence(memory_order_release);
 
     ready.window_id = writer->surface.window_id;
     ready.surface_id = writer->surface.surface_id;
