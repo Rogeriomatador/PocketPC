@@ -16,6 +16,11 @@ data class RuntimeDisplayBridgeProbeResult(
         null,
 )
 
+enum class RuntimeDisplayBridgeProbeMode {
+    GENERIC_PATTERN,
+    WINE_DRIVER_WINDOW,
+}
+
 class RuntimeDisplayBridgeProbeController(
     private val executionController:
         ProotExecutionController,
@@ -30,6 +35,10 @@ class RuntimeDisplayBridgeProbeController(
         timeoutMillis: Long = 15_000L,
         desktopBridge:
             RuntimeDesktopBridge? = null,
+        mode:
+            RuntimeDisplayBridgeProbeMode =
+            RuntimeDisplayBridgeProbeMode
+                .GENERIC_PATTERN,
     ): RuntimeDisplayBridgeProbeResult =
         coroutineScope {
             val structural =
@@ -349,9 +358,19 @@ class RuntimeDisplayBridgeProbeController(
                     "DISPLAY_BRIDGE_FRAME_READY_IDENTITY_MISMATCH"
                 }
 
-                validateSmokeFrame(
-                    presented.pixels,
-                ).getOrThrow()
+                when (mode) {
+                    RuntimeDisplayBridgeProbeMode
+                        .GENERIC_PATTERN ->
+                        validateSmokeFrame(
+                            presented.pixels,
+                        ).getOrThrow()
+
+                    RuntimeDisplayBridgeProbeMode
+                        .WINE_DRIVER_WINDOW ->
+                        validateWineDriverFrame(
+                            presented.pixels,
+                        ).getOrThrow()
+                }
                 previewFrame =
                     presented.pixels
                 frameValidated = true
@@ -384,16 +403,22 @@ class RuntimeDisplayBridgeProbeController(
                     .acknowledgePendingFrame()
                     .getOrThrow()
 
-                activeProcessor
-                    .sendWindowCommand(
-                        RuntimeBridgeWindowCommand(
-                            windowId =
-                                window.windowId,
-                            command =
-                                RuntimeDisplayBridgePayloadCodec
-                                    .WINDOW_COMMAND_CLOSE,
-                        ),
-                    )
+                if (
+                    mode ==
+                    RuntimeDisplayBridgeProbeMode
+                        .GENERIC_PATTERN
+                ) {
+                    activeProcessor
+                        .sendWindowCommand(
+                            RuntimeBridgeWindowCommand(
+                                windowId =
+                                    window.windowId,
+                                command =
+                                    RuntimeDisplayBridgePayloadCodec
+                                        .WINDOW_COMMAND_CLOSE,
+                            ),
+                        )
+                }
 
                 val destroyStep =
                     activeProcessor
@@ -472,9 +497,27 @@ class RuntimeDisplayBridgeProbeController(
                                 appendLine(
                                     "POCKETPC_DISPLAY_BRIDGE_HOST_INPUT_OK",
                                 )
-                                appendLine(
-                                    "POCKETPC_DISPLAY_BRIDGE_HOST_WINDOW_COMMAND_OK",
-                                )
+                                if (
+                                    mode ==
+                                    RuntimeDisplayBridgeProbeMode
+                                        .GENERIC_PATTERN
+                                ) {
+                                    appendLine(
+                                        "POCKETPC_DISPLAY_BRIDGE_HOST_WINDOW_COMMAND_OK",
+                                    )
+                                }
+                                if (
+                                    mode ==
+                                    RuntimeDisplayBridgeProbeMode
+                                        .WINE_DRIVER_WINDOW
+                                ) {
+                                    appendLine(
+                                        "POCKETPC_WINE_DRIVER_HOST_FRAME_OK",
+                                    )
+                                    appendLine(
+                                        "POCKETPC_WINE_DRIVER_HOST_INPUT_OK",
+                                    )
+                                }
                                 appendLine(
                                     "POCKETPC_DISPLAY_BRIDGE_HOST_ROUNDTRIP_OK",
                                 )
@@ -554,6 +597,66 @@ class RuntimeDisplayBridgeProbeController(
                             y
                     }
                 }
+            }
+        }
+
+
+    private fun validateWineDriverFrame(
+        frame:
+            RuntimeDisplayFramePixels,
+    ): Result<Unit> =
+        runCatching {
+            require(
+                frame.width >= 64 &&
+                    frame.height >= 64 &&
+                    frame.argb.size ==
+                        frame.width *
+                            frame.height,
+            ) {
+                "WINE_DRIVER_FRAMEBUFFER_SIZE_INVALID"
+            }
+
+            val blueRgb =
+                (24 shl 16) or
+                    (96 shl 8) or
+                    210
+            val orangeRgb =
+                (224 shl 16) or
+                    (92 shl 8) or
+                    28
+            var blue = 0
+            var orange = 0
+
+            frame.argb.forEach {
+                pixel ->
+                when (
+                    pixel and
+                        0x00ffffff
+                ) {
+                    blueRgb ->
+                        blue += 1
+                    orangeRgb ->
+                        orange += 1
+                }
+            }
+
+            val minimumEach =
+                maxOf(
+                    16,
+                    frame.argb.size /
+                        20,
+                )
+            require(
+                blue >= minimumEach &&
+                    orange >= minimumEach,
+            ) {
+                "WINE_DRIVER_FRAMEBUFFER_PATTERN_MISMATCH:" +
+                    "blue=" +
+                    blue +
+                    ":orange=" +
+                    orange +
+                    ":minimum=" +
+                    minimumEach
             }
         }
 
