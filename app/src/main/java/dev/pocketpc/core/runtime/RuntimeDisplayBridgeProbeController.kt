@@ -11,6 +11,9 @@ data class RuntimeDisplayBridgeProbeResult(
     val bridgeAuthenticated: Boolean,
     val negotiatedCapabilities: Int,
     val bridgeError: String?,
+    val previewFrame:
+        RuntimeDisplayFramePixels? =
+        null,
 )
 
 class RuntimeDisplayBridgeProbeController(
@@ -173,6 +176,9 @@ class RuntimeDisplayBridgeProbeController(
             var authenticated = false
             var roundTrip = false
             var frameValidated = false
+            var previewFrame:
+                RuntimeDisplayFramePixels? =
+                null
             var bridgeError: String? = null
 
             try {
@@ -278,6 +284,8 @@ class RuntimeDisplayBridgeProbeController(
                 validateSmokeFrame(
                     presented.pixels,
                 ).getOrThrow()
+                previewFrame =
+                    presented.pixels
                 frameValidated = true
 
                 activeProcessor.sendPointer(
@@ -411,6 +419,12 @@ class RuntimeDisplayBridgeProbeController(
                     negotiated,
                 bridgeError =
                     bridgeError,
+                previewFrame =
+                    if (success) {
+                        previewFrame
+                    } else {
+                        null
+                    },
             )
         }
 
