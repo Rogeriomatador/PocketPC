@@ -43,7 +43,7 @@
     ],
     "driverName": "winepocketpc.drv",
     "graphicsSelection": "HKCU\\Software\\Wine\\Drivers\\Graphics=pocketpc",
-    "protocolVersion": 3
+    "protocolVersion": 4
   },
   "gates": {
     "protocolImplemented": true,
@@ -62,7 +62,6 @@
     "guestDriverLoaded": false,
     "surfaceCallbackTemplateImplemented": true,
     "inputInjectionTemplateImplemented": true,
-    "protocolV3NativeIntegrationExecuted": false,
     "surfaceWriterNativeSoftwareTestExecuted": false,
     "surfaceRequestProtocolImplemented": true,
     "surfaceWriterAttestationImplemented": true,
@@ -73,6 +72,9 @@
     "surfaceVisibilityCrossProcessSoftwareTestExecuted": false,
     "windowCommandProtocolImplemented": true,
     "windowCommandWineDispatchImplemented": true,
-    "windowCommandSoftwareTestExecuted": false
+    "windowCommandSoftwareTestExecuted": false,
+    "protocolV4NativeIntegrationExecuted": false,
+    "surfaceQualifiedFrameAckImplemented": true,
+    "surfaceQualifiedFrameAckSoftwareTestExecuted": false
   }
 }
