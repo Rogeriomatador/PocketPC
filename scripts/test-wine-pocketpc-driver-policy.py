@@ -220,9 +220,6 @@ def main() -> int:
             "pdb_surface_writer_commit",
             "POCKETPC_QueueHostEventLocked",
             "PDB_MSG_FRAME_PRESENTED",
-            "wait_frame_presented_locked",
-            "PDB_FRAME_ACK_IDENTITY_MISMATCH",
-            "PDB_FRAME_ACK_EVENT_LIMIT",
             "PDB_MSG_SURFACE_AVAILABLE",
             "PDB_MSG_WINDOW_COMMAND",
             "PDB_HOST_EVENT_QUEUE_FULL",
@@ -239,6 +236,14 @@ def main() -> int:
     if "pdb_receive_frame_presented" in surface_text:
         failures.append(
             "surface flush must not synchronously wait for FRAME_PRESENTED"
+        )
+    if "wait_frame_presented_locked" in surface_text:
+        failures.append(
+            "surface flush regressed to synchronous FRAME_PRESENTED wait"
+        )
+    if "FRAME_READY published" not in surface_text:
+        failures.append(
+            "surface flush must publish frame asynchronously"
         )
 
     require(
