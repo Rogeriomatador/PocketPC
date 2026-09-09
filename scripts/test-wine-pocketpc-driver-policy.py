@@ -79,9 +79,11 @@ def main() -> int:
         "surfaceTransactionDemuxImplemented",
         "hostSurfaceRegistryImplemented",
         "singleBufferOwnershipAckImplemented",
+        "surfaceQualifiedFrameAckImplemented",
     )
     expected_false = (
-        "protocolV3NativeIntegrationExecuted",
+        "protocolV4NativeIntegrationExecuted",
+        "surfaceQualifiedFrameAckSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
@@ -110,7 +112,7 @@ def main() -> int:
             .get("version") != 4
     ):
         failures.append(
-            "display bridge protocol is not v3"
+            "display bridge protocol is not v4"
         )
 
     texts: dict[str, str] = {}
@@ -231,6 +233,8 @@ def main() -> int:
             "coalescing frame while ACK pending",
             "Wine dirty bounds retained",
             "Wine 11 win32u offsets the dirty rectangle",
+            "max(dirty->left, 0)",
+            "max(dirty->top, 0)",
             "POCKETPC_QueueHostEventLocked",
             "PDB_MSG_FRAME_PRESENTED",
             "PDB_MSG_SURFACE_AVAILABLE",
@@ -258,6 +262,45 @@ def main() -> int:
         failures.append(
             "surface flush must publish frame asynchronously"
         )
+
+    pending_start = surface_text.find(
+        "!begin_surface_frame("
+    )
+    pending_end = surface_text.find(
+        "pdb_surface_writer_copy_bgra",
+        pending_start,
+    )
+    if (
+        pending_start < 0
+        or pending_end <= pending_start
+    ):
+        failures.append(
+            "surface ACK ownership block is missing"
+        )
+    else:
+        pending_block = surface_text[
+            pending_start:pending_end
+        ]
+        if "return FALSE;" not in pending_block:
+            failures.append(
+                "pending ACK must retain Wine dirty bounds by returning FALSE"
+            )
+        if "return TRUE;" in pending_block:
+            failures.append(
+                "pending ACK must not clear Wine dirty bounds"
+            )
+
+    for stale_dirty_transform in (
+        "max(dirty->left, rect->left)",
+        "max(dirty->top, rect->top)",
+        "min(dirty->right, rect->right)",
+        "min(dirty->bottom, rect->bottom)",
+    ):
+        if stale_dirty_transform in surface_text:
+            failures.append(
+                "surface dirty rect regressed to window-coordinate transform: "
+                + stale_dirty_transform
+            )
 
     require(
         failures,
