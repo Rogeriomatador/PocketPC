@@ -96,23 +96,64 @@ echo "  android_jar=$ANDROID_JAR"
 echo "  build_tools=$BUILD_TOOLS_DIR"
 echo "  aapt2=$AAPT2"
 echo
-echo "Executing:"
+LOG_DIR="$ROOT/build/termux"
+mkdir -p "$LOG_DIR"
+COMPILE_LOG="$LOG_DIR/compileDebugKotlin.log"
+TEST_LOG="$LOG_DIR/testDebugUnitTest.log"
+
+echo "Executing Kotlin compile gate:"
 echo "  -Ppocketpc.skipNativeBuild=true"
+echo "  :app:compileDebugKotlin"
+echo
+
+set +e
+gradle \
+    --no-daemon \
+    --console=plain \
+    -Pandroid.aapt2FromMavenOverride="$AAPT2" \
+    -Ppocketpc.skipNativeBuild=true \
+    :app:compileDebugKotlin 2>&1 | tee "$COMPILE_LOG"
+COMPILE_STATUS=${PIPESTATUS[0]}
+set -e
+
+echo
+if [ "$COMPILE_STATUS" -ne 0 ]; then
+    echo "===== KOTLIN COMPILER ERRORS ====="
+    grep -E '(^e: |Compilation error|error: )' "$COMPILE_LOG" | tail -n 120 || true
+    echo "===== END KOTLIN COMPILER ERRORS ====="
+    echo
+    echo "Classification : TERMUX_KOTLIN_COMPILE_FAIL"
+    echo "gradle_exit_code=$COMPILE_STATUS"
+    echo "compile_log=$COMPILE_LOG"
+    exit "$COMPILE_STATUS"
+fi
+
+echo "Classification : TERMUX_KOTLIN_COMPILE_PASS"
+echo
+echo "Executing unit-test gate:"
 echo "  :app:testDebugUnitTest"
 echo
 
 set +e
-gradle     --no-daemon     --stacktrace     -Pandroid.aapt2FromMavenOverride="$AAPT2"     -Ppocketpc.skipNativeBuild=true     :app:testDebugUnitTest
-STATUS=$?
+gradle \
+    --no-daemon \
+    --console=plain \
+    -Pandroid.aapt2FromMavenOverride="$AAPT2" \
+    -Ppocketpc.skipNativeBuild=true \
+    :app:testDebugUnitTest 2>&1 | tee "$TEST_LOG"
+TEST_STATUS=${PIPESTATUS[0]}
 set -e
 
 echo
-if [ "$STATUS" -ne 0 ]; then
+if [ "$TEST_STATUS" -ne 0 ]; then
+    echo "===== UNIT TEST FAILURE SUMMARY ====="
+    grep -E '(^e: |FAILED|FAILURE:|error: |There were failing tests)' "$TEST_LOG" | tail -n 120 || true
+    echo "===== END UNIT TEST FAILURE SUMMARY ====="
+    echo
     echo "Classification : TERMUX_KOTLIN_UNIT_TEST_FAIL"
-    echo "gradle_exit_code=$STATUS"
-    echo "Important: FAIL is evidence that the attempted software test did not pass."
-    echo "It does not prove the cause is Kotlin; inspect the Gradle error above."
-    exit "$STATUS"
+    echo "gradle_exit_code=$TEST_STATUS"
+    echo "test_log=$TEST_LOG"
+    exit "$TEST_STATUS"
 fi
 
 echo "Classification : TERMUX_KOTLIN_COMPILE_UNIT_TEST_PASS"
