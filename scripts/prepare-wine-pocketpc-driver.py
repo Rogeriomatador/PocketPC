@@ -38,6 +38,18 @@ BRIDGE_FILES = (
     "pocketpc_wine_window_bridge.c",
 )
 
+UNIX_ONLY_C_FILES = {
+    "pocketpc_display_bridge.c",
+    "pocketpc_wine_window_map.c",
+    "pocketpc_wine_window_bridge.c",
+}
+
+UNIX_MAKEDEP_PREAMBLE = """#if 0
+#pragma makedep unix
+#endif
+
+"""
+
 CONFIGURE_AC_ANCHOR = "WINE_CONFIG_MAKEFILE(dlls/wineandroid.drv)"
 CONFIGURE_AC_LINE = "WINE_CONFIG_MAKEFILE(dlls/winepocketpc.drv)"
 CONFIGURE_ANCHOR = (
@@ -163,6 +175,19 @@ def main() -> int:
             )
         dst = destination / name
         shutil.copyfile(src, dst)
+        if name in UNIX_ONLY_C_FILES:
+            original = dst.read_text(
+                encoding="utf-8",
+            )
+            if "#pragma makedep unix" in original:
+                raise SystemExit(
+                    f"BRIDGE_SOURCE_ALREADY_HAS_WINE_MAKEDEP:{name}"
+                )
+            dst.write_text(
+                UNIX_MAKEDEP_PREAMBLE +
+                original,
+                encoding="utf-8",
+            )
         copied.append(
             {
                 "path": f"dlls/winepocketpc.drv/{name}",
@@ -238,6 +263,19 @@ def main() -> int:
         "configureAcPatched": ac_changed,
         "generatedConfigurePatched": configure_changed,
         "files": copied,
+        "wineBuildClassification": {
+            "peModuleSources": [
+                "dllmain.c"
+            ],
+            "unixLibrarySources": [
+                "pocketpcdrv_main.c",
+                "window.c",
+                "pocketpc_display_bridge.c",
+                "pocketpc_wine_window_map.c",
+                "pocketpc_wine_window_bridge.c"
+            ],
+            "bridgeSourcesMarkedUnixOnly": True
+        },
         "notExecuted": [
             "Wine configure",
             "winepocketpc.drv compilation",
