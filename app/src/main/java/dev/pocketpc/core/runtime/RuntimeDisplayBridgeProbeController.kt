@@ -435,8 +435,10 @@ class RuntimeDisplayBridgeProbeController(
                     }
                 } else {
                     var destroyed = false
-                    repeat(
-                        MAX_WINE_POST_INPUT_EVENTS,
+                    for (
+                        eventIndex in
+                        0 until
+                            MAX_WINE_POST_INPUT_EVENTS
                     ) {
                         val step =
                             activeProcessor
@@ -459,7 +461,7 @@ class RuntimeDisplayBridgeProbeController(
                                     .WindowDestroyed
                         ) {
                             destroyed = true
-                            return@repeat
+                            break
                         }
                     }
                     require(destroyed) {
