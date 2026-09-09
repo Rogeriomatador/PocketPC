@@ -212,7 +212,7 @@ class RuntimeDisplayExecutionController(
                                 window ->
                                 val processPid =
                                     window.windowId
-                                        ushr 32
+                                        .ushr(32)
                                 if (
                                     processPid >
                                         0L &&
