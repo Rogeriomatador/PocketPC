@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import subprocess
 import tempfile
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +44,12 @@ def main() -> int:
     pe = "dlls/winepocketpc.drv/winepocketpc.drv"
     unixlib = "dlls/winepocketpc.drv/winepocketpc.so"
 
+    assert_equal(
+        harness.OFFICIAL_BUILD_TARGETS,
+        (aggregate, pe, unixlib),
+        "official target contract",
+    )
+
     with tempfile.TemporaryDirectory(
         prefix="pocketpc-wine-target-test-"
     ) as temp:
@@ -52,26 +60,33 @@ def main() -> int:
         make1 = write_makefile(
             case1,
             f"""{pe}:
-	@:
+\t@:
 {unixlib}:
-	@:
+\t@:
 {aggregate}: {pe} {unixlib}
-	@:
+\t@:
 .PHONY: {aggregate}
 """,
         )
-        selected, discovered = harness.discover_build_targets(
+        result = harness.discover_build_targets(
             case1,
             make1,
         )
         assert_equal(
-            selected,
+            result.selected,
             [aggregate],
             "aggregate target selection",
         )
-        if aggregate not in discovered:
+        if aggregate not in result.discovered:
             raise AssertionError(
                 "aggregate target was not discovered"
+            )
+        if result.selection_source not in {
+            "make-database",
+            "generated-makefile",
+        }:
+            raise AssertionError(
+                "aggregate selection source missing"
             )
 
         case2 = root / "split"
@@ -79,21 +94,24 @@ def main() -> int:
         make2 = write_makefile(
             case2,
             f"""{pe}:
-	@:
+\t@:
 {unixlib}:
-	@:
+\t@:
 """,
         )
-        selected, discovered = harness.discover_build_targets(
+        result = harness.discover_build_targets(
             case2,
             make2,
         )
         assert_equal(
-            selected,
+            result.selected,
             [pe, unixlib],
             "split target selection",
         )
-        if pe not in discovered or unixlib not in discovered:
+        if (
+            pe not in result.discovered
+            or unixlib not in result.discovered
+        ):
             raise AssertionError(
                 "split targets were not both discovered"
             )
@@ -103,19 +121,22 @@ def main() -> int:
         make3 = write_makefile(
             case3,
             f"""{pe}:
-	@:
+\t@:
 """,
         )
-        selected, discovered = harness.discover_build_targets(
+        result = harness.discover_build_targets(
             case3,
             make3,
         )
         assert_equal(
-            selected,
+            result.selected,
             [],
             "incomplete target rejection",
         )
-        if pe not in discovered or unixlib in discovered:
+        if (
+            pe not in result.discovered
+            or unixlib in result.discovered
+        ):
             raise AssertionError(
                 "incomplete target diagnostics are incorrect"
             )
@@ -129,21 +150,130 @@ def main() -> int:
             case4,
             "all:\n\t@:\n",
         )
-        selected, discovered = harness.discover_build_targets(
+        result = harness.discover_build_targets(
             case4,
             make4,
         )
         assert_equal(
-            selected,
+            result.selected,
             [],
             "existing directory must not become a make target",
         )
-        if aggregate in discovered:
+        if aggregate in result.discovered:
             raise AssertionError(
                 "aggregate target falsely discovered from directory"
             )
 
+        case5 = root / "make-query-one"
+        case5.mkdir()
+        make5 = write_makefile(
+            case5,
+            f"{aggregate}:\n\t@:\n",
+        )
+        fake_make_query =
+            subprocess.CompletedProcess(
+                args=["make"],
+                returncode=1,
+                stdout=f"{aggregate}:\n",
+            )
+        with mock.patch.object(
+            harness.subprocess,
+            "run",
+            return_value=fake_make_query,
+        ):
+            result = harness.discover_build_targets(
+                case5,
+                make5,
+            )
+        assert_equal(
+            result.selected,
+            [aggregate],
+            "make -q exit one remains usable",
+        )
+        assert_equal(
+            result.database_exit_code,
+            1,
+            "make database exit one recorded",
+        )
+        assert_equal(
+            result.selection_source,
+            "make-database",
+            "make database source retained",
+        )
+
+        case6 = root / "make-unavailable"
+        case6.mkdir()
+        make6 = write_makefile(
+            case6,
+            f"""{pe}:
+\t@:
+{unixlib}:
+\t@:
+""",
+        )
+        with mock.patch.object(
+            harness.subprocess,
+            "run",
+            side_effect=FileNotFoundError(
+                "make",
+            ),
+        ):
+            result = harness.discover_build_targets(
+                case6,
+                make6,
+            )
+        assert_equal(
+            result.selected,
+            [pe, unixlib],
+            "generated Makefile fallback",
+        )
+        assert_equal(
+            result.selection_source,
+            "generated-makefile",
+            "fallback source",
+        )
+        if not (
+            result.database_error
+            and result.database_error.startswith(
+                "MAKE_DATABASE_EXEC_FAILED:"
+            )
+        ):
+            raise AssertionError(
+                "make execution failure was not recorded"
+            )
+
+        case7 = root / "foreign-target"
+        case7.mkdir()
+        make7 = write_makefile(
+            case7,
+            """dlls/winepocketpc.drv/not-official:
+\t@:
+""",
+        )
+        with mock.patch.object(
+            harness.subprocess,
+            "run",
+            side_effect=FileNotFoundError(
+                "make",
+            ),
+        ):
+            result = harness.discover_build_targets(
+                case7,
+                make7,
+            )
+        assert_equal(
+            result.selected,
+            [],
+            "foreign target must stay rejected",
+        )
+        assert_equal(
+            result.discovered,
+            [],
+            "foreign target must not enter diagnostics",
+        )
+
     print("WINE_POCKETPC_BUILD_TARGET_DISCOVERY_OK")
+    print("official_targets=aggregate_or_exact_pe_plus_unixlib")
     print("runtime_execution_evidence=false")
     return 0
 
