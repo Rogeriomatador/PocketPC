@@ -762,6 +762,9 @@ def main() -> int:
                 "surface_visibility=cross-process-native-pass"
             )
             print(
+                "window_command=native-host-to-guest"
+            )
+            print(
                 "transport=x86_64-native-host-fixture"
             )
             print(
