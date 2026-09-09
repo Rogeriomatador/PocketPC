@@ -14,6 +14,10 @@ BOX64 = ROOT / "scripts/build-box64-aarch64.py"
 HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.h"
 SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.c"
 SMOKE = ROOT / "third_party/wine/pocketpc-display-bridge/display_bridge_smoke.c"
+WINDOW_MAP_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_wine_window_map.h"
+WINDOW_MAP_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_wine_window_map.c"
+WINDOW_BRIDGE_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_wine_window_bridge.h"
+WINDOW_BRIDGE_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_wine_window_bridge.c"
 
 
 def require_sentinels(
@@ -153,6 +157,10 @@ def main() -> int:
     source = SOURCE.read_text(encoding="utf-8")
     smoke = SMOKE.read_text(encoding="utf-8")
     box64 = BOX64.read_text(encoding="utf-8")
+    window_map_header = WINDOW_MAP_HEADER.read_text(encoding="utf-8")
+    window_map_source = WINDOW_MAP_SOURCE.read_text(encoding="utf-8")
+    window_bridge_header = WINDOW_BRIDGE_HEADER.read_text(encoding="utf-8")
+    window_bridge_source = WINDOW_BRIDGE_SOURCE.read_text(encoding="utf-8")
 
     require_sentinels(
         failures,
@@ -245,6 +253,32 @@ def main() -> int:
             "pdb_send_frame_ready",
             "MAP_SHARED",
             "MS_SYNC",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Wine window map",
+        window_map_header + window_map_source,
+        (
+            "PDB_WINE_WINDOW_LIMIT 64u",
+            "pdb_wine_window_register",
+            "pdb_wine_window_lookup",
+            "pdb_wine_window_handle_for_id",
+            "pdb_wine_window_has_children",
+            "pdb_wine_window_unregister",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Wine window lifecycle adapter",
+        window_bridge_header + window_bridge_source,
+        (
+            "pdb_wine_window_bridge_init",
+            "pdb_wine_window_bridge_create",
+            "pdb_wine_window_bridge_geometry",
+            "pdb_wine_window_bridge_destroy",
+            "pdb_wine_window_bridge_handle_for_id",
+            "PDB_WINE_WINDOW_HAS_CHILDREN",
         ),
     )
     require_sentinels(
