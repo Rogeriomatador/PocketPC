@@ -156,6 +156,32 @@ int pdb_wine_window_handle_for_id(
     return 0;
 }
 
+int pdb_wine_window_has_children(
+    const struct pdb_wine_window_map *map,
+    uintptr_t native_handle
+) {
+    size_t i;
+
+    if (
+        !map ||
+        native_handle == (uintptr_t)0 ||
+        find_handle(map, native_handle) < 0
+    ) {
+        return -1;
+    }
+
+    for (i = 0; i < PDB_WINE_WINDOW_LIMIT; ++i) {
+        if (
+            map->entries[i].in_use &&
+            map->entries[i].parent_handle ==
+                native_handle
+        ) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int pdb_wine_window_unregister(
     struct pdb_wine_window_map *map,
     uintptr_t native_handle
