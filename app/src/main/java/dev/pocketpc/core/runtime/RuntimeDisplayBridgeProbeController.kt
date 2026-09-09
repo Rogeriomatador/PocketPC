@@ -418,22 +418,55 @@ class RuntimeDisplayBridgeProbeController(
                                         .WINDOW_COMMAND_CLOSE,
                             ),
                         )
+
+                    val destroyStep =
+                        activeProcessor
+                            .processNext()
+                            .getOrThrow()
+                    publishStep(
+                        destroyStep,
+                    )
+                    require(
+                        destroyStep.event is
+                            RuntimeDisplayBridgeEvent
+                                .WindowDestroyed
+                    ) {
+                        "DISPLAY_BRIDGE_EXPECTED_WINDOW_DESTROY"
+                    }
+                } else {
+                    var destroyed = false
+                    repeat(
+                        MAX_WINE_POST_INPUT_EVENTS,
+                    ) {
+                        val step =
+                            activeProcessor
+                                .processNext()
+                                .getOrThrow()
+                        publishStep(step)
+
+                        if (
+                            step.presentedFrame !=
+                                null
+                        ) {
+                            activeProcessor
+                                .acknowledgePendingFrame()
+                                .getOrThrow()
+                        }
+
+                        if (
+                            step.event is
+                                RuntimeDisplayBridgeEvent
+                                    .WindowDestroyed
+                        ) {
+                            destroyed = true
+                            return@repeat
+                        }
+                    }
+                    require(destroyed) {
+                        "WINE_DRIVER_WINDOW_DESTROY_NOT_OBSERVED"
+                    }
                 }
 
-                val destroyStep =
-                    activeProcessor
-                        .processNext()
-                        .getOrThrow()
-                publishStep(
-                    destroyStep,
-                )
-                require(
-                    destroyStep.event is
-                        RuntimeDisplayBridgeEvent
-                            .WindowDestroyed
-                ) {
-                    "DISPLAY_BRIDGE_EXPECTED_WINDOW_DESTROY"
-                }
                 require(
                     activeProcessor
                         .windowsSnapshot()
@@ -659,5 +692,11 @@ class RuntimeDisplayBridgeProbeController(
                     minimumEach
             }
         }
+    companion object {
+        private const val
+            MAX_WINE_POST_INPUT_EVENTS =
+            32
+    }
+
 
 }
