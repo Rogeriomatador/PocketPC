@@ -32,7 +32,8 @@
     "FRAME_PRESENTED": 40,
     "ERROR": 255,
     "FRAME_READY": 21,
-    "SURFACE_REQUEST": 19
+    "SURFACE_REQUEST": 19,
+    "WINDOW_COMMAND": 13
   },
   "capabilities": {
     "WINDOW_SURFACE": 1,
@@ -77,7 +78,10 @@
     "frameReaderSoftwareTestExecuted": false,
     "compositorModelSoftwareTestExecuted": false,
     "sessionControllerSoftwareTestExecuted": false,
-    "composePreviewDeviceTestExecuted": false
+    "composePreviewDeviceTestExecuted": false,
+    "windowCommandProtocolImplemented": true,
+    "windowCommandWineDispatchImplemented": true,
+    "windowCommandSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -92,7 +96,8 @@
     "FRAME_PRESENTED": "host-to-guest",
     "ERROR": "bidirectional",
     "FRAME_READY": "guest-to-host",
-    "SURFACE_REQUEST": "guest-to-host"
+    "SURFACE_REQUEST": "guest-to-host",
+    "WINDOW_COMMAND": "host-to-guest"
   },
   "payloadLayouts": {
     "WINDOW_CREATE": {
@@ -187,6 +192,14 @@
         "pixelFormat:u32",
         "flags:u32"
       ]
+    },
+    "WINDOW_COMMAND": {
+      "bytes": 16,
+      "fields": [
+        "windowId:u64",
+        "command:u32",
+        "flags:u32"
+      ]
     }
   },
   "sharedFramebuffer": {
@@ -265,5 +278,23 @@
       "scanCode": "Win32 scan code; bit 0x100 marks extended key",
       "repeatCount": "0 means one event for DOWN/UP; REPEAT uses max(1, repeatCount)"
     }
+  },
+  "windowCommands": {
+    "commands": {
+      "ACTIVATE": 1,
+      "MINIMIZE": 2,
+      "RESTORE": 3,
+      "MAXIMIZE": 4,
+      "CLOSE": 5
+    },
+    "flags": "must be 0",
+    "wineBinding": {
+      "ACTIVATE": "NtUserShowWindow(SW_RESTORE) + NtUserSetForegroundWindow",
+      "MINIMIZE": "NtUserShowWindow(SW_MINIMIZE)",
+      "RESTORE": "NtUserShowWindow(SW_RESTORE)",
+      "MAXIMIZE": "NtUserShowWindow(SW_MAXIMIZE)",
+      "CLOSE": "NtUserPostMessage(WM_CLOSE)"
+    },
+    "transactionRule": "commands may be queued while SURFACE_AVAILABLE/FRAME_PRESENTED transactions are pending"
   }
 }
