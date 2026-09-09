@@ -100,6 +100,7 @@ int main(void) {
     struct pdb_pointer_event pointer;
     struct pdb_key_event key;
     struct pdb_frame_presented frame;
+    struct pdb_host_event host_event;
     char error[160] = {0};
 
     if (
@@ -361,6 +362,47 @@ int main(void) {
     }
     printf(
         "POCKETPC_DISPLAY_BRIDGE_FRAME_ACK_OK\n"
+    );
+
+    if (
+        pdb_receive_host_event(
+            &c,
+            &host_event,
+            error,
+            sizeof(error)
+        ) != 0
+    ) {
+        fprintf(
+            stderr,
+            "POCKETPC_DISPLAY_BRIDGE_SMOKE_FAILED window_command=%s\n",
+            error
+        );
+        pdb_close(&c);
+        return 94;
+    }
+    if (
+        host_event.type !=
+            PDB_MSG_WINDOW_COMMAND ||
+        host_event.data
+            .window_command
+            .window_id != 1u ||
+        host_event.data
+            .window_command
+            .command !=
+            PDB_WINDOW_COMMAND_CLOSE ||
+        host_event.data
+            .window_command
+            .flags != 0u
+    ) {
+        fprintf(
+            stderr,
+            "POCKETPC_DISPLAY_BRIDGE_SMOKE_FAILED window_command_values\n"
+        );
+        pdb_close(&c);
+        return 95;
+    }
+    printf(
+        "POCKETPC_DISPLAY_BRIDGE_WINDOW_COMMAND_OK\n"
     );
 
     if (
