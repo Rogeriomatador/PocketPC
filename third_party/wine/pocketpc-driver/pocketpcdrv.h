@@ -31,6 +31,9 @@ BOOL POCKETPC_ProcessEvents(DWORD mask);
 BOOL POCKETPC_DispatchHostEvent(
     const struct pdb_host_event *event
 );
+BOOL POCKETPC_HandleFramePresented(
+    const struct pdb_frame_presented *event
+);
 BOOL POCKETPC_QueueHostEventLocked(
     const struct pdb_host_event *event
 );
