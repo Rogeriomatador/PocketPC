@@ -107,6 +107,193 @@ int main(void) {
     return output
 
 
+def build_pocketpc_window_smoke(work: Path) -> Path:
+    source = work / "pocketpc-window-smoke.c"
+    output = work / "pocketpc-window-smoke.exe"
+    source.write_text(
+        """#include <windows.h>
+#include <stdio.h>
+
+static int got_pointer = 0;
+static int got_key = 0;
+
+static void maybe_finish(HWND hwnd) {
+    if (got_pointer && got_key) {
+        printf("POCKETPC_WINE_DRIVER_INPUT_OK\\n");
+        fflush(stdout);
+        DestroyWindow(hwnd);
+    }
+}
+
+static LRESULT CALLBACK wndproc(
+    HWND hwnd,
+    UINT message,
+    WPARAM wparam,
+    LPARAM lparam
+) {
+    (void)lparam;
+
+    switch (message) {
+    case WM_PAINT: {
+        PAINTSTRUCT paint;
+        RECT rect;
+        RECT left;
+        RECT right;
+        HBRUSH blue;
+        HBRUSH orange;
+        HDC dc = BeginPaint(hwnd, &paint);
+
+        GetClientRect(hwnd, &rect);
+        left = rect;
+        right = rect;
+        left.right = rect.left + (rect.right - rect.left) / 2;
+        right.left = left.right;
+
+        blue = CreateSolidBrush(RGB(24, 96, 210));
+        orange = CreateSolidBrush(RGB(224, 92, 28));
+        FillRect(dc, &left, blue);
+        FillRect(dc, &right, orange);
+        DeleteObject(blue);
+        DeleteObject(orange);
+        EndPaint(hwnd, &paint);
+
+        printf("POCKETPC_WINE_DRIVER_PAINT_OK\\n");
+        fflush(stdout);
+        return 0;
+    }
+
+    case WM_LBUTTONDOWN:
+        got_pointer = 1;
+        printf("POCKETPC_WINE_DRIVER_POINTER_OK\\n");
+        fflush(stdout);
+        maybe_finish(hwnd);
+        return 0;
+
+    case WM_KEYDOWN:
+        if (wparam == 'A') {
+            got_key = 1;
+            printf("POCKETPC_WINE_DRIVER_KEY_OK\\n");
+            fflush(stdout);
+            maybe_finish(hwnd);
+            return 0;
+        }
+        break;
+
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
+    }
+
+    return DefWindowProcW(
+        hwnd,
+        message,
+        wparam,
+        lparam
+    );
+}
+
+int main(void) {
+    HINSTANCE instance =
+        GetModuleHandleW(NULL);
+    WNDCLASSW klass;
+    HWND hwnd;
+    MSG message;
+
+    ZeroMemory(&klass, sizeof(klass));
+    klass.lpfnWndProc = wndproc;
+    klass.hInstance = instance;
+    klass.hCursor =
+        LoadCursorW(NULL, IDC_ARROW);
+    klass.hbrBackground =
+        (HBRUSH)(COLOR_WINDOW + 1);
+    klass.lpszClassName =
+        L"PocketPcWineDriverSmoke";
+
+    if (
+        !RegisterClassW(&klass) &&
+        GetLastError() !=
+            ERROR_CLASS_ALREADY_EXISTS
+    ) {
+        return 70;
+    }
+
+    hwnd =
+        CreateWindowExW(
+            0,
+            klass.lpszClassName,
+            L"PocketPC Wine Driver Smoke",
+            WS_OVERLAPPEDWINDOW,
+            80,
+            70,
+            640,
+            360,
+            NULL,
+            NULL,
+            instance,
+            NULL
+        );
+    if (!hwnd) {
+        return 71;
+    }
+
+    ShowWindow(hwnd, SW_SHOW);
+    UpdateWindow(hwnd);
+    SetFocus(hwnd);
+
+    printf("POCKETPC_WINE_DRIVER_WINDOW_OK\\n");
+    fflush(stdout);
+
+    while (
+        GetMessageW(
+            &message,
+            NULL,
+            0,
+            0
+        ) > 0
+    ) {
+        TranslateMessage(&message);
+        DispatchMessageW(&message);
+    }
+
+    if (!got_pointer || !got_key) {
+        printf(
+            "POCKETPC_WINE_DRIVER_SMOKE_FAILED pointer=%d key=%d\\n",
+            got_pointer,
+            got_key
+        );
+        return 72;
+    }
+
+    printf("POCKETPC_WINE_DRIVER_SMOKE_OK\\n");
+    fflush(stdout);
+    return 0;
+}
+""",
+        encoding="utf-8",
+    )
+    run(
+        [
+            "x86_64-w64-mingw32-gcc",
+            "-Os",
+            "-s",
+            "-Wl,--no-insert-timestamp",
+            "-o",
+            str(output),
+            str(source),
+            "-lgdi32",
+            "-luser32",
+        ],
+        work,
+        work / "pocketpc-window-smoke-build.log",
+    )
+    machine, magic = pe_machine(output)
+    if machine != 0x8664 or magic != 0x20B:
+        raise SystemExit(
+            "POCKETPC_WINDOW_SMOKE_PE_TARGET_MISMATCH"
+        )
+    return output
+
+
 def build_d3d11_smoke(work: Path) -> Path:
     source = work / "pocketpc-d3d11-smoke.c"
     output = work / "pocketpc-d3d11-smoke.exe"
@@ -747,6 +934,7 @@ def main() -> int:
 
     records = flatten_install_tree(installed_root, package_root)
     smoke = build_win64_smoke(work)
+    window_smoke = build_pocketpc_window_smoke(work)
     d3d11 = build_d3d11_smoke(work)
     present_smoke = build_d3d11_present_smoke(work)
     process_smoke = build_windows_process_smoke(work)
@@ -763,6 +951,28 @@ def main() -> int:
             "path": smoke_relative.as_posix(),
             "bytes": smoke_destination.stat().st_size,
             "sha256": sha256(smoke_destination),
+            "executable": False,
+        }
+    )
+
+    pocketpc_window_relative =
+        Path("share/tests/pocketpc-window-smoke.exe")
+    pocketpc_window_destination =
+        package_root / pocketpc_window_relative
+    pocketpc_window_destination.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    shutil.copyfile(
+        window_smoke,
+        pocketpc_window_destination,
+    )
+    pocketpc_window_destination.chmod(0o644)
+    records.append(
+        {
+            "path": pocketpc_window_relative.as_posix(),
+            "bytes": pocketpc_window_destination.stat().st_size,
+            "sha256": sha256(pocketpc_window_destination),
             "executable": False,
         }
     )
@@ -882,6 +1092,13 @@ def main() -> int:
             "sha256": sha256(smoke_destination),
             "expectedOutput": "POCKETPC_WIN64_SMOKE_OK",
         },
+        "pocketPcWindowSmoke": {
+            "path": pocketpc_window_relative.as_posix(),
+            "sha256": sha256(pocketpc_window_destination),
+            "expectedOutput": "POCKETPC_WINE_DRIVER_SMOKE_OK",
+            "requiresDriver": "winepocketpc.drv",
+            "requiresDisplayBridgeProtocol": 3,
+        },
         "d3d11Smoke": {
             "path": d3d11_relative.as_posix(),
             "sha256": sha256(d3d11_destination),
@@ -927,6 +1144,7 @@ def main() -> int:
             "Wine under Box64",
             "wineboot prefix creation",
             "Win64 smoke executable",
+            "PocketPC Wine driver window/surface/input smoke",
             "DXVK D3D11 device smoke",
             "DXVK D3D11 presentation smoke",
             "vkd3d D3D12 smoke",
