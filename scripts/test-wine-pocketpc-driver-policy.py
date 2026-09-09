@@ -107,7 +107,7 @@ def main() -> int:
 
     if (
         (protocol.get("wire") or {})
-            .get("version") != 3
+            .get("version") != 4
     ):
         failures.append(
             "display bridge protocol is not v3"
@@ -316,7 +316,7 @@ def main() -> int:
         plan.get("driverName") != "winepocketpc.drv"
         or plan.get("graphicsSelection")
         != "HKCU\\Software\\Wine\\Drivers\\Graphics=pocketpc"
-        or plan.get("protocolVersion") != 3
+        or plan.get("protocolVersion") != 4
     ):
         failures.append(
             "PocketPC Wine driver selection contract changed"
@@ -336,7 +336,7 @@ def main() -> int:
 
     print("WINE_POCKETPC_DRIVER_POLICY_OK")
     print("driver=winepocketpc.drv")
-    print("protocol_version=3")
+    print("protocol_version=4")
     print("driver_build_evidence=false")
     print("runtime_execution_evidence=false")
     return 0
