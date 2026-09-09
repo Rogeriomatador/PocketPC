@@ -68,6 +68,8 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -119,6 +121,18 @@ fun DesktopIconsV2(
                     val hoverSource = remember(app) { MutableInteractionSource() }
                     val hovered by hoverSource.collectIsHoveredAsState()
                     val focused by hoverSource.collectIsFocusedAsState()
+                    var iconOriginInRoot by
+                        remember(app) {
+                            mutableStateOf(
+                                Offset.Zero,
+                            )
+                        }
+                    var iconCenterInRoot by
+                        remember(app) {
+                            mutableStateOf(
+                                Offset.Zero,
+                            )
+                        }
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -145,12 +159,56 @@ fun DesktopIconsV2(
                                 },
                                 RoundedCornerShape(12.dp),
                             )
-                            .desktopSecondaryClick {
-                                desktop.openContextMenu(app)
+                            .onGloballyPositioned {
+                                coordinates ->
+                                val origin =
+                                    coordinates
+                                        .positionInRoot()
+                                iconOriginInRoot =
+                                    origin
+                                iconCenterInRoot =
+                                    origin +
+                                        Offset(
+                                            coordinates
+                                                .size
+                                                .width /
+                                                2f,
+                                            coordinates
+                                                .size
+                                                .height /
+                                                2f,
+                                        )
+                            }
+                            .desktopSecondaryClickAt {
+                                localPosition ->
+                                val rootPosition =
+                                    iconOriginInRoot +
+                                        localPosition
+                                desktop.openContextMenu(
+                                    app = app,
+                                    anchorX =
+                                        rootPosition.x
+                                            .toInt(),
+                                    anchorY =
+                                        rootPosition.y
+                                            .toInt(),
+                                )
                             }
                             .combinedClickable(
-                                onClick = { desktop.open(app) },
-                                onLongClick = { desktop.openContextMenu(app) },
+                                onClick = {
+                                    desktop.open(app)
+                                },
+                                onLongClick = {
+                                    desktop.openContextMenu(
+                                        app = app,
+                                        anchorX =
+                                            iconCenterInRoot.x
+                                                .toInt(),
+                                        anchorY =
+                                            iconCenterInRoot.y
+                                                .toInt(),
+                                    )
+                                },
                             )
                             .padding(4.dp),
                     ) {
