@@ -8,10 +8,18 @@ data class RuntimeWindowsKey(
 )
 
 object RuntimeWindowsKeyMapper {
-    const val MODIFIER_SHIFT = 1 shl 0
-    const val MODIFIER_CONTROL = 1 shl 1
-    const val MODIFIER_ALT = 1 shl 2
-    const val MODIFIER_META = 1 shl 3
+    const val MODIFIER_SHIFT =
+        RuntimeDisplayBridgePayloadCodec
+            .MODIFIER_SHIFT
+    const val MODIFIER_CONTROL =
+        RuntimeDisplayBridgePayloadCodec
+            .MODIFIER_CONTROL
+    const val MODIFIER_ALT =
+        RuntimeDisplayBridgePayloadCodec
+            .MODIFIER_ALT
+    const val MODIFIER_META =
+        RuntimeDisplayBridgePayloadCodec
+            .MODIFIER_META
 
     fun map(
         androidKeyCode: Int,
