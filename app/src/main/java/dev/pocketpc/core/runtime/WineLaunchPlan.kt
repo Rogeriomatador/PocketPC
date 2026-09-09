@@ -10,6 +10,7 @@ data class WineLaunchPlan(
 object WineLaunchPlanner {
     const val DEFAULT_BOX64 = "/opt/pocketpc/box64/bin/box64"
     const val DEFAULT_WINE = "/opt/pocketpc/wine/bin/wine"
+    const val DXVK_DLL_OVERRIDES = "d3d11=n;dxgi=n"
 
     fun build(
         prefixPlan: WindowsPrefixPlan,
@@ -19,6 +20,7 @@ object WineLaunchPlanner {
         wineRuntimeValidated: Boolean,
         box64GuestPath: String = DEFAULT_BOX64,
         wineGuestPath: String = DEFAULT_WINE,
+        enableDxvk: Boolean = false,
     ): WineLaunchPlan {
         val blockers = mutableListOf<String>()
 
@@ -60,7 +62,14 @@ object WineLaunchPlanner {
                     "WINEARCH" to "win64",
                     "HOME" to "/home/pocket",
                     "TMPDIR" to "/tmp",
-                )
+                ).apply {
+                    if (enableDxvk) {
+                        put(
+                            "WINEDLLOVERRIDES",
+                            DXVK_DLL_OVERRIDES,
+                        )
+                    }
+                }
             }
 
         val argv =
