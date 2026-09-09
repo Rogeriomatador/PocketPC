@@ -138,4 +138,80 @@ class RuntimeProcessSupervisorTest {
         assertEquals(0, next.exitCode)
         assertEquals("resumed", next.output)
     }
+    @Test
+    fun registeredProcessCanBeObservedAndTerminated() = runBlocking {
+        assumeTrue(File("/bin/sh").canExecute())
+        assumeTrue(File("/bin/sleep").canExecute())
+
+        val supervisor =
+            RuntimeProcessSupervisor()
+        val running =
+            async {
+                supervisor.runOneShot(
+                    ProcessRunSpec(
+                        argv =
+                            listOf(
+                                "/bin/sh",
+                                "-c",
+                                "exec /bin/sleep 10",
+                            ),
+                        environment =
+                            emptyMap(),
+                        timeoutMillis =
+                            15_000,
+                    ),
+                )
+            }
+
+        var snapshot:
+            RuntimeProcessSnapshot? =
+            null
+        repeat(100) {
+            snapshot =
+                RuntimeProcessRegistry
+                    .snapshots()
+                    .singleOrNull()
+            if (snapshot != null) {
+                return@repeat
+            }
+            delay(10)
+        }
+
+        val visible =
+            requireNotNull(snapshot)
+        assertTrue(visible.alive)
+        assertTrue(
+            visible.argv.contains(
+                "/bin/sh",
+            ),
+        )
+
+        assertTrue(
+            RuntimeProcessRegistry
+                .terminate(
+                    visible.id,
+                    force = true,
+                ),
+        )
+
+        val result = running.await()
+        assertTrue(result.started)
+
+        repeat(100) {
+            if (
+                RuntimeProcessRegistry
+                    .snapshots()
+                    .isEmpty()
+            ) {
+                return@repeat
+            }
+            delay(10)
+        }
+        assertTrue(
+            RuntimeProcessRegistry
+                .snapshots()
+                .isEmpty(),
+        )
+    }
+
 }
