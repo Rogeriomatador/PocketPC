@@ -224,6 +224,7 @@ def main() -> int:
             "PDB_FRAME_ACK_IDENTITY_MISMATCH",
             "PDB_FRAME_ACK_EVENT_LIMIT",
             "PDB_MSG_SURFACE_AVAILABLE",
+            "PDB_MSG_WINDOW_COMMAND",
             "PDB_HOST_EVENT_QUEUE_FULL",
             "pdb_surface_writer_close",
         ),
