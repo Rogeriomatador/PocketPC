@@ -87,7 +87,11 @@
     "androidToWin32KeyMappingSoftwareTestExecuted": false,
     "protocolV4NativeIntegrationExecuted": false,
     "processEventsMaskPreservationImplemented": true,
-    "processEventsMaskPreservationSoftwareTestExecuted": false
+    "processEventsMaskPreservationSoftwareTestExecuted": false,
+    "frameFailureFailClosedImplemented": true,
+    "frameFailureFailClosedSoftwareTestExecuted": false,
+    "windowLifecyclePostSendFailClosedImplemented": true,
+    "windowLifecyclePostSendFailClosedSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -234,7 +238,8 @@
     "coalescingRule": "if Wine flushes while a frame is still in flight, the driver leaves the shared mmap untouched and returns FALSE so win32u retains dirty bounds; the normal Wine flush/idle path retries after the matching surface-qualified FRAME_PRESENTED releases ownership",
     "frameAckIdentityRule": "FRAME_PRESENTED must exactly match windowId, surfaceId, generation and frameId of the in-flight FRAME_READY",
     "lateAckRule": "ACK from a replaced/destroyed surface cannot release ownership of a newer surface even when frameId is reused",
-    "inputMaskRule": "Pointer/key events received while the current pProcessEvents mask excludes them are retained in the bounded host-event queue. Eligible events may be selected past deferred events, matching Wine queue-mask semantics; queue overflow or an unexpected transaction event fails the bridge closed."
+    "inputMaskRule": "Pointer/key events received while the current pProcessEvents mask excludes them are retained in the bounded host-event queue. Eligible events may be selected past deferred events, matching Wine queue-mask semantics; queue overflow or an unexpected transaction event fails the bridge closed.",
+    "frameFailureRule": "FRAME_PRESENTED with non-zero status, wrong active identity or wrong in-flight frame is fatal for the current bridge session; the guest closes the transport instead of silently releasing ownership and continuing."
   },
   "zOrder": {
     "model": "single-choice flags",
@@ -262,7 +267,8 @@
         "pWindowPosChanged"
       ],
       "reusePolicy": "signature/behavior reference only; do not reuse wineandroid.drv binary or Java/JNI ABI"
-    }
+    },
+    "postSendFailureRule": "After WINDOW_CREATE/WINDOW_GEOMETRY/WINDOW_DESTROY is successfully sent, any failure to record the corresponding local lifecycle transition invalidates the bridge connection. Pre-send local validation failures do not tear down the session."
   },
   "inputSemantics": {
     "pointer": {
