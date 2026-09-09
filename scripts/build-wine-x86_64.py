@@ -819,7 +819,7 @@ def main() -> int:
         )
     )
     if (
-        overlay.get("protocolVersion") != 3
+        overlay.get("protocolVersion") != 4
         or overlay.get("driverName") != "winepocketpc.drv"
         or overlay.get("surfaceCallbackImplemented") is not True
         or overlay.get("inputInjectionImplemented") is not True
@@ -1072,7 +1072,7 @@ def main() -> int:
             "machine": machine,
         },
         "pocketPcDriver": {
-            "protocolVersion": 3,
+            "protocolVersion": 4,
             "pePath": pocketpc_pe.relative_to(
                 installed_root
             ).as_posix(),
