@@ -99,6 +99,12 @@
     "runtimeEvidenceIdentityCoherenceImplemented": true,
     "runtimeEvidenceIdentityCoherenceSoftwareTestExecuted": false,
     "continuousAppDesktopBridgeImplemented": true,
-    "continuousAppDesktopBridgeSoftwareTestExecuted": false
+    "continuousAppDesktopBridgeSoftwareTestExecuted": false,
+    "dxvkLaunchOverrideImplemented": true,
+    "dxvkLaunchOverrideSoftwareTestExecuted": false,
+    "winePocketPcWindowProbeBrokerImplemented": true,
+    "winePocketPcWindowProbeBrokerSoftwareTestExecuted": false,
+    "winePocketPcWindowEvidenceImplemented": true,
+    "winePocketPcWindowEvidenceSoftwareTestExecuted": false
   }
 }
