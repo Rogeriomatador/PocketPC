@@ -22,6 +22,10 @@ class DesktopController(
         private set
     var contextMenuTarget by mutableStateOf<DesktopApp?>(null)
         private set
+    var contextMenuAnchorX by mutableStateOf<Int?>(null)
+        private set
+    var contextMenuAnchorY by mutableStateOf<Int?>(null)
+        private set
 
     private var nextZ = (initialWindows.maxOfOrNull { it.zIndex } ?: 0) + 1
     private var nextWindowId =
@@ -41,8 +45,14 @@ class DesktopController(
         startMenuOpen = false
     }
 
-    fun openContextMenu(app: DesktopApp? = null) {
+    fun openContextMenu(
+        app: DesktopApp? = null,
+        anchorX: Int? = null,
+        anchorY: Int? = null,
+    ) {
         contextMenuTarget = app
+        contextMenuAnchorX = anchorX
+        contextMenuAnchorY = anchorY
         contextMenuOpen = true
         startMenuOpen = false
     }
@@ -50,6 +60,8 @@ class DesktopController(
     fun closeContextMenu() {
         contextMenuOpen = false
         contextMenuTarget = null
+        contextMenuAnchorX = null
+        contextMenuAnchorY = null
     }
 
     fun open(app: DesktopApp) {
