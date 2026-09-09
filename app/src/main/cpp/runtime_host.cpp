@@ -1,10 +1,14 @@
 #include <jni.h>
+#include <sys/socket.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 #include <vulkan/vulkan.h>
 
+#include <android/hardware_buffer.h>
+
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -213,6 +217,14 @@ Java_dev_pocketpc_core_runtime_NativeRuntimeHost_nativeGraphicsProbe(
            << ";device_extensions=" << extension_count
            << ";swapchain="
            << (HasExtension(extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME) ? "yes" : "no")
+#ifdef VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME
+           << ";android_hardware_buffer_vulkan="
+           << (HasExtension(
+                   extensions,
+                   VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME)
+                   ? "yes"
+                   : "no")
+#endif
 #ifdef VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME
            << ";google_display_timing="
            << (HasExtension(extensions, VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME) ? "yes" : "no")
@@ -220,6 +232,142 @@ Java_dev_pocketpc_core_runtime_NativeRuntimeHost_nativeGraphicsProbe(
            ;
 
     vkDestroyInstance(instance, nullptr);
+    const std::string value = output.str();
+    return env->NewStringUTF(value.c_str());
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_dev_pocketpc_core_runtime_NativeRuntimeHost_nativeHardwareBufferProbe(
+        JNIEnv* env,
+        jobject /* thiz */) {
+    AHardwareBuffer_Desc requested {};
+    requested.width = 64;
+    requested.height = 64;
+    requested.layers = 1;
+    requested.format =
+        AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+    requested.usage =
+        AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+        AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT |
+        AHARDWAREBUFFER_USAGE_CPU_READ_RARELY |
+        AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY;
+
+    AHardwareBuffer* source = nullptr;
+    const int allocate_result =
+        AHardwareBuffer_allocate(
+            &requested,
+            &source);
+
+    std::ostringstream output;
+    output << "ahardwarebuffer=";
+
+    if (allocate_result != 0 || source == nullptr) {
+        output << "allocation-failed"
+               << ";allocate_result="
+               << allocate_result;
+        const std::string value = output.str();
+        return env->NewStringUTF(value.c_str());
+    }
+
+    AHardwareBuffer_Desc source_desc {};
+    AHardwareBuffer_describe(
+        source,
+        &source_desc);
+
+    void* mapped = nullptr;
+    const int lock_result =
+        AHardwareBuffer_lock(
+            source,
+            AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY,
+            -1,
+            nullptr,
+            &mapped);
+    int unlock_result = -1;
+    if (lock_result == 0 && mapped != nullptr) {
+        std::memset(mapped, 0, 4);
+        unlock_result =
+            AHardwareBuffer_unlock(
+                source,
+                nullptr);
+    }
+
+    int sockets[2] = {-1, -1};
+    const int socket_result =
+        socketpair(
+            AF_UNIX,
+            SOCK_STREAM | SOCK_CLOEXEC,
+            0,
+            sockets);
+
+    int send_result = -1;
+    int receive_result = -1;
+    AHardwareBuffer* received = nullptr;
+
+    if (socket_result == 0) {
+        send_result =
+            AHardwareBuffer_sendHandleToUnixSocket(
+                source,
+                sockets[0]);
+        if (send_result == 0) {
+            receive_result =
+                AHardwareBuffer_recvHandleFromUnixSocket(
+                    sockets[1],
+                    &received);
+        }
+    }
+
+    AHardwareBuffer_Desc received_desc {};
+    bool descriptor_match = false;
+    if (receive_result == 0 && received != nullptr) {
+        AHardwareBuffer_describe(
+            received,
+            &received_desc);
+        descriptor_match =
+            received_desc.width == source_desc.width &&
+            received_desc.height == source_desc.height &&
+            received_desc.layers == source_desc.layers &&
+            received_desc.format == source_desc.format;
+    }
+
+    if (sockets[0] >= 0) {
+        close(sockets[0]);
+    }
+    if (sockets[1] >= 0) {
+        close(sockets[1]);
+    }
+    if (received != nullptr) {
+        AHardwareBuffer_release(received);
+    }
+    AHardwareBuffer_release(source);
+
+    const bool allocation_ok =
+        source_desc.width == requested.width &&
+        source_desc.height == requested.height &&
+        source_desc.layers == requested.layers &&
+        source_desc.format == requested.format;
+    const bool socket_roundtrip_ok =
+        socket_result == 0 &&
+        send_result == 0 &&
+        receive_result == 0 &&
+        descriptor_match;
+
+    output << (allocation_ok ? "available" : "descriptor-mismatch")
+           << ";width=" << source_desc.width
+           << ";height=" << source_desc.height
+           << ";layers=" << source_desc.layers
+           << ";format=" << source_desc.format
+           << ";stride=" << source_desc.stride
+           << ";cpu_lock=" << (lock_result == 0 ? "ok" : "failed")
+           << ";cpu_unlock=" << (unlock_result == 0 ? "ok" : "failed")
+           << ";unix_socket=" << (socket_result == 0 ? "ok" : "failed")
+           << ";send_handle=" << (send_result == 0 ? "ok" : "failed")
+           << ";recv_handle=" << (receive_result == 0 ? "ok" : "failed")
+           << ";descriptor_match=" << (descriptor_match ? "yes" : "no")
+           << ";cross_process_transport="
+           << (socket_roundtrip_ok ? "structurally-ready" : "not-ready")
+           << ";vulkan_wsi=not-tested";
+
     const std::string value = output.str();
     return env->NewStringUTF(value.c_str());
 }
