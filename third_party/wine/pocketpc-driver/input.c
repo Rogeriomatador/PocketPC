@@ -154,7 +154,10 @@ static BOOL inject_pointer(
     const struct pdb_pointer_event *event
 ) {
     INPUT input;
+    RECT window_rect;
     HWND hwnd;
+    int width;
+    int height;
 
     if (!event)
         return FALSE;
@@ -173,14 +176,56 @@ static BOOL inject_pointer(
         return FALSE;
     }
 
+    if (
+        !NtUserGetWindowRect(
+            hwnd,
+            &window_rect,
+            0
+        )
+    ) {
+        WARN(
+            "pointer window rect unavailable hwnd=%p\n",
+            hwnd
+        );
+        return FALSE;
+    }
+
+    width =
+        window_rect.right -
+        window_rect.left;
+    height =
+        window_rect.bottom -
+        window_rect.top;
+
+    if (
+        event->x < 0 ||
+        event->y < 0 ||
+        event->x >= width ||
+        event->y >= height
+    ) {
+        WARN(
+            "pointer outside hwnd=%p bounds=%dx%d pos=%d,%d\n",
+            hwnd,
+            width,
+            height,
+            event->x,
+            event->y
+        );
+        return FALSE;
+    }
+
     memset(
         &input,
         0,
         sizeof(input)
     );
     input.type = INPUT_MOUSE;
-    input.mi.dx = event->x;
-    input.mi.dy = event->y;
+    input.mi.dx =
+        window_rect.left +
+        event->x;
+    input.mi.dy =
+        window_rect.top +
+        event->y;
     input.mi.dwFlags =
         MOUSEEVENTF_MOVE |
         MOUSEEVENTF_ABSOLUTE;
