@@ -86,6 +86,7 @@ def main() -> int:
         "bridgeReadySynchronizationImplemented",
         "frameAckControlPlaneDrainImplemented",
         "surfaceRegistryPublishFailClosedImplemented",
+        "authTimeoutScopedToHandshakeImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
@@ -96,6 +97,7 @@ def main() -> int:
         "bridgeReadySynchronizationSoftwareTestExecuted",
         "frameAckControlPlaneDrainSoftwareTestExecuted",
         "surfaceRegistryPublishFailClosedSoftwareTestExecuted",
+        "authTimeoutScopedToHandshakeSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
