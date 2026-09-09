@@ -42,6 +42,7 @@ import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceState
 import dev.pocketpc.core.runtime.RuntimeDisplayBridgeProbeController
 import dev.pocketpc.core.runtime.RuntimeDiagnosticSuite
+import dev.pocketpc.core.runtime.RuntimeTestReadinessProbe
 import dev.pocketpc.core.runtime.StagedRuntime
 import dev.pocketpc.core.runtime.StagedGuestToolPackage
 import dev.pocketpc.core.runtime.WindowsPrefixPlanner
@@ -337,6 +338,30 @@ fun RuntimeApp(
                 windowsStateReady,
         )
 
+    val phoneTestRuntime =
+        preparedRuntimes
+            .firstOrNull()
+    val phoneTestLayers =
+        phoneTestRuntime
+            ?.let { runtime ->
+                deployedWindowsLayersByRuntime[
+                    runtimeLayerStateKey(
+                        runtime,
+                    )
+                ].orEmpty()
+            }
+            .orEmpty()
+    val phoneTestReadiness =
+        RuntimeTestReadinessProbe.assess(
+            nativeHost = nativeHost,
+            substrate = substrate,
+            runtime = phoneTestRuntime,
+            installedTools =
+                installedTools,
+            deployedLayers =
+                phoneTestLayers,
+        )
+
     val toolOverlayPlan =
         GuestToolOverlayPlanner.plan(
             tools = installedTools,
@@ -437,6 +462,74 @@ fun RuntimeApp(
         item(key = "heading") {
             Text("Runtimes", style = MaterialTheme.typography.titleMedium)
             Text("Role para ver todas as etapas e opções.", style = MaterialTheme.typography.bodySmall)
+        }
+
+        item(
+            key =
+                "phone-test-readiness",
+        ) {
+            Surface(
+                tonalElevation = 2.dp,
+                shape =
+                    MaterialTheme.shapes
+                        .medium,
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            6.dp,
+                        ),
+                ) {
+                    Text(
+                        "Pronto para testar no celular?",
+                        style =
+                            MaterialTheme.typography
+                                .titleSmall,
+                    )
+                    phoneTestReadiness
+                        .prerequisites
+                        .forEach {
+                            prerequisite ->
+                            RuntimeDetailRow(
+                                prerequisite.label,
+                                (
+                                    if (
+                                        prerequisite
+                                            .ready
+                                    ) {
+                                        "✓ READY — "
+                                    } else {
+                                        "BLOQUEADO — "
+                                    }
+                                    ) +
+                                    prerequisite
+                                        .detail,
+                            )
+                        }
+
+                    val blocker =
+                        phoneTestReadiness
+                            .firstBlocker
+                    Text(
+                        if (
+                            blocker == null
+                        ) {
+                            "Base do teste completo pronta. A execução ainda exige confirmação e os probes continuam fail-closed."
+                        } else {
+                            "Primeiro bloqueio: " +
+                                blocker.label +
+                                ". " +
+                                blocker.detail
+                        },
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                    )
+                }
+            }
         }
 
         item(key = "diagnostic") {
