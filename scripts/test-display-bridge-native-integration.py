@@ -12,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 BRIDGE = ROOT / "third_party/wine/pocketpc-display-bridge"
 MAGIC = 0x31424450
-VERSION = 3
+VERSION = 4
 CAPABILITIES = 23
 
 
@@ -464,7 +464,7 @@ def main() -> int:
             environment.update(
                 {
                     "POCKETPC_DISPLAY_PROTOCOL":
-                        "3",
+                        "4",
                     "POCKETPC_DISPLAY_SOCKET":
                         socket_name,
                     "POCKETPC_DISPLAY_TOKEN":
@@ -675,7 +675,9 @@ def main() -> int:
                     40,
                     4,
                     struct.pack(
-                        "<QQI",
+                        "<QQQQI",
+                        1,
+                        1,
                         1,
                         1,
                         0,
