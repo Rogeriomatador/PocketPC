@@ -127,6 +127,11 @@
     "taskManagerProcessFamilyUiImplemented": true,
     "taskManagerProcessFamilyUiSoftwareTestExecuted": false,
     "taskManagerIndividualProcessControlImplemented": true,
-    "taskManagerIndividualProcessControlSoftwareTestExecuted": false
+    "taskManagerIndividualProcessControlSoftwareTestExecuted": false,
+    "vulkanWsiImplemented": false,
+    "vulkanWsiSoftwareTestExecuted": false,
+    "vulkanWsiPhysicalTestExecuted": false,
+    "d3d11PresentProbeFailClosedImplemented": true,
+    "d3d11PresentProbeSoftwareTestExecuted": false
   }
 }
