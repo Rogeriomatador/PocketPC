@@ -857,6 +857,19 @@ BOOL POCKETPC_ProcessEvents(
                         .frame_presented
                         .status
                 );
+                pthread_mutex_lock(
+                    &pocketpc_bridge_mutex
+                );
+                if (pocketpc_bridge_ready)
+                {
+                    POCKETPC_FailBridgeLocked(
+                        "PDB_FRAME_ACK_REJECTED_OR_UNMATCHED"
+                    );
+                }
+                pthread_mutex_unlock(
+                    &pocketpc_bridge_mutex
+                );
+                break;
             }
         } else {
             ERR(
