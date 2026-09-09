@@ -118,6 +118,92 @@ class ProotExecutionController(
         )
     }
 
+    suspend fun executeSession(
+        plan: ProotInvocationPlan,
+        userApproved: Boolean,
+    ): ProotExecutionResult {
+        val structuralBlockers =
+            plan.blockers.filterNot {
+                it ==
+                    EXECUTION_APPROVAL_BLOCKER
+            }
+
+        if (!userApproved) {
+            return ProotExecutionResult(
+                state =
+                    ProotExecutionState.BLOCKED,
+                started = false,
+                exitCode = null,
+                output = "",
+                outputTruncated = false,
+                blockers =
+                    (
+                        structuralBlockers +
+                            EXECUTION_APPROVAL_BLOCKER
+                    ).distinct(),
+                error =
+                    "A execução exige aprovação explícita " +
+                        "do usuário.",
+            )
+        }
+
+        if (
+            structuralBlockers.isNotEmpty() ||
+            plan.argv.isEmpty()
+        ) {
+            return ProotExecutionResult(
+                state =
+                    ProotExecutionState.BLOCKED,
+                started = false,
+                exitCode = null,
+                output = "",
+                outputTruncated = false,
+                blockers =
+                    if (
+                        structuralBlockers
+                            .isNotEmpty()
+                    ) {
+                        structuralBlockers
+                    } else {
+                        listOf(
+                            "INVOCATION_ARGV_NOT_READY",
+                        )
+                    },
+                error =
+                    "O plano PRoot ainda possui gates " +
+                        "estruturais bloqueados.",
+            )
+        }
+
+        val process =
+            supervisor.runSession(
+                ProcessSessionSpec(
+                    argv = plan.argv,
+                    environment =
+                        plan.environment,
+                    maxOutputBytes =
+                        MAX_CAPTURE_BYTES,
+                ),
+            )
+
+        return ProotExecutionResult(
+            state =
+                if (process.started) {
+                    ProotExecutionState.EXITED
+                } else {
+                    ProotExecutionState
+                        .START_FAILED
+                },
+            started = process.started,
+            exitCode = process.exitCode,
+            output = process.output,
+            outputTruncated =
+                process.outputTruncated,
+            blockers = emptyList(),
+            error = process.error,
+        )
+    }
+
     fun stopActive(): Boolean =
         supervisor.stopActive()
 
