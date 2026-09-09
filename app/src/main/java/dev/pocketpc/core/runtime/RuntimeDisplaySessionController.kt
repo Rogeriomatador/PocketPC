@@ -28,16 +28,41 @@ class RuntimeDisplaySessionController(
     private val compositor =
         RuntimeDisplayCompositorModel()
     private val desktopBinding =
-        desktopBridge?.bind { command ->
-            runCatching {
-                check(!closed.get()) {
-                    "DISPLAY_SESSION_CLOSED"
+        desktopBridge?.bind(
+            commandSender = {
+                command ->
+                runCatching {
+                    check(!closed.get()) {
+                        "DISPLAY_SESSION_CLOSED"
+                    }
+                    processor.sendWindowCommand(
+                        command,
+                    )
                 }
-                processor.sendWindowCommand(
-                    command,
-                )
-            }
-        }
+            },
+            pointerSender = {
+                event ->
+                runCatching {
+                    check(!closed.get()) {
+                        "DISPLAY_SESSION_CLOSED"
+                    }
+                    processor.sendPointer(
+                        event,
+                    )
+                }
+            },
+            keySender = {
+                event ->
+                runCatching {
+                    check(!closed.get()) {
+                        "DISPLAY_SESSION_CLOSED"
+                    }
+                    processor.sendKey(
+                        event,
+                    )
+                }
+            },
+        )
 
     private val mutableWindows =
         MutableStateFlow<
