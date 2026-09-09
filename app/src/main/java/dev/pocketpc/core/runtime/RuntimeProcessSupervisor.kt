@@ -708,6 +708,10 @@ class RuntimeProcessSupervisor {
     @Volatile
     private var active: Process? = null
 
+    @Volatile
+    private var activeRegistryId:
+        Long? = null
+
     suspend fun runOneShot(spec: ProcessRunSpec): ProcessRunResult =
         withContext(Dispatchers.IO) {
             var registryId: Long? = null
@@ -746,6 +750,8 @@ class RuntimeProcessSupervisor {
                                         process,
                                         spec.argv,
                                     )
+                            activeRegistryId =
+                                registryId
                         }
                 }
             }.getOrElse {
@@ -791,10 +797,35 @@ class RuntimeProcessSupervisor {
                     }
                     if (System.nanoTime() >= deadline) {
                         timedOut = true
-                        process.destroy()
-                        if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
-                            process.destroyForcibly()
-                            process.waitFor(2, TimeUnit.SECONDS)
+                        registryId
+                            ?.let {
+                                RuntimeProcessRegistry
+                                    .terminate(
+                                        it,
+                                        force = false,
+                                    )
+                            }
+                            ?: process.destroy()
+                        if (
+                            !process.waitFor(
+                                500,
+                                TimeUnit.MILLISECONDS,
+                            )
+                        ) {
+                            registryId
+                                ?.let {
+                                    RuntimeProcessRegistry
+                                        .terminate(
+                                            it,
+                                            force = true,
+                                        )
+                                }
+                                ?: process
+                                    .destroyForcibly()
+                            process.waitFor(
+                                2,
+                                TimeUnit.SECONDS,
+                            )
                         }
                         runCatching { drainAvailable() }
                         break
@@ -809,7 +840,17 @@ class RuntimeProcessSupervisor {
                     outputTruncated = truncated,
                 )
             } finally {
-                if (process.isAlive) process.destroyForcibly()
+                registryId?.let {
+                    RuntimeProcessRegistry
+                        .terminate(
+                            it,
+                            force = true,
+                        )
+                } ?: if (
+                    process.isAlive
+                ) {
+                    process.destroyForcibly()
+                }
                 runCatching { process.outputStream.close() }
                 runCatching { process.inputStream.close() }
                 runCatching { process.errorStream.close() }
@@ -823,6 +864,13 @@ class RuntimeProcessSupervisor {
                 synchronized(this@RuntimeProcessSupervisor) {
                     if (active === process) {
                         active = null
+                    }
+                    if (
+                        activeRegistryId ==
+                            registryId
+                    ) {
+                        activeRegistryId =
+                            null
                     }
                 }
             }
@@ -889,6 +937,8 @@ class RuntimeProcessSupervisor {
                                             startedProcess,
                                             spec.argv,
                                         )
+                                activeRegistryId =
+                                    registryId
                             }
                     }
                 }.getOrElse {
@@ -971,6 +1021,11 @@ class RuntimeProcessSupervisor {
                         .ensureActive()
                     drainAvailable()
 
+                    registryId?.let {
+                        RuntimeProcessRegistry
+                            .observeFamily(it)
+                    }
+
                     if (!process.isAlive) {
                         drainAvailable()
                         break
@@ -998,15 +1053,38 @@ class RuntimeProcessSupervisor {
                         truncated,
                 )
             } finally {
+                registryId?.let {
+                    RuntimeProcessRegistry
+                        .observeFamily(it)
+                }
+
                 if (process.isAlive) {
-                    process.destroy()
+                    registryId
+                        ?.let {
+                            RuntimeProcessRegistry
+                                .terminate(
+                                    it,
+                                    force = false,
+                                )
+                        }
+                        ?: process.destroy()
+
                     if (
                         !process.waitFor(
                             500,
                             TimeUnit.MILLISECONDS,
                         )
                     ) {
-                        process.destroyForcibly()
+                        registryId
+                            ?.let {
+                                RuntimeProcessRegistry
+                                    .terminate(
+                                        it,
+                                        force = true,
+                                    )
+                            }
+                            ?: process
+                                .destroyForcibly()
                         process.waitFor(
                             2,
                             TimeUnit.SECONDS,
@@ -1024,7 +1102,9 @@ class RuntimeProcessSupervisor {
                 }
                 registryId?.let { id ->
                     RuntimeProcessRegistry
-                        .unregister(
+                        .observeFamily(id)
+                    RuntimeProcessRegistry
+                        .markRootExited(
                             id,
                             process,
                         )
@@ -1035,14 +1115,44 @@ class RuntimeProcessSupervisor {
                     if (active === process) {
                         active = null
                     }
+                    if (
+                        activeRegistryId ==
+                            registryId
+                    ) {
+                        activeRegistryId =
+                            null
+                    }
                 }
             }
         }
 
     fun stopActive(): Boolean {
-        val process = synchronized(this) { active } ?: return false
-        process.destroy()
-        if (process.isAlive) process.destroyForcibly()
+        val current =
+            synchronized(this) {
+                active to
+                    activeRegistryId
+            }
+        val process =
+            current.first
+                ?: return false
+        val registryId =
+            current.second
+
+        val familyStopped =
+            registryId?.let {
+                RuntimeProcessRegistry
+                    .terminate(
+                        it,
+                        force = true,
+                    )
+            } ?: false
+
+        if (!familyStopped) {
+            process.destroy()
+            if (process.isAlive) {
+                process.destroyForcibly()
+            }
+        }
         return true
     }
 
