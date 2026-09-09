@@ -280,6 +280,61 @@ pocketpc_surface_funcs =
     pocketpc_surface_destroy
 };
 
+static BOOL drain_frame_acks_locked(
+    char *error,
+    size_t error_bytes
+) {
+    for (;;) {
+        uint16_t next_type = 0u;
+        int available =
+            pdb_connection_has_input(
+                &pocketpc_connection,
+                error,
+                error_bytes
+            );
+
+        if (available < 0)
+            return FALSE;
+        if (available == 0)
+            return TRUE;
+
+        if (
+            pdb_peek_message_type(
+                &pocketpc_connection,
+                &next_type,
+                error,
+                error_bytes
+            ) <= 0
+        ) {
+            return FALSE;
+        }
+
+        if (
+            next_type ==
+            PDB_MSG_FRAME_PRESENTED
+        ) {
+            struct pdb_host_event event;
+            if (
+                pdb_receive_host_event(
+                    &pocketpc_connection,
+                    &event,
+                    error,
+                    error_bytes
+                ) != 0
+            ) {
+                return FALSE;
+            }
+            continue;
+        }
+
+        /*
+         * Input belongs to pProcessEvents. Never consume it here,
+         * otherwise a surface resize could steal user input.
+         */
+        return FALSE;
+    }
+}
+
 static BOOL request_surface(
     HWND hwnd,
     const RECT *surface_rect,
@@ -311,6 +366,22 @@ static BOOL request_surface(
     {
         ERR(
             "surface generation exhausted\n"
+        );
+        return FALSE;
+    }
+
+    if (
+        !drain_frame_acks_locked(
+            error,
+            sizeof(error)
+        )
+    ) {
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
+        TRACE(
+            "surface request deferred because host events are pending hwnd=%p\n",
+            hwnd
         );
         return FALSE;
     }
