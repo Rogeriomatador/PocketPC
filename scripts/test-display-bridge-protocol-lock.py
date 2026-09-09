@@ -578,6 +578,9 @@ def main() -> int:
         (
             "POCKETPC_DISPLAY_BRIDGE_SMOKE_OK",
             "POCKETPC_DISPLAY_BRIDGE_FRAME_WRITTEN_OK",
+            "POCKETPC_DISPLAY_BRIDGE_WINDOW_COMMAND_OK",
+            "PDB_MSG_WINDOW_COMMAND",
+            "PDB_WINDOW_COMMAND_CLOSE",
             "pdb_send_surface_request",
             "pdb_receive_surface_available",
             "pdb_send_frame_ready",
@@ -632,6 +635,17 @@ def main() -> int:
             "memory_order_release",
             "PDB_SURFACE_FRAME_ID_EXHAUSTED",
             "pdb_send_frame_ready",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Native host window command fixture",
+        native_integration,
+        (
+            "POCKETPC_DISPLAY_BRIDGE_WINDOW_COMMAND_OK",
+            "struct.pack(",
+            '"<QII"',
+            "window_command=native-host-to-guest",
         ),
     )
     require_sentinels(
