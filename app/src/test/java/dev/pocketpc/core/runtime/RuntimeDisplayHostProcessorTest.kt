@@ -39,6 +39,10 @@ class RuntimeDisplayHostProcessorTest {
             mutableListOf<
                 RuntimeBridgeKeyEvent
             >()
+        val windowCommands =
+            mutableListOf<
+                RuntimeBridgeWindowCommand
+            >()
 
         override fun readFrame():
             Result<RuntimeDisplayBridgeFrame> =
@@ -73,6 +77,13 @@ class RuntimeDisplayHostProcessorTest {
                 RuntimeBridgeKeyEvent,
         ) {
             keys += event
+        }
+
+        override fun sendWindowCommand(
+            command:
+                RuntimeBridgeWindowCommand,
+        ) {
+            windowCommands += command
         }
 
         override fun sendFramePresented(
@@ -396,4 +407,45 @@ class RuntimeDisplayHostProcessorTest {
             temp.deleteRecursively()
         }
     }
+    @Test
+    fun windowCommandIsForwardedToEndpoint() {
+        val temp =
+            Files.createTempDirectory(
+                "pocketpc-display-host-command",
+            )
+        try {
+            val endpoint =
+                FakeEndpoint()
+            val processor =
+                RuntimeDisplayHostProcessor(
+                    endpoint =
+                        endpoint,
+                    hostTempDirectory =
+                        temp.toFile(),
+                )
+
+            val command =
+                RuntimeBridgeWindowCommand(
+                    windowId = 7L,
+                    command =
+                        RuntimeDisplayBridgePayloadCodec
+                            .WINDOW_COMMAND_CLOSE,
+                )
+
+            processor.sendWindowCommand(
+                command,
+            )
+
+            assertEquals(
+                listOf(command),
+                endpoint.windowCommands,
+            )
+
+            processor.close()
+        } finally {
+            temp.toFile()
+                .deleteRecursively()
+        }
+    }
+
 }
