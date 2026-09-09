@@ -361,7 +361,9 @@ BOOL POCKETPC_ProcessEvents(
                 next_type !=
                     PDB_MSG_POINTER_EVENT &&
                 next_type !=
-                    PDB_MSG_KEY_EVENT
+                    PDB_MSG_KEY_EVENT &&
+                next_type !=
+                    PDB_MSG_FRAME_PRESENTED
             ) {
                 pthread_mutex_unlock(
                     &pocketpc_bridge_mutex
@@ -417,11 +419,24 @@ BOOL POCKETPC_ProcessEvents(
             }
             break;
 
-        case PDB_MSG_SURFACE_AVAILABLE:
         case PDB_MSG_FRAME_PRESENTED:
+            if (
+                event.data.frame_presented.status != 0u
+            ) {
+                WARN(
+                    "frame presentation status window=%llu frame=%llu status=%u\n",
+                    (unsigned long long)
+                        event.data.frame_presented.window_id,
+                    (unsigned long long)
+                        event.data.frame_presented.frame_id,
+                    event.data.frame_presented.status
+                );
+            }
+            break;
+
+        case PDB_MSG_SURFACE_AVAILABLE:
             ERR(
-                "non-input event escaped peek type=%u\n",
-                event.type
+                "unexpected surface response escaped handshake\n"
             );
             break;
 
