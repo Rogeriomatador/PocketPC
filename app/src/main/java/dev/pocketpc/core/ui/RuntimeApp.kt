@@ -1771,6 +1771,305 @@ fun RuntimeApp(
             }
     }
 
+
+    pendingSuiteExecution?.let {
+        (runtime, suiteLayers) ->
+        AlertDialog(
+            onDismissRequest = {
+                pendingSuiteExecution =
+                    null
+            },
+            title = {
+                Text(
+                    "Executar teste completo?"
+                )
+            },
+            text = {
+                Column(
+                    modifier =
+                        Modifier.verticalScroll(
+                            rememberScrollState(),
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            6.dp,
+                        ),
+                ) {
+                    Text(
+                        runtime.manifest.name +
+                            " " +
+                            runtime.manifest
+                                .version,
+                    )
+                    Text(
+                        "O PocketPC executará os diagnósticos em ordem e parará no primeiro bloqueio ou falha.",
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                    )
+                    Text(
+                        "Inclui Linux, rootfs, Box64, bridge/framebuffer, Wine, processos, rede, áudio/input API e Direct3D. " +
+                            "Não instala ferramentas, não aplica DXVK automaticamente e não inicia Roblox.",
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        pendingSuiteExecution =
+                            null
+                        busy = true
+                        showProbeOutput =
+                            true
+                        status =
+                            "FULL_RUNTIME_DIAGNOSTIC_START"
+
+                        scope.launch {
+                            val report =
+                                StringBuilder()
+                            var completed = 0
+                            var stopped = false
+
+                            try {
+                                for (
+                                    probe in
+                                    RuntimeDiagnosticSuite
+                                        .orderedProbes
+                                ) {
+                                    status =
+                                        "TESTANDO: " +
+                                            probe.label
+
+                                    val plan =
+                                        buildProbeInvocationPlan(
+                                            runtime =
+                                                runtime,
+                                            probe =
+                                                probe,
+                                            layers =
+                                                suiteLayers,
+                                        )
+
+                                    val executable =
+                                        plan.argv
+                                            .isNotEmpty() &&
+                                            plan.blockers ==
+                                            listOf(
+                                                ProotExecutionController
+                                                    .EXECUTION_APPROVAL_BLOCKER,
+                                            )
+
+                                    report.appendLine(
+                                        "=== " +
+                                            probe.label +
+                                            " ===",
+                                    )
+
+                                    if (!executable) {
+                                        report.appendLine(
+                                            "BLOCKED",
+                                        )
+                                        plan.blockers
+                                            .forEach {
+                                                report.appendLine(
+                                                    "- " +
+                                                        it,
+                                                )
+                                            }
+                                        stopped = true
+                                        break
+                                    }
+
+                                    val result =
+                                        if (
+                                            probe ==
+                                            GuestRuntimeProbe
+                                                .DISPLAY_BRIDGE_SMOKE
+                                        ) {
+                                            displayBridgeProbeController
+                                                .execute(
+                                                    basePlan =
+                                                        plan,
+                                                    runtime =
+                                                        runtime,
+                                                    tools =
+                                                        installedTools,
+                                                    layers =
+                                                        suiteLayers,
+                                                    userApproved =
+                                                        true,
+                                                )
+                                                .process
+                                        } else {
+                                            executionController
+                                                .executeOneShot(
+                                                    plan =
+                                                        plan,
+                                                    userApproved =
+                                                        true,
+                                                )
+                                        }
+
+                                    val recorded =
+                                        probeEvidenceStore
+                                            .recordIfValid(
+                                                probe =
+                                                    probe,
+                                                result =
+                                                    result,
+                                                runtime =
+                                                    runtime,
+                                                tools =
+                                                    installedTools,
+                                                layers =
+                                                    suiteLayers,
+                                            )
+                                    if (recorded) {
+                                        evidenceRevision +=
+                                            1
+                                    }
+
+                                    report.append(
+                                        result.state.name,
+                                    )
+                                    result.exitCode
+                                        ?.let {
+                                            report.append(
+                                                " exit=",
+                                            )
+                                            report.append(
+                                                it,
+                                            )
+                                        }
+                                    report.appendLine()
+
+                                    if (
+                                        result.output
+                                            .isNotBlank()
+                                    ) {
+                                        report.appendLine(
+                                            result.output
+                                                .take(
+                                                    6_000,
+                                                ),
+                                        )
+                                        if (
+                                            result.outputTruncated ||
+                                            result.output.length >
+                                            6_000
+                                        ) {
+                                            report.appendLine(
+                                                "[saída truncada]",
+                                            )
+                                        }
+                                    }
+                                    result.error
+                                        ?.let {
+                                            report.appendLine(
+                                                "ERROR: " +
+                                                    it,
+                                            )
+                                        }
+                                    report.appendLine()
+
+                                    if (!result.passed) {
+                                        stopped = true
+                                        break
+                                    }
+                                    completed += 1
+                                }
+
+                                reload()
+
+                                report.appendLine(
+                                    "=== RESUMO ===",
+                                )
+                                report.appendLine(
+                                    "Etapas concluídas: " +
+                                        completed +
+                                        "/" +
+                                        RuntimeDiagnosticSuite
+                                            .orderedProbes
+                                            .size,
+                                )
+                                report.appendLine(
+                                    if (stopped) {
+                                        "Resultado: PAROU NO PRIMEIRO BLOQUEIO/FALHA."
+                                    } else {
+                                        "Resultado: TODOS OS DIAGNÓSTICOS DISPONÍVEIS PASSARAM."
+                                    },
+                                )
+                                report.appendLine(
+                                    "Roblox não foi iniciado por esta suíte.",
+                                )
+
+                                probeOutput =
+                                    report.toString()
+                                        .take(
+                                            48_000,
+                                        )
+                                status =
+                                    if (stopped) {
+                                        "FULL_RUNTIME_DIAGNOSTIC_STOPPED " +
+                                            completed +
+                                            "/" +
+                                            RuntimeDiagnosticSuite
+                                                .orderedProbes
+                                                .size
+                                    } else {
+                                        "FULL_RUNTIME_DIAGNOSTIC_PASS " +
+                                            completed +
+                                            "/" +
+                                            RuntimeDiagnosticSuite
+                                                .orderedProbes
+                                                .size
+                                    }
+                            } catch (
+                                failure: Throwable
+                            ) {
+                                report.appendLine(
+                                    "SUITE ERROR: " +
+                                        (
+                                            failure.message
+                                                ?: failure
+                                                    .javaClass
+                                                    .simpleName
+                                            ),
+                                )
+                                probeOutput =
+                                    report.toString()
+                                        .take(
+                                            48_000,
+                                        )
+                                status =
+                                    "FULL_RUNTIME_DIAGNOSTIC_ERROR"
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    },
+                ) {
+                    Text(
+                        "Executar todos"
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingSuiteExecution =
+                            null
+                    },
+                ) {
+                    Text("Cancelar")
+                }
+            },
+        )
+    }
+
     pendingExecution?.let {
         (
             runtime,
