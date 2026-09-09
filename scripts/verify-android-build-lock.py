@@ -121,16 +121,91 @@ def main() -> int:
         f'ndkVersion = "{ndk}"',
         "app/build.gradle.kts",
     )
+    locked_version_name = str(app.get("versionName", ""))
+    locked_version_code = app.get("versionCode")
+
+    if (
+        not locked_version_name
+        or not re.fullmatch(
+            r"[A-Za-z0-9._+-]+",
+            locked_version_name,
+        )
+    ):
+        failures.append(
+            "app.versionName is invalid"
+        )
+    if (
+        not isinstance(locked_version_code, int)
+        or locked_version_code <= 0
+    ):
+        failures.append(
+            "app.versionCode is invalid"
+        )
+
     require_contains(
         failures,
         app_gradle,
-        f'versionName = "{app.get("versionName")}"',
+        'val pocketPcVersionCode =',
         "app/build.gradle.kts",
     )
     require_contains(
         failures,
         app_gradle,
-        f'versionCode = {app.get("versionCode")}',
+        'providers.environmentVariable("POCKETPC_VERSION_CODE")',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        "?.toIntOrNull()",
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        "?.takeIf { it > 0 }",
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        f"?: {locked_version_code}",
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        'val pocketPcVersionName =',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        'providers.environmentVariable("POCKETPC_VERSION_NAME")',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        'Regex("^[A-Za-z0-9._+-]+$").matches(it)',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        f'?: "{locked_version_name}"',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        "versionCode = pocketPcVersionCode",
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        "versionName = pocketPcVersionName",
         "app/build.gradle.kts",
     )
     require_contains(
@@ -189,7 +264,18 @@ def main() -> int:
         return 1
 
     print("ANDROID_BUILD_LOCK_OK")
-    print(f"app_version={app.get('versionName')}")
+    print(
+        "app_default_version="
+        f"{locked_version_name}"
+    )
+    print(
+        "app_default_version_code="
+        f"{locked_version_code}"
+    )
+    print(
+        "app_dynamic_version_environment="
+        "POCKETPC_VERSION_NAME,POCKETPC_VERSION_CODE"
+    )
     print(f"gradle={gradle_version}")
     print(f"gradle_sha256={gradle_sha}")
     print(f"compile_sdk={compile_sdk}")
