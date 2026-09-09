@@ -184,6 +184,8 @@ object RuntimeProcessRegistry {
             > =
             linkedMapOf(),
         var rootExited: Boolean = false,
+        var rootExitedAtMillis:
+            Long? = null,
     )
 
     private val lock = Any()
@@ -304,20 +306,14 @@ object RuntimeProcessRegistry {
                     ?: return@synchronized false
 
             entry.rootExited = true
+            entry.rootExitedAtMillis =
+                System.currentTimeMillis()
             entry.rootPid?.let {
                 entry.knownMembers
                     .remove(it)
             }
 
-            if (
-                entry.knownMembers
-                    .isEmpty()
-            ) {
-                entries.remove(id)
-                false
-            } else {
-                true
-            }
+            true
         }
 
     fun snapshots():
@@ -364,8 +360,21 @@ object RuntimeProcessRegistry {
                             !rootAlive &&
                             liveFamily.isEmpty()
                         ) {
-                            remove += entry.id
-                            return@mapNotNull null
+                            val exitedAt =
+                                entry.rootExitedAtMillis
+                            val withinHandoffGrace =
+                                exitedAt != null &&
+                                    System.currentTimeMillis() -
+                                        exitedAt <
+                                    ROOT_EXIT_HANDOFF_GRACE_MILLIS
+
+                            if (
+                                !withinHandoffGrace
+                            ) {
+                                remove +=
+                                    entry.id
+                                return@mapNotNull null
+                            }
                         }
 
                         val rootStats =
@@ -705,6 +714,10 @@ object RuntimeProcessRegistry {
                 threadCount = threads,
             )
         }.getOrNull()
+
+    private const val
+        ROOT_EXIT_HANDOFF_GRACE_MILLIS =
+        5_000L
 
     internal fun processPid(
         process: Process,
