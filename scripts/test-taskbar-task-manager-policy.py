@@ -77,7 +77,7 @@ def main() -> int:
             "object RuntimeProcessRegistry",
             "internal fun register(",
             "internal fun unregister(",
-            "fun snapshots()",
+            "fun snapshots",
             "fun terminate(",
             "RuntimeProcessRegistry",
         ),
