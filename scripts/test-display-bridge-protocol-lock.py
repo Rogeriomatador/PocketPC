@@ -24,6 +24,8 @@ PC_TARGET_MATERIALIZER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcA
 PC_WINDOWS_ATTEMPT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcWindowsLaunchAttemptPlan.kt"
 PC_RUNTIME_READINESS = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcRuntimeReadiness.kt"
 PC_RUNTIME_EXECUTION = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcRuntimeExecutionPlan.kt"
+PROBE_EVIDENCE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeProbeEvidenceStore.kt"
+DIAGNOSTIC_SUITE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDiagnosticSuite.kt"
 FRAME_PREVIEW = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeDisplayFramePreview.kt"
 RUNTIME_APP = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt"
 BOX64 = ROOT / "scripts/build-box64-aarch64.py"
@@ -341,6 +343,8 @@ def main() -> int:
     pc_windows_attempt = PC_WINDOWS_ATTEMPT.read_text(encoding="utf-8")
     pc_runtime_readiness = PC_RUNTIME_READINESS.read_text(encoding="utf-8")
     pc_runtime_execution = PC_RUNTIME_EXECUTION.read_text(encoding="utf-8")
+    probe_evidence = PROBE_EVIDENCE.read_text(encoding="utf-8")
+    diagnostic_suite = DIAGNOSTIC_SUITE.read_text(encoding="utf-8")
     frame_preview = FRAME_PREVIEW.read_text(encoding="utf-8")
     runtime_app = RUNTIME_APP.read_text(encoding="utf-8")
     header = HEADER.read_text(encoding="utf-8")
@@ -583,6 +587,24 @@ def main() -> int:
             "enableDxvk = true",
             "DXVK_LAYER_NOT_DEPLOYED",
             "deployedLayers",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Wine PocketPC driver window evidence gate",
+        probe_controller + probe_evidence + diagnostic_suite + pc_runtime_readiness + pc_windows_attempt + runtime_app,
+        (
+            "WINE_DRIVER_WINDOW",
+            "validateWineDriverFrame",
+            "WINE_DRIVER_WINDOW_DESTROY_NOT_OBSERVED",
+            "WINE_POCKETPC_WINDOW_SMOKE",
+            "winePocketPcWindowSmokePassed",
+            "wine-pocketpc-window-smoke-key",
+            "runtime-probe-evidence-v8",
+            "WINE_POCKETPC_WINDOW_NOT_VALIDATED",
+            "wine-display-driver",
+            "POCKETPC_WINE_DRIVER_HOST_FRAME_OK",
+            "POCKETPC_WINE_DRIVER_HOST_INPUT_OK",
         ),
     )
     require_sentinels(
