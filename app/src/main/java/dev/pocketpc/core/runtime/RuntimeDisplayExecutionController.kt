@@ -22,6 +22,18 @@ data class RuntimeDisplayExecutionResult(
     val bridgeError: String?,
 )
 
+private sealed interface RuntimeDisplayCompletion {
+    data class Process(
+        val result:
+            ProotExecutionResult,
+    ) : RuntimeDisplayCompletion
+
+    data class Bridge(
+        val result:
+            Result<Unit>,
+    ) : RuntimeDisplayCompletion
+}
+
 class RuntimeDisplayExecutionController(
     private val executionController:
         ProotExecutionController,
@@ -247,35 +259,23 @@ class RuntimeDisplayExecutionController(
                             .runSession()
                     }
 
-                sealed interface Completion {
-                    data class Process(
-                        val result:
-                            ProotExecutionResult,
-                    ) : Completion
-
-                    data class Bridge(
-                        val result:
-                            Result<Unit>,
-                    ) : Completion
-                }
-
                 val first =
-                    select<Completion> {
+                    select<RuntimeDisplayCompletion> {
                         processDeferred
                             .onAwait {
-                                Completion
+                                RuntimeDisplayCompletion
                                     .Process(it)
                             }
                         bridgeDeferred
                             .onAwait {
-                                Completion
+                                RuntimeDisplayCompletion
                                     .Bridge(it)
                             }
                     }
 
                 val result =
                     when (first) {
-                        is Completion.Process -> {
+                        is RuntimeDisplayCompletion.Process -> {
                             activeSession.close()
                             runCatching {
                                 bridgeDeferred.await()
@@ -290,7 +290,7 @@ class RuntimeDisplayExecutionController(
                             )
                         }
 
-                        is Completion.Bridge -> {
+                        is RuntimeDisplayCompletion.Bridge -> {
                             val bridgeFailure =
                                 first.result
                                     .exceptionOrNull()
