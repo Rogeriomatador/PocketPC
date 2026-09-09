@@ -1925,149 +1925,501 @@ fun StartMenuV2(
 @Composable
 fun DesktopContextMenu(
     desktop: DesktopController,
-    modifier: Modifier = Modifier,
 ) {
-    val target = desktop.contextMenuTarget
+    val layout =
+        LocalDesktopLayout.current
+    val density =
+        LocalDensity.current
+    val edgePx =
+        with(density) {
+            8.dp.roundToPx()
+        }
+    val gapPx =
+        with(density) {
+            5.dp.roundToPx()
+        }
+    val fallbackBottomPx =
+        with(density) {
+            (
+                layout.taskbarHeightDp +
+                    8f
+            ).dp.roundToPx()
+        }
+
+    val provider =
+        remember(
+            desktop.contextMenuAnchorX,
+            desktop.contextMenuAnchorY,
+            edgePx,
+            gapPx,
+            fallbackBottomPx,
+        ) {
+            DesktopContextPopupPositionProvider(
+                anchorX =
+                    desktop
+                        .contextMenuAnchorX,
+                anchorY =
+                    desktop
+                        .contextMenuAnchorY,
+                edgePx = edgePx,
+                gapPx = gapPx,
+                fallbackBottomPx =
+                    fallbackBottomPx,
+            )
+        }
+
+    val target =
+        desktop.contextMenuTarget
     val targetWindow =
         target?.let { app ->
-            desktop.windows.firstOrNull {
-                it.app == app
-            }
+            desktop.windows
+                .firstOrNull {
+                    it.app == app
+                }
         }
 
-    Surface(
-        modifier = modifier
-            .width(minOf(270f, LocalDesktopLayout.current.startMenuWidthDp).dp)
-            .heightIn(max = LocalDesktopLayout.current.startMenuHeightDp.dp),
-        shape = RoundedCornerShape(14.dp),
-        tonalElevation = 15.dp,
-        shadowElevation = 18.dp,
+    Popup(
+        popupPositionProvider =
+            provider,
+        onDismissRequest =
+            desktop::closeContextMenu,
+        properties =
+            PopupProperties(
+                focusable = true,
+                dismissOnBackPress =
+                    true,
+                dismissOnClickOutside =
+                    true,
+            ),
     ) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(8.dp)) {
-            if (target != null) {
-                Text(
-                    target.label,
-                    modifier = Modifier.padding(10.dp),
-                    fontSize = 12.sp,
-                )
-                TextButton(
-                    onClick = {
-                        desktop.open(target)
-                        desktop.closeContextMenu()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        if (targetWindow?.minimized == true) {
-                            "Restaurar janela"
-                        } else {
-                            "Abrir / trazer para frente"
-                        },
-                        modifier = Modifier.fillMaxWidth(),
+        Surface(
+            modifier =
+                Modifier
+                    .width(
+                        minOf(
+                            280f,
+                            layout
+                                .startMenuWidthDp,
+                        ).dp,
                     )
-                }
-
-                if (targetWindow != null) {
+                    .heightIn(
+                        max =
+                            layout
+                                .startMenuHeightDp
+                                .dp,
+                    ),
+            shape =
+                RoundedCornerShape(
+                    14.dp
+                ),
+            tonalElevation = 15.dp,
+            shadowElevation = 18.dp,
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .surfaceContainer,
+        ) {
+            Column(
+                Modifier
+                    .verticalScroll(
+                        rememberScrollState(),
+                    )
+                    .padding(8.dp),
+            ) {
+                if (target != null) {
+                    Text(
+                        target.label,
+                        modifier =
+                            Modifier.padding(
+                                10.dp
+                            ),
+                        fontSize = 12.sp,
+                    )
                     TextButton(
                         onClick = {
-                            desktop.minimize(targetWindow.id)
-                            desktop.closeContextMenu()
+                            desktop.open(
+                                target
+                            )
+                            desktop
+                                .closeContextMenu()
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth(),
                     ) {
                         Text(
-                            "Minimizar",
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-
-                    TextButton(
-                        onClick = {
-                            desktop.toggleMaximize(targetWindow.id)
-                            desktop.closeContextMenu()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            if (targetWindow.maximized) {
-                                "Restaurar tamanho"
+                            if (
+                                targetWindow
+                                    ?.minimized ==
+                                true
+                            ) {
+                                "Restaurar janela"
                             } else {
-                                "Maximizar"
+                                "Abrir / trazer para frente"
                             },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(),
                         )
+                    }
+
+                    if (
+                        targetWindow !=
+                        null
+                    ) {
+                        TextButton(
+                            onClick = {
+                                desktop.minimize(
+                                    targetWindow.id
+                                )
+                                desktop
+                                    .closeContextMenu()
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(),
+                            enabled =
+                                !targetWindow
+                                    .minimized,
+                        ) {
+                            Text(
+                                "Minimizar",
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth(),
+                            )
+                        }
+
+                        TextButton(
+                            onClick = {
+                                desktop
+                                    .toggleMaximize(
+                                        targetWindow.id
+                                    )
+                                desktop
+                                    .closeContextMenu()
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(),
+                        ) {
+                            Text(
+                                if (
+                                    targetWindow
+                                        .maximized
+                                ) {
+                                    "Restaurar tamanho"
+                                } else {
+                                    "Maximizar"
+                                },
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth(),
+                            )
+                        }
+
+                        TextButton(
+                            onClick = {
+                                desktop.snapLeft(
+                                    targetWindow.id
+                                )
+                                desktop
+                                    .closeContextMenu()
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(),
+                        ) {
+                            Text(
+                                "Encaixar à esquerda",
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth(),
+                            )
+                        }
+
+                        TextButton(
+                            onClick = {
+                                desktop.snapRight(
+                                    targetWindow.id
+                                )
+                                desktop
+                                    .closeContextMenu()
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(),
+                        ) {
+                            Text(
+                                "Encaixar à direita",
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth(),
+                            )
+                        }
+
+                        TextButton(
+                            onClick = {
+                                desktop.open(
+                                    DesktopApp
+                                        .TASK_MANAGER
+                                )
+                                desktop
+                                    .closeContextMenu()
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(),
+                        ) {
+                            Text(
+                                "Mostrar no Gerenciador de Tarefas",
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth(),
+                            )
+                        }
+
+                        TextButton(
+                            onClick = {
+                                desktop.close(
+                                    targetWindow.id
+                                )
+                                desktop
+                                    .closeContextMenu()
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(),
+                        ) {
+                            Text(
+                                "Fechar janela",
+                                color =
+                                    MaterialTheme
+                                        .colorScheme
+                                        .error,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth(),
+                            )
+                        }
+
+                        HorizontalDivider()
                     }
 
                     TextButton(
                         onClick = {
-                            desktop.close(targetWindow.id)
-                            desktop.closeContextMenu()
+                            desktop.togglePin(
+                                target
+                            )
+                            desktop
+                                .closeContextMenu()
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth(),
                     ) {
                         Text(
-                            "Fechar janela",
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.fillMaxWidth(),
+                            if (
+                                target in
+                                desktop.pinnedApps
+                            ) {
+                                "Desafixar da barra de tarefas"
+                            } else {
+                                "Fixar na barra de tarefas"
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(),
                         )
                     }
+                } else {
+                    Text(
+                        "Área de trabalho",
+                        modifier =
+                            Modifier.padding(
+                                10.dp
+                            ),
+                    )
+                }
 
-                    HorizontalDivider()
+                HorizontalDivider()
+
+                TextButton(
+                    onClick = {
+                        desktop.open(
+                            DesktopApp
+                                .TASK_MANAGER
+                        )
+                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth(),
+                ) {
+                    Text(
+                        "Gerenciador de Tarefas",
+                        modifier =
+                            Modifier
+                                .fillMaxWidth(),
+                    )
                 }
 
                 TextButton(
                     onClick = {
-                        desktop.togglePin(target)
-                        desktop.closeContextMenu()
+                        desktop.open(
+                            DesktopApp
+                                .PERSONALIZATION
+                        )
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth(),
                 ) {
                     Text(
-                        if (target in desktop.pinnedApps) {
-                            "Desafixar da barra de tarefas"
-                        } else {
-                            "Fixar na barra de tarefas"
-                        },
-                        modifier = Modifier.fillMaxWidth(),
+                        "Personalização",
+                        modifier =
+                            Modifier
+                                .fillMaxWidth(),
                     )
                 }
-            } else {
-                Text("Área de trabalho", modifier = Modifier.padding(10.dp))
-            }
 
-            HorizontalDivider()
-            TextButton(
-                onClick = { desktop.open(DesktopApp.PERSONALIZATION) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Personalização", modifier = Modifier.fillMaxWidth())
-            }
-            TextButton(
-                onClick = { desktop.open(DesktopApp.SYSTEM) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Este PC", modifier = Modifier.fillMaxWidth())
-            }
-            TextButton(
-                onClick = {
-                    desktop.open(
-                        DesktopApp.TASK_MANAGER
+                TextButton(
+                    onClick = {
+                        desktop.open(
+                            DesktopApp.SYSTEM
+                        )
+                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth(),
+                ) {
+                    Text(
+                        "Este PC",
+                        modifier =
+                            Modifier
+                                .fillMaxWidth(),
                     )
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    "Gerenciador de Tarefas",
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            TextButton(
-                onClick = desktop::minimizeAll,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Mostrar área de trabalho", modifier = Modifier.fillMaxWidth())
+                }
+
+                TextButton(
+                    onClick =
+                        desktop::minimizeAll,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth(),
+                ) {
+                    Text(
+                        "Mostrar área de trabalho",
+                        modifier =
+                            Modifier
+                                .fillMaxWidth(),
+                    )
+                }
             }
         }
+    }
+}
+
+private class DesktopContextPopupPositionProvider(
+    private val anchorX: Int?,
+    private val anchorY: Int?,
+    private val edgePx: Int,
+    private val gapPx: Int,
+    private val fallbackBottomPx: Int,
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection:
+            LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val hasAnchor =
+            anchorX != null &&
+                anchorY != null
+
+        if (!hasAnchor) {
+            return IntOffset(
+                x = edgePx,
+                y =
+                    (
+                        windowSize.height -
+                            popupContentSize
+                                .height -
+                            fallbackBottomPx
+                    ).coerceAtLeast(
+                        edgePx
+                    ),
+            )
+        }
+
+        val requestedX =
+            requireNotNull(anchorX)
+        val requestedY =
+            requireNotNull(anchorY)
+
+        val fitsRight =
+            requestedX +
+                gapPx +
+                popupContentSize.width <=
+                windowSize.width -
+                    edgePx
+
+        val rawX =
+            if (fitsRight) {
+                requestedX +
+                    gapPx
+            } else {
+                requestedX -
+                    popupContentSize.width -
+                    gapPx
+            }
+
+        val fitsBelow =
+            requestedY +
+                gapPx +
+                popupContentSize.height <=
+                windowSize.height -
+                    edgePx
+
+        val rawY =
+            if (fitsBelow) {
+                requestedY +
+                    gapPx
+            } else {
+                requestedY -
+                    popupContentSize.height -
+                    gapPx
+            }
+
+        val maxX =
+            (
+                windowSize.width -
+                    popupContentSize.width -
+                    edgePx
+            ).coerceAtLeast(
+                edgePx
+            )
+        val maxY =
+            (
+                windowSize.height -
+                    popupContentSize.height -
+                    edgePx
+            ).coerceAtLeast(
+                edgePx
+            )
+
+        return IntOffset(
+            x =
+                rawX.coerceIn(
+                    edgePx,
+                    maxX,
+                ),
+            y =
+                rawY.coerceIn(
+                    edgePx,
+                    maxY,
+                ),
+        )
     }
 }
 
