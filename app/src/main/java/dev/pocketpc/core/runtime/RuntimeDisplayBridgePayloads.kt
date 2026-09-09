@@ -22,6 +22,15 @@ data class RuntimeBridgeWindowGeometry(
     val insertAfterWindowId: Long,
 )
 
+data class RuntimeBridgeSurfaceRequest(
+    val windowId: Long,
+    val generation: Long,
+    val width: Int,
+    val height: Int,
+    val pixelFormat: Int,
+    val flags: Int,
+)
+
 data class RuntimeBridgeSurfaceAvailable(
     val windowId: Long,
     val surfaceId: Long,
@@ -75,6 +84,7 @@ object RuntimeDisplayBridgePayloadCodec {
     const val WINDOW_CREATE_BYTES = 28
     const val WINDOW_GEOMETRY_BYTES = 40
     const val WINDOW_DESTROY_BYTES = 8
+    const val SURFACE_REQUEST_BYTES = 32
     const val SURFACE_AVAILABLE_BYTES = 56
     const val FRAME_READY_BYTES = 32
     const val POINTER_EVENT_BYTES = 32
@@ -120,6 +130,43 @@ object RuntimeDisplayBridgePayloadCodec {
     private const val SURFACE_TOKEN_BYTES = 16
     private val tokenRegex =
         Regex("^[0-9a-f]{32}$")
+
+    fun encodeSurfaceRequest(
+        value: RuntimeBridgeSurfaceRequest,
+    ): ByteArray {
+        validateSurfaceRequest(value)
+        return buffer(
+            SURFACE_REQUEST_BYTES,
+        ).apply {
+            putLong(value.windowId)
+            putLong(value.generation)
+            putInt(value.width)
+            putInt(value.height)
+            putInt(value.pixelFormat)
+            putInt(value.flags)
+        }.array()
+    }
+
+    fun decodeSurfaceRequest(
+        payload: ByteArray,
+    ): Result<RuntimeBridgeSurfaceRequest> =
+        runCatching {
+            val b =
+                fixed(
+                    payload,
+                    SURFACE_REQUEST_BYTES,
+                )
+            RuntimeBridgeSurfaceRequest(
+                windowId = b.long,
+                generation = b.long,
+                width = b.int,
+                height = b.int,
+                pixelFormat = b.int,
+                flags = b.int,
+            ).also(
+                ::validateSurfaceRequest,
+            )
+        }
 
     fun encodeSurfaceAvailable(
         value: RuntimeBridgeSurfaceAvailable,
@@ -506,6 +553,28 @@ object RuntimeDisplayBridgePayloadCodec {
                 }
             }
         }
+
+    private fun validateSurfaceRequest(
+        value: RuntimeBridgeSurfaceRequest,
+    ) {
+        requireWindowId(value.windowId)
+        require(value.generation > 0L) {
+            "DISPLAY_BRIDGE_SURFACE_GENERATION_INVALID"
+        }
+        requireDimensions(
+            value.width,
+            value.height,
+        )
+        require(
+            value.pixelFormat ==
+                PIXEL_FORMAT_BGRA8888,
+        ) {
+            "DISPLAY_BRIDGE_PIXEL_FORMAT_INVALID"
+        }
+        require(value.flags == 0) {
+            "DISPLAY_BRIDGE_SURFACE_FLAGS_INVALID"
+        }
+    }
 
     private fun validateSurface(
         value: RuntimeBridgeSurfaceAvailable,
