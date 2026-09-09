@@ -18,6 +18,12 @@ HOST_PROCESSOR = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisp
 COMPOSITOR_MODEL = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayCompositorModel.kt"
 SESSION_CONTROLLER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySessionController.kt"
 BRIDGE_HOST = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeHost.kt"
+BRIDGE_SESSION = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeSession.kt"
+DISPLAY_EXECUTION = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayExecutionController.kt"
+PC_TARGET_MATERIALIZER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcApplicationTargetMaterializer.kt"
+PC_WINDOWS_ATTEMPT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcWindowsLaunchAttemptPlan.kt"
+PC_RUNTIME_READINESS = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcRuntimeReadiness.kt"
+PC_RUNTIME_EXECUTION = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcRuntimeExecutionPlan.kt"
 FRAME_PREVIEW = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeDisplayFramePreview.kt"
 RUNTIME_APP = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt"
 BOX64 = ROOT / "scripts/build-box64-aarch64.py"
@@ -126,6 +132,8 @@ def main() -> int:
         "GAMEPAD": 8,
         "FRAME_ACK": 16,
         "HOST_BASELINE": 23,
+        "GUEST_IMPLEMENTED": 23,
+        "GUEST_REQUIRED": 23,
     }
     if caps != expected_caps:
         failures.append("capability map changed")
@@ -325,6 +333,12 @@ def main() -> int:
     compositor_model = COMPOSITOR_MODEL.read_text(encoding="utf-8")
     session_controller = SESSION_CONTROLLER.read_text(encoding="utf-8")
     bridge_host = BRIDGE_HOST.read_text(encoding="utf-8")
+    bridge_session = BRIDGE_SESSION.read_text(encoding="utf-8")
+    display_execution = DISPLAY_EXECUTION.read_text(encoding="utf-8")
+    pc_target_materializer = PC_TARGET_MATERIALIZER.read_text(encoding="utf-8")
+    pc_windows_attempt = PC_WINDOWS_ATTEMPT.read_text(encoding="utf-8")
+    pc_runtime_readiness = PC_RUNTIME_READINESS.read_text(encoding="utf-8")
+    pc_runtime_execution = PC_RUNTIME_EXECUTION.read_text(encoding="utf-8")
     frame_preview = FRAME_PREVIEW.read_text(encoding="utf-8")
     runtime_app = RUNTIME_APP.read_text(encoding="utf-8")
     header = HEADER.read_text(encoding="utf-8")
@@ -518,6 +532,44 @@ def main() -> int:
     )
     require_sentinels(
         failures,
+        "Kotlin capability baseline authentication",
+        bridge_session,
+        (
+            "DISPLAY_BRIDGE_BASELINE_CAPABILITIES_MISSING",
+            "HOST_BASELINE",
+            "candidateNegotiated",
+            "negotiatedCapabilities",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Controlled Windows application attempt",
+        pc_windows_attempt + pc_target_materializer + display_execution + runtime_app,
+        (
+            "PcWindowsLaunchAttemptPlanner",
+            "PcApplicationTargetMaterializer",
+            "controlledAttemptReady",
+            "exec \\\"\\$@\\\"",
+            "RuntimeDisplayExecutionController",
+            "desktopBridge =",
+            "PC_WINDOWS_ATTEMPT_FINISHED_UNVALIDATED",
+            "compatibility remains UNVALIDATED",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Controlled attempt evidence separation",
+        pc_runtime_readiness + pc_runtime_execution + runtime_app,
+        (
+            "controlledAttemptReady",
+            "attemptEligible",
+            "applicationValidated",
+            "Never union individual PASS bits from different rootfs instances",
+            "PcRuntimeEvidenceCandidate",
+        ),
+    )
+    require_sentinels(
+        failures,
         "Compose display preview",
         frame_preview + runtime_app,
         (
@@ -580,6 +632,8 @@ def main() -> int:
             "#define PDB_FRAME_READY_BYTES 32u",
             "#define PDB_FRAME_PRESENTED_BYTES 36u",
             "#define PDB_MSG_FRAME_READY 21u",
+            "#define PDB_GUEST_IMPLEMENTED",
+            "#define PDB_GUEST_REQUIRED",
             "pdb_send_surface_request",
             "pdb_receive_surface_available",
             "pdb_surface_guest_path",
@@ -609,6 +663,10 @@ def main() -> int:
             "PDB_WINDOW_COMMAND_FRAME_INVALID",
             "PDB_WINDOW_COMMAND_PAYLOAD_INVALID",
             "PDB_SOCKET_TIMEOUT_SECONDS",
+            "PDB_REQUIRED_CAPABILITIES_MISSING",
+            "guest_caps",
+            "PDB_GUEST_IMPLEMENTED",
+            "PDB_GUEST_REQUIRED",
             "SO_RCVTIMEO",
             "SO_SNDTIMEO",
             "invalidate_connection",
