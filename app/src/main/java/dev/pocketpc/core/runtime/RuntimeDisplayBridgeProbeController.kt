@@ -316,6 +316,17 @@ class RuntimeDisplayBridgeProbeController(
                     .acknowledgePendingFrame()
                     .getOrThrow()
 
+                activeProcessor
+                    .sendWindowCommand(
+                        RuntimeBridgeWindowCommand(
+                            windowId =
+                                window.windowId,
+                            command =
+                                RuntimeDisplayBridgePayloadCodec
+                                    .WINDOW_COMMAND_CLOSE,
+                        ),
+                    )
+
                 val destroyStep =
                     activeProcessor
                         .processNext()
@@ -387,6 +398,9 @@ class RuntimeDisplayBridgeProbeController(
                                 )
                                 appendLine(
                                     "POCKETPC_DISPLAY_BRIDGE_HOST_INPUT_OK",
+                                )
+                                appendLine(
+                                    "POCKETPC_DISPLAY_BRIDGE_HOST_WINDOW_COMMAND_OK",
                                 )
                                 appendLine(
                                     "POCKETPC_DISPLAY_BRIDGE_HOST_ROUNDTRIP_OK",
