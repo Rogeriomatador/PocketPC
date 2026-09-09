@@ -7,6 +7,8 @@ data class PcWindowsLaunchAttemptPlan(
     val target:
         MaterializedPcApplicationTarget,
     val wine: WineLaunchPlan,
+    val graphicsConfigurationInvocation:
+        ProotInvocationPlan,
     val invocation:
         ProotInvocationPlan,
     val blockers: List<String>,
@@ -134,81 +136,103 @@ object PcWindowsLaunchAttemptPlanner {
         blockers +=
             wine.blockers
 
+        val shellRuntime =
+            runtime.copy(
+                manifest =
+                    runtime.manifest.copy(
+                        entrypoint =
+                            "/bin/sh",
+                    ),
+            )
+
+        fun buildInvocation(
+            guestArguments: List<String>,
+        ): ProotInvocationPlan {
+            val base =
+                ProotInvocationPlanner
+                    .build(
+                        runtime =
+                            shellRuntime,
+                        substrate =
+                            substrate,
+                        binds = binds,
+                        allowedHostRoots =
+                            allowedHostRoots,
+                        guestArguments =
+                            guestArguments,
+                    )
+            val environment =
+                LinkedHashMap(
+                    base.environment,
+                ).apply {
+                    putAll(
+                        wine.environment,
+                    )
+                }
+            val environmentErrors =
+                RuntimeEnvironment
+                    .validate(
+                        environment,
+                    )
+
+            return base.copy(
+                environment =
+                    environment,
+                blockers =
+                    (
+                        base.blockers +
+                            environmentErrors
+                    ).distinct(),
+            )
+        }
+
+        val graphicsConfigurationInvocation =
+            if (
+                blockers.isEmpty() &&
+                wine.ready
+            ) {
+                buildInvocation(
+                    graphicsConfigurationShellArguments(
+                        box64 =
+                            WineLaunchPlanner
+                                .DEFAULT_BOX64,
+                        wine =
+                            WineLaunchPlanner
+                                .DEFAULT_WINE,
+                    ),
+                )
+            } else {
+                blockedInvocation(
+                    blockers,
+                )
+            }
+
         val invocation =
             if (
                 blockers.isEmpty() &&
                 wine.ready
             ) {
-                /*
-                 * PRoot validates that its entrypoint exists inside the
-                 * rootfs. Box64 is supplied through a bind, so use the
-                 * already validated /bin/sh rootfs entrypoint with a
-                 * constant command and pass every dynamic value through
-                 * positional arguments. No target path is interpolated
-                 * into shell source.
-                 */
-                val shellRuntime =
-                    runtime.copy(
-                        manifest =
-                            runtime.manifest.copy(
-                                entrypoint =
-                                    "/bin/sh",
-                            ),
-                    )
-                val shellArgs =
+                buildInvocation(
                     shellArguments(
                         wine.argv,
-                    )
-                val base =
-                    ProotInvocationPlanner
-                        .build(
-                            runtime =
-                                shellRuntime,
-                            substrate =
-                                substrate,
-                            binds = binds,
-                            allowedHostRoots =
-                                allowedHostRoots,
-                            guestArguments =
-                                shellArgs,
-                        )
-                val environment =
-                    LinkedHashMap(
-                        base.environment,
-                    ).apply {
-                        putAll(
-                            wine.environment,
-                        )
-                    }
-                val environmentErrors =
-                    RuntimeEnvironment
-                        .validate(
-                            environment,
-                        )
-
-                base.copy(
-                    environment =
-                        environment,
-                    blockers =
-                        (
-                            base.blockers +
-                                environmentErrors
-                        ).distinct(),
+                    ),
                 )
             } else {
-                ProotInvocationPlan(
-                    ready = false,
-                    argv = emptyList(),
-                    environment =
-                        emptyMap(),
-                    blockers =
-                        blockers.distinct(),
+                blockedInvocation(
+                    blockers,
                 )
             }
 
         val structuralBlockers =
             (
                 blockers +
+                    graphicsConfigurationInvocation
+                        .blockers
+                        .filterNot {
+                            it ==
+                                ProotExecutionController
+                                    .EXECUTION_APPROVAL_BLOCKER
+                        } +
                     invocation.blockers
                         .filterNot {
                             it ==
@@ -220,10 +244,15 @@ object PcWindowsLaunchAttemptPlanner {
         return PcWindowsLaunchAttemptPlan(
             ready =
                 structuralBlockers.isEmpty() &&
+                    graphicsConfigurationInvocation
+                        .argv
+                        .isNotEmpty() &&
                     invocation.argv
                         .isNotEmpty(),
             target = target,
             wine = wine,
+            graphicsConfigurationInvocation =
+                graphicsConfigurationInvocation,
             invocation = invocation,
             blockers =
                 structuralBlockers,
@@ -240,19 +269,44 @@ object PcWindowsLaunchAttemptPlanner {
                 "WINDOWS_LAUNCH_ARGV_INVALID"
             }
             add("-c")
-            add(
-                "set -eu; " +
-                    "box64=\"\$1\"; " +
-                    "wine=\"\$2\"; " +
-                    "shift 2; " +
-                    "\"\$box64\" \"\$wine\" reg.exe add " +
-                    "'HKCU\\Software\\Wine\\Drivers' " +
-                    "/v Graphics /t REG_SZ /d pocketpc /f >/dev/null; " +
-                    "exec \"\$box64\" \"\$wine\" \"\$@\"",
-            )
+            add("exec \"\$@\"")
             add(
                 "pocketpc-windows-launch",
             )
             addAll(wineArgv)
         }
+
+    internal fun graphicsConfigurationShellArguments(
+        box64: String,
+        wine: String,
+    ): List<String> =
+        listOf(
+            "-c",
+            "exec \"\$@\"",
+            "pocketpc-wine-graphics-config",
+            box64,
+            wine,
+            "reg.exe",
+            "add",
+            "HKCU\\Software\\Wine\\Drivers",
+            "/v",
+            "Graphics",
+            "/t",
+            "REG_SZ",
+            "/d",
+            "pocketpc",
+            "/f",
+        )
+
+    private fun blockedInvocation(
+        blockers: List<String>,
+    ): ProotInvocationPlan =
+        ProotInvocationPlan(
+            ready = false,
+            argv = emptyList(),
+            environment = emptyMap(),
+            blockers =
+                blockers.distinct(),
+        )
+
 }
