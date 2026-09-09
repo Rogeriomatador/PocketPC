@@ -423,7 +423,7 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/runtime/RuntimeProcessSupervisor.kt": (
         "data class RuntimeProcessSnapshot",
         "object RuntimeProcessRegistry",
-        "fun snapshots()",
+        "fun snapshots",
         "fun terminate(",
         ".register(",
         ".unregister(",
