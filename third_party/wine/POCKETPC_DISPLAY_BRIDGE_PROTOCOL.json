@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "PROTOCOL_V3_SURFACE_REQUEST_IMPLEMENTED_NOT_INTEGRATION_TESTED",
+  "status": "PROTOCOL_V4_SURFACE_QUALIFIED_ACK_IMPLEMENTED_NOT_INTEGRATION_TESTED",
   "wire": {
     "magicHex": "0x31424450",
     "magicAsciiLittleEndian": "PDB1",
-    "version": 3,
+    "version": 4,
     "headerBytes": 20,
     "maxPayloadBytes": 1048576,
     "byteOrder": "little-endian"
@@ -62,7 +62,6 @@
     "pointerRoundTrip": false,
     "keyboardRoundTrip": false,
     "wineDriverBuilt": false,
-    "protocolV3NativeIntegrationExecuted": false,
     "surfaceWriterNativeSoftwareTestExecuted": false,
     "hostSurfaceRegistryImplemented": true,
     "hostSurfaceRegistrySoftwareTestExecuted": false,
@@ -85,7 +84,8 @@
     "asyncFrameAckDrainImplemented": true,
     "singleBufferAsyncOwnershipImplemented": true,
     "androidToWin32KeyMappingImplemented": true,
-    "androidToWin32KeyMappingSoftwareTestExecuted": false
+    "androidToWin32KeyMappingSoftwareTestExecuted": false,
+    "protocolV4NativeIntegrationExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -157,9 +157,11 @@
       ]
     },
     "FRAME_PRESENTED": {
-      "bytes": 20,
+      "bytes": 36,
       "fields": [
         "windowId:u64",
+        "surfaceId:u64",
+        "generation:u64",
         "frameId:u64",
         "status:u32"
       ]
@@ -227,7 +229,9 @@
     "frameAckDemux": "FRAME_PRESENTED is consumed asynchronously by pProcessEvents or by the bounded SURFACE_AVAILABLE transaction demux; both paths call POCKETPC_HandleFramePresented to release the exact in-flight windowId/frameId",
     "buffering": "single-buffer-v3-async-ownership; double/triple buffering not implemented",
     "hostAckPoint": "successful frame bytes are copied to host ARGB memory before FRAME_PRESENTED(status=0)",
-    "coalescingRule": "if Wine flushes while a frame is still in flight, the flush is coalesced without touching the shared mmap; a later paint after ACK may publish the newest pixels"
+    "coalescingRule": "if Wine flushes while a frame is still in flight, the flush is coalesced without touching the shared mmap; a later paint after ACK may publish the newest pixels",
+    "frameAckIdentityRule": "FRAME_PRESENTED must exactly match windowId, surfaceId, generation and frameId of the in-flight FRAME_READY",
+    "lateAckRule": "ACK from a replaced/destroyed surface cannot release ownership of a newer surface even when frameId is reused"
   },
   "zOrder": {
     "model": "single-choice flags",
