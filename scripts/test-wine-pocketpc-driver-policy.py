@@ -96,6 +96,8 @@ def main() -> int:
         "winePocketPcWindowProbeBrokerImplemented",
         "winePocketPcWindowEvidenceImplemented",
         "wineGraphicsDriverSelectionImplemented",
+        "wineDriverAbiLockImplemented",
+        "wineGraphicsConfigurationIsolationImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
@@ -116,6 +118,8 @@ def main() -> int:
         "winePocketPcWindowProbeBrokerSoftwareTestExecuted",
         "winePocketPcWindowEvidenceSoftwareTestExecuted",
         "wineGraphicsDriverSelectionSoftwareTestExecuted",
+        "wineDriverAbiLockSoftwareTestExecuted",
+        "wineGraphicsConfigurationIsolationSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
