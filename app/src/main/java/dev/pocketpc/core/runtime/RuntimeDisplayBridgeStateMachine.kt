@@ -190,6 +190,18 @@ class RuntimeDisplayBridgeStateMachine(
             ] ?: error(
                 "DISPLAY_BRIDGE_WINDOW_MISSING"
             )
+        if (
+            geometry.zOrderFlags ==
+                RuntimeDisplayBridgePayloadCodec
+                    .Z_ORDER_AFTER_WINDOW
+        ) {
+            require(
+                geometry.insertAfterWindowId in
+                    windows,
+            ) {
+                "DISPLAY_BRIDGE_Z_ORDER_TARGET_MISSING"
+            }
+        }
         windows[
             geometry.windowId
         ] =
