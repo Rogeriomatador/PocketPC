@@ -296,11 +296,17 @@ class RuntimeDisplayBridgeHost(
                 server.accept()
             try {
                 socket.soTimeout =
-                    readTimeoutMillis
-                        .coerceIn(
-                            1_000,
-                            30_000,
-                        )
+                    if (
+                        readTimeoutMillis <= 0
+                    ) {
+                        0
+                    } else {
+                        readTimeoutMillis
+                            .coerceIn(
+                                1_000,
+                                30_000,
+                            )
+                    }
 
                 val helloFrame =
                     RuntimeDisplayBridgeProtocol
