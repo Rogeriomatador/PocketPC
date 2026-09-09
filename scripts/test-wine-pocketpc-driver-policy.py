@@ -228,8 +228,9 @@ def main() -> int:
             "pdb_surface_writer_close",
         ),
     )
-    surface_text =
+    surface_text = (
         texts.get("surface", "")
+    )
     if "dispatch_deferred_input" in surface_text:
         failures.append(
             "surface callback must not inject queued input directly"
