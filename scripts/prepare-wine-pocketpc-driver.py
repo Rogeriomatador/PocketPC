@@ -34,6 +34,8 @@ DRIVER_FILES = (
 BRIDGE_FILES = (
     "pocketpc_display_bridge.h",
     "pocketpc_display_bridge.c",
+    "pocketpc_surface_writer.h",
+    "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.h",
     "pocketpc_wine_window_map.c",
     "pocketpc_wine_window_bridge.h",
@@ -42,6 +44,7 @@ BRIDGE_FILES = (
 
 UNIX_ONLY_C_FILES = {
     "pocketpc_display_bridge.c",
+    "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.c",
     "pocketpc_wine_window_bridge.c",
 }
@@ -277,6 +280,7 @@ def main() -> int:
                 "surface.c",
                 "window.c",
                 "pocketpc_display_bridge.c",
+                "pocketpc_surface_writer.c",
                 "pocketpc_wine_window_map.c",
                 "pocketpc_wine_window_bridge.c"
             ],
