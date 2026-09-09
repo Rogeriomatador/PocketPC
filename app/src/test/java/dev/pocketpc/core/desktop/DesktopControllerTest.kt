@@ -185,4 +185,43 @@ class DesktopControllerTest {
         assertEquals(2, controller.windows.size)
         assertTrue(controller.windows.none { it.minimized })
     }
+    @Test
+    fun taskManagerUsesSingleManagedWindow() {
+        val controller =
+            DesktopController()
+
+        controller.open(
+            DesktopApp.TASK_MANAGER,
+        )
+        val id =
+            controller.windows
+                .single()
+                .id
+
+        controller.minimize(id)
+        controller.open(
+            DesktopApp.TASK_MANAGER,
+        )
+
+        assertEquals(
+            1,
+            controller.windows.size,
+        )
+        assertEquals(
+            DesktopApp.TASK_MANAGER,
+            controller.activeWindow?.app,
+        )
+        assertFalse(
+            controller.windows
+                .single()
+                .minimized,
+        )
+        assertEquals(
+            id,
+            controller.windows
+                .single()
+                .id,
+        )
+    }
+
 }
