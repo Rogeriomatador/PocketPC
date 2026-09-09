@@ -250,6 +250,10 @@ object RuntimeProcessRegistry {
             val entry =
                 entries[id]
                     ?: return@synchronized 0
+            seedLiveRoot(
+                entry,
+                processes,
+            )
             val family =
                 RuntimeProcTree.family(
                     entry.knownMembers,
@@ -276,6 +280,15 @@ object RuntimeProcessRegistry {
         id: Long,
         pid: Long,
     ): Boolean {
+        if (
+            pid ==
+                android.os.Process
+                    .myPid()
+                    .toLong()
+        ) {
+            return false
+        }
+
         val current =
             readProcProcess(pid)
                 ?: return false
@@ -329,6 +342,10 @@ object RuntimeProcessRegistry {
                 entries.values
                     .mapNotNull {
                         entry ->
+                        seedLiveRoot(
+                            entry,
+                            processes,
+                        )
                         val family =
                             RuntimeProcTree.family(
                                 entry.knownMembers,
@@ -470,6 +487,10 @@ object RuntimeProcessRegistry {
                 val entry =
                     entries[id]
                         ?: return false
+                seedLiveRoot(
+                    entry,
+                    processes,
+                )
                 val family =
                     RuntimeProcTree.family(
                         entry.knownMembers,
@@ -554,6 +575,31 @@ object RuntimeProcessRegistry {
         }
 
         return acted
+    }
+
+    private fun seedLiveRoot(
+        entry: Entry,
+        processes:
+            Map<Long, RuntimeProcProcess>,
+    ) {
+        if (
+            entry.rootExited ||
+            !entry.process.isAlive
+        ) {
+            return
+        }
+
+        val rootPid =
+            entry.rootPid
+                ?: return
+        val root =
+            processes[rootPid]
+                ?: return
+
+        entry.knownMembers[
+            root.pid
+        ] =
+            root.startTimeTicks
     }
 
     private fun scanProc():
