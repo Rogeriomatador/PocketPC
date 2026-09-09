@@ -441,9 +441,10 @@ def main() -> int:
                 socket.AF_UNIX,
                 socket.SOCK_STREAM,
             )
-        process:
+        process: (
             subprocess.Popen[str] |
-            None = None
+            None
+        ) = None
 
         try:
             server.bind(
