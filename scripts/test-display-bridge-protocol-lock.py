@@ -53,10 +53,11 @@ def main() -> int:
     direction = lock.get("direction") or {}
     layouts = lock.get("payloadLayouts") or {}
     shared = lock.get("sharedFramebuffer") or {}
+    z_order = lock.get("zOrder") or {}
 
     checks = (
         (wire.get("magicHex"), "0x31424450", "wire magic"),
-        (wire.get("version"), 1, "version"),
+        (wire.get("version"), 2, "version"),
         (wire.get("headerBytes"), 20, "header"),
         (
             wire.get("maxPayloadBytes"),
@@ -123,7 +124,7 @@ def main() -> int:
 
     expected_sizes = {
         "WINDOW_CREATE": 28,
-        "WINDOW_GEOMETRY": 32,
+        "WINDOW_GEOMETRY": 40,
         "WINDOW_DESTROY": 8,
         "SURFACE_AVAILABLE": 56,
         "FRAME_READY": 32,
@@ -136,6 +137,37 @@ def main() -> int:
             failures.append(
                 f"{name} payload size changed"
             )
+
+    expected_z_flags = {
+        "NO_CHANGE": 1,
+        "TOP": 2,
+        "BOTTOM": 4,
+        "TOPMOST": 8,
+        "NOTOPMOST": 16,
+        "AFTER_WINDOW": 32,
+    }
+    if (
+        z_order.get("model") != "single-choice flags"
+        or z_order.get("flags") != expected_z_flags
+    ):
+        failures.append("z-order contract changed")
+
+    geometry_fields = (
+        layouts.get("WINDOW_GEOMETRY") or {}
+    ).get("fields") or []
+    if geometry_fields != [
+        "windowId:u64",
+        "x:i32",
+        "y:i32",
+        "width:i32",
+        "height:i32",
+        "visible:u32",
+        "zOrderFlags:u32",
+        "insertAfterWindowId:u64",
+    ]:
+        failures.append(
+            "WINDOW_GEOMETRY v2 field contract changed"
+        )
 
     if (
         shared.get("pixelFormat") != "BGRA8888"
@@ -177,7 +209,7 @@ def main() -> int:
             "POINTER_EVENT(30)",
             "KEY_EVENT(31)",
             "FRAME_PRESENTED(40)",
-            "const val VERSION = 1",
+            "const val VERSION = 2",
             "const val HEADER_BYTES = 20",
         ),
     )
@@ -189,6 +221,12 @@ def main() -> int:
             "SURFACE_AVAILABLE_BYTES = 56",
             "FRAME_READY_BYTES = 32",
             "PIXEL_FORMAT_BGRA8888 = 1",
+            "WINDOW_GEOMETRY_BYTES = 40",
+            "Z_ORDER_NO_CHANGE = 1 shl 0",
+            "Z_ORDER_AFTER_WINDOW = 1 shl 5",
+            "insertAfterWindowId",
+            "DISPLAY_BRIDGE_Z_ORDER_FLAGS_INVALID",
+            "DISPLAY_BRIDGE_Z_ORDER_SELF_REFERENCE",
             "encodeSurfaceAvailable",
             "decodeSurfaceAvailable",
             "encodeFrameReady",
@@ -216,7 +254,10 @@ def main() -> int:
         header,
         (
             "#define PDB_MAGIC 0x31424450u",
-            "#define PDB_VERSION 1u",
+            "#define PDB_VERSION 2u",
+            "#define PDB_WINDOW_GEOMETRY_BYTES 40u",
+            "#define PDB_ZORDER_NO_CHANGE (1u << 0)",
+            "#define PDB_ZORDER_AFTER_WINDOW (1u << 5)",
             "#define PDB_SURFACE_AVAILABLE_BYTES 56u",
             "#define PDB_FRAME_READY_BYTES 32u",
             "#define PDB_MSG_FRAME_READY 21u",
@@ -240,6 +281,7 @@ def main() -> int:
             "PDB_POINTER_PAYLOAD_INVALID",
             "PDB_KEY_PAYLOAD_INVALID",
             "PDB_FRAME_ACK_PAYLOAD_INVALID",
+            "PDB_WINDOW_GEOMETRY_INVALID",
         ),
     )
     require_sentinels(
@@ -264,6 +306,10 @@ def main() -> int:
             "pdb_wine_window_register",
             "pdb_wine_window_lookup",
             "pdb_wine_window_handle_for_id",
+            "pdb_wine_window_state",
+            "pdb_wine_window_mark_sent",
+            "PDB_WINE_WINDOW_CREATE_SENT",
+            "PDB_WINE_WINDOW_DESTROY_SENT",
             "pdb_wine_window_has_children",
             "pdb_wine_window_unregister",
         ),
@@ -279,6 +325,8 @@ def main() -> int:
             "pdb_wine_window_bridge_destroy",
             "pdb_wine_window_bridge_handle_for_id",
             "PDB_WINE_WINDOW_HAS_CHILDREN",
+            "z_order_flags",
+            "insert_after_window_id",
         ),
     )
     require_sentinels(
@@ -306,7 +354,7 @@ def main() -> int:
         return 1
 
     print("DISPLAY_BRIDGE_PROTOCOL_LOCK_OK")
-    print("protocol_version=1")
+    print("protocol_version=2")
     print("shared_framebuffer=BGRA8888")
     print("runtime_integration_evidence=false")
     return 0
