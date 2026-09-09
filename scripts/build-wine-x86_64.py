@@ -799,8 +799,9 @@ def main() -> int:
     if "GNU LESSER GENERAL PUBLIC LICENSE" not in copying or "Version 2.1" not in copying:
         raise SystemExit("WINE_LICENSE_EVIDENCE_MISMATCH")
 
-    driver_overlay_evidence =
+    driver_overlay_evidence = (
         work / "wine-pocketpc-driver-overlay-evidence.json"
+    )
     run(
         [
             sys.executable,
