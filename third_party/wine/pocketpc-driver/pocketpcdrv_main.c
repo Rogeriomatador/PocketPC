@@ -27,6 +27,8 @@ pocketpcdrv_funcs =
         POCKETPC_CreateWindow,
     .pDestroyWindow =
         POCKETPC_DestroyWindow,
+    .pProcessEvents =
+        POCKETPC_ProcessEvents,
     .pWindowPosChanging =
         POCKETPC_WindowPosChanging,
     .pWindowPosChanged =
