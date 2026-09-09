@@ -205,7 +205,7 @@ class PcRuntimeReadinessTest {
             }.state,
         )
         assertEquals(
-            PcRuntimeStageState.BLOCKED,
+            PcRuntimeStageState.NOT_IMPLEMENTED,
             result.stages.single {
                 it.id == "graphics-bridge"
             }.state,
@@ -262,7 +262,7 @@ class PcRuntimeReadinessTest {
     }
 
     @Test
-    fun graphicsDeviceWithoutPresentStaysBlocked() {
+    fun graphicsDeviceWithoutWsiStaysNotImplemented() {
         val result =
             PcRuntimeReadinessProbe.assess(
                 nativeHost =
@@ -301,18 +301,18 @@ class PcRuntimeReadinessTest {
                 it.id == "graphics-bridge"
             }
         assertEquals(
-            PcRuntimeStageState.BLOCKED,
+            PcRuntimeStageState.NOT_IMPLEMENTED,
             graphics.state,
         )
         assertTrue(
             graphics.detail.contains(
-                "swapchain/Present",
+                "pVulkanInit",
             ),
         )
     }
 
     @Test
-    fun graphicsDeviceAndPresentCanPromoteGraphicsStage() {
+    fun stalePresentEvidenceCannotPromoteGraphicsWithoutWsi() {
         val result =
             PcRuntimeReadinessProbe.assess(
                 nativeHost =
@@ -347,16 +347,20 @@ class PcRuntimeReadinessTest {
             )
 
         assertEquals(
-            PcRuntimeStageState.READY,
+            PcRuntimeStageState.NOT_IMPLEMENTED,
             result.stages.single {
                 it.id == "graphics-bridge"
             }.state,
         )
         assertFalse(result.executableReady)
+        assertFalse(
+            PocketPcVulkanWsiContract
+                .implemented,
+        )
     }
 
     @Test
-    fun completeCoreEvidenceEnablesOnlyControlledAttempt() {
+    fun completeNonWsiEvidenceStillBlocksControlledDxvkAttempt() {
         val result =
             PcRuntimeReadinessProbe.assess(
                 nativeHost =
@@ -398,8 +402,14 @@ class PcRuntimeReadinessTest {
                 it.id == "wine-display-driver"
             }.state,
         )
-        assertTrue(
+        assertFalse(
             result.controlledAttemptReady,
+        )
+        assertEquals(
+            PcRuntimeStageState.NOT_IMPLEMENTED,
+            result.stages.single {
+                it.id == "graphics-bridge"
+            }.state,
         )
         assertFalse(
             result.executableReady,
