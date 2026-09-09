@@ -458,8 +458,9 @@ def main() -> int:
                 ),
             )
 
-            environment =
+            environment = (
                 os.environ.copy()
+            )
             environment.update(
                 {
                     "POCKETPC_DISPLAY_PROTOCOL":
