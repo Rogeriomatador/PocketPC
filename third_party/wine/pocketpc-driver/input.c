@@ -198,7 +198,7 @@ static BOOL POCKETPC_DequeueHostEventForMaskLocked(
     return FALSE;
 }
 
-static void POCKETPC_FailBridgeLocked(
+void POCKETPC_FailBridgeLocked(
     const char *reason
 ) {
     ERR(
