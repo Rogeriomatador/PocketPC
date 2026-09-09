@@ -267,6 +267,16 @@ private fun ApplicationsSection(
                         window.id,
                     )
                 },
+                onSnapLeft = {
+                    desktop.snapLeft(
+                        window.id,
+                    )
+                },
+                onSnapRight = {
+                    desktop.snapRight(
+                        window.id,
+                    )
+                },
                 onEndTask = {
                     desktop.close(window.id)
                 },
@@ -282,6 +292,8 @@ private fun TaskWindowRow(
     onActivate: () -> Unit,
     onMinimize: () -> Unit,
     onToggleMaximize: () -> Unit,
+    onSnapLeft: () -> Unit,
+    onSnapRight: () -> Unit,
     onEndTask: () -> Unit,
 ) {
     Surface(
@@ -383,6 +395,16 @@ private fun TaskWindowRow(
                             "Maximizar"
                         }
                     )
+                }
+                TextButton(
+                    onClick = onSnapLeft,
+                ) {
+                    Text("Esquerda")
+                }
+                TextButton(
+                    onClick = onSnapRight,
+                ) {
+                    Text("Direita")
                 }
                 TextButton(
                     onClick = onEndTask,
