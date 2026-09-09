@@ -32,6 +32,7 @@ SURFACE_WRITER_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketp
 SURFACE_WRITER_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_surface_writer.c"
 VISIBILITY_SMOKE = ROOT / "third_party/wine/pocketpc-display-bridge/surface_writer_visibility_smoke.c"
 NATIVE_INTEGRATION = ROOT / "scripts/test-display-bridge-native-integration.py"
+WINE_DRIVER_INPUT = ROOT / "third_party/wine/pocketpc-driver/input.c"
 
 
 def require_sentinels(
@@ -71,6 +72,9 @@ def main() -> int:
     input_semantics = (
         lock.get("inputSemantics") or {}
     )
+    window_commands = (
+        lock.get("windowCommands") or {}
+    )
 
     checks = (
         (wire.get("magicHex"), "0x31424450", "wire magic"),
@@ -100,6 +104,7 @@ def main() -> int:
         "WINDOW_CREATE": 10,
         "WINDOW_GEOMETRY": 11,
         "WINDOW_DESTROY": 12,
+        "WINDOW_COMMAND": 13,
         "SURFACE_REQUEST": 19,
         "SURFACE_AVAILABLE": 20,
         "FRAME_READY": 21,
@@ -129,6 +134,7 @@ def main() -> int:
         "WINDOW_CREATE": "guest-to-host",
         "WINDOW_GEOMETRY": "guest-to-host",
         "WINDOW_DESTROY": "guest-to-host",
+        "WINDOW_COMMAND": "host-to-guest",
         "SURFACE_REQUEST": "guest-to-host",
         "SURFACE_AVAILABLE": "host-to-guest",
         "FRAME_READY": "guest-to-host",
@@ -140,6 +146,23 @@ def main() -> int:
     }
     if direction != expected_direction:
         failures.append("message direction map changed")
+
+    expected_window_commands = {
+        "ACTIVATE": 1,
+        "MINIMIZE": 2,
+        "RESTORE": 3,
+        "MAXIMIZE": 4,
+        "CLOSE": 5,
+    }
+    if (
+        window_commands.get("commands")
+        != expected_window_commands
+        or window_commands.get("flags")
+        != "must be 0"
+    ):
+        failures.append(
+            "window command semantics changed"
+        )
 
     expected_pointer = (
         input_semantics.get("pointer") or {}
@@ -177,6 +200,7 @@ def main() -> int:
         "WINDOW_CREATE": 28,
         "WINDOW_GEOMETRY": 40,
         "WINDOW_DESTROY": 8,
+        "WINDOW_COMMAND": 16,
         "SURFACE_REQUEST": 32,
         "SURFACE_AVAILABLE": 56,
         "FRAME_READY": 32,
@@ -203,6 +227,18 @@ def main() -> int:
         or z_order.get("flags") != expected_z_flags
     ):
         failures.append("z-order contract changed")
+
+    window_command_fields = (
+        layouts.get("WINDOW_COMMAND") or {}
+    ).get("fields") or []
+    if window_command_fields != [
+        "windowId:u64",
+        "command:u32",
+        "flags:u32",
+    ]:
+        failures.append(
+            "WINDOW_COMMAND field contract changed"
+        )
 
     surface_request_fields = (
         layouts.get("SURFACE_REQUEST") or {}
@@ -274,6 +310,7 @@ def main() -> int:
     surface_writer_source = SURFACE_WRITER_SOURCE.read_text(encoding="utf-8")
     visibility_smoke = VISIBILITY_SMOKE.read_text(encoding="utf-8")
     native_integration = NATIVE_INTEGRATION.read_text(encoding="utf-8")
+    wine_driver_input = WINE_DRIVER_INPUT.read_text(encoding="utf-8")
 
     require_sentinels(
         failures,
@@ -285,6 +322,7 @@ def main() -> int:
             "WINDOW_CREATE(10)",
             "WINDOW_GEOMETRY(11)",
             "WINDOW_DESTROY(12)",
+            "WINDOW_COMMAND(13)",
             "SURFACE_REQUEST(19)",
             "SURFACE_AVAILABLE(20)",
             "FRAME_READY(21)",
@@ -307,6 +345,12 @@ def main() -> int:
             "WINDOW_GEOMETRY_BYTES = 40",
             "Z_ORDER_NO_CHANGE = 1 shl 0",
             "Z_ORDER_AFTER_WINDOW = 1 shl 5",
+            "WINDOW_COMMAND_ACTIVATE = 1",
+            "WINDOW_COMMAND_CLOSE = 5",
+            "encodeWindowCommand",
+            "decodeWindowCommand",
+            "DISPLAY_BRIDGE_WINDOW_COMMAND_INVALID",
+            "DISPLAY_BRIDGE_WINDOW_COMMAND_FLAGS_INVALID",
             "insertAfterWindowId",
             "DISPLAY_BRIDGE_Z_ORDER_FLAGS_INVALID",
             "DISPLAY_BRIDGE_Z_ORDER_SELF_REFERENCE",
@@ -446,6 +490,21 @@ def main() -> int:
     )
     require_sentinels(
         failures,
+        "RuntimeDisplaySessionController window control",
+        session_controller,
+        (
+            "fun commandWindow(",
+            "fun activateWindow(",
+            "fun minimizeWindow(",
+            "fun restoreWindow(",
+            "fun maximizeWindow(",
+            "fun closeWindow(",
+            "WINDOW_COMMAND_ACTIVATE",
+            "WINDOW_COMMAND_CLOSE",
+        ),
+    )
+    require_sentinels(
+        failures,
         "Kotlin framebuffer",
         framebuffer,
         (
@@ -467,6 +526,11 @@ def main() -> int:
             "#define PDB_ZORDER_NO_CHANGE (1u << 0)",
             "#define PDB_ZORDER_AFTER_WINDOW (1u << 5)",
             "#define PDB_SURFACE_REQUEST_BYTES 32u",
+            "#define PDB_MSG_WINDOW_COMMAND 13u",
+            "#define PDB_WINDOW_COMMAND_BYTES 16u",
+            "#define PDB_WINDOW_COMMAND_ACTIVATE 1u",
+            "#define PDB_WINDOW_COMMAND_CLOSE 5u",
+            "struct pdb_window_command",
             "#define PDB_MSG_SURFACE_REQUEST 19u",
             "#define PDB_SURFACE_AVAILABLE_BYTES 56u",
             "#define PDB_FRAME_READY_BYTES 32u",
@@ -494,6 +558,8 @@ def main() -> int:
             "PDB_KEY_PAYLOAD_INVALID",
             "PDB_FRAME_ACK_PAYLOAD_INVALID",
             "PDB_WINDOW_GEOMETRY_INVALID",
+            "PDB_WINDOW_COMMAND_FRAME_INVALID",
+            "PDB_WINDOW_COMMAND_PAYLOAD_INVALID",
             "PDB_SOCKET_TIMEOUT_SECONDS",
             "SO_RCVTIMEO",
             "SO_SNDTIMEO",
@@ -585,6 +651,24 @@ def main() -> int:
             "surface writer must not force MS_SYNC on the frame hot path"
         )
 
+    require_sentinels(
+        failures,
+        "Wine HWND window command dispatch",
+        wine_driver_input,
+        (
+            "PDB_MSG_WINDOW_COMMAND",
+            "dispatch_window_command",
+            "PDB_WINDOW_COMMAND_ACTIVATE",
+            "PDB_WINDOW_COMMAND_MINIMIZE",
+            "PDB_WINDOW_COMMAND_RESTORE",
+            "PDB_WINDOW_COMMAND_MAXIMIZE",
+            "PDB_WINDOW_COMMAND_CLOSE",
+            "NtUserSetForegroundWindow",
+            "NtUserShowWindow",
+            "NtUserPostMessage",
+            "WM_CLOSE",
+        ),
+    )
     require_sentinels(
         failures,
         "Box64 bridge builder",
