@@ -349,7 +349,12 @@ int main(void) {
         return 91;
     }
     if (
-        frame.window_id != 1 ||
+        frame.window_id !=
+            surface.window_id ||
+        frame.surface_id !=
+            surface.surface_id ||
+        frame.generation !=
+            surface.generation ||
         frame.frame_id != 1 ||
         frame.status != 0
     ) {
