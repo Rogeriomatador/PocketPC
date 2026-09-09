@@ -69,6 +69,10 @@ internal fun RuntimeDesktopWindowLayer(
                 null,
             )
         }
+    val pressedPointerButtons =
+        remember {
+            mutableMapOf<Long, Int>()
+        }
 
     LaunchedEffect(
         windows.map {
@@ -342,65 +346,162 @@ internal fun RuntimeDesktopWindowLayer(
                                                         ),
                                                     ).isSuccess
 
+                                                val previousButtons =
+                                                    pressedPointerButtons[
+                                                        window.windowId
+                                                    ] ?: 0
+
                                                 when (
                                                     motion.actionMasked
                                                 ) {
                                                     MotionEvent
                                                         .ACTION_DOWN -> {
+                                                        val reported =
+                                                            runtimePointerButtonMask(
+                                                                motion.buttonState,
+                                                            )
+                                                        val buttons =
+                                                            if (
+                                                                reported != 0
+                                                            ) {
+                                                                reported
+                                                            } else {
+                                                                RuntimeDisplayBridgePayloadCodec
+                                                                    .POINTER_BUTTON_PRIMARY
+                                                            }
+
+                                                        pressedPointerButtons[
+                                                            window.windowId
+                                                        ] =
+                                                            previousButtons or
+                                                                buttons
                                                         focusRuntimeWindow()
                                                         send(
                                                             RuntimeDisplayBridgePayloadCodec
                                                                 .POINTER_ACTION_DOWN,
-                                                            RuntimeDisplayBridgePayloadCodec
-                                                                .POINTER_BUTTON_PRIMARY,
+                                                            buttons,
                                                         )
                                                     }
 
                                                     MotionEvent
                                                         .ACTION_UP -> {
-                                                        send(
-                                                            RuntimeDisplayBridgePayloadCodec
-                                                                .POINTER_ACTION_UP,
-                                                            RuntimeDisplayBridgePayloadCodec
-                                                                .POINTER_BUTTON_PRIMARY,
-                                                        )
+                                                        val buttons =
+                                                            previousButtons
+                                                        pressedPointerButtons
+                                                            .remove(
+                                                                window.windowId,
+                                                            )
+                                                        if (
+                                                            buttons == 0 &&
+                                                            motion.getToolType(
+                                                                0,
+                                                            ) ==
+                                                            MotionEvent
+                                                                .TOOL_TYPE_MOUSE
+                                                        ) {
+                                                            true
+                                                        } else {
+                                                            send(
+                                                                RuntimeDisplayBridgePayloadCodec
+                                                                    .POINTER_ACTION_UP,
+                                                                if (
+                                                                    buttons != 0
+                                                                ) {
+                                                                    buttons
+                                                                } else {
+                                                                    RuntimeDisplayBridgePayloadCodec
+                                                                        .POINTER_BUTTON_PRIMARY
+                                                                },
+                                                            )
+                                                        }
+                                                    }
+
+                                                    MotionEvent
+                                                        .ACTION_CANCEL -> {
+                                                        pressedPointerButtons
+                                                            .remove(
+                                                                window.windowId,
+                                                            )
+                                                        if (
+                                                            previousButtons ==
+                                                            0
+                                                        ) {
+                                                            true
+                                                        } else {
+                                                            send(
+                                                                RuntimeDisplayBridgePayloadCodec
+                                                                    .POINTER_ACTION_UP,
+                                                                previousButtons,
+                                                            )
+                                                        }
                                                     }
 
                                                     MotionEvent
                                                         .ACTION_BUTTON_PRESS -> {
-                                                        val buttons =
+                                                        val changed =
                                                             runtimePointerButtonMask(
                                                                 motion.actionButton,
                                                             )
                                                         if (
-                                                            buttons == 0
+                                                            changed == 0
                                                         ) {
                                                             false
+                                                        } else if (
+                                                            previousButtons and
+                                                                changed != 0
+                                                        ) {
+                                                            true
                                                         } else {
+                                                            pressedPointerButtons[
+                                                                window.windowId
+                                                            ] =
+                                                                previousButtons or
+                                                                    changed
                                                             focusRuntimeWindow()
                                                             send(
                                                                 RuntimeDisplayBridgePayloadCodec
                                                                     .POINTER_ACTION_DOWN,
-                                                                buttons,
+                                                                changed,
                                                             )
                                                         }
                                                     }
 
                                                     MotionEvent
                                                         .ACTION_BUTTON_RELEASE -> {
-                                                        val buttons =
+                                                        val changed =
                                                             runtimePointerButtonMask(
                                                                 motion.actionButton,
                                                             )
                                                         if (
-                                                            buttons == 0
+                                                            changed == 0
                                                         ) {
                                                             false
+                                                        } else if (
+                                                            previousButtons and
+                                                                changed == 0
+                                                        ) {
+                                                            true
                                                         } else {
+                                                            val remaining =
+                                                                previousButtons and
+                                                                    changed.inv()
+                                                            if (
+                                                                remaining == 0
+                                                            ) {
+                                                                pressedPointerButtons
+                                                                    .remove(
+                                                                        window.windowId,
+                                                                    )
+                                                            } else {
+                                                                pressedPointerButtons[
+                                                                    window.windowId
+                                                                ] =
+                                                                    remaining
+                                                            }
                                                             send(
                                                                 RuntimeDisplayBridgePayloadCodec
                                                                     .POINTER_ACTION_UP,
-                                                                buttons,
+                                                                changed,
                                                             )
                                                         }
                                                     }
@@ -409,12 +510,20 @@ internal fun RuntimeDesktopWindowLayer(
                                                         .ACTION_MOVE,
                                                     MotionEvent
                                                         .ACTION_HOVER_MOVE -> {
+                                                        val reported =
+                                                            runtimePointerButtonMask(
+                                                                motion.buttonState,
+                                                            )
                                                         send(
                                                             RuntimeDisplayBridgePayloadCodec
                                                                 .POINTER_ACTION_MOVE,
-                                                            runtimePointerButtonMask(
-                                                                motion.buttonState,
-                                                            ),
+                                                            if (
+                                                                reported != 0
+                                                            ) {
+                                                                reported
+                                                            } else {
+                                                                previousButtons
+                                                            },
                                                         )
                                                     }
 
@@ -436,9 +545,7 @@ internal fun RuntimeDesktopWindowLayer(
                                                             send(
                                                                 RuntimeDisplayBridgePayloadCodec
                                                                     .POINTER_ACTION_SCROLL,
-                                                                runtimePointerButtonMask(
-                                                                    motion.buttonState,
-                                                                ),
+                                                                previousButtons,
                                                                 wheel,
                                                             )
                                                         }
