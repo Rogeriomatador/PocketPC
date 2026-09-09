@@ -10,10 +10,18 @@ extern "C" {
 
 #define PDB_WINE_WINDOW_LIMIT 64u
 
+#define PDB_WINE_WINDOW_UNUSED 0u
+#define PDB_WINE_WINDOW_ALLOCATED 1u
+#define PDB_WINE_WINDOW_CREATE_SENT 2u
+#define PDB_WINE_WINDOW_GEOMETRY_SENT 3u
+#define PDB_WINE_WINDOW_DESTROY_SENT 4u
+
 struct pdb_wine_window_entry {
     uintptr_t native_handle;
     uintptr_t parent_handle;
     uint64_t window_id;
+    uint64_t last_sent_sequence;
+    uint32_t lifecycle_state;
     int in_use;
 };
 
@@ -43,6 +51,20 @@ int pdb_wine_window_handle_for_id(
     const struct pdb_wine_window_map *map,
     uint64_t window_id,
     uintptr_t *native_handle
+);
+
+int pdb_wine_window_state(
+    const struct pdb_wine_window_map *map,
+    uintptr_t native_handle,
+    uint32_t *lifecycle_state,
+    uint64_t *last_sent_sequence
+);
+
+int pdb_wine_window_mark_sent(
+    struct pdb_wine_window_map *map,
+    uintptr_t native_handle,
+    uint32_t lifecycle_state,
+    uint64_t sequence
 );
 
 int pdb_wine_window_has_children(
