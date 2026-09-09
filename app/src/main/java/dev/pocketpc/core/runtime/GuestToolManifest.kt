@@ -9,6 +9,14 @@ data class GuestToolFile(
     val executable: Boolean,
 )
 
+data class GuestToolSource(
+    val id: String,
+    val version: String,
+    val location: String,
+    val revisionType: String,
+    val revision: String,
+)
+
 data class GuestToolManifest(
     val schemaVersion: Int,
     val id: String,
@@ -16,10 +24,11 @@ data class GuestToolManifest(
     val architecture: String,
     val guestRoot: String,
     val entrypoint: String,
-    val sourceCommit: String,
+    val sourceCommit: String = "",
     val license: String,
     val files: List<GuestToolFile>,
     val executionMode: String = "native-aarch64",
+    val sources: List<GuestToolSource> = emptyList(),
 )
 
 object GuestToolManifestCodec {
@@ -39,6 +48,28 @@ object GuestToolManifestCodec {
                 )
             }
         }
+        val sourcesJson =
+            root.optJSONArray("sources")
+        val sources = buildList {
+            if (sourcesJson != null) {
+                for (index in 0 until sourcesJson.length()) {
+                    val item =
+                        sourcesJson.getJSONObject(index)
+                    add(
+                        GuestToolSource(
+                            id = item.getString("id"),
+                            version = item.getString("version"),
+                            location = item.getString("location"),
+                            revisionType =
+                                item.getString("revisionType"),
+                            revision =
+                                item.getString("revision")
+                                    .lowercase(),
+                        ),
+                    )
+                }
+            }
+        }
         return GuestToolManifest(
             schemaVersion = root.getInt("schemaVersion"),
             id = root.getString("id"),
@@ -46,7 +77,11 @@ object GuestToolManifestCodec {
             architecture = root.getString("architecture"),
             guestRoot = root.getString("guestRoot"),
             entrypoint = root.getString("entrypoint"),
-            sourceCommit = root.getString("sourceCommit").lowercase(),
+            sourceCommit =
+                root.optString(
+                    "sourceCommit",
+                    "",
+                ).lowercase(),
             license = root.getString("license"),
             files = files,
             executionMode =
@@ -54,6 +89,7 @@ object GuestToolManifestCodec {
                     "executionMode",
                     "native-aarch64",
                 ),
+            sources = sources,
         )
     }
 }
@@ -63,11 +99,13 @@ object GuestToolManifestValidator {
     private val versionRegex = Regex("^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$")
     private val sha256Regex = Regex("^[0-9a-f]{64}$")
     private val commitRegex = Regex("^[0-9a-f]{40}$")
+    private val sourceLocationRegex =
+        Regex("^https://[^\\s]{1,1024}$")
 
     fun errors(manifest: GuestToolManifest): List<String> {
         val errors = mutableListOf<String>()
 
-        if (manifest.schemaVersion != 1) {
+        if (manifest.schemaVersion !in 1..2) {
             errors += "GUEST_TOOL_SCHEMA_UNSUPPORTED"
         }
         if (!idRegex.matches(manifest.id)) {
@@ -112,9 +150,51 @@ object GuestToolManifestValidator {
             errors += "GUEST_TOOL_ENTRYPOINT_INVALID"
         }
 
-        if (!commitRegex.matches(manifest.sourceCommit)) {
-            errors += "GUEST_TOOL_SOURCE_COMMIT_INVALID"
+        when (manifest.schemaVersion) {
+            1 -> {
+                if (!commitRegex.matches(manifest.sourceCommit)) {
+                    errors += "GUEST_TOOL_SOURCE_COMMIT_INVALID"
+                }
+                if (manifest.sources.isNotEmpty()) {
+                    errors += "GUEST_TOOL_SOURCES_NOT_ALLOWED_IN_SCHEMA_V1"
+                }
+            }
+            2 -> {
+                if (manifest.sourceCommit.isNotBlank()) {
+                    errors += "GUEST_TOOL_SOURCE_COMMIT_FORBIDDEN_IN_SCHEMA_V2"
+                }
+                if (manifest.sources.isEmpty() || manifest.sources.size > 32) {
+                    errors += "GUEST_TOOL_SOURCES_INVALID"
+                }
+                val sourceIds = HashSet<String>()
+                manifest.sources.forEach { source ->
+                    if (!idRegex.matches(source.id)) {
+                        errors += "GUEST_TOOL_SOURCE_ID_INVALID:" + source.id
+                    } else if (!sourceIds.add(source.id)) {
+                        errors += "GUEST_TOOL_SOURCE_DUPLICATE:" + source.id
+                    }
+                    if (!versionRegex.matches(source.version)) {
+                        errors += "GUEST_TOOL_SOURCE_VERSION_INVALID:" + source.id
+                    }
+                    if (!sourceLocationRegex.matches(source.location)) {
+                        errors += "GUEST_TOOL_SOURCE_LOCATION_INVALID:" + source.id
+                    }
+                    when (source.revisionType) {
+                        "git-commit" ->
+                            if (!commitRegex.matches(source.revision)) {
+                                errors += "GUEST_TOOL_SOURCE_REVISION_INVALID:" + source.id
+                            }
+                        "archive-sha256" ->
+                            if (!sha256Regex.matches(source.revision)) {
+                                errors += "GUEST_TOOL_SOURCE_REVISION_INVALID:" + source.id
+                            }
+                        else ->
+                            errors += "GUEST_TOOL_SOURCE_REVISION_TYPE_INVALID:" + source.id
+                    }
+                }
+            }
         }
+
         if (manifest.license.isBlank() || manifest.license.length > 160) {
             errors += "GUEST_TOOL_LICENSE_INVALID"
         }
