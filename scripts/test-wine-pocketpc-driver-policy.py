@@ -76,7 +76,7 @@ def main() -> int:
         "inputInjectionTemplateImplemented",
         "surfaceRequestProtocolImplemented",
         "surfaceWriterAttestationImplemented",
-        "asyncFrameAckDrainImplemented",
+        "surfaceTransactionDemuxImplemented",
     )
     expected_false = (
         "protocolV3NativeIntegrationExecuted",
@@ -160,6 +160,23 @@ def main() -> int:
             ".pCreateWindowSurface",
             ".pWindowPosChanging",
             ".pWindowPosChanged",
+        ),
+    )
+    bridge_source = (
+        ROOT /
+        "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.c"
+    ).read_text(encoding="utf-8")
+    require(
+        failures,
+        "Bridge timeout and validation",
+        bridge_source,
+        (
+            "SO_RCVTIMEO",
+            "SO_SNDTIMEO",
+            "PDB_SOCKET_TIMEOUT_SECONDS",
+            "PDB_POINTER_BUTTON_ALLOWED",
+            "pdb_peek_message_type",
+            "pdb_receive_host_event",
         ),
     )
     require(
