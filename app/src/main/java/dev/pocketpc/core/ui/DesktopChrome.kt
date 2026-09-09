@@ -753,6 +753,7 @@ fun TaskbarV2(
         x: Int,
     ) {
         taskbarMenuTarget = null
+        desktop.closeStartMenu()
         desktop.closeContextMenu()
         systemMenuAnchorX =
             x.coerceAtLeast(0)
@@ -959,6 +960,8 @@ fun TaskbarV2(
                                         )
                                         .desktopSecondaryClick {
                                             desktop
+                                                .closeStartMenu()
+                                            desktop
                                                 .closeContextMenu()
                                             systemMenuOpen =
                                                 false
@@ -977,6 +980,8 @@ fun TaskbarV2(
                                                     )
                                             },
                                             onLongClick = {
+                                                desktop
+                                                    .closeStartMenu()
                                                 desktop
                                                     .closeContextMenu()
                                                 systemMenuOpen =
