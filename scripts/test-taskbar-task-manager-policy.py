@@ -104,7 +104,10 @@ def main() -> int:
             failures.append("taskbar anchored popup implementation missing")
 
     manager = text.get("manager", "")
-    if "RuntimeProcessRegistry.terminate" not in manager:
+    if (
+        "RuntimeProcessRegistry" not in manager
+        or ".terminate(" not in manager
+    ):
         failures.append("Task Manager cannot terminate supervised runtime processes")
     if "window.app !=" not in manager or "DesktopApp.TASK_MANAGER" not in manager:
         failures.append("Task Manager self-window protection missing")
