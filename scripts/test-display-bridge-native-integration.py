@@ -169,6 +169,9 @@ def main() -> int:
         failstop_executable =
             work /
             "transport_failstop_smoke"
+        surface_writer_executable =
+            work /
+            "surface_writer_smoke"
 
         run(
             [
@@ -332,6 +335,55 @@ def main() -> int:
         ):
             raise RuntimeError(
                 "DISPLAY_BRIDGE_FAILSTOP_MARKER_MISSING"
+            )
+
+        run(
+            [
+                compiler,
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-Wpedantic",
+                "-O2",
+                "-I",
+                str(BRIDGE),
+                str(
+                    BRIDGE /
+                    "pocketpc_display_bridge.c"
+                ),
+                str(
+                    BRIDGE /
+                    "pocketpc_surface_writer.c"
+                ),
+                str(
+                    BRIDGE /
+                    "surface_writer_smoke.c"
+                ),
+                "-o",
+                str(surface_writer_executable),
+            ],
+            work,
+        )
+        surface_writer_result =
+            subprocess.run(
+                [
+                    str(
+                        surface_writer_executable,
+                    )
+                ],
+                cwd=work,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        if (
+            "POCKETPC_SURFACE_WRITER_SMOKE_OK"
+            not in
+            surface_writer_result.stdout
+        ):
+            raise RuntimeError(
+                "SURFACE_WRITER_MARKER_MISSING"
             )
 
 
@@ -620,6 +672,9 @@ def main() -> int:
             )
             print(
                 "transport_failstop=native-software-pass"
+            )
+            print(
+                "surface_writer=native-software-pass"
             )
             print(
                 "transport=x86_64-native-host-fixture"
