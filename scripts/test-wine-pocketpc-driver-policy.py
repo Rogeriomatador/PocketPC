@@ -92,6 +92,9 @@ def main() -> int:
         "pcTargetMaterializationImplemented",
         "runtimeEvidenceIdentityCoherenceImplemented",
         "continuousAppDesktopBridgeImplemented",
+        "dxvkLaunchOverrideImplemented",
+        "winePocketPcWindowProbeBrokerImplemented",
+        "winePocketPcWindowEvidenceImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
@@ -108,6 +111,9 @@ def main() -> int:
         "pcTargetMaterializationSoftwareTestExecuted",
         "runtimeEvidenceIdentityCoherenceSoftwareTestExecuted",
         "continuousAppDesktopBridgeSoftwareTestExecuted",
+        "dxvkLaunchOverrideSoftwareTestExecuted",
+        "winePocketPcWindowProbeBrokerSoftwareTestExecuted",
+        "winePocketPcWindowEvidenceSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
