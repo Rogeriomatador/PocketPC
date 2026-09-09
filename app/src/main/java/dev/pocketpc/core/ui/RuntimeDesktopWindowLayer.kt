@@ -1,9 +1,9 @@
 package dev.pocketpc.core.ui
 
 import android.view.KeyEvent as AndroidKeyEvent
+import android.view.MotionEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,13 +25,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -45,6 +46,7 @@ import dev.pocketpc.core.runtime.RuntimeDisplayCompositorWindow
 import dev.pocketpc.core.runtime.RuntimeWindowsKeyMapper
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun RuntimeDesktopWindowLayer(
     windows:
@@ -268,92 +270,182 @@ internal fun RuntimeDesktopWindowLayer(
                                     modifier =
                                         Modifier
                                             .fillMaxSize()
-                                            .pointerInput(
-                                                window.windowId,
-                                                window.frameId,
-                                            ) {
-                                                detectTapGestures(
-                                                    onPress = {
-                                                        position ->
-                                                        val displayWidth =
-                                                            size.width
-                                                                .coerceAtLeast(
-                                                                    1,
-                                                                )
-                                                        val displayHeight =
-                                                            size.height
-                                                                .coerceAtLeast(
-                                                                    1,
-                                                                )
-                                                        val x =
-                                                            (
-                                                                position.x /
-                                                                    displayWidth *
-                                                                    frame.width
-                                                            ).roundToInt()
-                                                                .coerceIn(
-                                                                    0,
-                                                                    frame.width -
-                                                                        1,
-                                                                )
-                                                        val y =
-                                                            (
-                                                                position.y /
-                                                                    displayHeight *
-                                                                    frame.height
-                                                            ).roundToInt()
-                                                                .coerceIn(
-                                                                    0,
-                                                                    frame.height -
-                                                                        1,
-                                                                )
+                                            .pointerInteropFilter {
+                                                motion ->
+                                                val displayWidth =
+                                                    widthPx
+                                                        .coerceAtLeast(
+                                                            1f,
+                                                        )
+                                                val displayHeight =
+                                                    heightPx
+                                                        .coerceAtLeast(
+                                                            1f,
+                                                        )
+                                                val x =
+                                                    (
+                                                        motion.x /
+                                                            displayWidth *
+                                                            frame.width
+                                                    ).roundToInt()
+                                                        .coerceIn(
+                                                            0,
+                                                            frame.width -
+                                                                1,
+                                                        )
+                                                val y =
+                                                    (
+                                                        motion.y /
+                                                            displayHeight *
+                                                            frame.height
+                                                    ).roundToInt()
+                                                        .coerceIn(
+                                                            0,
+                                                            frame.height -
+                                                                1,
+                                                        )
+                                                val modifiers =
+                                                    RuntimeWindowsKeyMapper
+                                                        .modifiers(
+                                                            motion.metaState,
+                                                        )
 
-                                                        focusedWindowId =
-                                                            window.windowId
-                                                        keyboardFocusRequester
-                                                            .requestFocus()
-                                                        bridge.activate(
-                                                            window.windowId,
+                                                fun focusRuntimeWindow() {
+                                                    focusedWindowId =
+                                                        window.windowId
+                                                    keyboardFocusRequester
+                                                        .requestFocus()
+                                                    bridge.activate(
+                                                        window.windowId,
+                                                    )
+                                                }
+
+                                                fun send(
+                                                    action: Int,
+                                                    buttons: Int,
+                                                    scroll: Int = 0,
+                                                ): Boolean =
+                                                    bridge.sendPointer(
+                                                        RuntimeBridgePointerEvent(
+                                                            windowId =
+                                                                window.windowId,
+                                                            action =
+                                                                action,
+                                                            x = x,
+                                                            y = y,
+                                                            buttons =
+                                                                buttons,
+                                                            verticalScroll =
+                                                                scroll,
+                                                            modifiers =
+                                                                modifiers,
+                                                        ),
+                                                    ).isSuccess
+
+                                                when (
+                                                    motion.actionMasked
+                                                ) {
+                                                    MotionEvent
+                                                        .ACTION_DOWN -> {
+                                                        focusRuntimeWindow()
+                                                        send(
+                                                            RuntimeDisplayBridgePayloadCodec
+                                                                .POINTER_ACTION_DOWN,
+                                                            RuntimeDisplayBridgePayloadCodec
+                                                                .POINTER_BUTTON_PRIMARY,
                                                         )
-                                                        bridge.sendPointer(
-                                                            RuntimeBridgePointerEvent(
-                                                                windowId =
-                                                                    window.windowId,
-                                                                action =
-                                                                    RuntimeDisplayBridgePayloadCodec
-                                                                        .POINTER_ACTION_DOWN,
-                                                                x = x,
-                                                                y = y,
-                                                                buttons =
-                                                                    RuntimeDisplayBridgePayloadCodec
-                                                                        .POINTER_BUTTON_PRIMARY,
-                                                                verticalScroll =
-                                                                    0,
-                                                                modifiers =
-                                                                    0,
+                                                    }
+
+                                                    MotionEvent
+                                                        .ACTION_UP -> {
+                                                        send(
+                                                            RuntimeDisplayBridgePayloadCodec
+                                                                .POINTER_ACTION_UP,
+                                                            RuntimeDisplayBridgePayloadCodec
+                                                                .POINTER_BUTTON_PRIMARY,
+                                                        )
+                                                    }
+
+                                                    MotionEvent
+                                                        .ACTION_BUTTON_PRESS -> {
+                                                        val buttons =
+                                                            runtimePointerButtonMask(
+                                                                motion.actionButton,
+                                                            )
+                                                        if (
+                                                            buttons == 0
+                                                        ) {
+                                                            false
+                                                        } else {
+                                                            focusRuntimeWindow()
+                                                            send(
+                                                                RuntimeDisplayBridgePayloadCodec
+                                                                    .POINTER_ACTION_DOWN,
+                                                                buttons,
+                                                            )
+                                                        }
+                                                    }
+
+                                                    MotionEvent
+                                                        .ACTION_BUTTON_RELEASE -> {
+                                                        val buttons =
+                                                            runtimePointerButtonMask(
+                                                                motion.actionButton,
+                                                            )
+                                                        if (
+                                                            buttons == 0
+                                                        ) {
+                                                            false
+                                                        } else {
+                                                            send(
+                                                                RuntimeDisplayBridgePayloadCodec
+                                                                    .POINTER_ACTION_UP,
+                                                                buttons,
+                                                            )
+                                                        }
+                                                    }
+
+                                                    MotionEvent
+                                                        .ACTION_MOVE,
+                                                    MotionEvent
+                                                        .ACTION_HOVER_MOVE -> {
+                                                        send(
+                                                            RuntimeDisplayBridgePayloadCodec
+                                                                .POINTER_ACTION_MOVE,
+                                                            runtimePointerButtonMask(
+                                                                motion.buttonState,
                                                             ),
                                                         )
-                                                        tryAwaitRelease()
-                                                        bridge.sendPointer(
-                                                            RuntimeBridgePointerEvent(
-                                                                windowId =
-                                                                    window.windowId,
-                                                                action =
-                                                                    RuntimeDisplayBridgePayloadCodec
-                                                                        .POINTER_ACTION_UP,
-                                                                x = x,
-                                                                y = y,
-                                                                buttons =
-                                                                    RuntimeDisplayBridgePayloadCodec
-                                                                        .POINTER_BUTTON_PRIMARY,
-                                                                verticalScroll =
-                                                                    0,
-                                                                modifiers =
-                                                                    0,
-                                                            ),
-                                                        )
-                                                    },
-                                                )
+                                                    }
+
+                                                    MotionEvent
+                                                        .ACTION_SCROLL -> {
+                                                        val wheel =
+                                                            (
+                                                                motion.getAxisValue(
+                                                                    MotionEvent
+                                                                        .AXIS_VSCROLL,
+                                                                ) *
+                                                                    WINDOWS_WHEEL_DELTA
+                                                            ).roundToInt()
+                                                        if (
+                                                            wheel == 0
+                                                        ) {
+                                                            false
+                                                        } else {
+                                                            send(
+                                                                RuntimeDisplayBridgePayloadCodec
+                                                                    .POINTER_ACTION_SCROLL,
+                                                                runtimePointerButtonMask(
+                                                                    motion.buttonState,
+                                                                ),
+                                                                wheel,
+                                                            )
+                                                        }
+                                                    }
+
+                                                    else -> false
+                                                }
                                             },
                                     contentScale =
                                         ContentScale
