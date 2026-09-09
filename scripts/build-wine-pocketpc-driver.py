@@ -9,6 +9,7 @@ execution.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
@@ -106,81 +107,147 @@ def elf_identity(path: Path) -> dict[str, int]:
     }
 
 
-def discover_build_targets(
-    build: Path,
-    makefile: Path,
-) -> tuple[list[str], list[str]]:
-    candidates = (
-        "dlls/winepocketpc.drv/all",
-        "dlls/winepocketpc.drv/winepocketpc.drv",
-        "dlls/winepocketpc.drv/winepocketpc.so",
-    )
+OFFICIAL_BUILD_TARGETS = (
+    "dlls/winepocketpc.drv/all",
+    "dlls/winepocketpc.drv/winepocketpc.drv",
+    "dlls/winepocketpc.drv/winepocketpc.so",
+)
 
-    database = subprocess.run(
-        [
-            "make",
-            "-qp",
-            "-f",
-            str(makefile),
-        ],
-        cwd=build,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        check=False,
-    ).stdout
 
-    discovered = {
+@dataclass(frozen=True)
+class BuildTargetDiscovery:
+    selected: list[str]
+    discovered: list[str]
+    selection_source: str
+    database_exit_code: int | None
+    database_error: str | None
+    database_target_count: int
+    makefile_target_count: int
+
+
+def _parse_make_targets(text: str) -> set[str]:
+    return {
         line.split(":", 1)[0].strip()
-        for line in database.splitlines()
+        for line in text.splitlines()
         if ":" in line
         and not line.startswith("\t")
         and not line.startswith("#")
         and "=" not in line.split(":", 1)[0]
     }
 
-    present = [
-        target
-        for target in candidates
-        if target in discovered
-    ]
 
-    aggregate = candidates[0]
-    pe = candidates[1]
-    unixlib = candidates[2]
+def _select_official_targets(
+    targets: set[str],
+) -> list[str]:
+    aggregate, pe, unixlib = OFFICIAL_BUILD_TARGETS
+    if aggregate in targets:
+        return [aggregate]
+    if pe in targets and unixlib in targets:
+        return [pe, unixlib]
+    return []
 
-    if aggregate in present:
-        return [aggregate], present
 
-    if pe in present and unixlib in present:
-        return [pe, unixlib], present
+def discover_build_targets(
+    build: Path,
+    makefile: Path,
+) -> BuildTargetDiscovery:
+    database_targets: set[str] = set()
+    database_exit_code: int | None = None
+    database_error: str | None = None
 
-    # Fall back to the generated Makefile text only for diagnostics
-    # if make's database output is incomplete on a platform.
-    text = makefile.read_text(
-        encoding="utf-8",
-        errors="replace",
+    try:
+        result = subprocess.run(
+            [
+                "make",
+                "-qp",
+                "-f",
+                str(makefile),
+            ],
+            cwd=build,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+        database_exit_code = result.returncode
+
+        # GNU make -q uses exit 1 for "targets need rebuilding".
+        # That is not a database-generation failure. Exit >= 2 is.
+        if result.returncode in (0, 1):
+            database_targets = _parse_make_targets(
+                result.stdout,
+            )
+        else:
+            database_error = (
+                "MAKE_DATABASE_EXIT_" +
+                str(result.returncode)
+            )
+    except OSError as error:
+        database_error = (
+            "MAKE_DATABASE_EXEC_FAILED:" +
+            error.__class__.__name__
+        )
+
+    selected = _select_official_targets(
+        database_targets,
     )
-    direct = {
-        line.split(":", 1)[0].strip()
-        for line in text.splitlines()
-        if ":" in line
-        and not line.startswith("\t")
-        and not line.startswith("#")
-    }
-    fallback = [
-        target
-        for target in candidates
-        if target in direct
-    ]
+    if selected:
+        return BuildTargetDiscovery(
+            selected=selected,
+            discovered=sorted(
+                target
+                for target in OFFICIAL_BUILD_TARGETS
+                if target in database_targets
+            ),
+            selection_source="make-database",
+            database_exit_code=
+                database_exit_code,
+            database_error=database_error,
+            database_target_count=
+                len(database_targets),
+            makefile_target_count=0,
+        )
 
-    if aggregate in fallback:
-        return [aggregate], fallback
-    if pe in fallback and unixlib in fallback:
-        return [pe, unixlib], fallback
+    # A generated Wine Makefile is an authoritative fallback for
+    # exact target names if make's database is unavailable/incomplete.
+    makefile_targets =
+        _parse_make_targets(
+            makefile.read_text(
+                encoding="utf-8",
+                errors="replace",
+            ),
+        )
+    fallback_selected =
+        _select_official_targets(
+            makefile_targets,
+        )
 
-    return [], sorted(
-        set(present) | set(fallback)
+    discovered = sorted(
+        {
+            target
+            for target in OFFICIAL_BUILD_TARGETS
+            if (
+                target in database_targets
+                or target in makefile_targets
+            )
+        }
+    )
+
+    return BuildTargetDiscovery(
+        selected=fallback_selected,
+        discovered=discovered,
+        selection_source=(
+            "generated-makefile"
+            if fallback_selected
+            else "none"
+        ),
+        database_exit_code=
+            database_exit_code,
+        database_error=database_error,
+        database_target_count=
+            len(database_targets),
+        makefile_target_count=
+            len(makefile_targets),
     )
 
 
@@ -336,42 +403,59 @@ def main() -> int:
         write_evidence(evidence_path, base)
         return 31
 
-    build_targets, discovered_targets = (
+    discovery =
         discover_build_targets(
             build,
             generated_makefile,
         )
-    )
-    base["discoveredBuildTargets"] = (
-        discovered_targets
-    )
-    if not build_targets:
-        base["status"] = "BUILD_TARGET_NOT_FOUND"
-        base["targetCandidates"] = [
-            "dlls/winepocketpc.drv/all",
-            "dlls/winepocketpc.drv/winepocketpc.drv",
-            "dlls/winepocketpc.drv/winepocketpc.so",
-        ]
+    base["buildTargetDiscovery"] = {
+        "selected": discovery.selected,
+        "discoveredOfficialTargets":
+            discovery.discovered,
+        "selectionSource":
+            discovery.selection_source,
+        "makeDatabaseExitCode":
+            discovery.database_exit_code,
+        "makeDatabaseError":
+            discovery.database_error,
+        "makeDatabaseTargetCount":
+            discovery.database_target_count,
+        "generatedMakefileTargetCount":
+            discovery.makefile_target_count,
+        "officialCandidates":
+            list(OFFICIAL_BUILD_TARGETS),
+    }
+    if not discovery.selected:
+        base["status"] = (
+            "BUILD_TARGET_DATABASE_FAILED"
+            if discovery.database_error
+            else "BUILD_TARGET_NOT_FOUND"
+        )
         write_evidence(evidence_path, base)
         print(
-            "WINE_POCKETPC_DRIVER_BUILD_TARGET_NOT_FOUND"
+            "WINE_POCKETPC_DRIVER_" +
+            str(base["status"])
         )
-        return 32
+        return (
+            38
+            if discovery.database_error
+            else 32
+        )
 
     base["selectedBuildTargets"] = (
-        build_targets
+        discovery.selected
     )
     base["buildCommand"] = [
         "make",
         "-j2",
-        *build_targets,
+        *discovery.selected,
     ]
 
     build_rc = run_logged(
         [
             "make",
             "-j2",
-            *build_targets,
+            *discovery.selected,
         ],
         build,
         build_log,
