@@ -31,13 +31,23 @@ class PcWindowsLaunchAttemptPlannerTest {
         assertTrue(
             args[1].contains(
                 "reg.exe add " +
-                    "'HKCU\\\\Software\\\\Wine\\\\Drivers' " +
+                    "'HKCU\\Software\\Wine\\Drivers' " +
                     "/v Graphics /t REG_SZ /d pocketpc /f",
             ),
         )
         assertTrue(
             args[1].contains(
-                "exec \"\\$box64\" \"\\$wine\" \"\\$@\"",
+                "exec \"\$box64\" \"\$wine\" \"\$@\"",
+            ),
+        )
+        assertTrue(
+            args[1].contains(
+                "box64=\"\$1\"",
+            ),
+        )
+        assertTrue(
+            args[1].contains(
+                "wine=\"\$2\"",
             ),
         )
         assertEquals(
@@ -53,7 +63,7 @@ class PcWindowsLaunchAttemptPlannerTest {
         )
         assertFalse(
             args[1].contains(
-                "'HKCU\\\\\\\\Software",
+                "'HKCU\\\\Software",
             ),
         )
     }
