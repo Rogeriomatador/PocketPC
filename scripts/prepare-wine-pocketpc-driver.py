@@ -210,6 +210,19 @@ def main() -> int:
             )
         dst = destination / name
         shutil.copyfile(src, dst)
+        if name in UNIX_ONLY_C_FILES:
+            original = dst.read_text(
+                encoding="utf-8",
+            )
+            if "#pragma makedep unix" in original:
+                raise SystemExit(
+                    f"BRIDGE_SOURCE_ALREADY_HAS_WINE_MAKEDEP:{name}"
+                )
+            dst.write_text(
+                UNIX_MAKEDEP_PREAMBLE +
+                original,
+                encoding="utf-8",
+            )
         copied.append(
             {
                 "path": f"dlls/winepocketpc.drv/{name}",
