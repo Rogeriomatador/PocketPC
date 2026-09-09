@@ -136,14 +136,9 @@ object PcWindowsLaunchAttemptPlanner {
                             ),
                     )
                 val shellArgs =
-                    buildList {
-                        add("-c")
-                        add("exec \"\$@\"")
-                        add(
-                            "pocketpc-windows-launch",
-                        )
-                        addAll(wine.argv)
-                    }
+                    shellArguments(
+                        wine.argv,
+                    )
                 val base =
                     ProotInvocationPlanner
                         .build(
@@ -214,4 +209,16 @@ object PcWindowsLaunchAttemptPlanner {
                 structuralBlockers,
         )
     }
+
+    internal fun shellArguments(
+        wineArgv: List<String>,
+    ): List<String> =
+        buildList {
+            add("-c")
+            add("exec \"\$@\"")
+            add(
+                "pocketpc-windows-launch",
+            )
+            addAll(wineArgv)
+        }
 }
