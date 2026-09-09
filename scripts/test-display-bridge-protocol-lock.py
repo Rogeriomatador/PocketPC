@@ -80,7 +80,7 @@ def main() -> int:
 
     checks = (
         (wire.get("magicHex"), "0x31424450", "wire magic"),
-        (wire.get("version"), 3, "version"),
+        (wire.get("version"), 4, "version"),
         (wire.get("headerBytes"), 20, "header"),
         (
             wire.get("maxPayloadBytes"),
@@ -221,7 +221,7 @@ def main() -> int:
         "FRAME_READY": 32,
         "POINTER_EVENT": 32,
         "KEY_EVENT": 28,
-        "FRAME_PRESENTED": 20,
+        "FRAME_PRESENTED": 36,
     }
     for name, size in expected_sizes.items():
         if (layouts.get(name) or {}).get("bytes") != size:
@@ -346,7 +346,7 @@ def main() -> int:
             "POINTER_EVENT(30)",
             "KEY_EVENT(31)",
             "FRAME_PRESENTED(40)",
-            "const val VERSION = 3",
+            "const val VERSION = 4",
             "const val HEADER_BYTES = 20",
         ),
     )
@@ -544,7 +544,7 @@ def main() -> int:
         header,
         (
             "#define PDB_MAGIC 0x31424450u",
-            "#define PDB_VERSION 3u",
+            "#define PDB_VERSION 4u",
             "#define PDB_WINDOW_GEOMETRY_BYTES 40u",
             "#define PDB_ZORDER_NO_CHANGE (1u << 0)",
             "#define PDB_ZORDER_AFTER_WINDOW (1u << 5)",
@@ -773,7 +773,7 @@ def main() -> int:
             "pocketpc_display_bridge.c",
             "display_bridge_smoke.c",
             "displayBridgeSources",
-            '"protocolVersion": 3',
+            '"protocolVersion": 4',
         ),
     )
 
@@ -790,7 +790,7 @@ def main() -> int:
         return 1
 
     print("DISPLAY_BRIDGE_PROTOCOL_LOCK_OK")
-    print("protocol_version=3")
+    print("protocol_version=4")
     print("shared_framebuffer=BGRA8888")
     print("runtime_integration_evidence=false")
     return 0
