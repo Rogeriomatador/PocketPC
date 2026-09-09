@@ -12,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 BRIDGE = ROOT / "third_party/wine/pocketpc-display-bridge"
 MAGIC = 0x31424450
-VERSION = 2
+VERSION = 3
 CAPABILITIES = 23
 
 
@@ -414,7 +414,7 @@ def main() -> int:
             environment.update(
                 {
                     "POCKETPC_DISPLAY_PROTOCOL":
-                        "2",
+                        "3",
                     "POCKETPC_DISPLAY_SOCKET":
                         socket_name,
                     "POCKETPC_DISPLAY_TOKEN":
@@ -510,21 +510,17 @@ def main() -> int:
                 assert (
                     msg_type,
                     sequence,
-                ) == (11, 2)
-                geometry =
-                    struct.unpack(
-                        "<QiiiiIIQ",
-                        payload,
-                    )
+                ) == (19, 2)
                 assert (
-                    geometry ==
+                    struct.unpack(
+                        "<QQiiII",
+                        payload,
+                    ) ==
                     (
                         1,
-                        20,
-                        30,
-                        640,
-                        360,
                         1,
+                        64,
+                        64,
                         1,
                         0,
                     )
@@ -558,7 +554,35 @@ def main() -> int:
                 assert (
                     msg_type,
                     sequence,
-                ) == (21, 3)
+                ) == (11, 3)
+                geometry =
+                    struct.unpack(
+                        "<QiiiiIIQ",
+                        payload,
+                    )
+                assert (
+                    geometry ==
+                    (
+                        1,
+                        20,
+                        30,
+                        640,
+                        360,
+                        1,
+                        1,
+                        0,
+                    )
+                )
+
+                msg_type, sequence, payload = (
+                    read_frame(
+                        connection,
+                    )
+                )
+                assert (
+                    msg_type,
+                    sequence,
+                ) == (21, 4)
                 assert (
                     struct.unpack(
                         "<QQQQ",
@@ -620,7 +644,7 @@ def main() -> int:
                 assert (
                     msg_type,
                     sequence,
-                ) == (12, 4)
+                ) == (12, 5)
                 assert (
                     struct.unpack(
                         "<Q",
