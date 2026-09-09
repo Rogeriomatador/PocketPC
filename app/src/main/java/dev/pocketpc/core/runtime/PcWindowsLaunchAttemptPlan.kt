@@ -242,13 +242,13 @@ object PcWindowsLaunchAttemptPlanner {
             add("-c")
             add(
                 "set -eu; " +
-                    "box64=\"\\$1\"; " +
-                    "wine=\"\\$2\"; " +
+                    "box64=\"\$1\"; " +
+                    "wine=\"\$2\"; " +
                     "shift 2; " +
-                    "\"\\$box64\" \"\\$wine\" reg.exe add " +
+                    "\"\$box64\" \"\$wine\" reg.exe add " +
                     "'HKCU\\Software\\Wine\\Drivers' " +
                     "/v Graphics /t REG_SZ /d pocketpc /f >/dev/null; " +
-                    "exec \"\\$box64\" \"\\$wine\" \"\\$@\"",
+                    "exec \"\$box64\" \"\$wine\" \"\$@\"",
             )
             add(
                 "pocketpc-windows-launch",
