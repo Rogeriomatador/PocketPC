@@ -111,7 +111,13 @@
     "runtimeEvidenceIdentityCoherenceImplemented": true,
     "runtimeEvidenceIdentityCoherenceSoftwareTestExecuted": false,
     "continuousAppDesktopBridgeImplemented": true,
-    "continuousAppDesktopBridgeSoftwareTestExecuted": false
+    "continuousAppDesktopBridgeSoftwareTestExecuted": false,
+    "dxvkLaunchOverrideImplemented": true,
+    "dxvkLaunchOverrideSoftwareTestExecuted": false,
+    "winePocketPcWindowProbeBrokerImplemented": true,
+    "winePocketPcWindowProbeBrokerSoftwareTestExecuted": false,
+    "winePocketPcWindowEvidenceImplemented": true,
+    "winePocketPcWindowEvidenceSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -357,6 +363,9 @@
     "executionChain": "PRoot -> /bin/sh -c fixed exec \"$@\" -> Box64 -> Wine -> materialized EXE/MSI",
     "shellSafety": "dynamic Box64/Wine/target values are positional arguments and are never interpolated into shell source",
     "evidenceRule": "all required smoke evidence must come from one runtime/tool/layer identity; application compatibility remains UNVALIDATED after a mere attempt",
-    "desktopRule": "continuous RuntimeDisplaySessionController publishes compositor windows through RuntimeDesktopBridge"
+    "desktopRule": "continuous RuntimeDisplaySessionController publishes compositor windows through RuntimeDesktopBridge",
+    "graphicsRoute": "controlled app attempts require the currently discovered dxvk layer and set WINEDLLOVERRIDES=d3d11=n;dxgi=n, matching the validated D3D11/Present smoke route",
+    "wineDriverGate": "attempt remains blocked until WINE_POCKETPC_WINDOW_SMOKE records an identity-bound round trip proving winepocketpc.drv window creation, GDI pixels, pointer/key input and window destruction through the Android broker",
+    "evidenceNamespace": "runtime-probe-evidence-v8; earlier evidence namespace is intentionally not reused"
   }
 }
