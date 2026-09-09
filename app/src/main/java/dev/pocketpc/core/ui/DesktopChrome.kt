@@ -11,6 +11,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.hoverable
@@ -73,8 +74,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import dev.pocketpc.core.BuildConfig
 import dev.pocketpc.core.desktop.DesktopApp
 import dev.pocketpc.core.desktop.DesktopController
@@ -532,6 +540,49 @@ fun AppIconTile(
                             outer,
                             line,
                             StrokeCap.Round,
+                        )
+                    }
+                }
+
+                DesktopApp.TASK_MANAGER -> {
+                    val rows =
+                        listOf(
+                            0.25f,
+                            0.50f,
+                            0.75f,
+                        )
+                    rows.forEachIndexed {
+                        index,
+                        row ->
+                        drawCircle(
+                            color = white,
+                            radius = w * 0.055f,
+                            center =
+                                Offset(
+                                    w * 0.18f,
+                                    h * row,
+                                ),
+                        )
+                        drawLine(
+                            color = white,
+                            start =
+                                Offset(
+                                    w * 0.32f,
+                                    h * row,
+                                ),
+                            end =
+                                Offset(
+                                    w *
+                                        (
+                                            0.72f +
+                                                index *
+                                                    0.05f
+                                        ),
+                                    h * row,
+                                ),
+                            strokeWidth = line,
+                            cap =
+                                StrokeCap.Round,
                         )
                     }
                 }
@@ -1445,6 +1496,19 @@ fun DesktopContextMenu(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Este PC", modifier = Modifier.fillMaxWidth())
+            }
+            TextButton(
+                onClick = {
+                    desktop.open(
+                        DesktopApp.TASK_MANAGER
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    "Gerenciador de Tarefas",
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             TextButton(
                 onClick = desktop::minimizeAll,
