@@ -83,6 +83,7 @@ def main() -> int:
         "processEventsMaskPreservationImplemented",
         "frameFailureFailClosedImplemented",
         "windowLifecyclePostSendFailClosedImplemented",
+        "bridgeReadySynchronizationImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
@@ -90,6 +91,7 @@ def main() -> int:
         "processEventsMaskPreservationSoftwareTestExecuted",
         "frameFailureFailClosedSoftwareTestExecuted",
         "windowLifecyclePostSendFailClosedSoftwareTestExecuted",
+        "bridgeReadySynchronizationSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
@@ -166,6 +168,8 @@ def main() -> int:
             "pdb_wine_window_bridge_init",
             "__wine_set_user_driver",
             "WINE_GDI_DRIVER_VERSION",
+            "POCKETPC_BridgeReady",
+            "pocketpc_connection.fd >= 0",
             ".pCreateWindow",
             ".pDestroyWindow",
             ".pProcessEvents",
@@ -218,6 +222,7 @@ def main() -> int:
             "PDB_UNEXPECTED_HOST_EVENT",
             "PDB_MSG_FRAME_PRESENTED",
             "PDB_FRAME_ACK_REJECTED_OR_UNMATCHED",
+            "POCKETPC_BridgeReady()",
         ),
     )
     require(
@@ -250,6 +255,7 @@ def main() -> int:
             "PDB_FRAME_READY_SEND_FAILED",
             "PDB_FRAME_ACK_REJECTED_DURING_SURFACE",
             "PDB_FRAME_SLOT_IDENTITY_MISMATCH",
+            "POCKETPC_BridgeReady()",
             "POCKETPC_QueueHostEventLocked",
             "PDB_MSG_FRAME_PRESENTED",
             "PDB_MSG_SURFACE_AVAILABLE",
@@ -334,6 +340,7 @@ def main() -> int:
             "fail_closed_if_connection_invalid_locked",
             "pocketpc_connection.fd < 0",
             "POCKETPC_FailBridgeLocked",
+            "POCKETPC_BridgeReady()",
             "pthread_mutex_lock",
             "pthread_mutex_unlock",
         ),
