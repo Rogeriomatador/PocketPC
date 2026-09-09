@@ -107,6 +107,10 @@
     "winePocketPcWindowEvidenceImplemented": true,
     "winePocketPcWindowEvidenceSoftwareTestExecuted": false,
     "wineGraphicsDriverSelectionImplemented": true,
-    "wineGraphicsDriverSelectionSoftwareTestExecuted": false
+    "wineGraphicsDriverSelectionSoftwareTestExecuted": false,
+    "wineDriverAbiLockImplemented": true,
+    "wineDriverAbiLockSoftwareTestExecuted": false,
+    "wineGraphicsConfigurationIsolationImplemented": true,
+    "wineGraphicsConfigurationIsolationSoftwareTestExecuted": false
   }
 }
