@@ -594,6 +594,10 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                         DesktopApp.TASK_MANAGER ->
                             TaskManagerApp(
                                 desktop = desktop,
+                                runtimeWindows =
+                                    runtimeDesktopWindows,
+                                runtimeBridge =
+                                    runtimeDesktopBridge,
                             )
                     }
                 }
@@ -645,6 +649,10 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
         TaskbarV2(
             desktop = desktop,
             peripherals = peripherals,
+            runtimeWindows =
+                runtimeDesktopWindows,
+            runtimeBridge =
+                runtimeDesktopBridge,
             updateAttention = updateAttention,
             onUpdateClick = {
                 desktop.open(DesktopApp.SYSTEM)
