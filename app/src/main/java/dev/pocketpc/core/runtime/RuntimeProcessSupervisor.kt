@@ -32,6 +32,8 @@ data class RuntimeProcessSnapshot(
     val argv: List<String>,
     val startedAtMillis: Long,
     val alive: Boolean,
+    val residentMemoryBytes: Long?,
+    val threadCount: Int?,
 )
 
 object RuntimeProcessRegistry {
@@ -82,12 +84,17 @@ object RuntimeProcessRegistry {
         synchronized(lock) {
             entries.values
                 .map { entry ->
+                    val pid =
+                        processPid(
+                            entry.process,
+                        )
+                    val stats =
+                        pid?.let(
+                            ::readProcStatus,
+                        )
                     RuntimeProcessSnapshot(
                         id = entry.id,
-                        pid =
-                            processPid(
-                                entry.process,
-                            ),
+                        pid = pid,
                         command =
                             entry.argv.firstOrNull()
                                 ?.substringAfterLast('/')
@@ -100,12 +107,80 @@ object RuntimeProcessRegistry {
                             entry.startedAtMillis,
                         alive =
                             entry.process.isAlive,
+                        residentMemoryBytes =
+                            stats?.first,
+                        threadCount =
+                            stats?.second,
                     )
                 }
                 .sortedBy {
                     it.startedAtMillis
                 }
         }
+
+    private fun readProcStatus(
+        pid: Long,
+    ): Pair<Long?, Int?>? =
+        runCatching {
+            val status =
+                File(
+                    "/proc/$pid/status",
+                )
+            if (
+                !status.isFile ||
+                !status.canRead()
+            ) {
+                return@runCatching null
+            }
+
+            var rssBytes: Long? = null
+            var threads: Int? = null
+
+            status.useLines { lines ->
+                lines.forEach { line ->
+                    when {
+                        line.startsWith(
+                            "VmRSS:"
+                        ) -> {
+                            val kb =
+                                line
+                                    .substringAfter(
+                                        ':',
+                                    )
+                                    .trim()
+                                    .substringBefore(
+                                        ' ',
+                                    )
+                                    .toLongOrNull()
+                            rssBytes =
+                                kb?.let {
+                                    value ->
+                                    runCatching {
+                                        Math.multiplyExact(
+                                            value,
+                                            1024L,
+                                        )
+                                    }.getOrNull()
+                                }
+                        }
+
+                        line.startsWith(
+                            "Threads:"
+                        ) -> {
+                            threads =
+                                line
+                                    .substringAfter(
+                                        ':',
+                                    )
+                                    .trim()
+                                    .toIntOrNull()
+                        }
+                    }
+                }
+            }
+
+            rssBytes to threads
+        }.getOrNull()
 
     private fun processPid(
         process: Process,
