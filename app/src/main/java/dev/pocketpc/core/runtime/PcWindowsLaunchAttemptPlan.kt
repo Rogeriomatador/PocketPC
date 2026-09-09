@@ -246,7 +246,7 @@ object PcWindowsLaunchAttemptPlanner {
                     "wine=\"\\$2\"; " +
                     "shift 2; " +
                     "\"\\$box64\" \"\\$wine\" reg.exe add " +
-                    "'HKCU\\\\Software\\\\Wine\\\\Drivers' " +
+                    "'HKCU\\Software\\Wine\\Drivers' " +
                     "/v Graphics /t REG_SZ /d pocketpc /f >/dev/null; " +
                     "exec \"\\$box64\" \"\\$wine\" \"\\$@\"",
             )
