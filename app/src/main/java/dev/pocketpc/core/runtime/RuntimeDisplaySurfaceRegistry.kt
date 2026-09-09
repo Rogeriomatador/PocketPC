@@ -186,6 +186,56 @@ class RuntimeDisplaySurfaceRegistry(
         }
 
     @Synchronized
+    fun readFrame(
+        ready:
+            RuntimeBridgeFrameReady,
+    ): Result<RuntimeDisplayFramePixels> =
+        runCatching {
+            val state =
+                surfaces[
+                    ready.windowId
+                ] ?: error(
+                    "DISPLAY_SURFACE_WINDOW_MISSING",
+                )
+            val surface =
+                state.framebuffer
+                    .descriptor
+                    .surface
+
+            require(
+                ready.surfaceId ==
+                    surface.surfaceId &&
+                    ready.generation ==
+                    surface.generation,
+            ) {
+                "DISPLAY_SURFACE_IDENTITY_MISMATCH"
+            }
+            require(
+                ready.frameId >
+                    state.lastFrameId,
+            ) {
+                "DISPLAY_SURFACE_FRAME_STALE"
+            }
+
+            val pixels =
+                RuntimeDisplayFrameReader
+                    .read(
+                        state.framebuffer,
+                    )
+                    .getOrThrow()
+
+            surfaces[
+                ready.windowId
+            ] =
+                state.copy(
+                    lastFrameId =
+                        ready.frameId,
+                )
+
+            pixels
+        }
+
+    @Synchronized
     fun removeWindow(
         windowId: Long,
     ): Boolean {
