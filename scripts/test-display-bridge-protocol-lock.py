@@ -512,6 +512,8 @@ def main() -> int:
             "RuntimeDisplayBridgePeer",
             "readTimeoutMillis <= 0",
             "socket.soTimeout",
+            "socket.soTimeout = 0",
+            "protects only the unauthenticated",
         ),
     )
     require_sentinels(
