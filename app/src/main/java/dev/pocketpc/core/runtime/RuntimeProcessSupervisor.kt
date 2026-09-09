@@ -34,6 +34,15 @@ data class ProcessRunResult(
     val error: String? = null,
 )
 
+data class RuntimeProcessMemberSnapshot(
+    val pid: Long,
+    val parentPid: Long,
+    val command: String,
+    val residentMemoryBytes: Long?,
+    val threadCount: Int?,
+    val root: Boolean,
+)
+
 data class RuntimeProcessSnapshot(
     val id: Long,
     val pid: Long?,
@@ -51,6 +60,10 @@ data class RuntimeProcessSnapshot(
         Int? = threadCount,
     val familyPids:
         List<Long> = emptyList(),
+    val members:
+        List<
+            RuntimeProcessMemberSnapshot
+        > = emptyList(),
 )
 
 internal data class RuntimeProcProcess(
@@ -462,6 +475,44 @@ object RuntimeProcessRegistry {
                                         it.pid
                                     }
                                     .sorted(),
+                            members =
+                                liveFamily
+                                    .sortedWith(
+                                        compareBy<
+                                            RuntimeProcProcess
+                                        > {
+                                            if (
+                                                it.pid ==
+                                                    entry.rootPid
+                                            ) {
+                                                0
+                                            } else {
+                                                1
+                                            }
+                                        }.thenBy {
+                                            it.pid
+                                        },
+                                    )
+                                    .map {
+                                        member ->
+                                        RuntimeProcessMemberSnapshot(
+                                            pid =
+                                                member.pid,
+                                            parentPid =
+                                                member.parentPid,
+                                            command =
+                                                member.name,
+                                            residentMemoryBytes =
+                                                member
+                                                    .residentMemoryBytes,
+                                            threadCount =
+                                                member
+                                                    .threadCount,
+                                            root =
+                                                member.pid ==
+                                                    entry.rootPid,
+                                        )
+                                    },
                         )
                     }
                     .sortedBy {
@@ -472,6 +523,82 @@ object RuntimeProcessRegistry {
                 entries::remove,
             )
             result
+        }
+    }
+
+    fun terminateMember(
+        id: Long,
+        pid: Long,
+        force: Boolean = false,
+    ): Boolean {
+        val processes =
+            scanProc()
+        val target =
+            synchronized(lock) {
+                val entry =
+                    entries[id]
+                        ?: return false
+                seedLiveRoot(
+                    entry,
+                    processes,
+                )
+                val family =
+                    RuntimeProcTree.family(
+                        entry.knownMembers,
+                        processes,
+                    )
+                val member =
+                    family.singleOrNull {
+                        it.pid == pid
+                    } ?: return false
+
+                entry to member
+            }
+
+        val entry =
+            target.first
+        val member =
+            target.second
+        val current =
+            readProcProcess(
+                member.pid,
+            )
+                ?: return false
+
+        if (
+            current.startTimeTicks !=
+                member.startTimeTicks
+        ) {
+            return false
+        }
+
+        return if (
+            member.pid ==
+                entry.rootPid &&
+            entry.process.isAlive
+        ) {
+            runCatching {
+                if (force) {
+                    entry.process
+                        .destroyForcibly()
+                } else {
+                    entry.process
+                        .destroy()
+                }
+                true
+            }.getOrDefault(false)
+        } else {
+            runCatching {
+                Os.kill(
+                    member.pid.toInt(),
+                    if (force) {
+                        OsConstants.SIGKILL
+                    } else {
+                        OsConstants.SIGTERM
+                    },
+                )
+                true
+            }.getOrDefault(false)
         }
     }
 
