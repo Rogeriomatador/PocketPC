@@ -37,6 +37,7 @@ import dev.pocketpc.core.desktop.DesktopCapabilityMonitor
 import dev.pocketpc.core.desktop.DesktopController
 import dev.pocketpc.core.desktop.DesktopPeripheralMonitor
 import dev.pocketpc.core.desktop.DesktopPinStore
+import dev.pocketpc.core.desktop.DesktopPointerCommandBridge
 import dev.pocketpc.core.desktop.DesktopWindow
 import dev.pocketpc.core.desktop.DesktopWindowLayoutStore
 import dev.pocketpc.core.desktop.WindowGeometry
@@ -304,8 +305,16 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 DesktopCommand.OPEN_TERMINAL -> desktop.open(DesktopApp.TERMINAL)
                 DesktopCommand.OPEN_TASK_MANAGER ->
                     desktop.open(DesktopApp.TASK_MANAGER)
-                DesktopCommand.OPEN_DESKTOP_CONTEXT ->
-                    desktop.openContextMenu(null)
+                DesktopCommand.OPEN_DESKTOP_CONTEXT -> {
+                    val anchor =
+                        DesktopPointerCommandBridge
+                            .consume()
+                    desktop.openContextMenu(
+                        app = null,
+                        anchorX = anchor?.x,
+                        anchorY = anchor?.y,
+                    )
+                }
                 DesktopCommand.DISMISS_OVERLAYS -> {
                     desktop.closeStartMenu()
                     desktop.closeContextMenu()
