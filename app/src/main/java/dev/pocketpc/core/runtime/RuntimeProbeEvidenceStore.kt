@@ -226,9 +226,12 @@ class RuntimeProbeEvidenceStore(
         fun all(
             vararg markers: String,
         ): Boolean =
-            markers.all(
-                result.output::contains,
-            )
+            markers.all {
+                marker ->
+                result.output.contains(
+                    marker,
+                )
+            }
 
         val pair =
             when (probe) {
