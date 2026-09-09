@@ -419,13 +419,19 @@ static BOOL pocketpc_surface_flush(
         )
     ) {
         TRACE(
-            "coalescing frame while ACK pending hwnd=%p window=%llu\n",
+            "coalescing frame while ACK pending hwnd=%p window=%llu; Wine dirty bounds retained\n",
             window_surface->hwnd,
             (unsigned long long)
                 surface->writer
                     .surface.window_id
         );
-        return TRUE;
+        /*
+         * win32u resets surface->bounds only when a driver flush returns
+         * TRUE. Keep the dirty bounds live while the single shared buffer
+         * is owned by the host; the normal Wine flush/idle path will retry
+         * after FRAME_PRESENTED clears frame_in_flight.
+         */
+        return FALSE;
     }
 
     if (
