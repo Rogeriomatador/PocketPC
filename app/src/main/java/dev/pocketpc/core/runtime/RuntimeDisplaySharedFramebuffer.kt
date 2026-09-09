@@ -55,29 +55,29 @@ class RuntimeDisplaySharedFramebuffer private constructor(
                                 0xff
 
                         require(
-                            row[
-                                offset
-                            ].toInt() and
-                                0xff ==
-                                expectedB &&
-                                row[
-                                    offset +
-                                        1
-                                ].toInt() and
-                                0xff ==
-                                expectedG &&
-                                row[
-                                    offset +
-                                        2
-                                ].toInt() and
-                                0xff ==
-                                expectedR &&
-                                row[
-                                    offset +
-                                        3
-                                ].toInt() and
-                                0xff ==
-                                0xff
+                            (
+                                row[offset]
+                                    .toInt() and
+                                    0xff
+                            ) == expectedB &&
+                                (
+                                    row[
+                                        offset + 1
+                                    ].toInt() and
+                                        0xff
+                                ) == expectedG &&
+                                (
+                                    row[
+                                        offset + 2
+                                    ].toInt() and
+                                        0xff
+                                ) == expectedR &&
+                                (
+                                    row[
+                                        offset + 3
+                                    ].toInt() and
+                                        0xff
+                                ) == 0xff
                         ) {
                             "DISPLAY_BRIDGE_FRAMEBUFFER_PATTERN_MISMATCH:" +
                                 x +
