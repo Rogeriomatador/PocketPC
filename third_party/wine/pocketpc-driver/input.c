@@ -670,13 +670,15 @@ BOOL POCKETPC_ProcessEvents(
             event.type ==
                 PDB_MSG_FRAME_PRESENTED
         ) {
-            if (
-                event.data
-                    .frame_presented
-                    .status != 0u
-            ) {
+            const BOOL accepted =
+                POCKETPC_HandleFramePresented(
+                    &event.data
+                        .frame_presented
+                );
+
+            if (!accepted) {
                 WARN(
-                    "frame presentation status window=%llu frame=%llu status=%u\n",
+                    "frame ACK rejected or unmatched window=%llu frame=%llu status=%u\n",
                     (unsigned long long)
                         event.data
                             .frame_presented
