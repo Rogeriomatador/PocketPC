@@ -1188,7 +1188,6 @@ class RuntimeProcessSupervisor {
             }
         val process =
             current.first
-                ?: return false
         val registryId =
             current.second
 
@@ -1201,11 +1200,17 @@ class RuntimeProcessSupervisor {
                     )
             } ?: false
 
-        if (!familyStopped) {
-            process.destroy()
-            if (process.isAlive) {
-                process.destroyForcibly()
-            }
+        if (familyStopped) {
+            return true
+        }
+
+        if (process == null) {
+            return false
+        }
+
+        process.destroy()
+        if (process.isAlive) {
+            process.destroyForcibly()
         }
         return true
     }
