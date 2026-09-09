@@ -89,6 +89,16 @@
     "surfaceRegistryPublishFailClosedImplemented": true,
     "surfaceRegistryPublishFailClosedSoftwareTestExecuted": false,
     "authTimeoutScopedToHandshakeImplemented": true,
-    "authTimeoutScopedToHandshakeSoftwareTestExecuted": false
+    "authTimeoutScopedToHandshakeSoftwareTestExecuted": false,
+    "guestCapabilityBaselineNegotiationImplemented": true,
+    "guestCapabilityBaselineNegotiationSoftwareTestExecuted": false,
+    "controlledWindowsAttemptPlanningImplemented": true,
+    "controlledWindowsAttemptPlanningSoftwareTestExecuted": false,
+    "pcTargetMaterializationImplemented": true,
+    "pcTargetMaterializationSoftwareTestExecuted": false,
+    "runtimeEvidenceIdentityCoherenceImplemented": true,
+    "runtimeEvidenceIdentityCoherenceSoftwareTestExecuted": false,
+    "continuousAppDesktopBridgeImplemented": true,
+    "continuousAppDesktopBridgeSoftwareTestExecuted": false
   }
 }
