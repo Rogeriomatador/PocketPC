@@ -22,6 +22,7 @@ data class PcRuntimeExecutionGate(
 data class PcRuntimeExecutionPlan(
     val target: PcApplicationTarget,
     val gates: List<PcRuntimeExecutionGate>,
+    val attemptEligible: Boolean,
     val launchEligible: Boolean,
     val nextAction: String,
 )
@@ -77,9 +78,16 @@ object PcRuntimeExecutionPlanner {
 
         val gates =
             runtimeGates + applicationGate
-        val launchEligible =
+        /*
+         * An application cannot become integration-validated before its
+         * first controlled run. Keep "attempt eligible" separate from
+         * "validated launch" so the validation gate does not deadlock.
+         */
+        val attemptEligible =
             readiness.executableReady &&
-                compatibility.runtimeReady &&
+                compatibility.runtimeReady
+        val launchEligible =
+            attemptEligible &&
                 compatibility.applicationValidated
 
         val firstPending =
@@ -91,14 +99,26 @@ object PcRuntimeExecutionPlanner {
         return PcRuntimeExecutionPlan(
             target = target,
             gates = gates,
+            attemptEligible =
+                attemptEligible,
             launchEligible = launchEligible,
             nextAction =
-                if (firstPending == null) {
-                    "Todos os gates estão READY. O próximo passo " +
-                        "é uma tentativa de execução registrada."
-                } else {
-                    "Próximo gate: ${firstPending.label}. " +
-                        firstPending.detail
+                when {
+                    attemptEligible &&
+                        !compatibility
+                            .applicationValidated ->
+                        "Runtime base READY para uma tentativa " +
+                            "controlada e registrada. A integração " +
+                            "do aplicativo continua UNVALIDATED " +
+                            "até existir evidência real."
+
+                    firstPending == null ->
+                        "Todos os gates estão READY. O próximo passo " +
+                            "é uma execução validada registrada."
+
+                    else ->
+                        "Próximo gate: ${firstPending.label}. " +
+                            firstPending.detail
                 },
         )
     }
