@@ -158,6 +158,12 @@ static BOOL inject_pointer(
     HWND hwnd;
     int width;
     int height;
+    int virtual_left;
+    int virtual_top;
+    int virtual_width;
+    int virtual_height;
+    int screen_x;
+    int screen_y;
 
     if (!event)
         return FALSE;
@@ -214,6 +220,53 @@ static BOOL inject_pointer(
         return FALSE;
     }
 
+    screen_x =
+        window_rect.left +
+        event->x;
+    screen_y =
+        window_rect.top +
+        event->y;
+    virtual_left =
+        NtUserGetSystemMetrics(
+            SM_XVIRTUALSCREEN
+        );
+    virtual_top =
+        NtUserGetSystemMetrics(
+            SM_YVIRTUALSCREEN
+        );
+    virtual_width =
+        NtUserGetSystemMetrics(
+            SM_CXVIRTUALSCREEN
+        );
+    virtual_height =
+        NtUserGetSystemMetrics(
+            SM_CYVIRTUALSCREEN
+        );
+
+    if (
+        virtual_width <= 1 ||
+        virtual_height <= 1 ||
+        screen_x < virtual_left ||
+        screen_y < virtual_top ||
+        screen_x >=
+            virtual_left +
+            virtual_width ||
+        screen_y >=
+            virtual_top +
+            virtual_height
+    ) {
+        WARN(
+            "pointer virtual screen mismatch pos=%d,%d virtual=%d,%d %dx%d\n",
+            screen_x,
+            screen_y,
+            virtual_left,
+            virtual_top,
+            virtual_width,
+            virtual_height
+        );
+        return FALSE;
+    }
+
     memset(
         &input,
         0,
@@ -221,14 +274,37 @@ static BOOL inject_pointer(
     );
     input.type = INPUT_MOUSE;
     input.mi.dx =
-        window_rect.left +
-        event->x;
+        (LONG)(
+            (
+                (int64_t)(
+                    screen_x -
+                    virtual_left
+                ) *
+                65535
+            ) /
+            (
+                virtual_width -
+                1
+            )
+        );
     input.mi.dy =
-        window_rect.top +
-        event->y;
+        (LONG)(
+            (
+                (int64_t)(
+                    screen_y -
+                    virtual_top
+                ) *
+                65535
+            ) /
+            (
+                virtual_height -
+                1
+            )
+        );
     input.mi.dwFlags =
         MOUSEEVENTF_MOVE |
-        MOUSEEVENTF_ABSOLUTE;
+        MOUSEEVENTF_ABSOLUTE |
+        MOUSEEVENTF_VIRTUALDESK;
 
     switch (event->action)
     {
