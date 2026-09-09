@@ -43,6 +43,64 @@ class RuntimeDisplayBridgePayloadCodecTest {
         val value = RuntimeBridgeKeyEvent(1, 0, 13, 28, 0, 0)
         assertArrayEquals(RuntimeDisplayBridgePayloadCodec.encodeKeyEvent(value), RuntimeDisplayBridgePayloadCodec.encodeKeyEvent(value))
     }
+
+    @Test
+    fun surfaceRequestRoundTrip() {
+        val expected =
+            RuntimeBridgeSurfaceRequest(
+                windowId = 7,
+                generation = 2,
+                width = 1280,
+                height = 720,
+                pixelFormat =
+                    RuntimeDisplayBridgePayloadCodec
+                        .PIXEL_FORMAT_BGRA8888,
+                flags = 0,
+            )
+
+        val payload =
+            RuntimeDisplayBridgePayloadCodec
+                .encodeSurfaceRequest(
+                    expected,
+                )
+
+        assertEquals(
+            RuntimeDisplayBridgePayloadCodec
+                .SURFACE_REQUEST_BYTES,
+            payload.size,
+        )
+        assertEquals(
+            expected,
+            RuntimeDisplayBridgePayloadCodec
+                .decodeSurfaceRequest(
+                    payload,
+                )
+                .getOrThrow(),
+        )
+    }
+
+    @Test
+    fun surfaceRequestRejectsUnknownFlags() {
+        val result =
+            runCatching {
+                RuntimeDisplayBridgePayloadCodec
+                    .encodeSurfaceRequest(
+                        RuntimeBridgeSurfaceRequest(
+                            windowId = 1,
+                            generation = 1,
+                            width = 64,
+                            height = 64,
+                            pixelFormat =
+                                RuntimeDisplayBridgePayloadCodec
+                                    .PIXEL_FORMAT_BGRA8888,
+                            flags = 1,
+                        ),
+                    )
+            }
+
+        assertTrue(result.isFailure)
+    }
+
     @Test
     fun surfaceDescriptorRoundTrip() {
         val expected =
