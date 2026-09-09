@@ -42,14 +42,11 @@ echo
 bash scripts/termux-on-device-preflight.sh
 echo
 
-LICENSE_FILE="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}/licenses/android-sdk-license"
-if [ ! -s "$LICENSE_FILE" ]; then
-    echo "Android SDK license is not registered for this Termux SDK."
-    echo "Starting the official sdkmanager license flow..."
-    echo
-    bash scripts/termux-bootstrap-sdkmanager-licenses.sh
-    echo
-fi
+echo "Checking Android SDK licenses with sdkmanager..."
+echo "This step is interactive only when there are pending licenses."
+echo
+bash scripts/termux-bootstrap-sdkmanager-licenses.sh
+echo
 
 bash scripts/termux-kotlin-unit-test.sh
 
