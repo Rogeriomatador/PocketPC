@@ -8,6 +8,7 @@ on:
       - 'scripts/prepare-wine-source.py'
       - 'scripts/prepare-wine-pocketpc-driver.py'
       - 'scripts/build-wine-pocketpc-driver.py'
+      - 'scripts/test-wine-pocketpc-build-target-discovery.py'
       - 'scripts/test-wine-pocketpc-driver-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - '.github/workflows/wine-pocketpc-driver-build.yml'
@@ -45,6 +46,7 @@ jobs:
           python3 scripts/test-pc-runtime-source-locks.py
           python3 scripts/test-display-bridge-protocol-lock.py
           python3 scripts/test-wine-pocketpc-driver-policy.py
+          python3 scripts/test-wine-pocketpc-build-target-discovery.py
 
       - name: Fetch exact pinned Wine source
         run: |
