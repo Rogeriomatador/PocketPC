@@ -95,8 +95,7 @@ class RuntimeDisplayExecutionController(
                             userApproved =
                                 userApproved,
                         )
-                return@coroutineScope
-                    RuntimeDisplayExecutionResult(
+                return@coroutineScope RuntimeDisplayExecutionResult(
                         process = process,
                         bridgeAuthenticated =
                             false,
@@ -109,8 +108,7 @@ class RuntimeDisplayExecutionController(
                 basePlan.environment[
                     "PROOT_TMP_DIR"
                 ]?.let(::File)
-                    ?: return@coroutineScope
-                        RuntimeDisplayExecutionResult(
+                    ?: return@coroutineScope RuntimeDisplayExecutionResult(
                             process =
                                 blockedResult(
                                     "HOST_TEMP_BIND_MISSING",
@@ -147,8 +145,7 @@ class RuntimeDisplayExecutionController(
                 environmentErrors
                     .isNotEmpty()
             ) {
-                return@coroutineScope
-                    RuntimeDisplayExecutionResult(
+                return@coroutineScope RuntimeDisplayExecutionResult(
                         process =
                             ProotExecutionResult(
                                 state =
@@ -424,8 +421,7 @@ class RuntimeDisplayExecutionController(
                             .stopActive()
                         val process =
                             processDeferred.await()
-                        return@coroutineScope
-                            RuntimeDisplayExecutionResult(
+                        return@coroutineScope RuntimeDisplayExecutionResult(
                                 process = process,
                                 bridgeAuthenticated =
                                     false,
@@ -498,8 +494,7 @@ class RuntimeDisplayExecutionController(
                                 rootProcessResult
                                     ?: processDeferred
                                         .await()
-                            return@coroutineScope
-                                RuntimeDisplayExecutionResult(
+                            return@coroutineScope RuntimeDisplayExecutionResult(
                                     process =
                                         process,
                                     bridgeAuthenticated =
