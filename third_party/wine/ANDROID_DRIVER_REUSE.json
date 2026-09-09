@@ -125,6 +125,8 @@
     "displayPeerProcessFamilyAssociationImplemented": true,
     "displayPeerProcessFamilyAssociationSoftwareTestExecuted": false,
     "taskManagerProcessFamilyUiImplemented": true,
-    "taskManagerProcessFamilyUiSoftwareTestExecuted": false
+    "taskManagerProcessFamilyUiSoftwareTestExecuted": false,
+    "taskManagerIndividualProcessControlImplemented": true,
+    "taskManagerIndividualProcessControlSoftwareTestExecuted": false
   }
 }
