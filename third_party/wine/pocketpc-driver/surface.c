@@ -66,21 +66,6 @@ static void pocketpc_surface_set_clip(
     (void)count;
 }
 
-static void dispatch_deferred_input(
-    const struct pdb_host_event *events,
-    unsigned int count
-) {
-    unsigned int i;
-
-    for (i = 0u; i < count; ++i)
-    {
-        (void)
-            POCKETPC_DispatchHostEvent(
-                &events[i]
-            );
-    }
-}
-
 static BOOL pocketpc_surface_flush(
     struct window_surface *window_surface,
     const RECT *rect,
@@ -94,23 +79,14 @@ static BOOL pocketpc_surface_flush(
     struct pocketpc_window_surface *surface =
         get_pocketpc_surface(window_surface);
     struct pdb_surface_rect dirty_rect;
-    struct pdb_host_event deferred[
-        POCKETPC_MAX_EVENTS_PER_PUMP
-    ];
-    struct pdb_frame_presented presented;
-    unsigned int deferred_count = 0u;
-    unsigned int received = 0u;
     int32_t source_height;
     int32_t source_stride;
     uint64_t frame_id = 0u;
-    BOOL got_ack = FALSE;
     char error[160] = {0};
 
     (void)shape_changed;
     (void)shape_info;
     (void)shape_bits;
-    memset(&presented, 0, sizeof(presented));
-
     if (!surface || !rect || !color_info || !color_bits)
         return FALSE;
 
@@ -212,104 +188,18 @@ static BOOL pocketpc_surface_flush(
         return FALSE;
     }
 
-    while (
-        received <
-        POCKETPC_MAX_EVENTS_PER_PUMP
-    ) {
-        struct pdb_host_event event;
-
-        if (
-            pdb_receive_host_event(
-                &pocketpc_connection,
-                &event,
-                error,
-                sizeof(error)
-            ) != 0
-        ) {
-            break;
-        }
-        received += 1u;
-
-        if (
-            event.type ==
-            PDB_MSG_FRAME_PRESENTED
-        ) {
-            presented =
-                event.data.frame_presented;
-            got_ack = TRUE;
-            break;
-        }
-
-        if (
-            event.type ==
-                PDB_MSG_POINTER_EVENT ||
-            event.type ==
-                PDB_MSG_KEY_EVENT
-        ) {
-            if (
-                deferred_count >=
-                POCKETPC_MAX_EVENTS_PER_PUMP
-            ) {
-                snprintf(
-                    error,
-                    sizeof(error),
-                    "PDB_DEFERRED_INPUT_LIMIT"
-                );
-                break;
-            }
-            deferred[
-                deferred_count++
-            ] = event;
-            continue;
-        }
-
-        snprintf(
-            error,
-            sizeof(error),
-            "PDB_UNEXPECTED_EVENT_DURING_FRAME:%u",
-            event.type
-        );
-        break;
-    }
-
-    pthread_mutex_unlock(&pocketpc_bridge_mutex);
-    dispatch_deferred_input(
-        deferred,
-        deferred_count
+    pthread_mutex_unlock(
+        &pocketpc_bridge_mutex
     );
 
-    if (!got_ack)
-    {
-        ERR(
-            "FRAME_PRESENTED missing hwnd=%p frame=%llu: %s\n",
-            window_surface->hwnd,
-            (unsigned long long)frame_id,
-            error
-        );
-        return FALSE;
-    }
-
-    if (
-        presented.window_id !=
-            surface->writer.surface.window_id ||
-        presented.frame_id != frame_id ||
-        presented.status != 0u
-    ) {
-        ERR(
-            "frame ack mismatch hwnd=%p window=%llu/%llu frame=%llu/%llu status=%u\n",
-            window_surface->hwnd,
-            (unsigned long long)
-                presented.window_id,
-            (unsigned long long)
-                surface->writer.surface.window_id,
-            (unsigned long long)
-                presented.frame_id,
-            (unsigned long long)
-                frame_id,
-            presented.status
-        );
-        return FALSE;
-    }
+    TRACE(
+        "FRAME_READY published hwnd=%p window=%llu frame=%llu\n",
+        window_surface->hwnd,
+        (unsigned long long)
+            surface->writer.surface.window_id,
+        (unsigned long long)
+            frame_id
+    );
 
     return TRUE;
 }
@@ -353,10 +243,6 @@ static BOOL request_surface(
 ) {
     struct pdb_surface_request request;
     struct pdb_surface_available available;
-    struct pdb_host_event deferred[
-        POCKETPC_MAX_EVENTS_PER_PUMP
-    ];
-    unsigned int deferred_count = 0u;
     unsigned int received = 0u;
     uint64_t window_id = 0u;
     uint64_t generation;
@@ -433,7 +319,7 @@ static BOOL request_surface(
 
     while (
         received <
-        POCKETPC_MAX_EVENTS_PER_PUMP
+        POCKETPC_HOST_EVENT_QUEUE_LIMIT
     ) {
         struct pdb_host_event event;
 
@@ -466,19 +352,44 @@ static BOOL request_surface(
                 PDB_MSG_KEY_EVENT
         ) {
             if (
-                deferred_count >=
-                POCKETPC_MAX_EVENTS_PER_PUMP
+                !POCKETPC_QueueHostEventLocked(
+                    &event
+                )
             ) {
                 snprintf(
                     error,
                     sizeof(error),
-                    "PDB_DEFERRED_INPUT_LIMIT"
+                    "PDB_HOST_EVENT_QUEUE_FULL"
                 );
                 break;
             }
-            deferred[
-                deferred_count++
-            ] = event;
+            continue;
+        }
+
+        if (
+            event.type ==
+                PDB_MSG_FRAME_PRESENTED
+        ) {
+            if (
+                event.data
+                    .frame_presented
+                    .status != 0u
+            ) {
+                WARN(
+                    "frame presentation status during surface handshake window=%llu frame=%llu status=%u\n",
+                    (unsigned long long)
+                        event.data
+                            .frame_presented
+                            .window_id,
+                    (unsigned long long)
+                        event.data
+                            .frame_presented
+                            .frame_id,
+                    event.data
+                        .frame_presented
+                        .status
+                );
+            }
             continue;
         }
 
@@ -491,10 +402,8 @@ static BOOL request_surface(
         break;
     }
 
-    pthread_mutex_unlock(&pocketpc_bridge_mutex);
-    dispatch_deferred_input(
-        deferred,
-        deferred_count
+    pthread_mutex_unlock(
+        &pocketpc_bridge_mutex
     );
 
     if (!got_surface)
