@@ -22,6 +22,9 @@ object PcWindowsLaunchAttemptPlanner {
         target:
             MaterializedPcApplicationTarget,
         evidence: RuntimeProbeEvidenceState,
+        deployedLayers:
+            List<DeployedWindowsRuntimeLayer> =
+            emptyList(),
     ): PcWindowsLaunchAttemptPlan {
         val blockers =
             mutableListOf<String>()
@@ -48,6 +51,15 @@ object PcWindowsLaunchAttemptPlanner {
         ) {
             blockers +=
                 "GRAPHICS_PRESENTATION_NOT_VALIDATED"
+        }
+        if (
+            deployedLayers.none {
+                it.manifest.id ==
+                    "dxvk"
+            }
+        ) {
+            blockers +=
+                "DXVK_LAYER_NOT_DEPLOYED"
         }
 
         val prefixReadiness =
@@ -110,6 +122,7 @@ object PcWindowsLaunchAttemptPlanner {
                     evidence.box64SmokePassed,
                 wineRuntimeValidated =
                     evidence.wineSmokePassed,
+                enableDxvk = true,
             )
         blockers +=
             wine.blockers
