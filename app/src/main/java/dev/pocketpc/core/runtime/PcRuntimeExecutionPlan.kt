@@ -84,8 +84,7 @@ object PcRuntimeExecutionPlanner {
          * "validated launch" so the validation gate does not deadlock.
          */
         val attemptEligible =
-            readiness.executableReady &&
-                compatibility.runtimeReady
+            readiness.controlledAttemptReady
         val launchEligible =
             attemptEligible &&
                 compatibility.applicationValidated
