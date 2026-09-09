@@ -261,7 +261,7 @@ def main() -> int:
         "wineCommit": lock["commit"],
         "driverName": "winepocketpc.drv",
         "unixLibrary": "winepocketpc.so",
-        "protocolVersion": 3,
+        "protocolVersion": 4,
         "graphicsSelection": {
             "registryPath": r"HKCU\Software\Wine\Drivers",
             "valueName": "Graphics",
