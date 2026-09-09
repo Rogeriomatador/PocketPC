@@ -18,11 +18,261 @@ struct pocketpc_window_surface
     struct window_surface header;
     struct pdb_surface_writer writer;
     int force_opaque;
+    uint64_t in_flight_frame_id;
+    BOOL frame_in_flight;
 };
 
 static pthread_mutex_t surface_generation_mutex =
     PTHREAD_MUTEX_INITIALIZER;
 static uint64_t next_surface_generation = 1u;
+
+static pthread_mutex_t surface_registry_mutex =
+    PTHREAD_MUTEX_INITIALIZER;
+static struct pocketpc_window_surface *
+surface_registry[PDB_WINE_WINDOW_LIMIT];
+
+static BOOL publish_surface(
+    struct pocketpc_window_surface *previous,
+    struct pocketpc_window_surface *created
+)
+{
+    size_t i;
+    size_t empty = PDB_WINE_WINDOW_LIMIT;
+    uint64_t window_id;
+
+    if (!created)
+        return FALSE;
+
+    window_id =
+        created->writer.surface.window_id;
+    if (!window_id)
+        return FALSE;
+
+    pthread_mutex_lock(
+        &surface_registry_mutex
+    );
+
+    for (
+        i = 0u;
+        i < PDB_WINE_WINDOW_LIMIT;
+        ++i
+    ) {
+        struct pocketpc_window_surface *current =
+            surface_registry[i];
+
+        if (!current) {
+            if (
+                empty ==
+                PDB_WINE_WINDOW_LIMIT
+            ) {
+                empty = i;
+            }
+            continue;
+        }
+
+        if (
+            current == previous ||
+            current->writer.surface.window_id ==
+                window_id
+        ) {
+            surface_registry[i] =
+                created;
+            pthread_mutex_unlock(
+                &surface_registry_mutex
+            );
+            return TRUE;
+        }
+    }
+
+    if (
+        empty !=
+        PDB_WINE_WINDOW_LIMIT
+    ) {
+        surface_registry[empty] =
+            created;
+        pthread_mutex_unlock(
+            &surface_registry_mutex
+        );
+        return TRUE;
+    }
+
+    pthread_mutex_unlock(
+        &surface_registry_mutex
+    );
+    return FALSE;
+}
+
+static void unpublish_surface(
+    struct pocketpc_window_surface *surface
+)
+{
+    size_t i;
+
+    if (!surface)
+        return;
+
+    pthread_mutex_lock(
+        &surface_registry_mutex
+    );
+    for (
+        i = 0u;
+        i < PDB_WINE_WINDOW_LIMIT;
+        ++i
+    ) {
+        if (
+            surface_registry[i] ==
+            surface
+        ) {
+            surface_registry[i] =
+                NULL;
+            break;
+        }
+    }
+    pthread_mutex_unlock(
+        &surface_registry_mutex
+    );
+}
+
+static BOOL begin_surface_frame(
+    struct pocketpc_window_surface *surface,
+    uint64_t frame_id
+)
+{
+    size_t i;
+
+    if (
+        !surface ||
+        !frame_id
+    ) {
+        return FALSE;
+    }
+
+    pthread_mutex_lock(
+        &surface_registry_mutex
+    );
+    for (
+        i = 0u;
+        i < PDB_WINE_WINDOW_LIMIT;
+        ++i
+    ) {
+        if (
+            surface_registry[i] ==
+            surface
+        ) {
+            if (
+                surface->frame_in_flight
+            ) {
+                pthread_mutex_unlock(
+                    &surface_registry_mutex
+                );
+                return FALSE;
+            }
+            surface->frame_in_flight =
+                TRUE;
+            surface->in_flight_frame_id =
+                frame_id;
+            pthread_mutex_unlock(
+                &surface_registry_mutex
+            );
+            return TRUE;
+        }
+    }
+
+    pthread_mutex_unlock(
+        &surface_registry_mutex
+    );
+    return FALSE;
+}
+
+static void cancel_surface_frame(
+    struct pocketpc_window_surface *surface,
+    uint64_t frame_id
+)
+{
+    if (!surface || !frame_id)
+        return;
+
+    pthread_mutex_lock(
+        &surface_registry_mutex
+    );
+    if (
+        surface->frame_in_flight &&
+        surface->in_flight_frame_id ==
+            frame_id
+    ) {
+        surface->frame_in_flight =
+            FALSE;
+        surface->in_flight_frame_id =
+            0u;
+    }
+    pthread_mutex_unlock(
+        &surface_registry_mutex
+    );
+}
+
+BOOL POCKETPC_HandleFramePresented(
+    const struct pdb_frame_presented *event
+)
+{
+    size_t i;
+
+    if (
+        !event ||
+        !event->window_id ||
+        !event->frame_id
+    ) {
+        return FALSE;
+    }
+
+    pthread_mutex_lock(
+        &surface_registry_mutex
+    );
+    for (
+        i = 0u;
+        i < PDB_WINE_WINDOW_LIMIT;
+        ++i
+    ) {
+        struct pocketpc_window_surface *surface =
+            surface_registry[i];
+
+        if (
+            !surface ||
+            surface->writer.surface.window_id !=
+                event->window_id
+        ) {
+            continue;
+        }
+
+        if (
+            !surface->frame_in_flight ||
+            surface->in_flight_frame_id !=
+                event->frame_id
+        ) {
+            pthread_mutex_unlock(
+                &surface_registry_mutex
+            );
+            return FALSE;
+        }
+
+        surface->frame_in_flight =
+            FALSE;
+        surface->in_flight_frame_id =
+            0u;
+        pthread_mutex_unlock(
+            &surface_registry_mutex
+        );
+        return event->status == 0u;
+    }
+
+    /*
+     * A late ACK after a window/surface was destroyed is harmless.
+     * There is no shared backing left to release.
+     */
+    pthread_mutex_unlock(
+        &surface_registry_mutex
+    );
+    return TRUE;
+}
 
 static struct pocketpc_window_surface *
 get_pocketpc_surface(
@@ -82,6 +332,7 @@ static BOOL pocketpc_surface_flush(
     int32_t source_height;
     int32_t source_stride;
     uint64_t frame_id = 0u;
+    uint64_t frame_slot_id = 0u;
     char error[160] = {0};
 
     (void)shape_changed;
@@ -155,6 +406,28 @@ static BOOL pocketpc_surface_flush(
         return TRUE;
     }
 
+    frame_slot_id =
+        surface->writer
+            .next_frame_id;
+    if (!frame_slot_id)
+        return FALSE;
+
+    if (
+        !begin_surface_frame(
+            surface,
+            frame_slot_id
+        )
+    ) {
+        TRACE(
+            "coalescing frame while ACK pending hwnd=%p window=%llu\n",
+            window_surface->hwnd,
+            (unsigned long long)
+                surface->writer
+                    .surface.window_id
+        );
+        return TRUE;
+    }
+
     if (
         pdb_surface_writer_copy_bgra(
             &surface->writer,
@@ -169,6 +442,10 @@ static BOOL pocketpc_surface_flush(
             sizeof(error)
         ) != 0
     ) {
+        cancel_surface_frame(
+            surface,
+            frame_slot_id
+        );
         ERR(
             "surface copy failed hwnd=%p: %s\n",
             window_surface->hwnd,
@@ -189,6 +466,10 @@ static BOOL pocketpc_surface_flush(
         ) != 0
     ) {
         pthread_mutex_unlock(&pocketpc_bridge_mutex);
+        cancel_surface_frame(
+            surface,
+            frame_slot_id
+        );
         ERR(
             "FRAME_READY failed hwnd=%p: %s\n",
             window_surface->hwnd,
@@ -200,6 +481,24 @@ static BOOL pocketpc_surface_flush(
     pthread_mutex_unlock(
         &pocketpc_bridge_mutex
     );
+
+    if (
+        frame_id !=
+        frame_slot_id
+    ) {
+        cancel_surface_frame(
+            surface,
+            frame_slot_id
+        );
+        ERR(
+            "PDB_FRAME_SLOT_IDENTITY_MISMATCH expected=%llu actual=%llu\n",
+            (unsigned long long)
+                frame_slot_id,
+            (unsigned long long)
+                frame_id
+        );
+        return FALSE;
+    }
 
     TRACE(
         "FRAME_READY published hwnd=%p window=%llu frame=%llu; presentation ACK is asynchronous\n",
@@ -220,6 +519,10 @@ static void pocketpc_surface_destroy(
         get_pocketpc_surface(
             window_surface
         );
+
+    unpublish_surface(
+        surface
+    );
 
     TRACE(
         "destroy surface hwnd=%p id=%llu generation=%llu\n",
@@ -575,6 +878,10 @@ BOOL POCKETPC_CreateWindowSurface(
     );
     created->force_opaque =
         layered ? 0 : 1;
+    created->in_flight_frame_id =
+        0u;
+    created->frame_in_flight =
+        FALSE;
 
     if (
         !request_surface(
@@ -583,6 +890,26 @@ BOOL POCKETPC_CreateWindowSurface(
             created
         )
     ) {
+        window_surface_release(
+            window_surface
+        );
+        return FALSE;
+    }
+
+    if (
+        !publish_surface(
+            previous
+                ? get_pocketpc_surface(
+                    previous
+                )
+                : NULL,
+            created
+        )
+    ) {
+        ERR(
+            "surface registry full hwnd=%p\n",
+            hwnd
+        );
         window_surface_release(
             window_surface
         );
