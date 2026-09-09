@@ -59,6 +59,9 @@ static NTSTATUS pocketpcdrv_unix_init(
     void *arg
 ) {
     char error[160] = {0};
+    uint32_t process_namespace =
+        (uint32_t)getpid() &
+        0x7fffffffu;
 
     (void)arg;
 
@@ -89,17 +92,19 @@ static NTSTATUS pocketpcdrv_unix_init(
     );
 
     if (
+        process_namespace == 0u ||
         pdb_wine_window_map_set_namespace(
             &pocketpc_windows.windows,
-            (uint32_t)getpid()
+            process_namespace
         ) != 0
     ) {
         pdb_close(
             &pocketpc_connection
         );
         ERR(
-            "window namespace setup failed pid=%ld\n",
-            (long)getpid()
+            "window namespace setup failed pid=%ld namespace=%lu\n",
+            (long)getpid(),
+            (unsigned long)process_namespace
         );
         return STATUS_UNSUCCESSFUL;
     }
@@ -114,7 +119,7 @@ static NTSTATUS pocketpcdrv_unix_init(
     TRACE(
         "PocketPC USER driver registered, protocol=%u pid_namespace=%lu\n",
         PDB_VERSION,
-        (unsigned long)(uint32_t)getpid()
+        (unsigned long)process_namespace
     );
     return STATUS_SUCCESS;
 }
