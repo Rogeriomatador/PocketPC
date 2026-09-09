@@ -6,6 +6,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class RuntimeDesktopBridge {
+    private data class BindingState(
+        val id: Long,
+        val commandSender:
+            (
+                RuntimeBridgeWindowCommand,
+            ) -> Result<Unit>,
+        val pointerSender:
+            ((
+                RuntimeBridgePointerEvent,
+            ) -> Result<Unit>)?,
+        val keySender:
+            ((
+                RuntimeBridgeKeyEvent,
+            ) -> Result<Unit>)?,
+        var windows:
+            List<
+                RuntimeDisplayCompositorWindow
+            > = emptyList(),
+    )
+
     private val lock = Any()
     private val mutableWindows =
         MutableStateFlow<
@@ -23,22 +43,13 @@ class RuntimeDesktopBridge {
         mutableWindows.asStateFlow()
 
     private var nextBindingId = 1L
-    private var activeBindingId = 0L
-    private var commandSender:
-        ((
-            RuntimeBridgeWindowCommand,
-        ) -> Result<Unit>)? =
-        null
-    private var pointerSender:
-        ((
-            RuntimeBridgePointerEvent,
-        ) -> Result<Unit>)? =
-        null
-    private var keySender:
-        ((
-            RuntimeBridgeKeyEvent,
-        ) -> Result<Unit>)? =
-        null
+    private val bindings =
+        LinkedHashMap<
+            Long,
+            BindingState
+        >()
+    private val windowOwners =
+        HashMap<Long, Long>()
 
     fun bind(
         sender:
@@ -87,16 +98,17 @@ class RuntimeDesktopBridge {
                     ) {
                         0L
                     }
-                activeBindingId =
-                    allocated
-                this.commandSender =
-                    commandSender
-                this.pointerSender =
-                    pointerSender
-                this.keySender =
-                    keySender
-                mutableWindows.value =
-                    emptyList()
+
+                bindings[allocated] =
+                    BindingState(
+                        id = allocated,
+                        commandSender =
+                            commandSender,
+                        pointerSender =
+                            pointerSender,
+                        keySender =
+                            keySender,
+                    )
                 allocated
             }
 
@@ -113,27 +125,10 @@ class RuntimeDesktopBridge {
         runCatching {
             val sender =
                 synchronized(lock) {
-                    require(
-                        activeBindingId >
-                            0L &&
-                            commandSender !=
-                                null
-                    ) {
-                        "RUNTIME_DESKTOP_SESSION_MISSING"
-                    }
-                    require(
-                        mutableWindows.value
-                            .any {
-                                it.windowId ==
-                                    windowId
-                            },
-                    ) {
-                        "RUNTIME_DESKTOP_WINDOW_MISSING"
-                    }
-                    commandSender
-                } ?: error(
-                    "RUNTIME_DESKTOP_SESSION_MISSING",
-                )
+                    ownerForLocked(
+                        windowId,
+                    ).commandSender
+                }
 
             val value =
                 RuntimeBridgeWindowCommand(
@@ -200,25 +195,13 @@ class RuntimeDesktopBridge {
         runCatching {
             val sender =
                 synchronized(lock) {
-                    require(
-                        activeBindingId > 0L &&
-                            pointerSender != null,
-                    ) {
-                        "RUNTIME_DESKTOP_POINTER_CHANNEL_MISSING"
-                    }
-                    require(
-                        mutableWindows.value
-                            .any {
-                                it.windowId ==
-                                    event.windowId
-                            },
-                    ) {
-                        "RUNTIME_DESKTOP_WINDOW_MISSING"
-                    }
-                    pointerSender
-                } ?: error(
-                    "RUNTIME_DESKTOP_POINTER_CHANNEL_MISSING",
-                )
+                    ownerForLocked(
+                        event.windowId,
+                    ).pointerSender
+                        ?: error(
+                            "RUNTIME_DESKTOP_POINTER_CHANNEL_MISSING",
+                        )
+                }
 
             RuntimeDisplayBridgePayloadCodec
                 .encodePointerEvent(event)
@@ -231,25 +214,13 @@ class RuntimeDesktopBridge {
         runCatching {
             val sender =
                 synchronized(lock) {
-                    require(
-                        activeBindingId > 0L &&
-                            keySender != null,
-                    ) {
-                        "RUNTIME_DESKTOP_KEY_CHANNEL_MISSING"
-                    }
-                    require(
-                        mutableWindows.value
-                            .any {
-                                it.windowId ==
-                                    event.windowId
-                            },
-                    ) {
-                        "RUNTIME_DESKTOP_WINDOW_MISSING"
-                    }
-                    keySender
-                } ?: error(
-                    "RUNTIME_DESKTOP_KEY_CHANNEL_MISSING",
-                )
+                    ownerForLocked(
+                        event.windowId,
+                    ).keySender
+                        ?: error(
+                            "RUNTIME_DESKTOP_KEY_CHANNEL_MISSING",
+                        )
+                }
 
             RuntimeDisplayBridgePayloadCodec
                 .encodeKeyEvent(event)
@@ -264,12 +235,9 @@ class RuntimeDesktopBridge {
             >,
     ): Boolean =
         synchronized(lock) {
-            if (
-                bindingId !=
-                    activeBindingId
-            ) {
-                return@synchronized false
-            }
+            val binding =
+                bindings[bindingId]
+                    ?: return@synchronized false
 
             require(
                 snapshot
@@ -283,11 +251,38 @@ class RuntimeDesktopBridge {
                 "RUNTIME_DESKTOP_WINDOW_DUPLICATE"
             }
 
-            mutableWindows.value =
+            snapshot.forEach {
+                window ->
+                val owner =
+                    windowOwners[
+                        window.windowId
+                    ]
+                require(
+                    owner == null ||
+                        owner == bindingId,
+                ) {
+                    "RUNTIME_DESKTOP_WINDOW_OWNER_COLLISION"
+                }
+            }
+
+            windowOwners
+                .entries
+                .removeAll {
+                    it.value ==
+                        bindingId
+                }
+
+            binding.windows =
                 snapshot
-                    .sortedBy {
-                        it.zIndex
-                    }
+
+            snapshot.forEach {
+                window ->
+                windowOwners[
+                    window.windowId
+                ] = bindingId
+            }
+
+            publishMergedLocked()
             true
         }
 
@@ -296,20 +291,87 @@ class RuntimeDesktopBridge {
     ): Boolean =
         synchronized(lock) {
             if (
-                bindingId !=
-                    activeBindingId
+                bindings.remove(
+                    bindingId,
+                ) == null
             ) {
                 return@synchronized false
             }
 
-            activeBindingId = 0L
-            commandSender = null
-            pointerSender = null
-            keySender = null
-            mutableWindows.value =
-                emptyList()
+            windowOwners
+                .entries
+                .removeAll {
+                    it.value ==
+                        bindingId
+                }
+            publishMergedLocked()
             true
         }
+
+    private fun ownerForLocked(
+        windowId: Long,
+    ): BindingState {
+        val bindingId =
+            windowOwners[windowId]
+                ?: error(
+                    "RUNTIME_DESKTOP_WINDOW_MISSING",
+                )
+        return bindings[bindingId]
+            ?: error(
+                "RUNTIME_DESKTOP_SESSION_MISSING",
+            )
+    }
+
+    private fun publishMergedLocked() {
+        val merged =
+            bindings
+                .values
+                .flatMap {
+                    binding ->
+                    binding.windows
+                        .map {
+                            window ->
+                            binding.id to
+                                window
+                        }
+                }
+                .sortedWith(
+                    compareBy<
+                        Pair<
+                            Long,
+                            RuntimeDisplayCompositorWindow
+                        >
+                    > {
+                        it.second.topmost
+                    }.thenBy {
+                        it.first
+                    }.thenBy {
+                        it.second.zIndex
+                    },
+                )
+                .mapIndexed {
+                    index,
+                    pair ->
+                    pair.second.copy(
+                        zIndex = index,
+                    )
+                }
+
+        require(
+            merged
+                .map {
+                    it.windowId
+                }
+                .distinct()
+                .size ==
+                merged.size,
+        ) {
+            "RUNTIME_DESKTOP_WINDOW_DUPLICATE_GLOBAL"
+        }
+
+        mutableWindows.value =
+            merged
+    }
 }
 
 class RuntimeDesktopBinding internal constructor(
