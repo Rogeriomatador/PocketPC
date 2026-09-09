@@ -133,7 +133,15 @@ fun TaskManagerApp(
                             .contains(
                                 normalizedQuery,
                             )
-                    }
+                    } ||
+                it.members.any {
+                    member ->
+                    member.command
+                        .lowercase()
+                        .contains(
+                            normalizedQuery,
+                        )
+                }
         }
 
     Column(
@@ -933,6 +941,163 @@ private fun RuntimeProcessRow(
                             .onSurfaceVariant,
                     maxLines = 2,
                 )
+            }
+
+            val childMembers =
+                process.members
+                    .filterNot {
+                        it.root
+                    }
+
+            if (
+                childMembers
+                    .isNotEmpty()
+            ) {
+                HorizontalDivider()
+                Text(
+                    "Subprocessos",
+                    style =
+                        MaterialTheme.typography
+                            .labelMedium,
+                    fontWeight =
+                        FontWeight.SemiBold,
+                )
+
+                childMembers
+                    .take(16)
+                    .forEach {
+                        member ->
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth(),
+                            verticalAlignment =
+                                Alignment.CenterVertically,
+                            horizontalArrangement =
+                                Arrangement.spacedBy(
+                                    6.dp,
+                                ),
+                        ) {
+                            Column(
+                                modifier =
+                                    Modifier.weight(
+                                        1f,
+                                    ),
+                            ) {
+                                Text(
+                                    member.command,
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall,
+                                    fontWeight =
+                                        FontWeight.Medium,
+                                )
+                                Text(
+                                    buildString {
+                                        append(
+                                            "PID " +
+                                                member.pid
+                                        )
+                                        member
+                                            .residentMemoryBytes
+                                            ?.let {
+                                                bytes ->
+                                                append(
+                                                    " • " +
+                                                        formatBytes(
+                                                            bytes,
+                                                        )
+                                                )
+                                            }
+                                        member
+                                            .threadCount
+                                            ?.let {
+                                                threads ->
+                                                append(
+                                                    " • " +
+                                                        threads +
+                                                        if (
+                                                            threads ==
+                                                            1
+                                                        ) {
+                                                            " thread"
+                                                        } else {
+                                                            " threads"
+                                                        },
+                                                )
+                                            }
+                                    },
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .labelSmall,
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                )
+                            }
+
+                            TextButton(
+                                onClick = {
+                                    RuntimeProcessRegistry
+                                        .terminateMember(
+                                            id =
+                                                process.id,
+                                            pid =
+                                                member.pid,
+                                            force =
+                                                false,
+                                        )
+                                },
+                            ) {
+                                Text("Finalizar")
+                            }
+                            TextButton(
+                                onClick = {
+                                    RuntimeProcessRegistry
+                                        .terminateMember(
+                                            id =
+                                                process.id,
+                                            pid =
+                                                member.pid,
+                                            force =
+                                                true,
+                                        )
+                                },
+                            ) {
+                                Text(
+                                    "Forçar",
+                                    color =
+                                        MaterialTheme
+                                            .colorScheme
+                                            .error,
+                                )
+                            }
+                        }
+                    }
+
+                if (
+                    childMembers.size >
+                        16
+                ) {
+                    Text(
+                        "+" +
+                            (
+                                childMembers.size -
+                                    16
+                            ) +
+                            " subprocessos não exibidos",
+                        style =
+                            MaterialTheme.typography
+                                .labelSmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant,
+                    )
+                }
             }
 
             HorizontalDivider()
