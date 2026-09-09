@@ -6,14 +6,14 @@
 extern "C" {
 #endif
 #define PDB_MAGIC 0x31424450u
-#define PDB_VERSION 1u
+#define PDB_VERSION 2u
 #define PDB_HEADER_BYTES 20u
 #define PDB_MAX_PAYLOAD_BYTES 1048576u
 #define PDB_TOKEN_BYTES 32u
 #define PDB_IDENTITY_BYTES 64u
 #define PDB_HELLO_BYTES 100u
 #define PDB_WINDOW_CREATE_BYTES 28u
-#define PDB_WINDOW_GEOMETRY_BYTES 32u
+#define PDB_WINDOW_GEOMETRY_BYTES 40u
 #define PDB_WINDOW_DESTROY_BYTES 8u
 #define PDB_SURFACE_AVAILABLE_BYTES 56u
 #define PDB_FRAME_READY_BYTES 32u
@@ -38,6 +38,14 @@ extern "C" {
 #define PDB_CAP_GAMEPAD (1u << 3)
 #define PDB_CAP_FRAME_ACK (1u << 4)
 #define PDB_HOST_BASELINE (PDB_CAP_WINDOW_SURFACE|PDB_CAP_POINTER|PDB_CAP_KEYBOARD|PDB_CAP_FRAME_ACK)
+
+#define PDB_ZORDER_NO_CHANGE (1u << 0)
+#define PDB_ZORDER_TOP (1u << 1)
+#define PDB_ZORDER_BOTTOM (1u << 2)
+#define PDB_ZORDER_TOPMOST (1u << 3)
+#define PDB_ZORDER_NOTOPMOST (1u << 4)
+#define PDB_ZORDER_AFTER_WINDOW (1u << 5)
+#define PDB_ZORDER_ALLOWED (PDB_ZORDER_NO_CHANGE|PDB_ZORDER_TOP|PDB_ZORDER_BOTTOM|PDB_ZORDER_TOPMOST|PDB_ZORDER_NOTOPMOST|PDB_ZORDER_AFTER_WINDOW)
 struct pdb_connection { int fd; uint32_t negotiated_capabilities; uint64_t next_sequence; uint64_t expected_inbound_sequence; };
 struct pdb_frame { uint16_t type; uint64_t sequence; uint32_t payload_bytes; unsigned char *payload; };
 struct pdb_surface_available {
@@ -69,7 +77,7 @@ int pdb_receive_pointer_event(struct pdb_connection*,struct pdb_pointer_event*,c
 int pdb_receive_key_event(struct pdb_connection*,struct pdb_key_event*,char*,size_t);
 int pdb_receive_frame_presented(struct pdb_connection*,struct pdb_frame_presented*,char*,size_t);
 int pdb_send_window_create(struct pdb_connection*,uint64_t,uint64_t,uint32_t,int32_t,int32_t,char*,size_t);
-int pdb_send_window_geometry(struct pdb_connection*,uint64_t,int32_t,int32_t,int32_t,int32_t,uint32_t,int32_t,char*,size_t);
+int pdb_send_window_geometry(struct pdb_connection*,uint64_t,int32_t,int32_t,int32_t,int32_t,uint32_t,uint32_t,uint64_t,char*,size_t);
 int pdb_send_window_destroy(struct pdb_connection*,uint64_t,char*,size_t);
 void pdb_release_frame(struct pdb_frame*);
 void pdb_close(struct pdb_connection*);
