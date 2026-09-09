@@ -14,6 +14,7 @@ PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver.py"
 FILES = {
     "makefile": TEMPLATE / "Makefile.in",
     "dllmain": TEMPLATE / "dllmain.c",
+    "input": TEMPLATE / "input.c",
     "unixlib": TEMPLATE / "unixlib.h",
     "dll_header": TEMPLATE / "pocketpcdrv_dll.h",
     "driver_header": TEMPLATE / "pocketpcdrv.h",
@@ -146,6 +147,7 @@ def main() -> int:
             "WINE_GDI_DRIVER_VERSION",
             ".pCreateWindow",
             ".pDestroyWindow",
+            ".pProcessEvents",
             ".pWindowPosChanging",
             ".pWindowPosChanged",
         ),
@@ -154,6 +156,23 @@ def main() -> int:
         failures.append(
             "surface callback must remain unimplemented until surface bridge exists"
         )
+    require(
+        failures,
+        "Input pump",
+        texts.get("input", ""),
+        (
+            "pdb_connection_has_input",
+            "pdb_receive_host_event",
+            "NtUserSendHardwareInput",
+            "PDB_POINTER_ACTION_DOWN",
+            "PDB_POINTER_ACTION_UP",
+            "PDB_POINTER_ACTION_SCROLL",
+            "PDB_KEY_ACTION_DOWN",
+            "PDB_KEY_ACTION_UP",
+            "PDB_KEY_ACTION_REPEAT",
+            "POCKETPC_MAX_EVENTS_PER_PUMP",
+        ),
+    )
     require(
         failures,
         "Window callbacks",
@@ -193,6 +212,8 @@ def main() -> int:
                 '"value": "pocketpc"',
                 '"resolvedLibrary": "winepocketpc.drv"',
                 '"surfaceCallbackImplemented": False',
+                '"inputInjectionImplemented": True',
+                '"pProcessEvents"',
                 "UNIX_MAKEDEP_PREAMBLE",
                 "#pragma makedep unix",
                 '"bridgeSourcesMarkedUnixOnly": True',
