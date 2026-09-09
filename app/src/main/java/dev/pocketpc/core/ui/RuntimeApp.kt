@@ -2098,8 +2098,11 @@ fun RuntimeApp(
                     )
                     Text(
                         "O arquivo foi materializado em uma área " +
-                            "controlada do runtime. A execução usará " +
-                            "PRoot → Box64 → Wine e a Display Bridge.",
+                            "controlada do runtime. Primeiro o PocketPC " +
+                            "configura Graphics=pocketpc em uma execução " +
+                            "one-shot; somente se ela passar inicia " +
+                            "PRoot → Box64 → Wine → aplicativo com a " +
+                            "Display Bridge autenticada.",
                         style =
                             MaterialTheme.typography
                                 .bodySmall,
@@ -2129,6 +2132,73 @@ fun RuntimeApp(
 
                         scope.launch {
                             try {
+                                status =
+                                    "PC_WINDOWS_GRAPHICS_DRIVER_CONFIGURING"
+                                val graphicsConfiguration =
+                                    executionController
+                                        .executeOneShot(
+                                            plan =
+                                                attempt
+                                                    .graphicsConfigurationInvocation,
+                                            userApproved =
+                                                true,
+                                        )
+
+                                if (
+                                    !graphicsConfiguration
+                                        .passed
+                                ) {
+                                    probeOutput =
+                                        buildString {
+                                            appendLine(
+                                                "Configuração do driver gráfico Wine falhou."
+                                            )
+                                            appendLine(
+                                                "Estado: " +
+                                                    graphicsConfiguration
+                                                        .state.name +
+                                                    " • exit=" +
+                                                    (
+                                                        graphicsConfiguration
+                                                            .exitCode
+                                                            ?: "—"
+                                                    )
+                                            )
+                                            if (
+                                                graphicsConfiguration
+                                                    .output
+                                                    .isNotBlank()
+                                            ) {
+                                                appendLine()
+                                                appendLine(
+                                                    graphicsConfiguration
+                                                        .output
+                                                        .take(
+                                                            16_000,
+                                                        )
+                                                )
+                                            }
+                                            graphicsConfiguration
+                                                .error
+                                                ?.let {
+                                                    appendLine(
+                                                        "Erro: " +
+                                                            it
+                                                    )
+                                                }
+                                            appendLine()
+                                            append(
+                                                "A aplicação não foi iniciada; " +
+                                                    "compatibilidade permanece UNVALIDATED."
+                                            )
+                                        }
+                                    status =
+                                        "PC_WINDOWS_GRAPHICS_DRIVER_CONFIG_FAILED_UNVALIDATED"
+                                    return@launch
+                                }
+
+                                status =
+                                    "PC_WINDOWS_GRAPHICS_DRIVER_CONFIGURED"
                                 val result =
                                     displayExecutionController
                                         .execute(
@@ -2149,6 +2219,9 @@ fun RuntimeApp(
 
                                 probeOutput =
                                     buildString {
+                                        appendLine(
+                                            "Driver gráfico Wine: pocketpc • configuração exit=0"
+                                        )
                                         appendLine(
                                             "Tentativa Windows: " +
                                                 attempt.target
