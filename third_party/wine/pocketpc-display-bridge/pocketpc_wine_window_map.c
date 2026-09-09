@@ -52,7 +52,26 @@ void pdb_wine_window_map_init(
     }
 
     memset(map, 0, sizeof(*map));
-    map->next_window_id = 1u;
+    map->window_namespace = 0u;
+    map->next_local_window_id = 1u;
+}
+
+int pdb_wine_window_map_set_namespace(
+    struct pdb_wine_window_map *map,
+    uint32_t window_namespace
+) {
+    if (
+        !map ||
+        window_namespace == 0u ||
+        pdb_wine_window_count(map) != 0u
+    ) {
+        return -1;
+    }
+
+    map->window_namespace =
+        window_namespace;
+    map->next_local_window_id = 1u;
+    return 0;
 }
 
 int pdb_wine_window_register(
@@ -63,6 +82,7 @@ int pdb_wine_window_register(
 ) {
     size_t i;
     uint64_t allocated;
+    uint32_t local_id;
 
     if (
         !map ||
@@ -81,16 +101,28 @@ int pdb_wine_window_register(
         return -1;
     }
 
-    if (map->next_window_id == 0u) {
+    if (map->next_local_window_id == 0u) {
         return -1;
     }
 
     for (i = 0; i < PDB_WINE_WINDOW_LIMIT; ++i) {
         if (!map->entries[i].in_use) {
-            allocated = map->next_window_id;
-            map->next_window_id += 1u;
-            if (map->next_window_id == 0u) {
-                map->next_window_id = 0u;
+            local_id =
+                map->next_local_window_id;
+            allocated =
+                (
+                    ((uint64_t)
+                        map->window_namespace)
+                    << 32
+                ) |
+                (uint64_t)local_id;
+
+            if (local_id == UINT32_MAX) {
+                map->next_local_window_id =
+                    0u;
+            } else {
+                map->next_local_window_id =
+                    local_id + 1u;
             }
 
             map->entries[i].native_handle =
