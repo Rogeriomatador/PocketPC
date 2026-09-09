@@ -334,4 +334,71 @@ class RuntimeDisplayBridgeProtocolTest {
         assertTrue(result.isFailure)
     }
 
+    @Test
+    fun missingFrameAckCapabilityFailsAuthenticationClosed() {
+        val token =
+            ByteArray(
+                RuntimeDisplayBridgeHello
+                    .TOKEN_BYTES,
+            ) {
+                it.toByte()
+            }
+        val identity =
+            "d".repeat(64)
+        val session =
+            RuntimeDisplayBridgeSession(
+                socketName =
+                    "pocketpc.display.test",
+                sessionToken = token,
+                runtimeIdentitySha256 =
+                    identity,
+                hostCapabilities =
+                    RuntimeDisplayBridgeCapabilities
+                        .HOST_BASELINE,
+            )
+        val incomplete =
+            RuntimeDisplayBridgeCapabilities
+                .HOST_BASELINE and
+                RuntimeDisplayBridgeCapabilities
+                    .FRAME_ACK
+                    .inv()
+        val frame =
+            RuntimeDisplayBridgeFrame(
+                type =
+                    RuntimeDisplayBridgeMessageType
+                        .HELLO,
+                sequence = 0,
+                payload =
+                    RuntimeDisplayBridgeHelloCodec
+                        .encode(
+                            RuntimeDisplayBridgeHello(
+                                sessionToken =
+                                    token,
+                                runtimeIdentitySha256 =
+                                    identity,
+                                capabilities =
+                                    incomplete,
+                            ),
+                        ),
+            )
+
+        val result =
+            RuntimeDisplayBridgeAuthenticator
+                .authenticate(
+                    frame,
+                    session,
+                )
+
+        assertFalse(result.accepted)
+        assertEquals(
+            0,
+            result.negotiatedCapabilities,
+        )
+        assertTrue(
+            result.blockers.contains(
+                "DISPLAY_BRIDGE_BASELINE_CAPABILITIES_MISSING",
+            ),
+        )
+    }
+
 }
