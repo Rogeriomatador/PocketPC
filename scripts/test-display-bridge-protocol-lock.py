@@ -26,6 +26,7 @@ PC_RUNTIME_READINESS = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcRun
 PC_RUNTIME_EXECUTION = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcRuntimeExecutionPlan.kt"
 PROBE_EVIDENCE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeProbeEvidenceStore.kt"
 DIAGNOSTIC_SUITE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDiagnosticSuite.kt"
+GUEST_RUNTIME_PROBE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestRuntimeProbe.kt"
 FRAME_PREVIEW = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeDisplayFramePreview.kt"
 RUNTIME_APP = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt"
 BOX64 = ROOT / "scripts/build-box64-aarch64.py"
@@ -345,6 +346,7 @@ def main() -> int:
     pc_runtime_execution = PC_RUNTIME_EXECUTION.read_text(encoding="utf-8")
     probe_evidence = PROBE_EVIDENCE.read_text(encoding="utf-8")
     diagnostic_suite = DIAGNOSTIC_SUITE.read_text(encoding="utf-8")
+    guest_runtime_probe = GUEST_RUNTIME_PROBE.read_text(encoding="utf-8")
     frame_preview = FRAME_PREVIEW.read_text(encoding="utf-8")
     runtime_app = RUNTIME_APP.read_text(encoding="utf-8")
     header = HEADER.read_text(encoding="utf-8")
@@ -557,7 +559,10 @@ def main() -> int:
             "PcWindowsLaunchAttemptPlanner",
             "PcApplicationTargetMaterializer",
             "controlledAttemptReady",
-            "exec \\\"\\$@\\\"",
+            "reg.exe add",
+            "HKCU\\\\Software\\\\Wine\\\\Drivers",
+            "/v Graphics /t REG_SZ /d pocketpc /f",
+            "exec \\\"\\$box64\\\" \\\"\\$wine\\\" \\\"\\$@\\\"",
             "RuntimeDisplayExecutionController",
             "desktopBridge =",
             "PC_WINDOWS_ATTEMPT_FINISHED_UNVALIDATED",
@@ -607,6 +612,22 @@ def main() -> int:
             "POCKETPC_WINE_DRIVER_HOST_INPUT_OK",
         ),
     )
+    require_sentinels(
+        failures,
+        "Wine graphics driver selection",
+        guest_runtime_probe + pc_windows_attempt + probe_evidence,
+        (
+            "HKCU\\Software\\Wine\\Drivers",
+            "/v Graphics /t REG_SZ /d pocketpc /f",
+            "wine_graphics_driver_config=pocketpc",
+            "WINE_POCKETPC_WINDOW_SMOKE",
+            "D3D11_PRESENT_SMOKE",
+        ),
+    )
+    if "HKCU\\\\Software\\\\Wine\\\\Drivers" in guest_runtime_probe:
+        failures.append(
+            "graphical probe registry path contains doubled runtime backslashes"
+        )
     require_sentinels(
         failures,
         "Wine package display protocol evidence",
