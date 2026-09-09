@@ -27,11 +27,17 @@ struct pdb_wine_window_entry {
 
 struct pdb_wine_window_map {
     struct pdb_wine_window_entry entries[PDB_WINE_WINDOW_LIMIT];
-    uint64_t next_window_id;
+    uint32_t window_namespace;
+    uint32_t next_local_window_id;
 };
 
 void pdb_wine_window_map_init(
     struct pdb_wine_window_map *map
+);
+
+int pdb_wine_window_map_set_namespace(
+    struct pdb_wine_window_map *map,
+    uint32_t window_namespace
 );
 
 int pdb_wine_window_register(
