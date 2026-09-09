@@ -70,6 +70,10 @@ def main() -> int:
             "Process.myPid()",
             '"Finalizar tarefa"',
             '"Forçar encerramento"',
+            '"Finalizar família"',
+            '"Forçar família"',
+            '"PIDs da família:"',
+            "descendantCount",
             '"protegido"',
             "force = false",
             "force = true",
@@ -92,6 +96,13 @@ def main() -> int:
             "fun snapshots",
             "fun terminate(",
             "RuntimeProcessRegistry",
+            "descendantCount",
+            "familyResidentMemoryBytes",
+            "familyThreadCount",
+            "familyPids",
+            "RuntimeProcTree",
+            "Os.kill(",
+            "startTimeTicks",
         ),
     }
 
@@ -140,6 +151,8 @@ def main() -> int:
     print("anchored_taskbar_menu=true")
     print("anchored_workspace_menu=true")
     print("runtime_process_termination=true")
+    print("runtime_process_family_termination=true")
+    print("runtime_process_family_ui=true")
     print("device_execution_evidence=false")
     return 0
 
