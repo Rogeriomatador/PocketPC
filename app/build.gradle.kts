@@ -45,6 +45,63 @@ val pocketPcSkipNativeBuild =
         ?.toBooleanStrictOrNull()
         ?: false
 
+val pocketPcProotValidationCandidatePath =
+    providers.gradleProperty(
+        "pocketpc.prootValidationCandidateDir"
+    )
+        .orNull
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+
+val pocketPcProotValidationCandidateDir =
+    pocketPcProotValidationCandidatePath
+        ?.let {
+            rootProject.file(it)
+                .canonicalFile
+        }
+
+if (
+    pocketPcProotValidationCandidateDir !=
+    null
+) {
+    require(
+        pocketPcProotValidationCandidateDir
+            .isDirectory
+    ) {
+        "PRoot validation candidate directory does not exist."
+    }
+    require(
+        pocketPcProotValidationCandidateDir
+            .resolve(
+                "assets/proot-device-validation.json"
+            )
+            .isFile
+    ) {
+        "PRoot validation manifest is missing."
+    }
+    for (
+        fileName in
+        listOf(
+            "libproot.so",
+            "libproot_loader.so",
+            "libandroid-shmem.so",
+            "libtalloc.so",
+        )
+    ) {
+        require(
+            pocketPcProotValidationCandidateDir
+                .resolve(
+                    "jniLibs/arm64-v8a/" +
+                        fileName
+                )
+                .isFile
+        ) {
+            "PRoot validation artifact missing: " +
+                fileName
+        }
+    }
+}
+
 android {
     namespace = "dev.pocketpc.core"
     compileSdk = 37
@@ -75,6 +132,11 @@ android {
             "boolean",
             "POCKETPC_SOURCE_REVISION_PINNED",
             pocketPcSourceRevisionPinned.toString(),
+        )
+        buildConfigField(
+            "boolean",
+            "POCKETPC_PROOT_VALIDATION_CANDIDATE_PACKAGED",
+            "false",
         )
 
         manifestPlaceholders[
@@ -119,6 +181,30 @@ android {
                 signingConfigs.findByName(
                     "pocketPcRelease"
                 )
+            buildConfigField(
+                "boolean",
+                "POCKETPC_PROOT_VALIDATION_CANDIDATE_PACKAGED",
+                "false",
+            )
+        }
+
+        create("validation") {
+            initWith(
+                getByName("debug")
+            )
+            isDebuggable = true
+            versionNameSuffix =
+                "-validation"
+            matchingFallbacks +=
+                listOf("debug")
+            buildConfigField(
+                "boolean",
+                "POCKETPC_PROOT_VALIDATION_CANDIDATE_PACKAGED",
+                (
+                    pocketPcProotValidationCandidateDir !=
+                        null
+                    ).toString(),
+            )
         }
     }
 
@@ -130,6 +216,26 @@ android {
     sourceSets.getByName("main").assets.directories.add(
         rootProject.file("third_party").absolutePath
     )
+
+    if (
+        pocketPcProotValidationCandidateDir !=
+        null
+    ) {
+        sourceSets
+            .getByName("validation")
+            .jniLibs
+            .srcDir(
+                pocketPcProotValidationCandidateDir
+                    .resolve("jniLibs")
+            )
+        sourceSets
+            .getByName("validation")
+            .assets
+            .srcDir(
+                pocketPcProotValidationCandidateDir
+                    .resolve("assets")
+            )
+    }
 
     packaging {
         jniLibs {
