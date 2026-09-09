@@ -6,6 +6,7 @@ data class RuntimeBridgeWindowState(
     val flags: Int,
     val geometry:
         RuntimeBridgeWindowGeometry?,
+    val surfaceGeneration: Long = 0L,
 )
 
 sealed interface RuntimeDisplayBridgeEvent {
@@ -21,6 +22,11 @@ sealed interface RuntimeDisplayBridgeEvent {
 
     data class WindowDestroyed(
         val windowId: Long,
+    ) : RuntimeDisplayBridgeEvent
+
+    data class SurfaceRequested(
+        val request:
+            RuntimeBridgeSurfaceRequest,
     ) : RuntimeDisplayBridgeEvent
 
     data class FrameReady(
@@ -81,6 +87,9 @@ class RuntimeDisplayBridgeStateMachine(
                     RuntimeDisplayBridgeMessageType
                         .WINDOW_DESTROY ->
                         destroyWindow(frame)
+                    RuntimeDisplayBridgeMessageType
+                        .SURFACE_REQUEST ->
+                        surfaceRequest(frame)
                     RuntimeDisplayBridgeMessageType
                         .FRAME_READY ->
                         frameReady(frame)
@@ -214,6 +223,44 @@ class RuntimeDisplayBridgeStateMachine(
             )
     }
 
+    private fun surfaceRequest(
+        frame: RuntimeDisplayBridgeFrame,
+    ): RuntimeDisplayBridgeEvent {
+        requireCapability(
+            RuntimeDisplayBridgeCapabilities
+                .WINDOW_SURFACE,
+        )
+        val request =
+            RuntimeDisplayBridgePayloadCodec
+                .decodeSurfaceRequest(
+                    frame.payload,
+                )
+                .getOrThrow()
+        val old =
+            windows[
+                request.windowId
+            ] ?: error(
+                "DISPLAY_BRIDGE_WINDOW_MISSING"
+            )
+        require(
+            request.generation >
+                old.surfaceGeneration,
+        ) {
+            "DISPLAY_BRIDGE_SURFACE_GENERATION_STALE"
+        }
+        windows[
+            request.windowId
+        ] =
+            old.copy(
+                surfaceGeneration =
+                    request.generation,
+            )
+        return RuntimeDisplayBridgeEvent
+            .SurfaceRequested(
+                request,
+            )
+    }
+
     private fun frameReady(
         frame: RuntimeDisplayBridgeFrame,
     ): RuntimeDisplayBridgeEvent {
@@ -227,10 +274,18 @@ class RuntimeDisplayBridgeStateMachine(
                     frame.payload,
                 )
                 .getOrThrow()
+        val window =
+            windows[
+                ready.windowId
+            ] ?: error(
+                "DISPLAY_BRIDGE_WINDOW_MISSING"
+            )
         require(
-            ready.windowId in windows,
+            window.surfaceGeneration > 0L &&
+                ready.generation ==
+                    window.surfaceGeneration,
         ) {
-            "DISPLAY_BRIDGE_WINDOW_MISSING"
+            "DISPLAY_BRIDGE_SURFACE_GENERATION_MISMATCH"
         }
         return RuntimeDisplayBridgeEvent
             .FrameReady(ready)
