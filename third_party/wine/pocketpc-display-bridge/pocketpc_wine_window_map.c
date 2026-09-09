@@ -99,6 +99,10 @@ int pdb_wine_window_register(
                 parent_handle;
             map->entries[i].window_id =
                 allocated;
+            map->entries[i].last_sent_sequence =
+                0u;
+            map->entries[i].lifecycle_state =
+                PDB_WINE_WINDOW_ALLOCATED;
             map->entries[i].in_use = 1;
             *window_id = allocated;
             return 0;
@@ -156,6 +160,117 @@ int pdb_wine_window_handle_for_id(
     return 0;
 }
 
+int pdb_wine_window_state(
+    const struct pdb_wine_window_map *map,
+    uintptr_t native_handle,
+    uint32_t *lifecycle_state,
+    uint64_t *last_sent_sequence
+) {
+    int index;
+
+    if (
+        !lifecycle_state ||
+        !last_sent_sequence
+    ) {
+        return -1;
+    }
+
+    index = find_handle(
+        map,
+        native_handle
+    );
+    if (index < 0) {
+        return -1;
+    }
+
+    *lifecycle_state =
+        map->entries[index].lifecycle_state;
+    *last_sent_sequence =
+        map->entries[index].last_sent_sequence;
+    return 0;
+}
+
+int pdb_wine_window_mark_sent(
+    struct pdb_wine_window_map *map,
+    uintptr_t native_handle,
+    uint32_t lifecycle_state,
+    uint64_t sequence
+) {
+    int index;
+    uint32_t current;
+
+    if (
+        sequence == 0u ||
+        lifecycle_state <
+            PDB_WINE_WINDOW_CREATE_SENT ||
+        lifecycle_state >
+            PDB_WINE_WINDOW_DESTROY_SENT
+    ) {
+        return -1;
+    }
+
+    index = find_handle(
+        map,
+        native_handle
+    );
+    if (index < 0) {
+        return -1;
+    }
+
+    current =
+        map->entries[index].lifecycle_state;
+
+    if (
+        lifecycle_state ==
+            PDB_WINE_WINDOW_CREATE_SENT
+    ) {
+        if (
+            current !=
+                PDB_WINE_WINDOW_ALLOCATED
+        ) {
+            return -1;
+        }
+    } else if (
+        lifecycle_state ==
+            PDB_WINE_WINDOW_GEOMETRY_SENT
+    ) {
+        if (
+            current !=
+                PDB_WINE_WINDOW_CREATE_SENT &&
+            current !=
+                PDB_WINE_WINDOW_GEOMETRY_SENT
+        ) {
+            return -1;
+        }
+    } else if (
+        lifecycle_state ==
+            PDB_WINE_WINDOW_DESTROY_SENT
+    ) {
+        if (
+            current !=
+                PDB_WINE_WINDOW_CREATE_SENT &&
+            current !=
+                PDB_WINE_WINDOW_GEOMETRY_SENT
+        ) {
+            return -1;
+        }
+    }
+
+    if (
+        map->entries[index]
+            .last_sent_sequence >=
+        sequence
+    ) {
+        return -1;
+    }
+
+    map->entries[index].lifecycle_state =
+        lifecycle_state;
+    map->entries[index].last_sent_sequence =
+        sequence;
+    return 0;
+}
+
 int pdb_wine_window_has_children(
     const struct pdb_wine_window_map *map,
     uintptr_t native_handle
@@ -205,6 +320,15 @@ int pdb_wine_window_unregister(
         ) {
             return -1;
         }
+    }
+
+    if (
+        map->entries[index].lifecycle_state !=
+            PDB_WINE_WINDOW_ALLOCATED &&
+        map->entries[index].lifecycle_state !=
+            PDB_WINE_WINDOW_DESTROY_SENT
+    ) {
+        return -1;
     }
 
     memset(
