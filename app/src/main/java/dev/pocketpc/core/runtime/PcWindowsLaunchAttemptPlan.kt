@@ -55,6 +55,14 @@ object PcWindowsLaunchAttemptPlanner {
                 "D3D11_RUNTIME_NOT_VALIDATED"
         }
         if (
+            !PocketPcVulkanWsiContract
+                .implemented
+        ) {
+            blockers +=
+                PocketPcVulkanWsiContract
+                    .blocker
+        }
+        if (
             !evidence
                 .graphicsPresentationSmokePassed
         ) {
