@@ -714,7 +714,7 @@ fun RuntimeApp(
                         color =
                             if (
                                 executionPlan
-                                    .launchEligible
+                                    .attemptEligible
                             ) {
                                 MaterialTheme
                                     .colorScheme.primary
@@ -765,15 +765,14 @@ fun RuntimeApp(
                     ) {
                         Text(
                             if (
-                                executionPlan.launchEligible
+                                executionPlan.attemptEligible
                             ) {
-                                "Runtime base elegível; " +
-                                    "o executor Windows " +
-                                    "específico ainda precisa " +
-                                    "ser conectado antes de " +
-                                    "oferecer execução."
+                                "Runtime base READY para tentativa " +
+                                    "controlada; o aplicativo permanece " +
+                                    "UNVALIDATED. Falta materializar o " +
+                                    "alvo e conectá-lo ao executor Windows."
                             } else {
-                                "Execução bloqueada pelos gates"
+                                "Tentativa bloqueada pelos gates do runtime."
                             },
                             modifier =
                                 Modifier.padding(8.dp),
