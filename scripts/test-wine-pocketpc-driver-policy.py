@@ -74,9 +74,13 @@ def main() -> int:
         "guestDriverOverlayPreparerImplemented",
         "surfaceCallbackTemplateImplemented",
         "inputInjectionTemplateImplemented",
+        "surfaceRequestProtocolImplemented",
+        "surfaceWriterAttestationImplemented",
+        "asyncFrameAckDrainImplemented",
     )
     expected_false = (
         "protocolV3NativeIntegrationExecuted",
+        "surfaceWriterNativeSoftwareTestExecuted",
         "windowLifecycleAdapterSoftwareTestExecuted",
         "guestDriverBuilt",
         "guestDriverLoaded",
@@ -172,6 +176,7 @@ def main() -> int:
             "PDB_KEY_ACTION_DOWN",
             "PDB_KEY_ACTION_UP",
             "PDB_KEY_ACTION_REPEAT",
+            "PDB_MSG_FRAME_PRESENTED",
             "POCKETPC_MAX_EVENTS_PER_PUMP",
         ),
     )
@@ -187,7 +192,10 @@ def main() -> int:
             "pdb_surface_writer_open",
             "pdb_surface_writer_copy_bgra",
             "pdb_surface_writer_commit",
-            "pdb_receive_frame_presented",
+            "drain_frame_acks_locked",
+            "PDB_MSG_FRAME_PRESENTED",
+            "shape_bits",
+            "POCKETPC_SURFACE_MAX_BYTES",
             "pdb_surface_writer_close",
         ),
     )
