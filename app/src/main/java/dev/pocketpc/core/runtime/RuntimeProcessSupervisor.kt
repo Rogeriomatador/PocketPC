@@ -1048,13 +1048,13 @@ class RuntimeProcessSupervisor {
                     outputTruncated = truncated,
                 )
             } finally {
-                registryId?.let {
+                if (registryId != null) {
                     RuntimeProcessRegistry
                         .terminate(
-                            it,
+                            registryId,
                             force = true,
                         )
-                } ?: if (
+                } else if (
                     process.isAlive
                 ) {
                     process.destroyForcibly()
