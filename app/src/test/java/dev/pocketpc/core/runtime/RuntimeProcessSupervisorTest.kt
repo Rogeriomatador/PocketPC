@@ -214,4 +214,90 @@ class RuntimeProcessSupervisorTest {
         )
     }
 
+    @Test
+    fun longSessionRunsUntilProcessExit() =
+        runBlocking {
+            assumeTrue(
+                File("/bin/sh")
+                    .canExecute(),
+            )
+
+            val result =
+                RuntimeProcessSupervisor()
+                    .runSession(
+                        ProcessSessionSpec(
+                            argv =
+                                listOf(
+                                    "/bin/sh",
+                                    "-c",
+                                    "sleep 0.1; printf session-done",
+                                ),
+                            environment =
+                                emptyMap(),
+                            maxOutputBytes =
+                                4096,
+                        ),
+                    )
+
+            assertTrue(result.started)
+            assertTrue(!result.timedOut)
+            assertEquals(
+                0,
+                result.exitCode,
+            )
+            assertEquals(
+                "session-done",
+                result.output,
+            )
+        }
+
+    @Test
+    fun longSessionCanBeStoppedExplicitly() =
+        runBlocking {
+            assumeTrue(
+                File("/bin/sh")
+                    .canExecute(),
+            )
+
+            val supervisor =
+                RuntimeProcessSupervisor()
+            val running =
+                async {
+                    supervisor.runSession(
+                        ProcessSessionSpec(
+                            argv =
+                                listOf(
+                                    "/bin/sh",
+                                    "-c",
+                                    "exec sleep 10",
+                                ),
+                            environment =
+                                emptyMap(),
+                            maxOutputBytes =
+                                4096,
+                        ),
+                    )
+                }
+
+            repeat(100) {
+                if (
+                    RuntimeProcessRegistry
+                        .snapshots()
+                        .isNotEmpty()
+                ) {
+                    return@repeat
+                }
+                delay(10)
+            }
+
+            assertTrue(
+                supervisor.stopActive(),
+            )
+
+            val result =
+                running.await()
+            assertTrue(result.started)
+            assertTrue(!result.timedOut)
+        }
+
 }
