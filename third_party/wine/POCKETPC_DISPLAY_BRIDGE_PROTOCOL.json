@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "PROTOCOL_V2_IMPLEMENTED_NOT_INTEGRATION_TESTED",
+  "status": "PROTOCOL_V3_SURFACE_REQUEST_IMPLEMENTED_NOT_INTEGRATION_TESTED",
   "wire": {
     "magicHex": "0x31424450",
     "magicAsciiLittleEndian": "PDB1",
-    "version": 2,
+    "version": 3,
     "headerBytes": 20,
     "maxPayloadBytes": 1048576,
     "byteOrder": "little-endian"
@@ -31,7 +31,8 @@
     "GAMEPAD_EVENT": 32,
     "FRAME_PRESENTED": 40,
     "ERROR": 255,
-    "FRAME_READY": 21
+    "FRAME_READY": 21,
+    "SURFACE_REQUEST": 19
   },
   "capabilities": {
     "WINDOW_SURFACE": 1,
@@ -53,8 +54,9 @@
     "surfaceRoundTrip": false,
     "pointerRoundTrip": false,
     "keyboardRoundTrip": false,
-    "protocolV2NativeIntegrationExecuted": false,
-    "wineDriverBuilt": false
+    "wineDriverBuilt": false,
+    "protocolV3NativeIntegrationExecuted": false,
+    "surfaceWriterNativeSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -68,7 +70,8 @@
     "GAMEPAD_EVENT": "host-to-guest",
     "FRAME_PRESENTED": "host-to-guest",
     "ERROR": "bidirectional",
-    "FRAME_READY": "guest-to-host"
+    "FRAME_READY": "guest-to-host",
+    "SURFACE_REQUEST": "guest-to-host"
   },
   "payloadLayouts": {
     "WINDOW_CREATE": {
@@ -152,6 +155,17 @@
         "generation:u64",
         "frameId:u64"
       ]
+    },
+    "SURFACE_REQUEST": {
+      "bytes": 32,
+      "fields": [
+        "windowId:u64",
+        "generation:u64",
+        "width:i32",
+        "height:i32",
+        "pixelFormat:u32",
+        "flags:u32"
+      ]
     }
   },
   "sharedFramebuffer": {
@@ -163,7 +177,9 @@
     "smokeHeight": 64,
     "smokePattern": "B=x&255,G=y&255,R=(x xor y)&255,A=255",
     "transport": "host temp file bound into guest /tmp",
-    "productionReplacement": "AHardwareBuffer/Vulkan after shared-framebuffer integration evidence"
+    "productionReplacement": "AHardwareBuffer/Vulkan after shared-framebuffer integration evidence",
+    "requestOrdering": "WINDOW_CREATE -> SURFACE_REQUEST -> SURFACE_AVAILABLE -> WINDOW_GEOMETRY -> FRAME_READY",
+    "generationRule": "guest generation must strictly increase per window; FRAME_READY must match latest requested generation"
   },
   "zOrder": {
     "model": "single-choice flags",
