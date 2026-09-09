@@ -92,7 +92,7 @@ class RuntimeDisplaySurfaceRegistry(
 
             val created =
                 RuntimeDisplaySharedFramebuffer
-                    .createSmoke(
+                    .create(
                         hostTempDirectory =
                             hostTempDirectory,
                         windowId =
