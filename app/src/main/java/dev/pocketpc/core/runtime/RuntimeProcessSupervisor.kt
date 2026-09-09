@@ -85,9 +85,9 @@ object RuntimeProcessRegistry {
                     RuntimeProcessSnapshot(
                         id = entry.id,
                         pid =
-                            runCatching {
-                                entry.process.pid()
-                            }.getOrNull(),
+                            processPid(
+                                entry.process,
+                            ),
                         command =
                             entry.argv.firstOrNull()
                                 ?.substringAfterLast('/')
@@ -106,6 +106,23 @@ object RuntimeProcessRegistry {
                     it.startedAtMillis
                 }
         }
+
+    private fun processPid(
+        process: Process,
+    ): Long? =
+        runCatching {
+            val method =
+                process.javaClass.methods
+                    .firstOrNull {
+                        it.name == "pid" &&
+                            it.parameterCount == 0
+                    }
+                    ?: return@runCatching null
+            (
+                method.invoke(process)
+                    as? Number
+            )?.toLong()
+        }.getOrNull()
 
     fun terminate(
         id: Long,
