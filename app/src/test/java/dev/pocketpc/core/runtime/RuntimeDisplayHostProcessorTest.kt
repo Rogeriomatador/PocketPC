@@ -314,6 +314,26 @@ class RuntimeDisplayHostProcessorTest {
                         .single()
                         .status,
                 )
+                val presentedAck =
+                    endpoint
+                        .acknowledgements
+                        .single()
+                assertEquals(
+                    surface.windowId,
+                    presentedAck.windowId,
+                )
+                assertEquals(
+                    surface.surfaceId,
+                    presentedAck.surfaceId,
+                )
+                assertEquals(
+                    surface.generation,
+                    presentedAck.generation,
+                )
+                assertEquals(
+                    1L,
+                    presentedAck.frameId,
+                )
 
                 endpoint.inbound +=
                     destroyFrame(4L)
@@ -395,6 +415,26 @@ class RuntimeDisplayHostProcessorTest {
                         .acknowledgements
                         .single()
                         .status,
+                )
+                val rejectedAck =
+                    endpoint
+                        .acknowledgements
+                        .single()
+                assertEquals(
+                    surface.windowId,
+                    rejectedAck.windowId,
+                )
+                assertEquals(
+                    surface.surfaceId,
+                    rejectedAck.surfaceId,
+                )
+                assertEquals(
+                    surface.generation,
+                    rejectedAck.generation,
+                )
+                assertEquals(
+                    1L,
+                    rejectedAck.frameId,
                 )
                 assertEquals(
                     0L,
