@@ -1,5 +1,7 @@
 package dev.pocketpc.core.runtime
 
+import android.system.Os
+import android.system.OsConstants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -41,7 +43,132 @@ data class RuntimeProcessSnapshot(
     val alive: Boolean,
     val residentMemoryBytes: Long?,
     val threadCount: Int?,
+    val rootAlive: Boolean = alive,
+    val descendantCount: Int = 0,
+    val familyResidentMemoryBytes:
+        Long? = residentMemoryBytes,
+    val familyThreadCount:
+        Int? = threadCount,
+    val familyPids:
+        List<Long> = emptyList(),
 )
+
+internal data class RuntimeProcProcess(
+    val pid: Long,
+    val parentPid: Long,
+    val startTimeTicks: Long,
+    val name: String,
+    val residentMemoryBytes: Long?,
+    val threadCount: Int?,
+)
+
+internal object RuntimeProcTree {
+    fun family(
+        knownMembers:
+            Map<Long, Long>,
+        processes:
+            Map<Long, RuntimeProcProcess>,
+    ): List<RuntimeProcProcess> {
+        val accepted =
+            LinkedHashMap<Long, Long>()
+
+        knownMembers.forEach {
+            (pid, startTime) ->
+            val current =
+                processes[pid]
+            if (
+                current != null &&
+                current.startTimeTicks ==
+                    startTime
+            ) {
+                accepted[pid] =
+                    startTime
+            }
+        }
+
+        var changed: Boolean
+        do {
+            changed = false
+            processes.values.forEach {
+                process ->
+                if (
+                    process.pid !in
+                        accepted &&
+                    process.parentPid in
+                        accepted
+                ) {
+                    accepted[
+                        process.pid
+                    ] =
+                        process.startTimeTicks
+                    changed = true
+                }
+            }
+        } while (changed)
+
+        return accepted.keys
+            .mapNotNull(
+                processes::get,
+            )
+    }
+
+    fun depths(
+        family:
+            Collection<
+                RuntimeProcProcess
+            >,
+    ): Map<Long, Int> {
+        val byPid =
+            family.associateBy {
+                it.pid
+            }
+        val cache =
+            HashMap<Long, Int>()
+
+        fun depth(
+            pid: Long,
+            visiting:
+                MutableSet<Long>,
+        ): Int {
+            cache[pid]?.let {
+                return it
+            }
+            if (!visiting.add(pid)) {
+                return 0
+            }
+
+            val parent =
+                byPid[pid]
+                    ?.parentPid
+            val value =
+                if (
+                    parent != null &&
+                    parent in byPid
+                ) {
+                    1 +
+                        depth(
+                            parent,
+                            visiting,
+                        )
+                } else {
+                    0
+                }
+
+            visiting.remove(pid)
+            cache[pid] = value
+            return value
+        }
+
+        byPid.keys.forEach {
+            pid ->
+            depth(
+                pid,
+                mutableSetOf(),
+            )
+        }
+        return cache
+    }
+}
 
 object RuntimeProcessRegistry {
     private data class Entry(
@@ -49,28 +176,54 @@ object RuntimeProcessRegistry {
         val process: Process,
         val argv: List<String>,
         val startedAtMillis: Long,
+        val rootPid: Long?,
+        val knownMembers:
+            LinkedHashMap<
+                Long,
+                Long
+            > =
+            linkedMapOf(),
+        var rootExited: Boolean = false,
     )
 
     private val lock = Any()
-    private val entries = LinkedHashMap<Long, Entry>()
+    private val entries =
+        LinkedHashMap<Long, Entry>()
     private var nextId = 1L
 
     internal fun register(
         process: Process,
         argv: List<String>,
-    ): Long =
-        synchronized(lock) {
+    ): Long {
+        val pid =
+            processPid(process)
+        val rootInfo =
+            pid?.let(
+                ::readProcProcess,
+            )
+
+        return synchronized(lock) {
             val id = nextId++
-            entries[id] =
+            val entry =
                 Entry(
                     id = id,
                     process = process,
                     argv = argv.toList(),
                     startedAtMillis =
                         System.currentTimeMillis(),
+                    rootPid = pid,
                 )
+            rootInfo?.let {
+                info ->
+                entry.knownMembers[
+                    info.pid
+                ] =
+                    info.startTimeTicks
+            }
+            entries[id] = entry
             id
         }
+    }
 
     internal fun unregister(
         id: Long,
@@ -86,75 +239,390 @@ object RuntimeProcessRegistry {
         }
     }
 
-    fun snapshots():
-        List<RuntimeProcessSnapshot> =
-        synchronized(lock) {
-            entries.values
-                .map { entry ->
-                    val pid =
-                        processPid(
-                            entry.process,
-                        )
-                    val stats =
-                        pid?.let(
-                            ::readProcStatus,
-                        )
-                    RuntimeProcessSnapshot(
-                        id = entry.id,
-                        pid = pid,
-                        command =
-                            entry.argv.firstOrNull()
-                                ?.substringAfterLast('/')
-                                ?.ifBlank {
-                                    "processo"
-                                }
-                                ?: "processo",
-                        argv = entry.argv,
-                        startedAtMillis =
-                            entry.startedAtMillis,
-                        alive =
-                            entry.process.isAlive,
-                        residentMemoryBytes =
-                            stats?.first,
-                        threadCount =
-                            stats?.second,
-                    )
-                }
-                .sortedBy {
-                    it.startedAtMillis
-                }
-        }
+    internal fun observeFamily(
+        id: Long,
+    ): Int {
+        val processes =
+            scanProc()
+        return synchronized(lock) {
+            val entry =
+                entries[id]
+                    ?: return@synchronized 0
+            val family =
+                RuntimeProcTree.family(
+                    entry.knownMembers,
+                    processes,
+                )
+            entry.knownMembers
+                .clear()
+            family.forEach {
+                member ->
+                entry.knownMembers[
+                    member.pid
+                ] =
+                    member.startTimeTicks
+            }
 
-    private fun readProcStatus(
-        pid: Long,
-    ): Pair<Long?, Int?>? =
-        runCatching {
-            val status =
-                File(
-                    "/proc/$pid/status",
+            family.count {
+                it.pid !=
+                    entry.rootPid
+            }
+        }
+    }
+
+    internal fun markRootExited(
+        id: Long,
+        process: Process,
+    ) {
+        synchronized(lock) {
+            val entry =
+                entries[id]
+                    ?.takeIf {
+                        it.process ===
+                            process
+                    }
+                    ?: return
+
+            entry.rootExited = true
+            entry.rootPid?.let {
+                entry.knownMembers
+                    .remove(it)
+            }
+
+            if (
+                entry.knownMembers
+                    .isEmpty()
+            ) {
+                entries.remove(id)
+            }
+        }
+    }
+
+    fun snapshots():
+        List<RuntimeProcessSnapshot> {
+        val processes =
+            scanProc()
+
+        return synchronized(lock) {
+            val remove =
+                mutableListOf<Long>()
+
+            val result =
+                entries.values
+                    .mapNotNull {
+                        entry ->
+                        val family =
+                            RuntimeProcTree.family(
+                                entry.knownMembers,
+                                processes,
+                            )
+
+                        entry.knownMembers
+                            .clear()
+                        family.forEach {
+                            member ->
+                            entry.knownMembers[
+                                member.pid
+                            ] =
+                                member
+                                    .startTimeTicks
+                        }
+
+                        val rootAlive =
+                            entry.process
+                                .isAlive
+                        val liveFamily =
+                            family.filter {
+                                it.pid !=
+                                    entry.rootPid ||
+                                    rootAlive
+                            }
+
+                        if (
+                            !rootAlive &&
+                            liveFamily.isEmpty()
+                        ) {
+                            remove += entry.id
+                            return@mapNotNull null
+                        }
+
+                        val rootStats =
+                            entry.rootPid
+                                ?.let(
+                                    processes::get,
+                                )
+                        val familyMemory =
+                            liveFamily
+                                .mapNotNull {
+                                    it.residentMemoryBytes
+                                }
+                                .takeIf {
+                                    it.isNotEmpty()
+                                }
+                                ?.sum()
+                        val familyThreads =
+                            liveFamily
+                                .mapNotNull {
+                                    it.threadCount
+                                }
+                                .takeIf {
+                                    it.isNotEmpty()
+                                }
+                                ?.sum()
+
+                        RuntimeProcessSnapshot(
+                            id = entry.id,
+                            pid = entry.rootPid,
+                            command =
+                                entry.argv
+                                    .firstOrNull()
+                                    ?.substringAfterLast(
+                                        '/',
+                                    )
+                                    ?.ifBlank {
+                                        "processo"
+                                    }
+                                    ?: "processo",
+                            argv =
+                                entry.argv,
+                            startedAtMillis =
+                                entry.startedAtMillis,
+                            alive =
+                                rootAlive ||
+                                    liveFamily
+                                        .isNotEmpty(),
+                            residentMemoryBytes =
+                                rootStats
+                                    ?.residentMemoryBytes,
+                            threadCount =
+                                rootStats
+                                    ?.threadCount,
+                            rootAlive =
+                                rootAlive,
+                            descendantCount =
+                                liveFamily.count {
+                                    it.pid !=
+                                        entry.rootPid
+                                },
+                            familyResidentMemoryBytes =
+                                familyMemory,
+                            familyThreadCount =
+                                familyThreads,
+                            familyPids =
+                                liveFamily
+                                    .map {
+                                        it.pid
+                                    }
+                                    .sorted(),
+                        )
+                    }
+                    .sortedBy {
+                        it.startedAtMillis
+                    }
+
+            remove.forEach(
+                entries::remove,
+            )
+            result
+        }
+    }
+
+    fun terminate(
+        id: Long,
+        force: Boolean = false,
+    ): Boolean {
+        val processes =
+            scanProc()
+
+        val target =
+            synchronized(lock) {
+                val entry =
+                    entries[id]
+                        ?: return false
+                val family =
+                    RuntimeProcTree.family(
+                        entry.knownMembers,
+                        processes,
+                    )
+                val depths =
+                    RuntimeProcTree.depths(
+                        family,
+                    )
+                Triple(
+                    entry,
+                    family.sortedWith(
+                        compareByDescending<
+                            RuntimeProcProcess
+                        > {
+                            depths[it.pid] ?: 0
+                        }.thenByDescending {
+                            it.pid
+                        },
+                    ),
+                    entry.rootPid,
+                )
+            }
+
+        val entry =
+            target.first
+        val family =
+            target.second
+        val rootPid =
+            target.third
+        val signal =
+            if (force) {
+                OsConstants.SIGKILL
+            } else {
+                OsConstants.SIGTERM
+            }
+
+        var acted = false
+
+        family.forEach {
+            member ->
+            if (
+                member.pid ==
+                    rootPid
+            ) {
+                return@forEach
+            }
+
+            val current =
+                readProcProcess(
+                    member.pid,
                 )
             if (
-                !status.isFile ||
-                !status.canRead()
+                current != null &&
+                current.startTimeTicks ==
+                    member.startTimeTicks
+            ) {
+                runCatching {
+                    Os.kill(
+                        member.pid
+                            .toInt(),
+                        signal,
+                    )
+                    acted = true
+                }
+            }
+        }
+
+        if (
+            entry.process.isAlive
+        ) {
+            runCatching {
+                if (force) {
+                    entry.process
+                        .destroyForcibly()
+                } else {
+                    entry.process
+                        .destroy()
+                }
+                acted = true
+            }
+        }
+
+        return acted
+    }
+
+    private fun scanProc():
+        Map<Long, RuntimeProcProcess> {
+        val proc =
+            File("/proc")
+        val directories =
+            proc.listFiles()
+                ?: return emptyMap()
+
+        return buildMap {
+            directories.forEach {
+                directory ->
+                val pid =
+                    directory.name
+                        .toLongOrNull()
+                        ?: return@forEach
+                readProcProcess(
+                    pid,
+                )?.let {
+                    put(
+                        pid,
+                        it,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun readProcProcess(
+        pid: Long,
+    ): RuntimeProcProcess? =
+        runCatching {
+            if (
+                pid <= 0L ||
+                pid >
+                    Int.MAX_VALUE
             ) {
                 return@runCatching null
             }
 
+            val directory =
+                File(
+                    "/proc/$pid",
+                )
+            val statusFile =
+                File(
+                    directory,
+                    "status",
+                )
+            val statFile =
+                File(
+                    directory,
+                    "stat",
+                )
+            if (
+                !statusFile.isFile ||
+                !statFile.isFile
+            ) {
+                return@runCatching null
+            }
+
+            var name = "processo"
+            var parentPid = 0L
             var rssBytes: Long? = null
             var threads: Int? = null
 
-            status.useLines { lines ->
-                lines.forEach { line ->
+            statusFile.useLines {
+                lines ->
+                lines.forEach {
+                    line ->
                     when {
+                        line.startsWith(
+                            "Name:"
+                        ) ->
+                            name =
+                                line.substringAfter(
+                                    ':',
+                                ).trim()
+                                    .ifBlank {
+                                        "processo"
+                                    }
+
+                        line.startsWith(
+                            "PPid:"
+                        ) ->
+                            parentPid =
+                                line.substringAfter(
+                                    ':',
+                                ).trim()
+                                    .toLongOrNull()
+                                    ?: 0L
+
                         line.startsWith(
                             "VmRSS:"
                         ) -> {
                             val kb =
-                                line
-                                    .substringAfter(
-                                        ':',
-                                    )
-                                    .trim()
+                                line.substringAfter(
+                                    ':',
+                                ).trim()
                                     .substringBefore(
                                         ' ',
                                     )
@@ -173,23 +641,50 @@ object RuntimeProcessRegistry {
 
                         line.startsWith(
                             "Threads:"
-                        ) -> {
+                        ) ->
                             threads =
-                                line
-                                    .substringAfter(
-                                        ':',
-                                    )
-                                    .trim()
+                                line.substringAfter(
+                                    ':',
+                                ).trim()
                                     .toIntOrNull()
-                        }
                     }
                 }
             }
 
-            rssBytes to threads
+            val stat =
+                statFile.readText()
+            val closing =
+                stat.lastIndexOf(')')
+            if (closing <= 0) {
+                return@runCatching null
+            }
+            val fields =
+                stat.substring(
+                    closing + 1,
+                ).trim()
+                    .split(
+                        Regex("\\s+"),
+                    )
+            val startTime =
+                fields.getOrNull(
+                    19,
+                )?.toLongOrNull()
+                    ?: return@runCatching null
+
+            RuntimeProcProcess(
+                pid = pid,
+                parentPid =
+                    parentPid,
+                startTimeTicks =
+                    startTime,
+                name = name,
+                residentMemoryBytes =
+                    rssBytes,
+                threadCount = threads,
+            )
         }.getOrNull()
 
-    private fun processPid(
+    internal fun processPid(
         process: Process,
     ): Long? =
         runCatching {
@@ -197,33 +692,16 @@ object RuntimeProcessRegistry {
                 process.javaClass.methods
                     .firstOrNull {
                         it.name == "pid" &&
-                            it.parameterCount == 0
+                            it.parameterCount ==
+                                0
                     }
                     ?: return@runCatching null
             (
-                method.invoke(process)
-                    as? Number
+                method.invoke(
+                    process,
+                ) as? Number
             )?.toLong()
         }.getOrNull()
-
-    fun terminate(
-        id: Long,
-        force: Boolean = false,
-    ): Boolean {
-        val process =
-            synchronized(lock) {
-                entries[id]?.process
-            } ?: return false
-
-        return runCatching {
-            if (force) {
-                process.destroyForcibly()
-            } else {
-                process.destroy()
-            }
-            true
-        }.getOrDefault(false)
-    }
 }
 
 class RuntimeProcessSupervisor {
