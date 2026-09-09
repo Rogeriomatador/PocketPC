@@ -108,7 +108,21 @@ static BOOL host_event_matches_mask(
         return (mask & QS_KEY) != 0;
 
     case PDB_MSG_WINDOW_COMMAND:
+        return (
+            mask &
+            (
+                QS_SENDMESSAGE |
+                QS_POSTMESSAGE
+            )
+        ) != 0;
+
     case PDB_MSG_FRAME_PRESENTED:
+        /*
+         * FRAME_PRESENTED is a control-plane ownership ACK, not a
+         * Win32 input event. It must drain for every Wine queue mask
+         * or the single-buffer surface can remain permanently owned
+         * by the host.
+         */
         return TRUE;
 
     default:
@@ -643,16 +657,11 @@ BOOL POCKETPC_ProcessEvents(
     if (!POCKETPC_BridgeReady())
         return FALSE;
 
-    if (
-        !(mask &
-          (
-            QS_INPUT |
-            QS_SENDMESSAGE |
-            QS_POSTMESSAGE
-          ))
-    ) {
-        return FALSE;
-    }
+    /*
+     * Do not return early for an empty/unrelated Win32 queue mask:
+     * FRAME_PRESENTED ownership ACKs are control-plane traffic and
+     * must remain drainable independently of input eligibility.
+     */
 
     while (
         processed <
@@ -773,7 +782,9 @@ BOOL POCKETPC_ProcessEvents(
                     event.type ==
                         PDB_MSG_POINTER_EVENT ||
                     event.type ==
-                        PDB_MSG_KEY_EVENT
+                        PDB_MSG_KEY_EVENT ||
+                    event.type ==
+                        PDB_MSG_WINDOW_COMMAND
                 ) &&
                 !host_event_matches_mask(
                     &event,
