@@ -881,20 +881,18 @@ def main() -> int:
             f"class={elf_class} type={elf_type} machine={machine}"
         )
 
-    pocketpc_pe_candidates =
-        sorted(
-            installed_root.rglob(
-                "winepocketpc.drv"
-            ),
-            key=lambda item: item.as_posix(),
-        )
-    pocketpc_unix_candidates =
-        sorted(
-            installed_root.rglob(
-                "winepocketpc.so"
-            ),
-            key=lambda item: item.as_posix(),
-        )
+    pocketpc_pe_candidates = sorted(
+        installed_root.rglob(
+            "winepocketpc.drv"
+        ),
+        key=lambda item: item.as_posix(),
+    )
+    pocketpc_unix_candidates = sorted(
+        installed_root.rglob(
+            "winepocketpc.so"
+        ),
+        key=lambda item: item.as_posix(),
+    )
     if (
         len(pocketpc_pe_candidates) != 1
         or len(pocketpc_unix_candidates) != 1
@@ -905,10 +903,8 @@ def main() -> int:
             f"unix={len(pocketpc_unix_candidates)}"
         )
 
-    pocketpc_pe =
-        pocketpc_pe_candidates[0]
-    pocketpc_unix =
-        pocketpc_unix_candidates[0]
+    pocketpc_pe = pocketpc_pe_candidates[0]
+    pocketpc_unix = pocketpc_unix_candidates[0]
 
     if pocketpc_pe.read_bytes()[:2] != b"MZ":
         raise SystemExit(
@@ -956,10 +952,13 @@ def main() -> int:
         }
     )
 
-    pocketpc_window_relative =
-        Path("share/tests/pocketpc-window-smoke.exe")
-    pocketpc_window_destination =
-        package_root / pocketpc_window_relative
+    pocketpc_window_relative = Path(
+        "share/tests/pocketpc-window-smoke.exe"
+    )
+    pocketpc_window_destination = (
+        package_root /
+        pocketpc_window_relative
+    )
     pocketpc_window_destination.parent.mkdir(
         parents=True,
         exist_ok=True,
