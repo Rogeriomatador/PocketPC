@@ -340,14 +340,36 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 appearance.customWallpaperTransform,
             modifier = Modifier
                 .fillMaxSize()
-                .desktopSecondaryClick { desktop.openContextMenu(null) }
+                .desktopSecondaryClickAt {
+                    position ->
+                    desktop.openContextMenu(
+                        app = null,
+                        anchorX =
+                            position.x
+                                .roundToInt(),
+                        anchorY =
+                            position.y
+                                .roundToInt(),
+                    )
+                }
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
                             desktop.closeStartMenu()
                             desktop.closeContextMenu()
                         },
-                        onLongPress = { desktop.openContextMenu(null) },
+                        onLongPress = {
+                            position ->
+                            desktop.openContextMenu(
+                                app = null,
+                                anchorX =
+                                    position.x
+                                        .roundToInt(),
+                                anchorY =
+                                    position.y
+                                        .roundToInt(),
+                            )
+                        },
                     )
                 },
         )
