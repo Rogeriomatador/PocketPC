@@ -17,7 +17,7 @@ class RuntimeDisplayBridgeStateMachineTest {
         }
         assertTrue(machine.apply(RuntimeDisplayBridgeFrame(RuntimeDisplayBridgeMessageType.WINDOW_CREATE, 1, create)).isSuccess)
         val geometry = payload(RuntimeDisplayBridgePayloadCodec.WINDOW_GEOMETRY_BYTES) {
-            putLong(1); putInt(10); putInt(20); putInt(640); putInt(480); putInt(1); putInt(0)
+            putLong(1); putInt(10); putInt(20); putInt(640); putInt(480); putInt(1); putInt(RuntimeDisplayBridgePayloadCodec.Z_ORDER_NO_CHANGE); putLong(0)
         }
         assertTrue(machine.apply(RuntimeDisplayBridgeFrame(RuntimeDisplayBridgeMessageType.WINDOW_GEOMETRY, 2, geometry)).isSuccess)
         assertEquals(640, machine.snapshot().single().geometry?.width)
@@ -49,6 +49,133 @@ class RuntimeDisplayBridgeStateMachineTest {
         assertTrue(machine.apply(RuntimeDisplayBridgeFrame(RuntimeDisplayBridgeMessageType.WINDOW_DESTROY,3,destroy)).isFailure)
         assertEquals(2,machine.snapshot().size)
     }
+    @Test
+    fun missingZOrderSiblingFailsClosed() {
+        val machine =
+            RuntimeDisplayBridgeStateMachine(
+                RuntimeDisplayBridgeCapabilities
+                    .WINDOW_SURFACE,
+            )
+        fun create(
+            id: Long,
+            parent: Long,
+            seq: Long,
+        ) =
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .WINDOW_CREATE,
+                    seq,
+                    payload(
+                        RuntimeDisplayBridgePayloadCodec
+                            .WINDOW_CREATE_BYTES,
+                    ) {
+                        putLong(id)
+                        putLong(parent)
+                        putInt(0)
+                        putInt(10)
+                        putInt(10)
+                    },
+                ),
+            )
+
+        assertTrue(
+            create(1, 0, 1)
+                .isSuccess,
+        )
+
+        val geometry =
+            payload(
+                RuntimeDisplayBridgePayloadCodec
+                    .WINDOW_GEOMETRY_BYTES,
+            ) {
+                putLong(1)
+                putInt(0)
+                putInt(0)
+                putInt(10)
+                putInt(10)
+                putInt(1)
+                putInt(
+                    RuntimeDisplayBridgePayloadCodec
+                        .Z_ORDER_AFTER_WINDOW,
+                )
+                putLong(99)
+            }
+
+        assertTrue(
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .WINDOW_GEOMETRY,
+                    2,
+                    geometry,
+                ),
+            ).isFailure,
+        )
+    }
+
+    @Test
+    fun existingSiblingCanBeZOrderTarget() {
+        val machine =
+            RuntimeDisplayBridgeStateMachine(
+                RuntimeDisplayBridgeCapabilities
+                    .WINDOW_SURFACE,
+            )
+        fun create(
+            id: Long,
+            seq: Long,
+        ) =
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .WINDOW_CREATE,
+                    seq,
+                    payload(
+                        RuntimeDisplayBridgePayloadCodec
+                            .WINDOW_CREATE_BYTES,
+                    ) {
+                        putLong(id)
+                        putLong(0)
+                        putInt(0)
+                        putInt(10)
+                        putInt(10)
+                    },
+                ),
+            )
+
+        assertTrue(create(1, 1).isSuccess)
+        assertTrue(create(2, 2).isSuccess)
+
+        val geometry =
+            payload(
+                RuntimeDisplayBridgePayloadCodec
+                    .WINDOW_GEOMETRY_BYTES,
+            ) {
+                putLong(2)
+                putInt(0)
+                putInt(0)
+                putInt(10)
+                putInt(10)
+                putInt(1)
+                putInt(
+                    RuntimeDisplayBridgePayloadCodec
+                        .Z_ORDER_AFTER_WINDOW,
+                )
+                putLong(1)
+            }
+
+        assertTrue(
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .WINDOW_GEOMETRY,
+                    3,
+                    geometry,
+                ),
+            ).isSuccess,
+        )
+    }
+
     @Test
     fun frameReadyAdvancesGuestSequence() {
         val machine =
