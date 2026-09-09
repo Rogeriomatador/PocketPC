@@ -27,6 +27,8 @@ PC_RUNTIME_EXECUTION = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcRun
 FRAME_PREVIEW = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeDisplayFramePreview.kt"
 RUNTIME_APP = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt"
 BOX64 = ROOT / "scripts/build-box64-aarch64.py"
+WINE_BUILD = ROOT / "scripts/build-wine-x86_64.py"
+WINE_LAUNCH = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/WineLaunchPlan.kt"
 HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.h"
 SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.c"
 SMOKE = ROOT / "third_party/wine/pocketpc-display-bridge/display_bridge_smoke.c"
@@ -345,6 +347,8 @@ def main() -> int:
     source = SOURCE.read_text(encoding="utf-8")
     smoke = SMOKE.read_text(encoding="utf-8")
     box64 = BOX64.read_text(encoding="utf-8")
+    wine_build = WINE_BUILD.read_text(encoding="utf-8")
+    wine_launch = WINE_LAUNCH.read_text(encoding="utf-8")
     window_map_header = WINDOW_MAP_HEADER.read_text(encoding="utf-8")
     window_map_source = WINDOW_MAP_SOURCE.read_text(encoding="utf-8")
     window_bridge_header = WINDOW_BRIDGE_HEADER.read_text(encoding="utf-8")
@@ -568,6 +572,32 @@ def main() -> int:
             "PcRuntimeEvidenceCandidate",
         ),
     )
+    require_sentinels(
+        failures,
+        "Validated DXVK route for controlled Windows attempt",
+        wine_launch + pc_windows_attempt + runtime_app,
+        (
+            "DXVK_DLL_OVERRIDES",
+            "d3d11=n;dxgi=n",
+            "WINEDLLOVERRIDES",
+            "enableDxvk = true",
+            "DXVK_LAYER_NOT_DEPLOYED",
+            "deployedLayers",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Wine package display protocol evidence",
+        wine_build,
+        (
+            '"requiresDisplayBridgeProtocol": 4',
+            '"protocolVersion": 4',
+        ),
+    )
+    if '"requiresDisplayBridgeProtocol": 3' in wine_build:
+        failures.append(
+            "Wine package evidence regressed to display protocol v3"
+        )
     require_sentinels(
         failures,
         "Compose display preview",
