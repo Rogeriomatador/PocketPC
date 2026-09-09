@@ -98,7 +98,7 @@ def main() -> int:
             "data class RuntimeProcProcess",
             "startTimeTicks",
             'File("/proc")',
-            'File(\n                    "/proc/$pid",',
+            '"/proc/$pid"',
             "RuntimeProcTree.family",
             "RuntimeProcTree.depths",
             "seedLiveRoot",
