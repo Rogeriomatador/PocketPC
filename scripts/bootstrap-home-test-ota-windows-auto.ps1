@@ -135,10 +135,9 @@ if (
         $ghDirectory
 ) {
     $env:Path =
-        (
-            @($env:Path, $ghDirectory) -
-            join ";"
-        )
+        $env:Path +
+        ";" +
+        $ghDirectory
     Write-Host (
         "GitHub CLI adicionado ao PATH desta sessao: " +
         $ghDirectory
