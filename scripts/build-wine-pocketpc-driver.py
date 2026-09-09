@@ -107,44 +107,81 @@ def elf_identity(path: Path) -> dict[str, int]:
 
 
 def discover_build_targets(
+    build: Path,
     makefile: Path,
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
+    candidates = (
+        "dlls/winepocketpc.drv",
+        "dlls/winepocketpc.drv/winepocketpc.drv",
+        "dlls/winepocketpc.drv/winepocketpc.so",
+    )
+
+    database = subprocess.run(
+        [
+            "make",
+            "-qp",
+            "-f",
+            str(makefile),
+        ],
+        cwd=build,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    ).stdout
+
+    discovered = {
+        line.split(":", 1)[0].strip()
+        for line in database.splitlines()
+        if ":" in line
+        and not line.startswith("\t")
+        and not line.startswith("#")
+        and "=" not in line.split(":", 1)[0]
+    }
+
+    present = [
+        target
+        for target in candidates
+        if target in discovered
+    ]
+
+    aggregate = candidates[0]
+    pe = candidates[1]
+    unixlib = candidates[2]
+
+    if aggregate in present:
+        return [aggregate], present
+
+    if pe in present and unixlib in present:
+        return [pe, unixlib], present
+
+    # Fall back to the generated Makefile text only for diagnostics
+    # if make's database output is incomplete on a platform.
     text = makefile.read_text(
         encoding="utf-8",
         errors="replace",
     )
-    lines = text.splitlines()
-
-    def exists(target: str) -> bool:
-        prefix = target + ":"
-        return any(
-            line.startswith(prefix)
-            for line in lines
-        )
-
-    aggregate = (
-        "dlls/winepocketpc.drv"
-    )
-    pe = (
-        "dlls/winepocketpc.drv/"
-        "winepocketpc.drv"
-    )
-    unixlib = (
-        "dlls/winepocketpc.drv/"
-        "winepocketpc.so"
-    )
-
-    if exists(aggregate):
-        return [aggregate]
-
-    targets = [
+    direct = {
+        line.split(":", 1)[0].strip()
+        for line in text.splitlines()
+        if ":" in line
+        and not line.startswith("\t")
+        and not line.startswith("#")
+    }
+    fallback = [
         target
-        for target in (pe, unixlib)
-        if exists(target)
+        for target in candidates
+        if target in direct
     ]
-    if targets == [pe, unixlib]:
-        return targets
-    return []
+
+    if aggregate in fallback:
+        return [aggregate], fallback
+    if pe in fallback and unixlib in fallback:
+        return [pe, unixlib], fallback
+
+    return [], sorted(
+        set(present) | set(fallback)
+    )
 
 
 def write_evidence(
@@ -299,8 +336,14 @@ def main() -> int:
         write_evidence(evidence_path, base)
         return 31
 
-    build_targets = discover_build_targets(
-        generated_makefile,
+    build_targets, discovered_targets = (
+        discover_build_targets(
+            build,
+            generated_makefile,
+        )
+    )
+    base["discoveredBuildTargets"] = (
+        discovered_targets
     )
     if not build_targets:
         base["status"] = "BUILD_TARGET_NOT_FOUND"
