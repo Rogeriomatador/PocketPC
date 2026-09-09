@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "PROTOCOL_IMPLEMENTED_NOT_INTEGRATION_TESTED",
+  "status": "PROTOCOL_V2_IMPLEMENTED_NOT_INTEGRATION_TESTED",
   "wire": {
     "magicHex": "0x31424450",
     "magicAsciiLittleEndian": "PDB1",
-    "version": 1,
+    "version": 2,
     "headerBytes": 20,
     "maxPayloadBytes": 1048576,
     "byteOrder": "little-endian"
@@ -52,7 +52,9 @@
     "guestHandshakeExecuted": false,
     "surfaceRoundTrip": false,
     "pointerRoundTrip": false,
-    "keyboardRoundTrip": false
+    "keyboardRoundTrip": false,
+    "protocolV2NativeIntegrationExecuted": false,
+    "wineDriverBuilt": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -80,7 +82,7 @@
       ]
     },
     "WINDOW_GEOMETRY": {
-      "bytes": 32,
+      "bytes": 40,
       "fields": [
         "windowId:u64",
         "x:i32",
@@ -88,7 +90,8 @@
         "width:i32",
         "height:i32",
         "visible:u32",
-        "zOrder:i32"
+        "zOrderFlags:u32",
+        "insertAfterWindowId:u64"
       ]
     },
     "WINDOW_DESTROY": {
@@ -161,5 +164,33 @@
     "smokePattern": "B=x&255,G=y&255,R=(x xor y)&255,A=255",
     "transport": "host temp file bound into guest /tmp",
     "productionReplacement": "AHardwareBuffer/Vulkan after shared-framebuffer integration evidence"
+  },
+  "zOrder": {
+    "model": "single-choice flags",
+    "flags": {
+      "NO_CHANGE": 1,
+      "TOP": 2,
+      "BOTTOM": 4,
+      "TOPMOST": 8,
+      "NOTOPMOST": 16,
+      "AFTER_WINDOW": 32
+    },
+    "rules": [
+      "exactly one flag must be set",
+      "AFTER_WINDOW requires non-zero insertAfterWindowId different from windowId",
+      "all other flags require insertAfterWindowId=0"
+    ],
+    "wineBinding": {
+      "sourceCommit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+      "sourceDriver": "dlls/wineandroid.drv",
+      "referenceCallbacks": [
+        "pCreateWindow",
+        "pDestroyWindow",
+        "pWindowPosChanging",
+        "pCreateWindowSurface",
+        "pWindowPosChanged"
+      ],
+      "reusePolicy": "signature/behavior reference only; do not reuse wineandroid.drv binary or Java/JNI ABI"
+    }
   }
 }
