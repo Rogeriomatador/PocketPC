@@ -245,4 +245,163 @@ class RuntimeDisplayCompositorModelTest {
                 .frameId,
         )
     }
+    @Test
+    fun topmostAndAfterWindowOrderingArePreserved() {
+        val model =
+            RuntimeDisplayCompositorModel()
+
+        fun create(
+            id: Long,
+        ) {
+            model.apply(
+                RuntimeDisplayHostStep(
+                    event =
+                        RuntimeDisplayBridgeEvent
+                            .WindowCreated(
+                                RuntimeBridgeWindowState(
+                                    windowId = id,
+                                    parentId = 0L,
+                                    flags = 0,
+                                    geometry = null,
+                                ),
+                            ),
+                ),
+            ).getOrThrow()
+        }
+
+        fun geometry(
+            id: Long,
+            z: Int,
+            after: Long = 0L,
+        ) {
+            model.apply(
+                RuntimeDisplayHostStep(
+                    event =
+                        RuntimeDisplayBridgeEvent
+                            .WindowGeometryChanged(
+                                RuntimeBridgeWindowGeometry(
+                                    windowId = id,
+                                    x = 0,
+                                    y = 0,
+                                    width = 100,
+                                    height = 100,
+                                    visible = true,
+                                    zOrderFlags = z,
+                                    insertAfterWindowId =
+                                        after,
+                                ),
+                            ),
+                ),
+            ).getOrThrow()
+        }
+
+        create(1L)
+        create(2L)
+        assertEquals(
+            listOf(1L, 2L),
+            model.snapshot()
+                .map {
+                    it.windowId
+                },
+        )
+
+        geometry(
+            1L,
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_TOPMOST,
+        )
+        assertEquals(
+            listOf(2L, 1L),
+            model.snapshot()
+                .map {
+                    it.windowId
+                },
+        )
+        assertTrue(
+            model.snapshot()
+                .last()
+                .topmost,
+        )
+
+        create(3L)
+        assertEquals(
+            listOf(2L, 3L, 1L),
+            model.snapshot()
+                .map {
+                    it.windowId
+                },
+        )
+        assertTrue(
+            model.snapshot()
+                .last()
+                .topmost,
+        )
+        assertTrue(
+            !model.snapshot()[1]
+                .topmost,
+        )
+
+        geometry(
+            1L,
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_BOTTOM,
+        )
+        assertEquals(
+            listOf(1L, 2L, 3L),
+            model.snapshot()
+                .map {
+                    it.windowId
+                },
+        )
+        assertTrue(
+            !model.snapshot()
+                .first()
+                .topmost,
+        )
+
+        geometry(
+            3L,
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_TOPMOST,
+        )
+        geometry(
+            3L,
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_NOTOPMOST,
+        )
+        assertEquals(
+            listOf(1L, 2L, 3L),
+            model.snapshot()
+                .map {
+                    it.windowId
+                },
+        )
+        assertTrue(
+            !model.snapshot()
+                .last()
+                .topmost,
+        )
+
+        geometry(
+            3L,
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_AFTER_WINDOW,
+            after = 2L,
+        )
+        assertEquals(
+            listOf(1L, 3L, 2L),
+            model.snapshot()
+                .map {
+                    it.windowId
+                },
+        )
+        assertEquals(
+            listOf(0, 1, 2),
+            model.snapshot()
+                .map {
+                    it.zIndex
+                },
+        )
+    }
+
 }
