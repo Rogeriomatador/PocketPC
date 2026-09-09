@@ -13,6 +13,13 @@ FRAMEBUFFER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplay
 STATE_MACHINE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeStateMachine.kt"
 PROBE_CONTROLLER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeProbeController.kt"
 SURFACE_REGISTRY = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySurfaceRegistry.kt"
+FRAME_READER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayFrameReader.kt"
+HOST_PROCESSOR = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayHostProcessor.kt"
+COMPOSITOR_MODEL = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayCompositorModel.kt"
+SESSION_CONTROLLER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySessionController.kt"
+BRIDGE_HOST = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeHost.kt"
+FRAME_PREVIEW = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeDisplayFramePreview.kt"
+RUNTIME_APP = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt"
 BOX64 = ROOT / "scripts/build-box64-aarch64.py"
 HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.h"
 SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.c"
@@ -245,6 +252,13 @@ def main() -> int:
     state_machine = STATE_MACHINE.read_text(encoding="utf-8")
     probe_controller = PROBE_CONTROLLER.read_text(encoding="utf-8")
     surface_registry = SURFACE_REGISTRY.read_text(encoding="utf-8")
+    frame_reader = FRAME_READER.read_text(encoding="utf-8")
+    host_processor = HOST_PROCESSOR.read_text(encoding="utf-8")
+    compositor_model = COMPOSITOR_MODEL.read_text(encoding="utf-8")
+    session_controller = SESSION_CONTROLLER.read_text(encoding="utf-8")
+    bridge_host = BRIDGE_HOST.read_text(encoding="utf-8")
+    frame_preview = FRAME_PREVIEW.read_text(encoding="utf-8")
+    runtime_app = RUNTIME_APP.read_text(encoding="utf-8")
     header = HEADER.read_text(encoding="utf-8")
     source = SOURCE.read_text(encoding="utf-8")
     smoke = SMOKE.read_text(encoding="utf-8")
@@ -332,10 +346,11 @@ def main() -> int:
         (
             "DISPLAY_BRIDGE_EXPECTED_SURFACE_REQUEST",
             "SurfaceRequested",
-            "RuntimeDisplaySurfaceRegistry",
-            "surfaceRegistry",
-            "peer.sendSurfaceAvailable",
+            "RuntimeDisplayHostProcessor",
+            "processNext",
+            "acknowledgePendingFrame",
             "DISPLAY_BRIDGE_FRAME_READY_IDENTITY_MISMATCH",
+            "previewFrame",
         ),
     )
     require_sentinels(
@@ -352,6 +367,78 @@ def main() -> int:
             "previous",
             ".framebuffer",
             ".close()",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Kotlin frame reader",
+        frame_reader,
+        (
+            "RuntimeDisplayFramePixels",
+            "RuntimeDisplayFrameReader",
+            "DISPLAY_FRAME_SIZE_CHANGED",
+            "ARGB",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Kotlin host processor",
+        host_processor,
+        (
+            "RuntimeDisplayHostProcessor",
+            "RuntimeDisplayBridgeEndpoint",
+            "RuntimeDisplaySurfaceRegistry",
+            "DISPLAY_BRIDGE_FRAME_ACK_PENDING",
+            "FRAME_STATUS_REJECTED",
+            "acknowledgePendingFrame",
+            "sendSurfaceAvailable",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Kotlin compositor model",
+        compositor_model,
+        (
+            "RuntimeDisplayCompositorModel",
+            "RuntimeDisplayCompositorWindow",
+            "DISPLAY_COMPOSITOR_FRAME_STALE",
+            "WindowGeometryChanged",
+            "WindowDestroyed",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Kotlin continuous display session",
+        session_controller,
+        (
+            "RuntimeDisplaySessionController",
+            "MutableStateFlow",
+            "runSession",
+            "acknowledgePendingFrame",
+            "Dispatchers.IO",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Kotlin bridge endpoint and production timeout",
+        bridge_host,
+        (
+            "RuntimeDisplayBridgeEndpoint",
+            "RuntimeDisplayBridgePeer",
+            "readTimeoutMillis <= 0",
+            "socket.soTimeout",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Compose display preview",
+        frame_preview + runtime_app,
+        (
+            "RuntimeDisplayFramePreview",
+            "Bitmap.createBitmap",
+            "previewFrame",
+            "probePreviewFrame",
+            "aspectRatio",
         ),
     )
     require_sentinels(
