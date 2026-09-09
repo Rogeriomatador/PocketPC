@@ -111,6 +111,12 @@
     "wineDriverAbiLockImplemented": true,
     "wineDriverAbiLockSoftwareTestExecuted": false,
     "wineGraphicsConfigurationIsolationImplemented": true,
-    "wineGraphicsConfigurationIsolationSoftwareTestExecuted": false
+    "wineGraphicsConfigurationIsolationSoftwareTestExecuted": false,
+    "wineProcessWindowNamespaceImplemented": true,
+    "wineProcessWindowNamespaceSoftwareTestExecuted": false,
+    "multiPeerDesktopRoutingImplemented": true,
+    "multiPeerDesktopRoutingSoftwareTestExecuted": false,
+    "multiPeerDisplayExecutionImplemented": true,
+    "multiPeerDisplayExecutionSoftwareTestExecuted": false
   }
 }
