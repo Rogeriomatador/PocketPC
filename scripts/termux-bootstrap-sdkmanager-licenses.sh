@@ -190,6 +190,34 @@ export ANDROID_SDK_ROOT="$SDK_ROOT"
 
 "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
 
+PLATFORM_PACKAGE="$(
+    python - "$ROOT/toolchains/android-build-lock.json" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1], "r", encoding="utf-8"))
+print(data["android"]["platformPackage"])
+PY
+)"
+
 echo
-echo "Classification : SDK_LICENSE_SETUP_COMPLETED"
+echo "Revalidating locked Android platform through sdkmanager..."
+echo "platform_package=$PLATFORM_PACKAGE"
+"$SDKMANAGER"     --sdk_root="$SDK_ROOT"     "$PLATFORM_PACKAGE"
+
+PLATFORM_DIR_NAME="${PLATFORM_PACKAGE#platforms;}"
+PLATFORM_DIR="$SDK_ROOT/platforms/$PLATFORM_DIR_NAME"
+
+if [ ! -f "$PLATFORM_DIR/android.jar" ]; then
+    echo "SDK_PLATFORM_ANDROID_JAR_MISSING=$PLATFORM_DIR/android.jar" >&2
+    exit 7
+fi
+
+if [ ! -f "$PLATFORM_DIR/package.xml" ]; then
+    echo "SDK_PLATFORM_PACKAGE_XML_MISSING=$PLATFORM_DIR/package.xml" >&2
+    exit 8
+fi
+
+echo
+echo "Classification : SDK_LICENSE_AND_PLATFORM_REGISTERED"
 echo "sdk_root=$SDK_ROOT"
+echo "platform_package=$PLATFORM_PACKAGE"
+echo "package_xml=$PLATFORM_DIR/package.xml"
