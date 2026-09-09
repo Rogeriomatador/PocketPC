@@ -352,7 +352,7 @@ def main() -> int:
             "bytes": packaged_bridge_smoke.stat().st_size,
             "sha256": sha256(packaged_bridge_smoke),
             "machine": 62,
-            "protocolVersion": 1,
+            "protocolVersion": 2,
             "expectedOutput": "POCKETPC_DISPLAY_BRIDGE_SMOKE_OK",
         },
         "guestPackage": {
