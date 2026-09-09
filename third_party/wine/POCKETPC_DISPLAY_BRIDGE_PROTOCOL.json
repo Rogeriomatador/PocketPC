@@ -117,7 +117,9 @@
     "winePocketPcWindowProbeBrokerImplemented": true,
     "winePocketPcWindowProbeBrokerSoftwareTestExecuted": false,
     "winePocketPcWindowEvidenceImplemented": true,
-    "winePocketPcWindowEvidenceSoftwareTestExecuted": false
+    "winePocketPcWindowEvidenceSoftwareTestExecuted": false,
+    "wineGraphicsDriverSelectionImplemented": true,
+    "wineGraphicsDriverSelectionSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -360,12 +362,14 @@
   "controlledWindowsAttempt": {
     "status": "IMPLEMENTED_NOT_EXECUTED",
     "targetMaterialization": "content:// SAF target is copied into /home/pocket/windows-targets through a verified host file, SHA-256 named, bounded and no-follow checked",
-    "executionChain": "PRoot -> /bin/sh -c fixed exec \"$@\" -> Box64 -> Wine -> materialized EXE/MSI",
+    "executionChain": "PRoot -> /bin/sh fixed script -> Box64/Wine reg.exe add HKCU\\Software\\Wine\\Drivers Graphics=pocketpc -> Box64/Wine -> materialized EXE/MSI",
     "shellSafety": "dynamic Box64/Wine/target values are positional arguments and are never interpolated into shell source",
     "evidenceRule": "all required smoke evidence must come from one runtime/tool/layer identity; application compatibility remains UNVALIDATED after a mere attempt",
     "desktopRule": "continuous RuntimeDisplaySessionController publishes compositor windows through RuntimeDesktopBridge",
     "graphicsRoute": "controlled app attempts require the currently discovered dxvk layer and set WINEDLLOVERRIDES=d3d11=n;dxgi=n, matching the validated D3D11/Present smoke route",
     "wineDriverGate": "attempt remains blocked until WINE_POCKETPC_WINDOW_SMOKE records an identity-bound round trip proving winepocketpc.drv window creation, GDI pixels, pointer/key input and window destruction through the Android broker",
-    "evidenceNamespace": "runtime-probe-evidence-v8; earlier evidence namespace is intentionally not reused"
+    "evidenceNamespace": "runtime-probe-evidence-v8; earlier evidence namespace is intentionally not reused",
+    "graphicsDriverSelection": "before graphical smoke or controlled application execution, Wine itself writes HKCU\\Software\\Wine\\Drivers\\Graphics as REG_SZ pocketpc; dynamic target paths remain positional shell arguments",
+    "graphicsDriverEvidence": "WINE_POCKETPC_WINDOW_SMOKE evidence is recorded only when output includes wine_graphics_driver_config=pocketpc and the identity-bound window/frame/input round trip passes"
   }
 }
