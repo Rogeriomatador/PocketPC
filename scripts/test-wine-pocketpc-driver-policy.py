@@ -235,6 +235,8 @@ def main() -> int:
             "Wine 11 win32u offsets the dirty rectangle",
             "max(dirty->left, 0)",
             "max(dirty->top, 0)",
+            "already-attested surface",
+            "surface->writer.surface.width * 4",
             "POCKETPC_QueueHostEventLocked",
             "PDB_MSG_FRAME_PRESENTED",
             "PDB_MSG_SURFACE_AVAILABLE",
