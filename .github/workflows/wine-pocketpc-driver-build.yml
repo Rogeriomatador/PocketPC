@@ -12,6 +12,7 @@ on:
       - 'scripts/test-wine-pocketpc-driver-policy.py'
       - 'scripts/test-wine-pocketpc-driver-abi-lock.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
+      - 'scripts/test-display-multipeer-policy.py'
       - '.github/workflows/wine-pocketpc-driver-build.yml'
 
 permissions:
@@ -46,6 +47,7 @@ jobs:
           python3 scripts/test-python-syntax.py
           python3 scripts/test-pc-runtime-source-locks.py
           python3 scripts/test-display-bridge-protocol-lock.py
+          python3 scripts/test-display-multipeer-policy.py
           python3 scripts/test-wine-pocketpc-driver-policy.py
           python3 scripts/test-wine-pocketpc-driver-abi-lock.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
