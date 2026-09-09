@@ -41,4 +41,73 @@ class RuntimeDisplayBridgePayloadCodecTest {
         val value = RuntimeBridgeKeyEvent(1, 0, 13, 28, 0, 0)
         assertArrayEquals(RuntimeDisplayBridgePayloadCodec.encodeKeyEvent(value), RuntimeDisplayBridgePayloadCodec.encodeKeyEvent(value))
     }
+    @Test
+    fun surfaceDescriptorRoundTrip() {
+        val expected =
+            RuntimeBridgeSurfaceAvailable(
+                windowId = 1,
+                surfaceId = 2,
+                generation = 3,
+                width = 64,
+                height = 64,
+                strideBytes = 256,
+                pixelFormat =
+                    RuntimeDisplayBridgePayloadCodec
+                        .PIXEL_FORMAT_BGRA8888,
+                tokenHex =
+                    "00112233445566778899aabbccddeeff",
+            )
+        val payload =
+            RuntimeDisplayBridgePayloadCodec
+                .encodeSurfaceAvailable(
+                    expected,
+                )
+        assertEquals(
+            RuntimeDisplayBridgePayloadCodec
+                .SURFACE_AVAILABLE_BYTES,
+            payload.size,
+        )
+        assertEquals(
+            expected,
+            RuntimeDisplayBridgePayloadCodec
+                .decodeSurfaceAvailable(
+                    payload,
+                )
+                .getOrThrow(),
+        )
+        assertEquals(
+            "/tmp/.pocketpc-surface-00112233445566778899aabbccddeeff.bgra",
+            expected.guestPath,
+        )
+    }
+
+    @Test
+    fun frameReadyRoundTrip() {
+        val expected =
+            RuntimeBridgeFrameReady(
+                windowId = 1,
+                surfaceId = 2,
+                generation = 3,
+                frameId = 4,
+            )
+        val payload =
+            RuntimeDisplayBridgePayloadCodec
+                .encodeFrameReady(
+                    expected,
+                )
+        assertEquals(
+            RuntimeDisplayBridgePayloadCodec
+                .FRAME_READY_BYTES,
+            payload.size,
+        )
+        assertEquals(
+            expected,
+            RuntimeDisplayBridgePayloadCodec
+                .decodeFrameReady(
+                    payload,
+                )
+                .getOrThrow(),
+        )
+    }
+
 }
