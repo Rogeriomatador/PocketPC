@@ -170,8 +170,7 @@ def main() -> int:
             case5,
             f"{aggregate}:\n\t@:\n",
         )
-        fake_make_query =
-            subprocess.CompletedProcess(
+        fake_make_query = subprocess.CompletedProcess(
                 args=["make"],
                 returncode=1,
                 stdout=f"{aggregate}:\n",
