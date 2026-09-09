@@ -7,10 +7,35 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 
+interface RuntimeDisplayBridgeEndpoint {
+    val negotiatedCapabilities: Int
+
+    fun readFrame():
+        Result<RuntimeDisplayBridgeFrame>
+
+    fun sendSurfaceAvailable(
+        surface:
+            RuntimeBridgeSurfaceAvailable,
+    )
+
+    fun sendPointer(
+        event: RuntimeBridgePointerEvent,
+    )
+
+    fun sendKey(
+        event: RuntimeBridgeKeyEvent,
+    )
+
+    fun sendFramePresented(
+        event:
+            RuntimeBridgeFramePresented,
+    )
+}
+
 class RuntimeDisplayBridgePeer internal constructor(
     private val socket: LocalSocket,
-    val negotiatedCapabilities: Int,
-) : Closeable {
+    override val negotiatedCapabilities: Int,
+) : RuntimeDisplayBridgeEndpoint, Closeable {
     private val terminal =
         AtomicBoolean(false)
     private val readLock = Any()
@@ -19,7 +44,7 @@ class RuntimeDisplayBridgePeer internal constructor(
     private var outboundSequence = 1L
     private var expectedInboundSequence = 1L
 
-    fun readFrame():
+    override fun readFrame():
         Result<RuntimeDisplayBridgeFrame> =
         synchronized(readLock) {
             if (terminal.get()) {
@@ -126,7 +151,7 @@ class RuntimeDisplayBridgePeer internal constructor(
         }
     }
 
-    fun sendSurfaceAvailable(
+    override fun sendSurfaceAvailable(
         surface:
             RuntimeBridgeSurfaceAvailable,
     ) = send(
@@ -140,7 +165,7 @@ class RuntimeDisplayBridgePeer internal constructor(
             ),
     )
 
-    fun sendPointer(
+    override fun sendPointer(
         event: RuntimeBridgePointerEvent,
     ) = send(
         RuntimeDisplayBridgeMessageType
@@ -151,7 +176,7 @@ class RuntimeDisplayBridgePeer internal constructor(
             .encodePointerEvent(event),
     )
 
-    fun sendKey(
+    override fun sendKey(
         event: RuntimeBridgeKeyEvent,
     ) = send(
         RuntimeDisplayBridgeMessageType
@@ -162,7 +187,7 @@ class RuntimeDisplayBridgePeer internal constructor(
             .encodeKeyEvent(event),
     )
 
-    fun sendFramePresented(
+    override fun sendFramePresented(
         event:
             RuntimeBridgeFramePresented,
     ) = send(
