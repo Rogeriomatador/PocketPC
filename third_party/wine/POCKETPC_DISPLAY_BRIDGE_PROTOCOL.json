@@ -47,7 +47,12 @@
     "hostBroker": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeHost.kt",
     "sessionAuth": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeSession.kt",
     "x8664ClientBuilder": "scripts/build-box64-aarch64.py",
-    "hostSurfaceRegistry": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySurfaceRegistry.kt"
+    "hostSurfaceRegistry": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySurfaceRegistry.kt",
+    "hostProcessor": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayHostProcessor.kt",
+    "frameReader": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayFrameReader.kt",
+    "compositorModel": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayCompositorModel.kt",
+    "sessionController": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySessionController.kt",
+    "composePreview": "app/src/main/java/dev/pocketpc/core/ui/RuntimeDisplayFramePreview.kt"
   },
   "gates": {
     "x8664ClientBuilt": false,
@@ -62,7 +67,17 @@
     "hostSurfaceRegistrySoftwareTestExecuted": false,
     "singleBufferOwnershipAckImplemented": true,
     "doubleBufferingImplemented": false,
-    "surfaceVisibilityCrossProcessSoftwareTestExecuted": false
+    "surfaceVisibilityCrossProcessSoftwareTestExecuted": false,
+    "hostProcessorImplemented": true,
+    "frameReaderImplemented": true,
+    "compositorModelImplemented": true,
+    "continuousSessionControllerImplemented": true,
+    "composePreviewImplemented": true,
+    "hostProcessorSoftwareTestExecuted": false,
+    "frameReaderSoftwareTestExecuted": false,
+    "compositorModelSoftwareTestExecuted": false,
+    "sessionControllerSoftwareTestExecuted": false,
+    "composePreviewDeviceTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -193,7 +208,8 @@
     "resizeRule": "new backing surface is allocated before the previous backing file is released",
     "ownershipRule": "single buffer: guest must not modify the active surface after FRAME_READY until matching FRAME_PRESENTED(status=0)",
     "frameAckDemux": "while waiting for FRAME_PRESENTED, pointer/key events may be queued; mismatched ACK or unexpected message fails closed",
-    "buffering": "single-buffer-v3; double/triple buffering not implemented"
+    "buffering": "single-buffer-v3; double/triple buffering not implemented",
+    "hostAckPoint": "successful frame bytes are copied to host ARGB memory before FRAME_PRESENTED(status=0)"
   },
   "zOrder": {
     "model": "single-choice flags",
