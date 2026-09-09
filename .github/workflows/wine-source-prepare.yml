@@ -6,6 +6,8 @@ on:
     paths:
       - 'third_party/wine/**'
       - 'scripts/prepare-wine-source.py'
+      - 'scripts/prepare-wine-pocketpc-driver.py'
+      - 'scripts/test-wine-pocketpc-driver-policy.py'
       - 'scripts/test-pc-runtime-source-locks.py'
       - '.github/workflows/wine-source-prepare.yml'
 
@@ -25,17 +27,34 @@ jobs:
       - name: Validate PC runtime locks
         run: python3 scripts/test-pc-runtime-source-locks.py
 
+      - name: Validate PocketPC Wine driver policy
+        run: python3 scripts/test-wine-pocketpc-driver-policy.py
+
       - name: Verify pinned Wine source and emit build plan
         run: |
           python3 scripts/prepare-wine-source.py \
             --work "$RUNNER_TEMP/pocketpc-wine"
 
-      - name: Retain review-only build plan
+      - name: Prepare PocketPC Wine driver overlay
+        run: |
+          python3 scripts/prepare-wine-pocketpc-driver.py \
+            --wine-source "$RUNNER_TEMP/pocketpc-wine/source" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine/wine-pocketpc-driver-overlay.json"
+
+          test -f "$RUNNER_TEMP/pocketpc-wine/source/dlls/winepocketpc.drv/Makefile.in"
+          grep -F 'WINE_CONFIG_MAKEFILE(dlls/winepocketpc.drv)' \
+            "$RUNNER_TEMP/pocketpc-wine/source/configure.ac"
+          grep -F 'wine_fn_config_makefile dlls/winepocketpc.drv enable_winepocketpc_drv' \
+            "$RUNNER_TEMP/pocketpc-wine/source/configure"
+
+      - name: Retain review-only source and driver plans
         uses: actions/upload-artifact@v4
         with:
           name: PocketPC-Wine11-source-review
           path: |
             ${{ runner.temp }}/pocketpc-wine/wine-build-plan.json
+            ${{ runner.temp }}/pocketpc-wine/wine-pocketpc-driver-overlay.json
+            ${{ runner.temp }}/pocketpc-wine/source/dlls/winepocketpc.drv/**
           if-no-files-found: error
 
       - name: Prove no Wine binary entered the app
