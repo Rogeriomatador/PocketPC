@@ -486,6 +486,24 @@ static BOOL pocketpc_surface_flush(
     pthread_mutex_lock(&pocketpc_bridge_mutex);
 
     if (
+        !pocketpc_bridge_ready ||
+        pocketpc_connection.fd < 0
+    ) {
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
+        cancel_surface_frame(
+            surface,
+            frame_slot_id
+        );
+        ERR(
+            "FRAME_READY skipped because display bridge is closed hwnd=%p\n",
+            window_surface->hwnd
+        );
+        return FALSE;
+    }
+
+    if (
         pdb_surface_writer_commit(
             &surface->writer,
             &pocketpc_connection,
@@ -494,7 +512,14 @@ static BOOL pocketpc_surface_flush(
             sizeof(error)
         ) != 0
     ) {
-        pthread_mutex_unlock(&pocketpc_bridge_mutex);
+        POCKETPC_FailBridgeLocked(
+            error[0]
+                ? error
+                : "PDB_FRAME_READY_SEND_FAILED"
+        );
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
         cancel_surface_frame(
             surface,
             frame_slot_id
@@ -518,6 +543,15 @@ static BOOL pocketpc_surface_flush(
         cancel_surface_frame(
             surface,
             frame_slot_id
+        );
+        pthread_mutex_lock(
+            &pocketpc_bridge_mutex
+        );
+        POCKETPC_FailBridgeLocked(
+            "PDB_FRAME_SLOT_IDENTITY_MISMATCH"
+        );
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
         );
         ERR(
             "PDB_FRAME_SLOT_IDENTITY_MISMATCH expected=%llu actual=%llu\n",
@@ -642,6 +676,20 @@ static BOOL request_surface(
     pthread_mutex_lock(&pocketpc_bridge_mutex);
 
     if (
+        !pocketpc_bridge_ready ||
+        pocketpc_connection.fd < 0
+    ) {
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
+        ERR(
+            "surface request skipped because display bridge is closed hwnd=%p\n",
+            hwnd
+        );
+        return FALSE;
+    }
+
+    if (
         pdb_send_surface_request(
             &pocketpc_connection,
             &request,
@@ -726,11 +774,19 @@ static BOOL request_surface(
 
             if (!accepted) {
                 WARN(
-                    "frame ACK rejected or unmatched during surface handshake window=%llu frame=%llu status=%u\n",
+                    "frame ACK rejected or unmatched during surface handshake window=%llu surface=%llu generation=%llu frame=%llu status=%u\n",
                     (unsigned long long)
                         event.data
                             .frame_presented
                             .window_id,
+                    (unsigned long long)
+                        event.data
+                            .frame_presented
+                            .surface_id,
+                    (unsigned long long)
+                        event.data
+                            .frame_presented
+                            .generation,
                     (unsigned long long)
                         event.data
                             .frame_presented
@@ -739,6 +795,12 @@ static BOOL request_surface(
                         .frame_presented
                         .status
                 );
+                snprintf(
+                    error,
+                    sizeof(error),
+                    "PDB_FRAME_ACK_REJECTED_DURING_SURFACE"
+                );
+                break;
             }
             continue;
         }
