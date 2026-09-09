@@ -16,7 +16,13 @@ object RuntimeDiagnosticSuite {
             GuestRuntimeProbe.WINMM_AUDIO_API_SMOKE,
             GuestRuntimeProbe.RAW_INPUT_API_SMOKE,
             GuestRuntimeProbe.D3D11_SMOKE,
-            GuestRuntimeProbe.D3D11_PRESENT_SMOKE,
+        )
+
+    val structurallyBlockedProbes:
+        Set<GuestRuntimeProbe> =
+        setOf(
+            GuestRuntimeProbe
+                .D3D11_PRESENT_SMOKE,
         )
 
     init {
@@ -33,7 +39,12 @@ object RuntimeDiagnosticSuite {
         require(
             orderedProbes.last() ==
                 GuestRuntimeProbe
-                    .D3D11_PRESENT_SMOKE,
+                    .D3D11_SMOKE,
+        )
+        require(
+            GuestRuntimeProbe
+                .D3D11_PRESENT_SMOKE in
+                structurallyBlockedProbes,
         )
     }
 }
