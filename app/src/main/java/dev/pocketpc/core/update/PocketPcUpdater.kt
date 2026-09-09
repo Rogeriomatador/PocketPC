@@ -24,7 +24,7 @@ import java.net.URL
 import java.security.MessageDigest
 
 private const val UPDATE_FEED_URL =
-    "https://raw.githubusercontent.com/Rogeriomatador/PocketPC/main/updates/stable.json"
+    "https://raw.githubusercontent.com/Rogeriomatador/PocketPC-Updates/main/latest.json"
 
 data class PocketPcUpdateManifest(
     val schemaVersion: Int,
