@@ -15,6 +15,7 @@ import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "third_party/proot/ARTIFACT_CONTRACT.json"
+SOURCE_LOCK = ROOT / "third_party/proot/LOCK.json"
 
 
 def sha256(path: Path) -> str:
@@ -86,6 +87,7 @@ def main() -> int:
     evidence = {
         "schemaVersion": 1,
         "status": "APK_STAGING_CANDIDATE_NOT_APPROVED_NOT_DEVICE_TESTED",
+        "sourceLockSha256": sha256(SOURCE_LOCK),
         "artifactContractSha256": sha256(CONTRACT),
         "auditStatus": audit["status"],
         "artifacts": staged,
