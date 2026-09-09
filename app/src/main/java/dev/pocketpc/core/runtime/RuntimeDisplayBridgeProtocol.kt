@@ -14,6 +14,7 @@ enum class RuntimeDisplayBridgeMessageType(
     WINDOW_CREATE(10),
     WINDOW_GEOMETRY(11),
     WINDOW_DESTROY(12),
+    WINDOW_COMMAND(13),
     SURFACE_REQUEST(19),
     SURFACE_AVAILABLE(20),
     FRAME_READY(21),
