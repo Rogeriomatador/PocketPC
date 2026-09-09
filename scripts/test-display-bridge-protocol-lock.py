@@ -713,6 +713,26 @@ def main() -> int:
     )
     require_sentinels(
         failures,
+        "Physical mouse Win32 forwarding",
+        runtime_window_layer,
+        (
+            "pointerInteropFilter",
+            "MotionEvent.ACTION_HOVER_MOVE",
+            "MotionEvent.ACTION_BUTTON_PRESS",
+            "MotionEvent.ACTION_BUTTON_RELEASE",
+            "MotionEvent.ACTION_SCROLL",
+            "MotionEvent.AXIS_VSCROLL",
+            "WINDOWS_WHEEL_DELTA = 120f",
+            "BUTTON_SECONDARY",
+            "BUTTON_TERTIARY",
+            "runtimePointerButtonMask",
+            "pressedPointerButtons",
+            "POINTER_ACTION_MOVE",
+            "POINTER_ACTION_SCROLL",
+        ),
+    )
+    require_sentinels(
+        failures,
         "Runtime Win32 keyboard focus layer",
         runtime_window_layer,
         (
