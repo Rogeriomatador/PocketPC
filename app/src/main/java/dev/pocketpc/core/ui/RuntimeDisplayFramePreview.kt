@@ -13,6 +13,8 @@ import dev.pocketpc.core.runtime.RuntimeDisplayFramePixels
 internal fun RuntimeDisplayFramePreview(
     frame: RuntimeDisplayFramePixels,
     modifier: Modifier = Modifier,
+    contentScale: ContentScale =
+        ContentScale.Fit,
 ) {
     val image =
         remember(
@@ -34,6 +36,6 @@ internal fun RuntimeDisplayFramePreview(
             "Frame capturado do bridge Win32",
         modifier = modifier,
         contentScale =
-            ContentScale.Fit,
+            contentScale,
     )
 }
