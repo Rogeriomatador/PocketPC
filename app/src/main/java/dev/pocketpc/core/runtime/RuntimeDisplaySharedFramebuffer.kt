@@ -109,6 +109,103 @@ class RuntimeDisplaySharedFramebuffer private constructor(
             }
         }
 
+    fun validatePaintedFrame():
+        Result<Unit> =
+        runCatching {
+            val surface =
+                descriptor.surface
+            require(
+                descriptor.hostFile.length() ==
+                    descriptor.bytes,
+            ) {
+                "DISPLAY_BRIDGE_FRAMEBUFFER_SIZE_CHANGED"
+            }
+
+            val colors =
+                linkedSetOf<Int>()
+            var opaquePixels = 0L
+            val minimumOpaque =
+                minOf(
+                    256L,
+                    surface.width.toLong() *
+                        surface.height.toLong(),
+                )
+
+            RandomAccessFile(
+                descriptor.hostFile,
+                "r",
+            ).use { file ->
+                val row =
+                    ByteArray(
+                        surface.strideBytes,
+                    )
+                for (
+                    y in
+                    0 until surface.height
+                ) {
+                    file.readFully(row)
+                    for (
+                        x in
+                        0 until surface.width
+                    ) {
+                        val offset =
+                            x * 4
+                        val b =
+                            row[offset]
+                                .toInt() and
+                                0xff
+                        val g =
+                            row[
+                                offset + 1
+                            ].toInt() and
+                                0xff
+                        val r =
+                            row[
+                                offset + 2
+                            ].toInt() and
+                                0xff
+                        val a =
+                            row[
+                                offset + 3
+                            ].toInt() and
+                                0xff
+
+                        if (a == 0xff) {
+                            opaquePixels +=
+                                1L
+                            if (
+                                colors.size <
+                                8
+                            ) {
+                                colors +=
+                                    (
+                                        r shl 16
+                                    ) or
+                                        (
+                                            g shl
+                                                8
+                                            ) or
+                                        b
+                            }
+                        }
+                    }
+                }
+            }
+
+            require(
+                opaquePixels >=
+                    minimumOpaque,
+            ) {
+                "DISPLAY_BRIDGE_FRAMEBUFFER_TOO_FEW_OPAQUE_PIXELS:" +
+                    opaquePixels
+            }
+            require(
+                colors.size >= 2,
+            ) {
+                "DISPLAY_BRIDGE_FRAMEBUFFER_NOT_VISUALLY_DISTINCT"
+            }
+        }
+
     override fun close() {
         runCatching {
             descriptor.hostFile.delete()
