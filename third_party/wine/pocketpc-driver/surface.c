@@ -238,7 +238,11 @@ BOOL POCKETPC_HandleFramePresented(
         if (
             !surface ||
             surface->writer.surface.window_id !=
-                event->window_id
+                event->window_id ||
+            surface->writer.surface.surface_id !=
+                event->surface_id ||
+            surface->writer.surface.generation !=
+                event->generation
         ) {
             continue;
         }
