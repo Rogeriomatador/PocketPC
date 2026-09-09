@@ -7,6 +7,7 @@ on:
       - 'third_party/box64/**'
       - 'scripts/build-box64-aarch64.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
+      - 'scripts/test-display-bridge-native-integration.py'
       - 'third_party/wine/POCKETPC_DISPLAY_BRIDGE_PROTOCOL.json'
       - 'third_party/wine/pocketpc-display-bridge/**'
       - 'scripts/test-pc-runtime-source-locks.py'
