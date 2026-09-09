@@ -272,18 +272,18 @@ def main() -> int:
         )
         return 30
 
-    generated_makefile =
+    generated_makefile = (
         build /
         "Makefile"
+    )
     if not generated_makefile.is_file():
         base["status"] = "GENERATED_MAKEFILE_MISSING"
         write_evidence(evidence_path, base)
         return 31
 
-    build_target =
-        discover_build_target(
-            generated_makefile,
-        )
+    build_target = discover_build_target(
+        generated_makefile,
+    )
     if not build_target:
         base["status"] = "BUILD_TARGET_NOT_FOUND"
         base["targetCandidates"] = [
@@ -297,8 +297,9 @@ def main() -> int:
         )
         return 32
 
-    base["selectedBuildTarget"] =
+    base["selectedBuildTarget"] = (
         build_target
+    )
     base["buildCommand"] = [
         "make",
         "-j2",
