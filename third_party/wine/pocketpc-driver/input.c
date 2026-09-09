@@ -85,6 +85,137 @@ BOOL POCKETPC_DequeueHostEventLocked(
     return TRUE;
 }
 
+
+static BOOL host_event_matches_mask(
+    const struct pdb_host_event *event,
+    DWORD mask
+) {
+    if (!event)
+        return FALSE;
+
+    switch (event->type)
+    {
+    case PDB_MSG_POINTER_EVENT:
+        return (
+            mask &
+            (
+                QS_MOUSEMOVE |
+                QS_MOUSEBUTTON
+            )
+        ) != 0;
+
+    case PDB_MSG_KEY_EVENT:
+        return (mask & QS_KEY) != 0;
+
+    case PDB_MSG_WINDOW_COMMAND:
+    case PDB_MSG_FRAME_PRESENTED:
+        return TRUE;
+
+    default:
+        return FALSE;
+    }
+}
+
+static BOOL POCKETPC_DequeueHostEventForMaskLocked(
+    DWORD mask,
+    struct pdb_host_event *event
+) {
+    unsigned int offset;
+
+    if (!event)
+        return FALSE;
+
+    for (
+        offset = 0u;
+        offset < host_event_queue_count;
+        ++offset
+    ) {
+        unsigned int index =
+            (
+                host_event_queue_head +
+                offset
+            ) %
+            POCKETPC_HOST_EVENT_QUEUE_LIMIT;
+        unsigned int shift;
+
+        if (
+            !host_event_matches_mask(
+                &host_event_queue[index],
+                mask
+            )
+        ) {
+            continue;
+        }
+
+        *event = host_event_queue[index];
+
+        for (
+            shift = offset;
+            shift + 1u <
+                host_event_queue_count;
+            ++shift
+        ) {
+            unsigned int destination =
+                (
+                    host_event_queue_head +
+                    shift
+                ) %
+                POCKETPC_HOST_EVENT_QUEUE_LIMIT;
+            unsigned int source =
+                (
+                    host_event_queue_head +
+                    shift +
+                    1u
+                ) %
+                POCKETPC_HOST_EVENT_QUEUE_LIMIT;
+
+            host_event_queue[destination] =
+                host_event_queue[source];
+        }
+
+        {
+            unsigned int tail =
+                (
+                    host_event_queue_head +
+                    host_event_queue_count -
+                    1u
+                ) %
+                POCKETPC_HOST_EVENT_QUEUE_LIMIT;
+
+            memset(
+                &host_event_queue[tail],
+                0,
+                sizeof(host_event_queue[tail])
+            );
+        }
+
+        host_event_queue_count -= 1u;
+        if (host_event_queue_count == 0u)
+            host_event_queue_head = 0u;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static void POCKETPC_FailBridgeLocked(
+    const char *reason
+) {
+    ERR(
+        "display bridge fail-closed: %s\n",
+        reason ? reason : "unknown"
+    );
+    pdb_close(&pocketpc_connection);
+    pocketpc_bridge_ready = FALSE;
+    memset(
+        host_event_queue,
+        0,
+        sizeof(host_event_queue)
+    );
+    host_event_queue_head = 0u;
+    host_event_queue_count = 0u;
+}
+
 static HWND hwnd_for_window_id(
     uint64_t window_id
 ) {
@@ -528,17 +659,26 @@ BOOL POCKETPC_ProcessEvents(
         POCKETPC_MAX_EVENTS_PER_PUMP
     ) {
         struct pdb_host_event event;
+        BOOL queued_event = FALSE;
         int available;
+
+        memset(&event, 0, sizeof(event));
 
         pthread_mutex_lock(
             &pocketpc_bridge_mutex
         );
 
-        if (
-            !POCKETPC_DequeueHostEventLocked(
+        queued_event =
+            POCKETPC_DequeueHostEventForMaskLocked(
+                mask,
                 &event
-            )
-        ) {
+            );
+
+        if (!queued_event)
+        {
+            uint16_t next_type = 0u;
+            int peeked;
+
             available =
                 pdb_connection_has_input(
                     &pocketpc_connection,
@@ -547,65 +687,66 @@ BOOL POCKETPC_ProcessEvents(
                 );
             if (available <= 0)
             {
+                if (available < 0)
+                {
+                    POCKETPC_FailBridgeLocked(
+                        error[0]
+                            ? error
+                            : "PDB_EVENT_POLL_FAILED"
+                    );
+                }
                 pthread_mutex_unlock(
                     &pocketpc_bridge_mutex
                 );
-
-                if (available < 0)
-                {
-                    ERR(
-                        "event poll failed: %s\n",
-                        error
-                    );
-                }
                 break;
             }
 
+            peeked =
+                pdb_peek_message_type(
+                    &pocketpc_connection,
+                    &next_type,
+                    error,
+                    sizeof(error)
+                );
+
+            if (peeked < 0)
             {
-                uint16_t next_type = 0u;
-                int peeked =
-                    pdb_peek_message_type(
-                        &pocketpc_connection,
-                        &next_type,
-                        error,
-                        sizeof(error)
-                    );
+                POCKETPC_FailBridgeLocked(
+                    error[0]
+                        ? error
+                        : "PDB_EVENT_PEEK_FAILED"
+                );
+                pthread_mutex_unlock(
+                    &pocketpc_bridge_mutex
+                );
+                break;
+            }
 
-                if (peeked < 0)
-                {
-                    pthread_mutex_unlock(
-                        &pocketpc_bridge_mutex
-                    );
-                    ERR(
-                        "event peek failed: %s\n",
-                        error
-                    );
-                    break;
-                }
+            if (peeked == 0)
+            {
+                pthread_mutex_unlock(
+                    &pocketpc_bridge_mutex
+                );
+                break;
+            }
 
-                if (peeked == 0)
-                {
-                    pthread_mutex_unlock(
-                        &pocketpc_bridge_mutex
-                    );
-                    break;
-                }
-
-                if (
-                    next_type !=
-                        PDB_MSG_POINTER_EVENT &&
-                    next_type !=
-                        PDB_MSG_KEY_EVENT &&
-                    next_type !=
-                        PDB_MSG_WINDOW_COMMAND &&
-                    next_type !=
-                        PDB_MSG_FRAME_PRESENTED
-                ) {
-                    pthread_mutex_unlock(
-                        &pocketpc_bridge_mutex
-                    );
-                    break;
-                }
+            if (
+                next_type !=
+                    PDB_MSG_POINTER_EVENT &&
+                next_type !=
+                    PDB_MSG_KEY_EVENT &&
+                next_type !=
+                    PDB_MSG_WINDOW_COMMAND &&
+                next_type !=
+                    PDB_MSG_FRAME_PRESENTED
+            ) {
+                POCKETPC_FailBridgeLocked(
+                    "PDB_UNEXPECTED_HOST_EVENT"
+                );
+                pthread_mutex_unlock(
+                    &pocketpc_bridge_mutex
+                );
+                break;
             }
 
             if (
@@ -616,14 +757,54 @@ BOOL POCKETPC_ProcessEvents(
                     sizeof(error)
                 ) != 0
             ) {
+                POCKETPC_FailBridgeLocked(
+                    error[0]
+                        ? error
+                        : "PDB_EVENT_RECEIVE_FAILED"
+                );
                 pthread_mutex_unlock(
                     &pocketpc_bridge_mutex
                 );
-                ERR(
-                    "event receive failed: %s\n",
-                    error
-                );
                 break;
+            }
+
+            if (
+                (
+                    event.type ==
+                        PDB_MSG_POINTER_EVENT ||
+                    event.type ==
+                        PDB_MSG_KEY_EVENT
+                ) &&
+                !host_event_matches_mask(
+                    &event,
+                    mask
+                )
+            ) {
+                if (
+                    !POCKETPC_QueueHostEventLocked(
+                        &event
+                    )
+                ) {
+                    POCKETPC_FailBridgeLocked(
+                        "PDB_HOST_EVENT_QUEUE_FULL"
+                    );
+                    pthread_mutex_unlock(
+                        &pocketpc_bridge_mutex
+                    );
+                    break;
+                }
+
+                TRACE(
+                    "PDB_HOST_EVENT_MASK_DEFERRED type=%u mask=%#lx\n",
+                    event.type,
+                    (unsigned long)mask
+                );
+
+                pthread_mutex_unlock(
+                    &pocketpc_bridge_mutex
+                );
+                processed += 1u;
+                continue;
             }
         }
 
@@ -633,32 +814,9 @@ BOOL POCKETPC_ProcessEvents(
 
         if (
             event.type ==
-                PDB_MSG_POINTER_EVENT
-        ) {
-            if (
-                mask &
-                (
-                    QS_MOUSEMOVE |
-                    QS_MOUSEBUTTON
-                )
-            ) {
-                (void)
-                    POCKETPC_DispatchHostEvent(
-                        &event
-                    );
-            }
-        } else if (
+                PDB_MSG_POINTER_EVENT ||
             event.type ==
-                PDB_MSG_KEY_EVENT
-        ) {
-            if (mask & QS_KEY)
-            {
-                (void)
-                    POCKETPC_DispatchHostEvent(
-                        &event
-                    );
-            }
-        } else if (
+                PDB_MSG_KEY_EVENT ||
             event.type ==
                 PDB_MSG_WINDOW_COMMAND
         ) {
@@ -678,11 +836,19 @@ BOOL POCKETPC_ProcessEvents(
 
             if (!accepted) {
                 WARN(
-                    "frame ACK rejected or unmatched window=%llu frame=%llu status=%u\n",
+                    "frame ACK rejected or unmatched window=%llu surface=%llu generation=%llu frame=%llu status=%u\n",
                     (unsigned long long)
                         event.data
                             .frame_presented
                             .window_id,
+                    (unsigned long long)
+                        event.data
+                            .frame_presented
+                            .surface_id,
+                    (unsigned long long)
+                        event.data
+                            .frame_presented
+                            .generation,
                     (unsigned long long)
                         event.data
                             .frame_presented
