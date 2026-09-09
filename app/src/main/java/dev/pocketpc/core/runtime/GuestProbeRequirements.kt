@@ -62,6 +62,19 @@ object GuestProbeRequirements {
                     "WINDOWS_LAYER_REQUIRED_MISSING:" +
                         it
             }
+
+        if (
+            probe ==
+                GuestRuntimeProbe
+                    .D3D11_PRESENT_SMOKE &&
+            !PocketPcVulkanWsiContract
+                .implemented
+        ) {
+            blockers +=
+                PocketPcVulkanWsiContract
+                    .blocker
+        }
+
         return blockers
     }
 }
