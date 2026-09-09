@@ -71,6 +71,26 @@ private data class PendingRuntimeSuiteExecution(
     val layers: List<DeployedWindowsRuntimeLayer>,
 )
 
+private data class PcRuntimeEvidenceCandidate(
+    val runtime: InstalledRuntime,
+    val layers:
+        List<DeployedWindowsRuntimeLayer>,
+    val evidence: RuntimeProbeEvidenceState,
+    val windowsStateReady: Boolean,
+) {
+    val score: Int
+        get() =
+            listOf(
+                evidence.box64SmokePassed,
+                evidence.wineSmokePassed,
+                evidence.displayBridgeSmokePassed,
+                evidence.d3d11SmokePassed,
+                evidence.graphicsPresentationSmokePassed,
+                evidence.windowsProcessSmokePassed,
+                windowsStateReady,
+            ).count { it }
+}
+
 private fun runtimeLayerStateKey(
     runtime: InstalledRuntime,
 ): String =
@@ -232,74 +252,18 @@ fun RuntimeApp(
                 .ready
         }
 
-    val currentProbeEvidence =
+    /*
+     * Evidence must stay bound to one exact runtime/tool/layer identity.
+     * Never union individual PASS bits from different rootfs instances.
+     */
+    val pcRuntimeCandidates =
         remember(
-            installed,
+            preparedRuntimes,
             installedTools,
             deployedWindowsLayersByRuntime,
             evidenceRevision,
         ) {
-            val states =
-                preparedRuntimes.map { runtime ->
-                    probeEvidenceStore.stateFor(
-                        runtime = runtime,
-                        tools = installedTools,
-                        layers =
-                            deployedWindowsLayersByRuntime[
-                                runtimeLayerStateKey(
-                                    runtime,
-                                )
-                            ].orEmpty(),
-                    )
-                }
-            RuntimeProbeEvidenceState(
-                box64SmokePassed =
-                    states.any {
-                        it.box64SmokePassed
-                    },
-                wineSmokePassed =
-                    states.any {
-                        it.wineSmokePassed
-                    },
-                displayBridgeSmokePassed =
-                    states.any {
-                        it.displayBridgeSmokePassed
-                    },
-                d3d11SmokePassed =
-                    states.any {
-                        it.d3d11SmokePassed
-                    },
-                graphicsPresentationSmokePassed =
-                    states.any {
-                        it.graphicsPresentationSmokePassed
-                    },
-                windowsProcessSmokePassed =
-                    states.any {
-                        it.windowsProcessSmokePassed
-                    },
-                winsockSmokePassed =
-                    states.any {
-                        it.winsockSmokePassed
-                    },
-                winmmAudioApiSmokePassed =
-                    states.any {
-                        it.winmmAudioApiSmokePassed
-                    },
-                rawInputApiSmokePassed =
-                    states.any {
-                        it.rawInputApiSmokePassed
-                    },
-            )
-        }
-
-    val windowsStateReady =
-        remember(
-            installed,
-            installedTools,
-            deployedWindowsLayersByRuntime,
-            evidenceRevision,
-        ) {
-            preparedRuntimes.any { runtime ->
+            preparedRuntimes.map { runtime ->
                 val layers =
                     deployedWindowsLayersByRuntime[
                         runtimeLayerStateKey(
@@ -312,24 +276,57 @@ fun RuntimeApp(
                         tools = installedTools,
                         layers = layers,
                     )
-                evidence.wineSmokePassed &&
-                    evidence.windowsProcessSmokePassed &&
-                    runCatching {
-                        val home =
-                            bindPlanner
-                                .homeDirectory(runtime)
-                        val prefix =
-                            WindowsPrefixPlanner
-                                .plan(
-                                    storageRoot = home,
-                                    profileId = "smoke",
-                                )
-                        WindowsPrefixReadinessProbe
-                            .assess(prefix)
-                            .ready
-                    }.getOrDefault(false)
+                val windowsReady =
+                    evidence.wineSmokePassed &&
+                        evidence
+                            .windowsProcessSmokePassed &&
+                        runCatching {
+                            val home =
+                                bindPlanner
+                                    .homeDirectory(
+                                        runtime,
+                                    )
+                            val prefix =
+                                WindowsPrefixPlanner
+                                    .plan(
+                                        storageRoot =
+                                            home,
+                                        profileId =
+                                            "smoke",
+                                    )
+                            WindowsPrefixReadinessProbe
+                                .assess(prefix)
+                                .ready
+                        }.getOrDefault(false)
+
+                PcRuntimeEvidenceCandidate(
+                    runtime = runtime,
+                    layers = layers,
+                    evidence = evidence,
+                    windowsStateReady =
+                        windowsReady,
+                )
             }
         }
+
+    val pcRuntimeCandidate =
+        pcRuntimeCandidates
+            .maxByOrNull {
+                it.score
+            }
+
+    val currentProbeEvidence =
+        pcRuntimeCandidate
+            ?.evidence
+            ?: RuntimeProbeEvidenceState(
+                box64SmokePassed = false,
+                wineSmokePassed = false,
+            )
+
+    val windowsStateReady =
+        pcRuntimeCandidate
+            ?.windowsStateReady ==
+            true
 
     val pcReadiness =
         PcRuntimeReadinessProbe.assess(
@@ -347,18 +344,30 @@ fun RuntimeApp(
         )
 
     val phoneTestRuntime =
-        preparedRuntimes
-            .firstOrNull()
+        pcRuntimeCandidate
+            ?.runtime
+            ?: preparedRuntimes
+                .firstOrNull()
     val phoneTestLayers =
-        phoneTestRuntime
-            ?.let { runtime ->
-                deployedWindowsLayersByRuntime[
-                    runtimeLayerStateKey(
-                        runtime,
-                    )
-                ].orEmpty()
-            }
-            .orEmpty()
+        if (
+            pcRuntimeCandidate
+                ?.runtime ==
+                phoneTestRuntime
+        ) {
+            pcRuntimeCandidate
+                ?.layers
+                .orEmpty()
+        } else {
+            phoneTestRuntime
+                ?.let { runtime ->
+                    deployedWindowsLayersByRuntime[
+                        runtimeLayerStateKey(
+                            runtime,
+                        )
+                    ].orEmpty()
+                }
+                .orEmpty()
+        }
     val phoneTestReadiness =
         RuntimeTestReadinessProbe.assess(
             nativeHost = nativeHost,
