@@ -46,7 +46,8 @@
     "hostImplementation": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeProtocol.kt",
     "hostBroker": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeHost.kt",
     "sessionAuth": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeSession.kt",
-    "x8664ClientBuilder": "scripts/build-box64-aarch64.py"
+    "x8664ClientBuilder": "scripts/build-box64-aarch64.py",
+    "hostSurfaceRegistry": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySurfaceRegistry.kt"
   },
   "gates": {
     "x8664ClientBuilt": false,
@@ -56,7 +57,9 @@
     "keyboardRoundTrip": false,
     "wineDriverBuilt": false,
     "protocolV3NativeIntegrationExecuted": false,
-    "surfaceWriterNativeSoftwareTestExecuted": false
+    "surfaceWriterNativeSoftwareTestExecuted": false,
+    "hostSurfaceRegistryImplemented": true,
+    "hostSurfaceRegistrySoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -179,7 +182,12 @@
     "transport": "host temp file bound into guest /tmp",
     "productionReplacement": "AHardwareBuffer/Vulkan after shared-framebuffer integration evidence",
     "requestOrdering": "WINDOW_CREATE -> SURFACE_REQUEST -> SURFACE_AVAILABLE -> WINDOW_GEOMETRY -> FRAME_READY",
-    "generationRule": "guest generation must strictly increase per window; FRAME_READY must match latest requested generation"
+    "generationRule": "guest generation must strictly increase per window; FRAME_READY must match latest requested generation",
+    "hostCurrentMaxDimension": 4096,
+    "hostCurrentMaxBytes": 67108864,
+    "coherence": "MAP_SHARED page-cache visibility ordered by FRAME_READY; no per-frame MS_SYNC",
+    "frameRule": "frameId must strictly increase for the active windowId/surfaceId/generation",
+    "resizeRule": "new backing surface is allocated before the previous backing file is released"
   },
   "zOrder": {
     "model": "single-choice flags",
