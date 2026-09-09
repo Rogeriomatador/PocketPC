@@ -267,7 +267,7 @@ def main() -> int:
         "flags:u32",
     ]:
         failures.append(
-            "SURFACE_REQUEST v3 field contract changed"
+            "SURFACE_REQUEST field contract changed"
         )
 
     frame_presented_fields = (
@@ -414,7 +414,7 @@ def main() -> int:
     )
     require_sentinels(
         failures,
-        "Kotlin v3 state machine",
+        "Kotlin v4 state machine",
         state_machine,
         (
             "SurfaceRequested",
@@ -426,7 +426,7 @@ def main() -> int:
     )
     require_sentinels(
         failures,
-        "Kotlin v3 probe ordering",
+        "Kotlin v4 probe ordering",
         probe_controller,
         (
             "DISPLAY_BRIDGE_EXPECTED_SURFACE_REQUEST",
