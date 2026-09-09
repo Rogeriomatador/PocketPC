@@ -81,7 +81,11 @@
     "composePreviewDeviceTestExecuted": false,
     "windowCommandProtocolImplemented": true,
     "windowCommandWineDispatchImplemented": true,
-    "windowCommandSoftwareTestExecuted": false
+    "windowCommandSoftwareTestExecuted": false,
+    "asyncFrameAckDrainImplemented": true,
+    "singleBufferAsyncOwnershipImplemented": true,
+    "androidToWin32KeyMappingImplemented": true,
+    "androidToWin32KeyMappingSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -219,10 +223,11 @@
     "coherence": "MAP_SHARED page-cache visibility ordered by FRAME_READY; no per-frame MS_SYNC",
     "frameRule": "frameId must strictly increase for the active windowId/surfaceId/generation",
     "resizeRule": "new backing surface is allocated before the previous backing file is released",
-    "ownershipRule": "single buffer: guest must not modify the active surface after FRAME_READY until matching FRAME_PRESENTED(status=0)",
-    "frameAckDemux": "while waiting for FRAME_PRESENTED, pointer/key events may be queued; mismatched ACK or unexpected message fails closed",
-    "buffering": "single-buffer-v3; double/triple buffering not implemented",
-    "hostAckPoint": "successful frame bytes are copied to host ARGB memory before FRAME_PRESENTED(status=0)"
+    "ownershipRule": "single buffer: at most one FRAME_READY may be in flight per active Wine surface; guest must not modify backing bytes until matching FRAME_PRESENTED releases ownership",
+    "frameAckDemux": "FRAME_PRESENTED is consumed asynchronously by pProcessEvents or by the bounded SURFACE_AVAILABLE transaction demux; both paths call POCKETPC_HandleFramePresented to release the exact in-flight windowId/frameId",
+    "buffering": "single-buffer-v3-async-ownership; double/triple buffering not implemented",
+    "hostAckPoint": "successful frame bytes are copied to host ARGB memory before FRAME_PRESENTED(status=0)",
+    "coalescingRule": "if Wine flushes while a frame is still in flight, the flush is coalesced without touching the shared mmap; a later paint after ACK may publish the newest pixels"
   },
   "zOrder": {
     "model": "single-choice flags",
@@ -266,7 +271,8 @@
         "MIDDLE": 4
       },
       "coordinates": "window-relative integer pixels",
-      "verticalScroll": "Windows WHEEL_DELTA units; zero unless action=SCROLL"
+      "verticalScroll": "Windows WHEEL_DELTA units; zero unless action=SCROLL",
+      "modifiers": "bitmask from inputSemantics.modifiers; unknown bits invalid"
     },
     "keyboard": {
       "actions": {
@@ -276,7 +282,14 @@
       },
       "keyCode": "Win32 virtual-key code",
       "scanCode": "Win32 scan code; bit 0x100 marks extended key",
-      "repeatCount": "0 means one event for DOWN/UP; REPEAT uses max(1, repeatCount)"
+      "repeatCount": "0 means one event for DOWN/UP; REPEAT uses max(1, repeatCount)",
+      "modifiers": "bitmask from inputSemantics.modifiers; unknown bits invalid"
+    },
+    "modifiers": {
+      "SHIFT": 1,
+      "CONTROL": 2,
+      "ALT": 4,
+      "META": 8
     }
   },
   "windowCommands": {
