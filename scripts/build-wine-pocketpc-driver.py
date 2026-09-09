@@ -166,7 +166,7 @@ def main() -> int:
         "wineCommit": lock["commit"],
         "driverName": "winepocketpc.drv",
         "unixLibrary": "winepocketpc.so",
-        "protocolVersion": 2,
+        "protocolVersion": 3,
         "driverLoaded": False,
         "runtimeExecuted": False,
         "androidExecuted": False,
