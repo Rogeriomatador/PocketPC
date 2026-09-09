@@ -139,7 +139,12 @@
     "taskManagerProcessFamilyUiImplemented": true,
     "taskManagerProcessFamilyUiSoftwareTestExecuted": false,
     "taskManagerIndividualProcessControlImplemented": true,
-    "taskManagerIndividualProcessControlSoftwareTestExecuted": false
+    "taskManagerIndividualProcessControlSoftwareTestExecuted": false,
+    "vulkanWsiImplemented": false,
+    "vulkanWsiSoftwareTestExecuted": false,
+    "vulkanWsiPhysicalTestExecuted": false,
+    "d3d11PresentProbeFailClosedImplemented": true,
+    "d3d11PresentProbeSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -380,15 +385,15 @@
     "capabilityNegotiation": "guest HELLO advertises only host-offered capabilities that are implemented by the guest; production authentication requires WINDOW_SURFACE|POINTER|KEYBOARD|FRAME_ACK and rejects incomplete baselines"
   },
   "controlledWindowsAttempt": {
-    "status": "IMPLEMENTED_NOT_EXECUTED",
+    "status": "IMPLEMENTED_BUT_DXVK_APP_ATTEMPT_BLOCKED_BY_VULKAN_WSI",
     "targetMaterialization": "content:// SAF target is copied into /home/pocket/windows-targets through a verified host file, SHA-256 named, bounded and no-follow checked",
     "executionChain": "phase 1: PRoot -> fixed /bin/sh positional exec -> Box64/Wine reg.exe add Graphics=pocketpc without Display Bridge; phase 2 only after exit=0: authenticated Display Bridge -> PRoot -> fixed /bin/sh positional exec -> Box64/Wine -> materialized EXE/MSI",
     "shellSafety": "dynamic Box64/Wine/target values are positional arguments and are never interpolated into shell source",
     "evidenceRule": "all required smoke evidence must come from one runtime/tool/layer identity; application compatibility remains UNVALIDATED after a mere attempt",
     "desktopRule": "continuous RuntimeDisplaySessionController publishes compositor windows through RuntimeDesktopBridge",
-    "graphicsRoute": "controlled app attempts require the currently discovered dxvk layer and set WINEDLLOVERRIDES=d3d11=n;dxgi=n, matching the validated D3D11/Present smoke route",
+    "graphicsRoute": "DXVK device creation is a separate capability from Vulkan WSI presentation. Controlled DXVK app execution is fail-closed with VULKAN_WSI_NOT_IMPLEMENTED until winepocketpc.drv exposes a real pVulkanInit backend and a Present round-trip is proven.",
     "wineDriverGate": "attempt remains blocked until WINE_POCKETPC_WINDOW_SMOKE records an identity-bound round trip proving winepocketpc.drv window creation, GDI pixels, pointer/key input and window destruction through the Android broker",
-    "evidenceNamespace": "runtime-probe-evidence-v8; earlier evidence namespace is intentionally not reused",
+    "evidenceNamespace": "runtime-probe-evidence-v9; v8 Present evidence is intentionally invalidated because it did not prove Wine Vulkan WSI",
     "graphicsDriverSelection": "graphics configuration has its own ProotInvocationPlan and must pass before RuntimeDisplayExecutionController starts, preventing a configuration utility from authenticating as the application display peer",
     "graphicsDriverEvidence": "WINE_POCKETPC_WINDOW_SMOKE evidence is recorded only when output includes wine_graphics_driver_config=pocketpc and the identity-bound window/frame/input round trip passes"
   },
@@ -424,5 +429,25 @@
       "taskManager": "show family process count, aggregate RSS/threads, family PIDs and family-wide terminate controls",
       "individualControl": "Task Manager exposes observed non-root members with command name, PID, RSS and thread count; terminateMember validates current PID+startTimeTicks and family membership before SIGTERM/SIGKILL"
     }
+  },
+  "vulkanWsi": {
+    "status": "NOT_IMPLEMENTED",
+    "wineVersion": "11.0",
+    "wineCommit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+    "wineVulkanDriverVersion": 47,
+    "wineEntryPoint": "user_driver_funcs.pVulkanInit",
+    "requiredDriverCallbacks": [
+      "p_vulkan_surface_create",
+      "p_get_physical_device_presentation_support",
+      "p_map_instance_extensions",
+      "p_map_device_extensions"
+    ],
+    "currentPocketPcDriver": "winepocketpc.drv has GDI/shared-framebuffer window_surface support but no pVulkanInit implementation",
+    "pinnedWineAndroidFinding": "wineandroid.drv in the pinned Wine 11 source exposes pOpenGLInit but not pVulkanInit; reusing it would not supply DXVK Vulkan WSI",
+    "correctnessRule": "GDI window_surface.flush must never be treated as proof that a DXGI/Vulkan swapchain was presented",
+    "presentProbeRule": "D3D11_PRESENT_SMOKE remains structurally blocked with VULKAN_WSI_NOT_IMPLEMENTED and is excluded from the runnable full diagnostic suite until a real WSI backend is implemented",
+    "evidenceNamespace": "runtime-probe-evidence-v9",
+    "softwareTestExecuted": false,
+    "physicalTestExecuted": false
   }
 }
