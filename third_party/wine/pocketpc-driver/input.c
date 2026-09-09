@@ -11,6 +11,78 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(pocketpcdrv);
 
+static struct pdb_host_event
+host_event_queue[
+    POCKETPC_HOST_EVENT_QUEUE_LIMIT
+];
+static unsigned int host_event_queue_head = 0u;
+static unsigned int host_event_queue_count = 0u;
+
+BOOL POCKETPC_QueueHostEventLocked(
+    const struct pdb_host_event *event
+) {
+    unsigned int tail;
+
+    if (
+        !event ||
+        (
+            event->type !=
+                PDB_MSG_POINTER_EVENT &&
+            event->type !=
+                PDB_MSG_KEY_EVENT
+        ) ||
+        host_event_queue_count >=
+            POCKETPC_HOST_EVENT_QUEUE_LIMIT
+    ) {
+        return FALSE;
+    }
+
+    tail =
+        (
+            host_event_queue_head +
+            host_event_queue_count
+        ) %
+        POCKETPC_HOST_EVENT_QUEUE_LIMIT;
+    host_event_queue[tail] = *event;
+    host_event_queue_count += 1u;
+    return TRUE;
+}
+
+BOOL POCKETPC_DequeueHostEventLocked(
+    struct pdb_host_event *event
+) {
+    if (
+        !event ||
+        host_event_queue_count == 0u
+    ) {
+        return FALSE;
+    }
+
+    *event =
+        host_event_queue[
+            host_event_queue_head
+        ];
+    memset(
+        &host_event_queue[
+            host_event_queue_head
+        ],
+        0,
+        sizeof(
+            host_event_queue[
+                host_event_queue_head
+            ]
+        )
+    );
+    host_event_queue_head =
+        (
+            host_event_queue_head +
+            1u
+        ) %
+        POCKETPC_HOST_EVENT_QUEUE_LIMIT;
+    host_event_queue_count -= 1u;
+    return TRUE;
+}
+
 static HWND hwnd_for_window_id(
     uint64_t window_id
 ) {
@@ -328,87 +400,95 @@ BOOL POCKETPC_ProcessEvents(
             &pocketpc_bridge_mutex
         );
 
-        available =
-            pdb_connection_has_input(
-                &pocketpc_connection,
-                error,
-                sizeof(error)
-            );
-        if (available <= 0)
-        {
-            pthread_mutex_unlock(
-                &pocketpc_bridge_mutex
-            );
-
-            if (available < 0)
-            {
-                ERR(
-                    "event poll failed: %s\n",
-                    error
-                );
-            }
-            break;
-        }
-
-        {
-            uint16_t next_type = 0u;
-            int peeked =
-                pdb_peek_message_type(
+        if (
+            !POCKETPC_DequeueHostEventLocked(
+                &event
+            )
+        ) {
+            available =
+                pdb_connection_has_input(
                     &pocketpc_connection,
-                    &next_type,
                     error,
                     sizeof(error)
                 );
-
-            if (peeked < 0)
+            if (available <= 0)
             {
                 pthread_mutex_unlock(
                     &pocketpc_bridge_mutex
                 );
-                ERR(
-                    "event peek failed: %s\n",
-                    error
-                );
+
+                if (available < 0)
+                {
+                    ERR(
+                        "event poll failed: %s\n",
+                        error
+                    );
+                }
                 break;
             }
 
-            if (peeked == 0)
             {
-                pthread_mutex_unlock(
-                    &pocketpc_bridge_mutex
-                );
-                break;
+                uint16_t next_type = 0u;
+                int peeked =
+                    pdb_peek_message_type(
+                        &pocketpc_connection,
+                        &next_type,
+                        error,
+                        sizeof(error)
+                    );
+
+                if (peeked < 0)
+                {
+                    pthread_mutex_unlock(
+                        &pocketpc_bridge_mutex
+                    );
+                    ERR(
+                        "event peek failed: %s\n",
+                        error
+                    );
+                    break;
+                }
+
+                if (peeked == 0)
+                {
+                    pthread_mutex_unlock(
+                        &pocketpc_bridge_mutex
+                    );
+                    break;
+                }
+
+                if (
+                    next_type !=
+                        PDB_MSG_POINTER_EVENT &&
+                    next_type !=
+                        PDB_MSG_KEY_EVENT &&
+                    next_type !=
+                        PDB_MSG_FRAME_PRESENTED
+                ) {
+                    pthread_mutex_unlock(
+                        &pocketpc_bridge_mutex
+                    );
+                    break;
+                }
             }
 
             if (
-                next_type !=
-                    PDB_MSG_POINTER_EVENT &&
-                next_type !=
-                    PDB_MSG_KEY_EVENT
+                pdb_receive_host_event(
+                    &pocketpc_connection,
+                    &event,
+                    error,
+                    sizeof(error)
+                ) != 0
             ) {
                 pthread_mutex_unlock(
                     &pocketpc_bridge_mutex
                 );
+                ERR(
+                    "event receive failed: %s\n",
+                    error
+                );
                 break;
             }
-        }
-
-        if (
-            pdb_receive_host_event(
-                &pocketpc_connection,
-                &event,
-                error,
-                sizeof(error)
-            ) != 0
-        ) {
-            pthread_mutex_unlock(
-                &pocketpc_bridge_mutex
-            );
-            ERR(
-                "event receive failed: %s\n",
-                error
-            );
-            break;
         }
 
         pthread_mutex_unlock(
@@ -442,9 +522,33 @@ BOOL POCKETPC_ProcessEvents(
                         &event
                     );
             }
+        } else if (
+            event.type ==
+                PDB_MSG_FRAME_PRESENTED
+        ) {
+            if (
+                event.data
+                    .frame_presented
+                    .status != 0u
+            ) {
+                WARN(
+                    "frame presentation status window=%llu frame=%llu status=%u\n",
+                    (unsigned long long)
+                        event.data
+                            .frame_presented
+                            .window_id,
+                    (unsigned long long)
+                        event.data
+                            .frame_presented
+                            .frame_id,
+                    event.data
+                        .frame_presented
+                        .status
+                );
+            }
         } else {
             ERR(
-                "non-input event escaped input peek type=%u\n",
+                "unexpected host event type=%u\n",
                 event.type
             );
         }
