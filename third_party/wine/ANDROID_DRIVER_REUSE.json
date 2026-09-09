@@ -119,6 +119,12 @@
     "multiPeerDisplayExecutionImplemented": true,
     "multiPeerDisplayExecutionSoftwareTestExecuted": false,
     "wineLauncherChildDisplayHandoffImplemented": true,
-    "wineLauncherChildDisplayHandoffSoftwareTestExecuted": false
+    "wineLauncherChildDisplayHandoffSoftwareTestExecuted": false,
+    "processFamilySupervisionImplemented": true,
+    "processFamilySupervisionSoftwareTestExecuted": false,
+    "displayPeerProcessFamilyAssociationImplemented": true,
+    "displayPeerProcessFamilyAssociationSoftwareTestExecuted": false,
+    "taskManagerProcessFamilyUiImplemented": true,
+    "taskManagerProcessFamilyUiSoftwareTestExecuted": false
   }
 }
