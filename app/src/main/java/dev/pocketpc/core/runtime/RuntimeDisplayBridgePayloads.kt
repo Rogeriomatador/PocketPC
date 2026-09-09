@@ -18,7 +18,8 @@ data class RuntimeBridgeWindowGeometry(
     val width: Int,
     val height: Int,
     val visible: Boolean,
-    val zOrder: Int,
+    val zOrderFlags: Int,
+    val insertAfterWindowId: Long,
 )
 
 data class RuntimeBridgeSurfaceAvailable(
@@ -72,7 +73,7 @@ data class RuntimeBridgeFramePresented(
 
 object RuntimeDisplayBridgePayloadCodec {
     const val WINDOW_CREATE_BYTES = 28
-    const val WINDOW_GEOMETRY_BYTES = 32
+    const val WINDOW_GEOMETRY_BYTES = 40
     const val WINDOW_DESTROY_BYTES = 8
     const val SURFACE_AVAILABLE_BYTES = 56
     const val FRAME_READY_BYTES = 32
@@ -81,6 +82,21 @@ object RuntimeDisplayBridgePayloadCodec {
     const val FRAME_PRESENTED_BYTES = 20
 
     const val PIXEL_FORMAT_BGRA8888 = 1
+
+    const val Z_ORDER_NO_CHANGE = 1 shl 0
+    const val Z_ORDER_TOP = 1 shl 1
+    const val Z_ORDER_BOTTOM = 1 shl 2
+    const val Z_ORDER_TOPMOST = 1 shl 3
+    const val Z_ORDER_NOTOPMOST = 1 shl 4
+    const val Z_ORDER_AFTER_WINDOW = 1 shl 5
+
+    private const val Z_ORDER_ALLOWED_MASK =
+        Z_ORDER_NO_CHANGE or
+            Z_ORDER_TOP or
+            Z_ORDER_BOTTOM or
+            Z_ORDER_TOPMOST or
+            Z_ORDER_NOTOPMOST or
+            Z_ORDER_AFTER_WINDOW
 
     private const val MAX_DIMENSION = 16_384
     private const val MAX_COORDINATE = 1_000_000
@@ -302,7 +318,8 @@ object RuntimeDisplayBridgePayloadCodec {
             val w = b.int
             val h = b.int
             val visible = b.int
-            val z = b.int
+            val zOrderFlags = b.int
+            val insertAfterWindowId = b.long
             requireWindowId(id)
             requireCoordinate(x)
             requireCoordinate(y)
@@ -313,14 +330,22 @@ object RuntimeDisplayBridgePayloadCodec {
             ) {
                 "DISPLAY_BRIDGE_VISIBLE_INVALID"
             }
+            validateZOrder(
+                windowId = id,
+                flags = zOrderFlags,
+                insertAfterWindowId =
+                    insertAfterWindowId,
+            )
             RuntimeBridgeWindowGeometry(
-                id,
-                x,
-                y,
-                w,
-                h,
-                visible == 1,
-                z,
+                windowId = id,
+                x = x,
+                y = y,
+                width = w,
+                height = h,
+                visible = visible == 1,
+                zOrderFlags = zOrderFlags,
+                insertAfterWindowId =
+                    insertAfterWindowId,
             )
         }
 
@@ -541,6 +566,43 @@ object RuntimeDisplayBridgePayloadCodec {
             .order(
                 ByteOrder.LITTLE_ENDIAN,
             )
+    }
+
+    private fun validateZOrder(
+        windowId: Long,
+        flags: Int,
+        insertAfterWindowId: Long,
+    ) {
+        require(
+            flags != 0 &&
+                flags and
+                    Z_ORDER_ALLOWED_MASK ==
+                flags &&
+                Integer.bitCount(flags) == 1,
+        ) {
+            "DISPLAY_BRIDGE_Z_ORDER_FLAGS_INVALID"
+        }
+
+        if (
+            flags ==
+            Z_ORDER_AFTER_WINDOW
+        ) {
+            requireWindowId(
+                insertAfterWindowId,
+            )
+            require(
+                insertAfterWindowId !=
+                    windowId,
+            ) {
+                "DISPLAY_BRIDGE_Z_ORDER_SELF_REFERENCE"
+            }
+        } else {
+            require(
+                insertAfterWindowId == 0L,
+            ) {
+                "DISPLAY_BRIDGE_Z_ORDER_AFTER_UNEXPECTED"
+            }
+        }
     }
 
     private fun requireWindowId(
