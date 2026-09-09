@@ -23,10 +23,36 @@ class RuntimeDisplayBridgePayloadCodecTest {
     }
 
     @Test fun frameAckRoundTrip() {
-        val expected = RuntimeBridgeFramePresented(11, 99, 0)
+        val expected =
+            RuntimeBridgeFramePresented(
+                windowId = 11,
+                surfaceId = 22,
+                generation = 33,
+                frameId = 99,
+                status = 0,
+            )
         val payload = RuntimeDisplayBridgePayloadCodec.encodeFramePresented(expected)
         assertEquals(RuntimeDisplayBridgePayloadCodec.FRAME_PRESENTED_BYTES, payload.size)
         assertEquals(expected, RuntimeDisplayBridgePayloadCodec.decodeFramePresented(payload).getOrThrow())
+    }
+
+    @Test
+    fun frameAckRejectsMissingSurfaceIdentity() {
+        val result =
+            runCatching {
+                RuntimeDisplayBridgePayloadCodec
+                    .encodeFramePresented(
+                        RuntimeBridgeFramePresented(
+                            windowId = 1,
+                            surfaceId = 0,
+                            generation = 1,
+                            frameId = 1,
+                            status = 0,
+                        ),
+                    )
+            }
+
+        assertTrue(result.isFailure)
     }
 
     @Test fun invalidPointerIsRejectedBeforeEncoding() {
