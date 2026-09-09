@@ -205,6 +205,31 @@ class RuntimeDisplayBridgeStateMachineTest {
             ).isSuccess,
         )
 
+        val request =
+            RuntimeDisplayBridgePayloadCodec
+                .encodeSurfaceRequest(
+                    RuntimeBridgeSurfaceRequest(
+                        windowId = 1,
+                        generation = 1,
+                        width = 64,
+                        height = 64,
+                        pixelFormat =
+                            RuntimeDisplayBridgePayloadCodec
+                                .PIXEL_FORMAT_BGRA8888,
+                        flags = 0,
+                    ),
+                )
+        assertTrue(
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .SURFACE_REQUEST,
+                    2,
+                    request,
+                ),
+            ).isSuccess,
+        )
+
         val ready =
             RuntimeDisplayBridgePayloadCodec
                 .encodeFrameReady(
@@ -220,7 +245,7 @@ class RuntimeDisplayBridgeStateMachineTest {
                 RuntimeDisplayBridgeFrame(
                     RuntimeDisplayBridgeMessageType
                         .FRAME_READY,
-                    2,
+                    3,
                     ready,
                 ),
             ).getOrThrow()
@@ -229,6 +254,147 @@ class RuntimeDisplayBridgeStateMachineTest {
             event is
                 RuntimeDisplayBridgeEvent
                     .FrameReady,
+        )
+    }
+
+    @Test
+    fun staleSurfaceGenerationFailsClosed() {
+        val machine =
+            RuntimeDisplayBridgeStateMachine(
+                RuntimeDisplayBridgeCapabilities
+                    .WINDOW_SURFACE,
+            )
+        val create =
+            payload(
+                RuntimeDisplayBridgePayloadCodec
+                    .WINDOW_CREATE_BYTES,
+            ) {
+                putLong(1)
+                putLong(0)
+                putInt(0)
+                putInt(64)
+                putInt(64)
+            }
+        assertTrue(
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .WINDOW_CREATE,
+                    1,
+                    create,
+                ),
+            ).isSuccess,
+        )
+
+        fun request(
+            generation: Long,
+            sequence: Long,
+        ) =
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .SURFACE_REQUEST,
+                    sequence,
+                    RuntimeDisplayBridgePayloadCodec
+                        .encodeSurfaceRequest(
+                            RuntimeBridgeSurfaceRequest(
+                                windowId = 1,
+                                generation = generation,
+                                width = 64,
+                                height = 64,
+                                pixelFormat =
+                                    RuntimeDisplayBridgePayloadCodec
+                                        .PIXEL_FORMAT_BGRA8888,
+                                flags = 0,
+                            ),
+                        ),
+                ),
+            )
+
+        assertTrue(
+            request(2, 2)
+                .isSuccess,
+        )
+        assertTrue(
+            request(2, 3)
+                .isFailure,
+        )
+    }
+
+    @Test
+    fun frameReadyWrongGenerationFailsClosed() {
+        val machine =
+            RuntimeDisplayBridgeStateMachine(
+                RuntimeDisplayBridgeCapabilities
+                    .WINDOW_SURFACE,
+            )
+        val create =
+            payload(
+                RuntimeDisplayBridgePayloadCodec
+                    .WINDOW_CREATE_BYTES,
+            ) {
+                putLong(1)
+                putLong(0)
+                putInt(0)
+                putInt(64)
+                putInt(64)
+            }
+        assertTrue(
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .WINDOW_CREATE,
+                    1,
+                    create,
+                ),
+            ).isSuccess,
+        )
+
+        val request =
+            RuntimeDisplayBridgePayloadCodec
+                .encodeSurfaceRequest(
+                    RuntimeBridgeSurfaceRequest(
+                        windowId = 1,
+                        generation = 4,
+                        width = 64,
+                        height = 64,
+                        pixelFormat =
+                            RuntimeDisplayBridgePayloadCodec
+                                .PIXEL_FORMAT_BGRA8888,
+                        flags = 0,
+                    ),
+                )
+        assertTrue(
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .SURFACE_REQUEST,
+                    2,
+                    request,
+                ),
+            ).isSuccess,
+        )
+
+        val ready =
+            RuntimeDisplayBridgePayloadCodec
+                .encodeFrameReady(
+                    RuntimeBridgeFrameReady(
+                        windowId = 1,
+                        surfaceId = 1,
+                        generation = 3,
+                        frameId = 1,
+                    ),
+                )
+
+        assertTrue(
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .FRAME_READY,
+                    3,
+                    ready,
+                ),
+            ).isFailure,
         )
     }
 
