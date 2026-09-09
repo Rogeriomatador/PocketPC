@@ -305,6 +305,7 @@ class RuntimeProbeEvidenceStore(
                     .WINE_POCKETPC_WINDOW_SMOKE ->
                     if (
                         all(
+                            "wine_graphics_driver_config=pocketpc",
                             "POCKETPC_WINE_DRIVER_WINDOW_OK",
                             "POCKETPC_WINE_DRIVER_PAINT_OK",
                             "POCKETPC_WINE_DRIVER_POINTER_OK",
@@ -354,7 +355,8 @@ class RuntimeProbeEvidenceStore(
                 GuestRuntimeProbe
                     .D3D11_PRESENT_SMOKE ->
                     if (
-                        both(
+                        all(
+                            "wine_graphics_driver_config=pocketpc",
                             "POCKETPC_D3D11_PRESENT_SMOKE_OK",
                             "d3d11_present_smoke=passed",
                         )
