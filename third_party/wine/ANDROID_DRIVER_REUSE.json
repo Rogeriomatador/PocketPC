@@ -56,12 +56,13 @@
     "windowIdentityMapImplemented": true,
     "windowLifecycleAdapterImplemented": true,
     "windowLifecycleAdapterSoftwareTestExecuted": false,
-    "protocolV2NativeIntegrationExecuted": false,
     "guestDriverTemplateImplemented": true,
     "guestDriverOverlayPreparerImplemented": true,
     "guestDriverBuilt": false,
     "guestDriverLoaded": false,
     "surfaceCallbackTemplateImplemented": true,
-    "inputInjectionTemplateImplemented": true
+    "inputInjectionTemplateImplemented": true,
+    "protocolV3NativeIntegrationExecuted": false,
+    "surfaceWriterNativeSoftwareTestExecuted": false
   }
 }
