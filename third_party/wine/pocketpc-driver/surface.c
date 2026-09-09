@@ -66,6 +66,21 @@ static void pocketpc_surface_set_clip(
     (void)count;
 }
 
+static void dispatch_deferred_input(
+    const struct pdb_host_event *events,
+    unsigned int count
+) {
+    unsigned int i;
+
+    for (i = 0u; i < count; ++i)
+    {
+        (void)
+            POCKETPC_DispatchHostEvent(
+                &events[i]
+            );
+    }
+}
+
 static BOOL pocketpc_surface_flush(
     struct window_surface *window_surface,
     const RECT *rect,
@@ -77,28 +92,27 @@ static BOOL pocketpc_surface_flush(
     const void *shape_bits
 ) {
     struct pocketpc_window_surface *surface =
-        get_pocketpc_surface(
-            window_surface
-        );
+        get_pocketpc_surface(window_surface);
     struct pdb_surface_rect dirty_rect;
+    struct pdb_host_event deferred[
+        POCKETPC_MAX_EVENTS_PER_PUMP
+    ];
     struct pdb_frame_presented presented;
+    unsigned int deferred_count = 0u;
+    unsigned int received = 0u;
     int32_t source_height;
     int32_t source_stride;
     uint64_t frame_id = 0u;
+    BOOL got_ack = FALSE;
     char error[160] = {0};
 
     (void)shape_changed;
     (void)shape_info;
     (void)shape_bits;
+    memset(&presented, 0, sizeof(presented));
 
-    if (
-        !surface ||
-        !rect ||
-        !color_info ||
-        !color_bits
-    ) {
+    if (!surface || !rect || !color_info || !color_bits)
         return FALSE;
-    }
 
     if (
         color_info->bmiHeader.biBitCount != 32 ||
@@ -129,26 +143,31 @@ static BOOL pocketpc_surface_flush(
         dirty->bottom > dirty->top
     ) {
         dirty_rect.left =
-            dirty->left -
+            max(dirty->left, rect->left) -
             rect->left;
         dirty_rect.top =
-            dirty->top -
+            max(dirty->top, rect->top) -
             rect->top;
         dirty_rect.right =
-            dirty->right -
+            min(dirty->right, rect->right) -
             rect->left;
         dirty_rect.bottom =
-            dirty->bottom -
+            min(dirty->bottom, rect->bottom) -
             rect->top;
     } else {
         dirty_rect.left = 0;
         dirty_rect.top = 0;
         dirty_rect.right =
-            surface->writer
-                .surface.width;
+            surface->writer.surface.width;
         dirty_rect.bottom =
-            surface->writer
-                .surface.height;
+            surface->writer.surface.height;
+    }
+
+    if (
+        dirty_rect.right <= dirty_rect.left ||
+        dirty_rect.bottom <= dirty_rect.top
+    ) {
+        return TRUE;
     }
 
     if (
@@ -173,9 +192,7 @@ static BOOL pocketpc_surface_flush(
         return FALSE;
     }
 
-    pthread_mutex_lock(
-        &pocketpc_bridge_mutex
-    );
+    pthread_mutex_lock(&pocketpc_bridge_mutex);
 
     if (
         pdb_surface_writer_commit(
@@ -186,9 +203,7 @@ static BOOL pocketpc_surface_flush(
             sizeof(error)
         ) != 0
     ) {
-        pthread_mutex_unlock(
-            &pocketpc_bridge_mutex
-        );
+        pthread_mutex_unlock(&pocketpc_bridge_mutex);
         ERR(
             "FRAME_READY failed hwnd=%p: %s\n",
             window_surface->hwnd,
@@ -197,35 +212,87 @@ static BOOL pocketpc_surface_flush(
         return FALSE;
     }
 
-    if (
-        pdb_receive_frame_presented(
-            &pocketpc_connection,
-            &presented,
-            error,
-            sizeof(error)
-        ) != 0
+    while (
+        received <
+        POCKETPC_MAX_EVENTS_PER_PUMP
     ) {
-        pthread_mutex_unlock(
-            &pocketpc_bridge_mutex
+        struct pdb_host_event event;
+
+        if (
+            pdb_receive_host_event(
+                &pocketpc_connection,
+                &event,
+                error,
+                sizeof(error)
+            ) != 0
+        ) {
+            break;
+        }
+        received += 1u;
+
+        if (
+            event.type ==
+            PDB_MSG_FRAME_PRESENTED
+        ) {
+            presented =
+                event.data.frame_presented;
+            got_ack = TRUE;
+            break;
+        }
+
+        if (
+            event.type ==
+                PDB_MSG_POINTER_EVENT ||
+            event.type ==
+                PDB_MSG_KEY_EVENT
+        ) {
+            if (
+                deferred_count >=
+                POCKETPC_MAX_EVENTS_PER_PUMP
+            ) {
+                snprintf(
+                    error,
+                    sizeof(error),
+                    "PDB_DEFERRED_INPUT_LIMIT"
+                );
+                break;
+            }
+            deferred[
+                deferred_count++
+            ] = event;
+            continue;
+        }
+
+        snprintf(
+            error,
+            sizeof(error),
+            "PDB_UNEXPECTED_EVENT_DURING_FRAME:%u",
+            event.type
         );
+        break;
+    }
+
+    pthread_mutex_unlock(&pocketpc_bridge_mutex);
+    dispatch_deferred_input(
+        deferred,
+        deferred_count
+    );
+
+    if (!got_ack)
+    {
         ERR(
-            "FRAME_PRESENTED failed hwnd=%p: %s\n",
+            "FRAME_PRESENTED missing hwnd=%p frame=%llu: %s\n",
             window_surface->hwnd,
+            (unsigned long long)frame_id,
             error
         );
         return FALSE;
     }
 
-    pthread_mutex_unlock(
-        &pocketpc_bridge_mutex
-    );
-
     if (
         presented.window_id !=
-            surface->writer
-                .surface.window_id ||
-        presented.frame_id !=
-            frame_id ||
+            surface->writer.surface.window_id ||
+        presented.frame_id != frame_id ||
         presented.status != 0u
     ) {
         ERR(
@@ -234,8 +301,7 @@ static BOOL pocketpc_surface_flush(
             (unsigned long long)
                 presented.window_id,
             (unsigned long long)
-                surface->writer
-                    .surface.window_id,
+                surface->writer.surface.window_id,
             (unsigned long long)
                 presented.frame_id,
             (unsigned long long)
@@ -280,61 +346,6 @@ pocketpc_surface_funcs =
     pocketpc_surface_destroy
 };
 
-static BOOL drain_frame_acks_locked(
-    char *error,
-    size_t error_bytes
-) {
-    for (;;) {
-        uint16_t next_type = 0u;
-        int available =
-            pdb_connection_has_input(
-                &pocketpc_connection,
-                error,
-                error_bytes
-            );
-
-        if (available < 0)
-            return FALSE;
-        if (available == 0)
-            return TRUE;
-
-        if (
-            pdb_peek_message_type(
-                &pocketpc_connection,
-                &next_type,
-                error,
-                error_bytes
-            ) <= 0
-        ) {
-            return FALSE;
-        }
-
-        if (
-            next_type ==
-            PDB_MSG_FRAME_PRESENTED
-        ) {
-            struct pdb_host_event event;
-            if (
-                pdb_receive_host_event(
-                    &pocketpc_connection,
-                    &event,
-                    error,
-                    error_bytes
-                ) != 0
-            ) {
-                return FALSE;
-            }
-            continue;
-        }
-
-        /*
-         * Input belongs to pProcessEvents. Never consume it here,
-         * otherwise a surface resize could steal user input.
-         */
-        return FALSE;
-    }
-}
-
 static BOOL request_surface(
     HWND hwnd,
     const RECT *surface_rect,
@@ -342,9 +353,17 @@ static BOOL request_surface(
 ) {
     struct pdb_surface_request request;
     struct pdb_surface_available available;
+    struct pdb_host_event deferred[
+        POCKETPC_MAX_EVENTS_PER_PUMP
+    ];
+    unsigned int deferred_count = 0u;
+    unsigned int received = 0u;
     uint64_t window_id = 0u;
     uint64_t generation;
+    BOOL got_surface = FALSE;
     char error[160] = {0};
+
+    memset(&available, 0, sizeof(available));
 
     if (
         pdb_wine_window_lookup(
@@ -364,37 +383,13 @@ static BOOL request_surface(
         allocate_surface_generation();
     if (generation == 0u)
     {
-        ERR(
-            "surface generation exhausted\n"
-        );
+        ERR("surface generation exhausted\n");
         return FALSE;
     }
 
-    if (
-        !drain_frame_acks_locked(
-            error,
-            sizeof(error)
-        )
-    ) {
-        pthread_mutex_unlock(
-            &pocketpc_bridge_mutex
-        );
-        TRACE(
-            "surface request deferred because host events are pending hwnd=%p\n",
-            hwnd
-        );
-        return FALSE;
-    }
-
-    memset(
-        &request,
-        0,
-        sizeof(request)
-    );
-    request.window_id =
-        window_id;
-    request.generation =
-        generation;
+    memset(&request, 0, sizeof(request));
+    request.window_id = window_id;
+    request.generation = generation;
     request.width =
         surface_rect->right -
         surface_rect->left;
@@ -417,9 +412,7 @@ static BOOL request_surface(
         return FALSE;
     }
 
-    pthread_mutex_lock(
-        &pocketpc_bridge_mutex
-    );
+    pthread_mutex_lock(&pocketpc_bridge_mutex);
 
     if (
         pdb_send_surface_request(
@@ -427,28 +420,92 @@ static BOOL request_surface(
             &request,
             error,
             sizeof(error)
-        ) != 0 ||
-        pdb_receive_surface_available(
-            &pocketpc_connection,
-            &available,
-            error,
-            sizeof(error)
         ) != 0
     ) {
-        pthread_mutex_unlock(
-            &pocketpc_bridge_mutex
-        );
+        pthread_mutex_unlock(&pocketpc_bridge_mutex);
         ERR(
-            "surface handshake failed hwnd=%p: %s\n",
+            "surface request send failed hwnd=%p: %s\n",
             hwnd,
             error
         );
         return FALSE;
     }
 
-    pthread_mutex_unlock(
-        &pocketpc_bridge_mutex
+    while (
+        received <
+        POCKETPC_MAX_EVENTS_PER_PUMP
+    ) {
+        struct pdb_host_event event;
+
+        if (
+            pdb_receive_host_event(
+                &pocketpc_connection,
+                &event,
+                error,
+                sizeof(error)
+            ) != 0
+        ) {
+            break;
+        }
+        received += 1u;
+
+        if (
+            event.type ==
+            PDB_MSG_SURFACE_AVAILABLE
+        ) {
+            available =
+                event.data.surface;
+            got_surface = TRUE;
+            break;
+        }
+
+        if (
+            event.type ==
+                PDB_MSG_POINTER_EVENT ||
+            event.type ==
+                PDB_MSG_KEY_EVENT
+        ) {
+            if (
+                deferred_count >=
+                POCKETPC_MAX_EVENTS_PER_PUMP
+            ) {
+                snprintf(
+                    error,
+                    sizeof(error),
+                    "PDB_DEFERRED_INPUT_LIMIT"
+                );
+                break;
+            }
+            deferred[
+                deferred_count++
+            ] = event;
+            continue;
+        }
+
+        snprintf(
+            error,
+            sizeof(error),
+            "PDB_UNEXPECTED_EVENT_DURING_SURFACE:%u",
+            event.type
+        );
+        break;
+    }
+
+    pthread_mutex_unlock(&pocketpc_bridge_mutex);
+    dispatch_deferred_input(
+        deferred,
+        deferred_count
     );
+
+    if (!got_surface)
+    {
+        ERR(
+            "surface response missing hwnd=%p: %s\n",
+            hwnd,
+            error
+        );
+        return FALSE;
+    }
 
     if (
         available.window_id !=
