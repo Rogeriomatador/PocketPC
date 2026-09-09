@@ -14,6 +14,7 @@ enum class RuntimeDisplayBridgeMessageType(
     WINDOW_CREATE(10),
     WINDOW_GEOMETRY(11),
     WINDOW_DESTROY(12),
+    SURFACE_REQUEST(19),
     SURFACE_AVAILABLE(20),
     FRAME_READY(21),
     POINTER_EVENT(30),
@@ -40,7 +41,7 @@ data class RuntimeDisplayBridgeFrame(
 )
 
 object RuntimeDisplayBridgeProtocol {
-    const val VERSION = 2
+    const val VERSION = 3
     const val HEADER_BYTES = 20
     const val MAX_PAYLOAD_BYTES =
         1024 * 1024
