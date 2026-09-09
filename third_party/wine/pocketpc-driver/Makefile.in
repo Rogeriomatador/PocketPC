@@ -1,0 +1,12 @@
+MODULE = winepocketpc.drv
+UNIXLIB = winepocketpc.so
+UNIX_LIBS = -lwin32u $(PTHREAD_LIBS)
+IMPORTS = user32 win32u
+
+SOURCES = \
+	dllmain.c \
+	pocketpcdrv_main.c \
+	window.c \
+	pocketpc_display_bridge.c \
+	pocketpc_wine_window_map.c \
+	pocketpc_wine_window_bridge.c
