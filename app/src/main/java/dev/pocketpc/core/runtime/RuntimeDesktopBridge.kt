@@ -29,12 +29,42 @@ class RuntimeDesktopBridge {
             RuntimeBridgeWindowCommand,
         ) -> Result<Unit>)? =
         null
+    private var pointerSender:
+        ((
+            RuntimeBridgePointerEvent,
+        ) -> Result<Unit>)? =
+        null
+    private var keySender:
+        ((
+            RuntimeBridgeKeyEvent,
+        ) -> Result<Unit>)? =
+        null
 
     fun bind(
         sender:
             (
                 RuntimeBridgeWindowCommand,
             ) -> Result<Unit>,
+    ): RuntimeDesktopBinding =
+        bind(
+            commandSender = sender,
+            pointerSender = null,
+            keySender = null,
+        )
+
+    fun bind(
+        commandSender:
+            (
+                RuntimeBridgeWindowCommand,
+            ) -> Result<Unit>,
+        pointerSender:
+            ((
+                RuntimeBridgePointerEvent,
+            ) -> Result<Unit>)?,
+        keySender:
+            ((
+                RuntimeBridgeKeyEvent,
+            ) -> Result<Unit>)?,
     ): RuntimeDesktopBinding {
         val id =
             synchronized(lock) {
@@ -59,8 +89,12 @@ class RuntimeDesktopBridge {
                     }
                 activeBindingId =
                     allocated
-                commandSender =
-                    sender
+                this.commandSender =
+                    commandSender
+                this.pointerSender =
+                    pointerSender
+                this.keySender =
+                    keySender
                 mutableWindows.value =
                     emptyList()
                 allocated
@@ -115,6 +149,113 @@ class RuntimeDesktopBridge {
             sender(value).getOrThrow()
         }
 
+    fun activate(
+        windowId: Long,
+    ): Result<Unit> =
+        command(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_ACTIVATE,
+        )
+
+    fun minimize(
+        windowId: Long,
+    ): Result<Unit> =
+        command(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_MINIMIZE,
+        )
+
+    fun restore(
+        windowId: Long,
+    ): Result<Unit> =
+        command(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_RESTORE,
+        )
+
+    fun maximize(
+        windowId: Long,
+    ): Result<Unit> =
+        command(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_MAXIMIZE,
+        )
+
+    fun closeWindow(
+        windowId: Long,
+    ): Result<Unit> =
+        command(
+            windowId,
+            RuntimeDisplayBridgePayloadCodec
+                .WINDOW_COMMAND_CLOSE,
+        )
+
+    fun sendPointer(
+        event: RuntimeBridgePointerEvent,
+    ): Result<Unit> =
+        runCatching {
+            val sender =
+                synchronized(lock) {
+                    require(
+                        activeBindingId > 0L &&
+                            pointerSender != null,
+                    ) {
+                        "RUNTIME_DESKTOP_POINTER_CHANNEL_MISSING"
+                    }
+                    require(
+                        mutableWindows.value
+                            .any {
+                                it.windowId ==
+                                    event.windowId
+                            },
+                    ) {
+                        "RUNTIME_DESKTOP_WINDOW_MISSING"
+                    }
+                    pointerSender
+                } ?: error(
+                    "RUNTIME_DESKTOP_POINTER_CHANNEL_MISSING",
+                )
+
+            RuntimeDisplayBridgePayloadCodec
+                .encodePointerEvent(event)
+            sender(event).getOrThrow()
+        }
+
+    fun sendKey(
+        event: RuntimeBridgeKeyEvent,
+    ): Result<Unit> =
+        runCatching {
+            val sender =
+                synchronized(lock) {
+                    require(
+                        activeBindingId > 0L &&
+                            keySender != null,
+                    ) {
+                        "RUNTIME_DESKTOP_KEY_CHANNEL_MISSING"
+                    }
+                    require(
+                        mutableWindows.value
+                            .any {
+                                it.windowId ==
+                                    event.windowId
+                            },
+                    ) {
+                        "RUNTIME_DESKTOP_WINDOW_MISSING"
+                    }
+                    keySender
+                } ?: error(
+                    "RUNTIME_DESKTOP_KEY_CHANNEL_MISSING",
+                )
+
+            RuntimeDisplayBridgePayloadCodec
+                .encodeKeyEvent(event)
+            sender(event).getOrThrow()
+        }
+
     internal fun publish(
         bindingId: Long,
         snapshot:
@@ -163,6 +304,8 @@ class RuntimeDesktopBridge {
 
             activeBindingId = 0L
             commandSender = null
+            pointerSender = null
+            keySender = null
             mutableWindows.value =
                 emptyList()
             true
