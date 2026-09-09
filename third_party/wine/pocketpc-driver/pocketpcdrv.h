@@ -28,6 +28,12 @@ extern BOOL pocketpc_bridge_ready;
 BOOL POCKETPC_CreateWindow(HWND hwnd);
 BOOL POCKETPC_ProcessEvents(DWORD mask);
 void POCKETPC_DestroyWindow(HWND hwnd);
+BOOL POCKETPC_CreateWindowSurface(
+    HWND hwnd,
+    BOOL layered,
+    const RECT *surface_rect,
+    struct window_surface **surface
+);
 BOOL POCKETPC_WindowPosChanging(
     HWND hwnd,
     UINT swp_flags,
