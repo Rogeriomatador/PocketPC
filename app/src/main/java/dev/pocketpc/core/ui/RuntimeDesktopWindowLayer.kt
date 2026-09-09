@@ -30,7 +30,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.input.key.nativeKeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
@@ -114,41 +121,68 @@ internal fun RuntimeDesktopWindowLayer(
                     val windowId =
                         focusedWindowId
                             ?: return@onPreviewKeyEvent false
-                    val native =
-                        composeEvent
-                            .nativeKeyEvent
                     val mapped =
                         RuntimeWindowsKeyMapper
                             .map(
-                                native.keyCode,
+                                composeEvent
+                                    .key
+                                    .nativeKeyCode,
                             )
                             ?: return@onPreviewKeyEvent false
 
                     val action =
                         when (
-                            native.action
+                            composeEvent.type
                         ) {
-                            AndroidKeyEvent
-                                .ACTION_DOWN ->
-                                if (
-                                    native.repeatCount >
-                                    0
-                                ) {
-                                    RuntimeDisplayBridgePayloadCodec
-                                        .KEY_ACTION_REPEAT
-                                } else {
-                                    RuntimeDisplayBridgePayloadCodec
-                                        .KEY_ACTION_DOWN
-                                }
+                            KeyEventType.KeyDown ->
+                                RuntimeDisplayBridgePayloadCodec
+                                    .KEY_ACTION_DOWN
 
-                            AndroidKeyEvent
-                                .ACTION_UP ->
+                            KeyEventType.KeyUp ->
                                 RuntimeDisplayBridgePayloadCodec
                                     .KEY_ACTION_UP
 
                             else ->
                                 return@onPreviewKeyEvent false
                         }
+
+                    var metaState = 0
+                    if (
+                        composeEvent
+                            .isShiftPressed
+                    ) {
+                        metaState =
+                            metaState or
+                                AndroidKeyEvent
+                                    .META_SHIFT_ON
+                    }
+                    if (
+                        composeEvent
+                            .isCtrlPressed
+                    ) {
+                        metaState =
+                            metaState or
+                                AndroidKeyEvent
+                                    .META_CTRL_ON
+                    }
+                    if (
+                        composeEvent
+                            .isAltPressed
+                    ) {
+                        metaState =
+                            metaState or
+                                AndroidKeyEvent
+                                    .META_ALT_ON
+                    }
+                    if (
+                        composeEvent
+                            .isMetaPressed
+                    ) {
+                        metaState =
+                            metaState or
+                                AndroidKeyEvent
+                                    .META_META_ON
+                    }
 
                     bridge.sendKey(
                         RuntimeBridgeKeyEvent(
@@ -165,16 +199,7 @@ internal fun RuntimeDesktopWindowLayer(
                                     .modifiers(
                                         native.metaState,
                                     ),
-                            repeatCount =
-                                if (
-                                    action ==
-                                    RuntimeDisplayBridgePayloadCodec
-                                        .KEY_ACTION_REPEAT
-                                ) {
-                                    1
-                                } else {
-                                    0
-                                },
+                            repeatCount = 0,
                         ),
                     ).isSuccess
                 }
