@@ -196,6 +196,10 @@ def main() -> int:
             "pdb_peek_message_type",
             "POCKETPC_DispatchHostEvent",
             "POCKETPC_MAX_EVENTS_PER_PUMP",
+            "POCKETPC_HOST_EVENT_QUEUE_LIMIT",
+            "POCKETPC_QueueHostEventLocked",
+            "POCKETPC_DequeueHostEventLocked",
+            "PDB_MSG_FRAME_PRESENTED",
         ),
     )
     require(
@@ -210,15 +214,24 @@ def main() -> int:
             "pdb_surface_writer_open",
             "pdb_surface_writer_copy_bgra",
             "pdb_surface_writer_commit",
-            "dispatch_deferred_input",
+            "POCKETPC_QueueHostEventLocked",
             "PDB_MSG_FRAME_PRESENTED",
             "PDB_MSG_SURFACE_AVAILABLE",
-            "PDB_DEFERRED_INPUT_LIMIT",
-            "PDB_UNEXPECTED_EVENT_DURING_FRAME",
-            "shape_bits",
+            "PDB_HOST_EVENT_QUEUE_FULL",
             "pdb_surface_writer_close",
         ),
     )
+    surface_text =
+        texts.get("surface", "")
+    if "dispatch_deferred_input" in surface_text:
+        failures.append(
+            "surface callback must not inject queued input directly"
+        )
+    if "pdb_receive_frame_presented" in surface_text:
+        failures.append(
+            "surface flush must not synchronously wait for FRAME_PRESENTED"
+        )
+
     require(
         failures,
         "Window callbacks",
@@ -246,6 +259,14 @@ def main() -> int:
         preparer = PREPARER.read_text(
             encoding="utf-8"
         )
+        if (
+            preparer.count(
+                "if name in UNIX_ONLY_C_FILES:"
+            ) < 2
+        ):
+            failures.append(
+                "overlay does not mark bridge C sources Unix-only"
+            )
         require(
             failures,
             "Overlay preparer",
