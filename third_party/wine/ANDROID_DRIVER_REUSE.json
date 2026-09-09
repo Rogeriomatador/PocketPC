@@ -70,6 +70,9 @@
     "hostSurfaceRegistryImplemented": true,
     "singleBufferOwnershipAckImplemented": true,
     "doubleBufferingImplemented": false,
-    "surfaceVisibilityCrossProcessSoftwareTestExecuted": false
+    "surfaceVisibilityCrossProcessSoftwareTestExecuted": false,
+    "windowCommandProtocolImplemented": true,
+    "windowCommandWineDispatchImplemented": true,
+    "windowCommandSoftwareTestExecuted": false
   }
 }
