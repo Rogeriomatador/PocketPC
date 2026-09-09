@@ -1,6 +1,41 @@
 {
-  "schemaVersion": 1,
-  "status": "PINNED_SOURCES_NOT_BUILT_NOT_RUNTIME_TESTED",
+  "schemaVersion": 2,
+  "status": "GUEST_VULKAN_SOURCE_PINNED_NOT_BUILT_NOT_RUNTIME_TESTED",
+  "guestVulkan": {
+    "architecture": "pluggable-guest-icd",
+    "firstBackend": "mesa-turnip-kgsl",
+    "selectionStatus": "SOURCE_PINNED_NOT_BUILT",
+    "reason": "PocketPC currently runs a Linux/glibc ARM64 guest. Android system Vulkan is Bionic and is not exposed to that guest; an in-guest Vulkan ICD must be proven before Wine Vulkan WSI or DXVK Present can be accepted.",
+    "mesaTurnipKgsl": {
+      "version": "26.2.2",
+      "sourceUrl": "https://archive.mesa3d.org/mesa-26.2.2.tar.xz",
+      "sourceSha256": "eeb29ca7e56cfaa8e8a79538dcf834e3b18e501c31bef5145e959ea437cc4216",
+      "sourceType": "official-release-archive",
+      "target": "Linux/glibc AArch64 guest",
+      "vulkanDriver": "freedreno/turnip",
+      "kernelInterface": "kgsl",
+      "gpuFamily": "Qualcomm Adreno",
+      "buildIntent": "Vulkan-only first; no window-system dependency is required for the initial vkCreateInstance/vkCreateDevice guest smoke.",
+      "built": false,
+      "packaged": false,
+      "guestLoaded": false,
+      "guestDeviceCreated": false,
+      "physicalTested": false,
+      "license": "MIT",
+      "licenseEvidence": "Mesa upstream COPYING / release source"
+    },
+    "vulkanLoader": {
+      "required": true,
+      "sourcePinned": false,
+      "packaged": false,
+      "guestLoaded": false,
+      "note": "Ubuntu Base does not guarantee libvulkan.so.1 in the pinned rootfs. PocketPC must package or otherwise attest a loader explicitly."
+    },
+    "nonAdrenoBackend": {
+      "status": "NOT_SELECTED",
+      "note": "Turnip/KGSL is not a universal Android GPU solution. Mali/PowerVR/other devices remain fail-closed until a separately pinned backend is selected and proven."
+    }
+  },
   "dxvk": {
     "version": "3.0.2",
     "repository": "https://github.com/doitsujin/dxvk.git",
@@ -27,9 +62,17 @@
     "licenseEvidence": "LICENSE at pinned commit"
   },
   "gates": {
+    "guestVulkanBackendSourcePinned": true,
+    "guestVulkanBackendBuilt": false,
+    "guestVulkanLoaderPinned": false,
+    "guestVulkanLoaderPackaged": false,
+    "guestVulkanIcdLoaded": false,
+    "guestVulkanDeviceCreated": false,
     "androidVulkanExposedToGuest": false,
+    "wineVulkanWsiImplemented": false,
     "wineGraphicsSmokeTest": false,
     "d3d11SmokeTest": false,
+    "d3d11PresentSmokeTest": false,
     "d3d12SmokeTest": false,
     "robloxGraphicsTest": false
   }
