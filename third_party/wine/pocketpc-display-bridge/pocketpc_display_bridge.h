@@ -39,6 +39,18 @@ extern "C" {
 #define PDB_CAP_FRAME_ACK (1u << 4)
 #define PDB_HOST_BASELINE (PDB_CAP_WINDOW_SURFACE|PDB_CAP_POINTER|PDB_CAP_KEYBOARD|PDB_CAP_FRAME_ACK)
 
+#define PDB_POINTER_ACTION_MOVE 0u
+#define PDB_POINTER_ACTION_DOWN 1u
+#define PDB_POINTER_ACTION_UP 2u
+#define PDB_POINTER_ACTION_SCROLL 3u
+#define PDB_POINTER_BUTTON_PRIMARY (1u << 0)
+#define PDB_POINTER_BUTTON_SECONDARY (1u << 1)
+#define PDB_POINTER_BUTTON_MIDDLE (1u << 2)
+
+#define PDB_KEY_ACTION_DOWN 1u
+#define PDB_KEY_ACTION_UP 2u
+#define PDB_KEY_ACTION_REPEAT 3u
+
 #define PDB_ZORDER_NO_CHANGE (1u << 0)
 #define PDB_ZORDER_TOP (1u << 1)
 #define PDB_ZORDER_BOTTOM (1u << 2)
@@ -70,6 +82,7 @@ struct pdb_frame_presented { uint64_t window_id; uint64_t frame_id; uint32_t sta
 int pdb_connect_from_environment(struct pdb_connection*,char*,size_t);
 int pdb_send_frame(struct pdb_connection*,uint16_t,const void*,uint32_t,char*,size_t);
 int pdb_receive_frame(struct pdb_connection*,struct pdb_frame*,char*,size_t);
+int pdb_connection_has_input(struct pdb_connection*,char*,size_t);
 int pdb_receive_surface_available(struct pdb_connection*,struct pdb_surface_available*,char*,size_t);
 int pdb_surface_guest_path(const struct pdb_surface_available*,char*,size_t);
 int pdb_send_frame_ready(struct pdb_connection*,const struct pdb_frame_ready*,char*,size_t);
