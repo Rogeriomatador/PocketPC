@@ -200,6 +200,15 @@ class RuntimeDisplayHostProcessor(
         endpoint.sendKey(event)
     }
 
+    fun sendWindowCommand(
+        command:
+            RuntimeBridgeWindowCommand,
+    ) {
+        endpoint.sendWindowCommand(
+            command,
+        )
+    }
+
     @Synchronized
     override fun close() {
         surfaces.close()
