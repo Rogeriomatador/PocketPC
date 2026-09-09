@@ -23,6 +23,8 @@ WINDOW_BRIDGE_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc
 WINDOW_BRIDGE_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_wine_window_bridge.c"
 SURFACE_WRITER_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_surface_writer.h"
 SURFACE_WRITER_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_surface_writer.c"
+VISIBILITY_SMOKE = ROOT / "third_party/wine/pocketpc-display-bridge/surface_writer_visibility_smoke.c"
+NATIVE_INTEGRATION = ROOT / "scripts/test-display-bridge-native-integration.py"
 
 
 def require_sentinels(
@@ -253,6 +255,8 @@ def main() -> int:
     window_bridge_source = WINDOW_BRIDGE_SOURCE.read_text(encoding="utf-8")
     surface_writer_header = SURFACE_WRITER_HEADER.read_text(encoding="utf-8")
     surface_writer_source = SURFACE_WRITER_SOURCE.read_text(encoding="utf-8")
+    visibility_smoke = VISIBILITY_SMOKE.read_text(encoding="utf-8")
+    native_integration = NATIVE_INTEGRATION.read_text(encoding="utf-8")
 
     require_sentinels(
         failures,
@@ -474,6 +478,23 @@ def main() -> int:
             "pdb_send_frame_ready",
         ),
     )
+    require_sentinels(
+        failures,
+        "Cross-process surface visibility smoke",
+        visibility_smoke + native_integration,
+        (
+            "surface_writer_visibility_smoke.c",
+            "POCKETPC_SURFACE_VISIBILITY_SMOKE_OK",
+            "fork()",
+            "waitpid",
+            "surface_visibility=cross-process-native-pass",
+        ),
+    )
+    if "MS_SYNC" in surface_writer_source:
+        failures.append(
+            "surface writer must not force MS_SYNC on the frame hot path"
+        )
+
     require_sentinels(
         failures,
         "Box64 bridge builder",
