@@ -99,6 +99,12 @@ class RuntimeDisplayHostProcessor(
                                             windowId =
                                                 event.frame
                                                     .windowId,
+                                            surfaceId =
+                                                event.frame
+                                                    .surfaceId,
+                                            generation =
+                                                event.frame
+                                                    .generation,
                                             frameId =
                                                 event.frame
                                                     .frameId,
@@ -178,6 +184,10 @@ class RuntimeDisplayHostProcessor(
                 RuntimeBridgeFramePresented(
                     windowId =
                         ready.windowId,
+                    surfaceId =
+                        ready.surfaceId,
+                    generation =
+                        ready.generation,
                     frameId =
                         ready.frameId,
                     status = status,
