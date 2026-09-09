@@ -327,6 +327,49 @@ BOOL POCKETPC_ProcessEvents(
             break;
         }
 
+        {
+            uint16_t next_type = 0u;
+            int peeked =
+                pdb_peek_message_type(
+                    &pocketpc_connection,
+                    &next_type,
+                    error,
+                    sizeof(error)
+                );
+
+            if (peeked < 0)
+            {
+                pthread_mutex_unlock(
+                    &pocketpc_bridge_mutex
+                );
+                ERR(
+                    "event peek failed: %s\n",
+                    error
+                );
+                break;
+            }
+
+            if (peeked == 0)
+            {
+                pthread_mutex_unlock(
+                    &pocketpc_bridge_mutex
+                );
+                break;
+            }
+
+            if (
+                next_type !=
+                    PDB_MSG_POINTER_EVENT &&
+                next_type !=
+                    PDB_MSG_KEY_EVENT
+            ) {
+                pthread_mutex_unlock(
+                    &pocketpc_bridge_mutex
+                );
+                break;
+            }
+        }
+
         if (
             pdb_receive_host_event(
                 &pocketpc_connection,
@@ -375,34 +418,10 @@ BOOL POCKETPC_ProcessEvents(
             break;
 
         case PDB_MSG_SURFACE_AVAILABLE:
-            TRACE(
-                "surface event deferred window_id=%llu surface_id=%llu generation=%llu\n",
-                (unsigned long long)
-                    event.data.surface
-                        .window_id,
-                (unsigned long long)
-                    event.data.surface
-                        .surface_id,
-                (unsigned long long)
-                    event.data.surface
-                        .generation
-            );
-            break;
-
         case PDB_MSG_FRAME_PRESENTED:
-            TRACE(
-                "frame ack deferred window_id=%llu frame_id=%llu status=%u\n",
-                (unsigned long long)
-                    event.data
-                        .frame_presented
-                        .window_id,
-                (unsigned long long)
-                    event.data
-                        .frame_presented
-                        .frame_id,
-                event.data
-                    .frame_presented
-                    .status
+            ERR(
+                "non-input event escaped peek type=%u\n",
+                event.type
             );
             break;
 
