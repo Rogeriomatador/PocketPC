@@ -54,6 +54,19 @@ static uintptr_t bridged_owner(
     return (uintptr_t)owner;
 }
 
+static void fail_closed_if_connection_invalid_locked(
+    const char *error
+) {
+    if (pocketpc_connection.fd >= 0)
+        return;
+
+    POCKETPC_FailBridgeLocked(
+        error && error[0]
+            ? error
+            : "PDB_WINDOW_TRANSPORT_INVALID"
+    );
+}
+
 static void z_order_for(
     HWND insert_after,
     UINT swp_flags,
@@ -151,6 +164,16 @@ BOOL POCKETPC_WindowPosChanging(
     );
 
     if (
+        !pocketpc_bridge_ready ||
+        pocketpc_connection.fd < 0
+    ) {
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
+        return FALSE;
+    }
+
+    if (
         pdb_wine_window_lookup(
             &pocketpc_windows.windows,
             (uintptr_t)hwnd,
@@ -181,6 +204,9 @@ BOOL POCKETPC_WindowPosChanging(
         ERR(
             "create hwnd=%p failed: %s\n",
             hwnd,
+            error
+        );
+        fail_closed_if_connection_invalid_locked(
             error
         );
         pthread_mutex_unlock(
@@ -229,6 +255,16 @@ void POCKETPC_WindowPosChanged(
     );
 
     if (
+        !pocketpc_bridge_ready ||
+        pocketpc_connection.fd < 0
+    ) {
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
+        return;
+    }
+
+    if (
         pdb_wine_window_lookup(
             &pocketpc_windows.windows,
             (uintptr_t)hwnd,
@@ -271,6 +307,9 @@ void POCKETPC_WindowPosChanged(
             (unsigned long long)window_id,
             error
         );
+        fail_closed_if_connection_invalid_locked(
+            error
+        );
     }
 
     pthread_mutex_unlock(
@@ -290,6 +329,16 @@ void POCKETPC_DestroyWindow(
     pthread_mutex_lock(
         &pocketpc_bridge_mutex
     );
+
+    if (
+        !pocketpc_bridge_ready ||
+        pocketpc_connection.fd < 0
+    ) {
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
+        return;
+    }
 
     if (
         pdb_wine_window_lookup(
@@ -316,6 +365,9 @@ void POCKETPC_DestroyWindow(
             "destroy hwnd=%p id=%llu failed: %s\n",
             hwnd,
             (unsigned long long)window_id,
+            error
+        );
+        fail_closed_if_connection_invalid_locked(
             error
         );
     }
