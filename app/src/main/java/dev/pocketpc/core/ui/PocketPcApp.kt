@@ -52,6 +52,7 @@ import dev.pocketpc.core.runtime.RootfsLinkManager
 import dev.pocketpc.core.runtime.RuntimeInstallManager
 import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
+import dev.pocketpc.core.runtime.RuntimeDesktopBridge
 import dev.pocketpc.core.runtime.WindowsRuntimeLayerPackageManager
 import dev.pocketpc.core.storage.PocketDownloadImporter
 import dev.pocketpc.core.storage.StorageRepository
@@ -120,6 +121,14 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 appContext,
             )
         }
+    val runtimeDesktopBridge =
+        remember {
+            RuntimeDesktopBridge()
+        }
+    val runtimeDesktopWindows by
+        runtimeDesktopBridge
+            .windows
+            .collectAsStateWithLifecycle()
     val windowsLayerPackages =
         remember {
             WindowsRuntimeLayerPackageManager(
@@ -506,6 +515,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             guestToolPackages = guestToolPackages,
                             probeEvidenceStore = runtimeProbeEvidence,
                             windowsLayerPackages = windowsLayerPackages,
+                            desktopBridge = runtimeDesktopBridge,
                             linkManager = linkManager,
                             nativeHost = nativeHost,
                             substrate = substrate,
@@ -590,6 +600,22 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 }
                 }
             }
+
+        RuntimeDesktopWindowLayer(
+            windows =
+                runtimeDesktopWindows,
+            bridge =
+                runtimeDesktopBridge,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(
+                        bottom =
+                            desktopLayout
+                                .taskbarHeightDp
+                                .dp,
+                    ),
+        )
 
         if (appearance.showPerformanceHud) {
             PerformanceHud(
