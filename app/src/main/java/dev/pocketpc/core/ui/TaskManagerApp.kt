@@ -443,7 +443,7 @@ private fun ProcessesSection(
                     )
                     Text(
                         "PID ${Process.myPid()} • " +
-                            "${formatBytes(hostMemoryBytes)} em uso • protegido",
+                            "${formatBytes(hostMemoryBytes)} heap Java • protegido",
                         style =
                             MaterialTheme.typography
                                 .bodySmall,
@@ -522,6 +522,29 @@ private fun RuntimeProcessRow(
                             "encerrando"
                         },
                     )
+                    process.residentMemoryBytes
+                        ?.let { bytes ->
+                            append(" • ")
+                            append(
+                                formatBytes(
+                                    bytes,
+                                ),
+                            )
+                        }
+                    process.threadCount
+                        ?.let { threads ->
+                            append(" • ")
+                            append(threads)
+                            append(
+                                if (
+                                    threads == 1
+                                ) {
+                                    " thread"
+                                } else {
+                                    " threads"
+                                },
+                            )
+                        }
                     append(" • ")
                     append(
                         formatDuration(
