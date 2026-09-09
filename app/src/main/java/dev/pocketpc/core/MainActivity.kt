@@ -15,9 +15,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import dev.pocketpc.core.desktop.DesktopCommand
+import dev.pocketpc.core.desktop.DesktopPointerCommandBridge
 import dev.pocketpc.core.ui.PocketPcApp
 import dev.pocketpc.core.update.PocketPcUpdateScheduler
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private val desktopCommands =
@@ -130,11 +132,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         if (
-            event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS &&
-            event.buttonState.and(MotionEvent.BUTTON_SECONDARY) != 0 &&
-            desktopCommands.tryEmit(DesktopCommand.OPEN_DESKTOP_CONTEXT)
+            event.actionMasked ==
+                MotionEvent.ACTION_BUTTON_PRESS &&
+            event.buttonState
+                .and(
+                    MotionEvent.BUTTON_SECONDARY,
+                ) != 0
         ) {
-            return true
+            DesktopPointerCommandBridge
+                .record(
+                    x = event.x.roundToInt(),
+                    y = event.y.roundToInt(),
+                )
+            if (
+                desktopCommands.tryEmit(
+                    DesktopCommand
+                        .OPEN_DESKTOP_CONTEXT,
+                )
+            ) {
+                return true
+            }
+            DesktopPointerCommandBridge.clear()
         }
         return super.onGenericMotionEvent(event)
     }
