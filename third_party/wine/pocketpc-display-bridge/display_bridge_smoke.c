@@ -94,6 +94,7 @@ static int draw_smoke_frame(
 
 int main(void) {
     struct pdb_connection c;
+    struct pdb_surface_request request;
     struct pdb_surface_available surface;
     struct pdb_frame_ready ready;
     struct pdb_pointer_event pointer;
@@ -137,33 +138,29 @@ int main(void) {
         return 81;
     }
 
+    request.window_id = 1u;
+    request.generation = 1u;
+    request.width = 64;
+    request.height = 64;
+    request.pixel_format = 1u;
+    request.flags = 0u;
+
     if (
-        pdb_send_window_geometry(
+        pdb_send_surface_request(
             &c,
-            1,
-            20,
-            30,
-            640,
-            360,
-            1,
-            PDB_ZORDER_NO_CHANGE,
-            0u,
+            &request,
             error,
             sizeof(error)
         ) != 0
     ) {
         fprintf(
             stderr,
-            "POCKETPC_DISPLAY_BRIDGE_SMOKE_FAILED geometry=%s\n",
+            "POCKETPC_DISPLAY_BRIDGE_SMOKE_FAILED surface_request=%s\n",
             error
         );
         pdb_close(&c);
         return 82;
     }
-
-    printf(
-        "POCKETPC_DISPLAY_BRIDGE_WINDOW_OK id=1\n"
-    );
 
     if (
         pdb_receive_surface_available(
@@ -195,6 +192,34 @@ int main(void) {
         pdb_close(&c);
         return 84;
     }
+
+    if (
+        pdb_send_window_geometry(
+            &c,
+            1,
+            20,
+            30,
+            640,
+            360,
+            1,
+            PDB_ZORDER_NO_CHANGE,
+            0u,
+            error,
+            sizeof(error)
+        ) != 0
+    ) {
+        fprintf(
+            stderr,
+            "POCKETPC_DISPLAY_BRIDGE_SMOKE_FAILED geometry=%s\n",
+            error
+        );
+        pdb_close(&c);
+        return 94;
+    }
+
+    printf(
+        "POCKETPC_DISPLAY_BRIDGE_WINDOW_OK id=1\n"
+    );
 
     if (
         draw_smoke_frame(
