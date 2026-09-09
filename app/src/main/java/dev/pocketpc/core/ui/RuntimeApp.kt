@@ -50,6 +50,7 @@ import dev.pocketpc.core.runtime.WindowsRuntimeLayerPackageManager
 import dev.pocketpc.core.runtime.StagedWindowsRuntimeLayer
 import dev.pocketpc.core.runtime.WindowsRuntimeLayerDeployManager
 import dev.pocketpc.core.runtime.DeployedWindowsRuntimeLayer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -197,7 +198,12 @@ fun RuntimeApp(
                             ".pocketpc/windows-layers",
                         ),
                     ).discover(prefix)
-                } catch (_: Throwable) {
+                } catch (
+                    cancellation:
+                        CancellationException
+                ) {
+                    throw cancellation
+                } catch (_: Exception) {
                     emptyList()
                 }
             layerMap[
@@ -343,7 +349,7 @@ fun RuntimeApp(
         layers: List<DeployedWindowsRuntimeLayer>,
     ): ProotInvocationPlan =
         withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 val requirementBlockers =
                     GuestProbeRequirements.blockers(
                         probe = probe,
@@ -362,6 +368,7 @@ fun RuntimeApp(
                                 }
                                 .toSet(),
                     )
+
                 if (
                     requirementBlockers
                         .isNotEmpty()
@@ -395,7 +402,12 @@ fun RuntimeApp(
                                     .allowedHostRoots(),
                         )
                 }
-            }.getOrElse { failure ->
+            } catch (
+                cancellation:
+                    CancellationException
+            ) {
+                throw cancellation
+            } catch (failure: Exception) {
                 ProotInvocationPlan(
                     ready = false,
                     argv = emptyList(),
@@ -1405,80 +1417,47 @@ fun RuntimeApp(
                 items = installed,
                 key = { "installed:${it.manifest.id}:${it.manifest.version}" },
             ) { runtime ->
+                val deployedWindowsLayers =
+                    deployedWindowsLayersByRuntime[
+                        runtimeLayerStateKey(runtime)
+                    ].orEmpty()
+
                 val invocationPlan by produceState(
-                    initialValue = ProotInvocationPlan(false, emptyList(), emptyMap(), listOf("BIND_PLAN_PREPARING")),
+                    initialValue =
+                        ProotInvocationPlan(
+                            false,
+                            emptyList(),
+                            emptyMap(),
+                            listOf(
+                                "BIND_PLAN_PREPARING",
+                            ),
+                        ),
                     key1 = runtime,
                     key2 = substrate,
                     key3 =
                         selectedProbe to
                             installedTools.map {
-                                it.manifest.id + ":" + it.manifest.version
-                            },
+                                it.manifest.id +
+                                    ":" +
+                                    it.manifest
+                                        .version
+                            } to
+                            deployedWindowsLayers
+                                .map {
+                                    it.manifest.id +
+                                        ":" +
+                                        it.manifest
+                                            .version
+                                },
                 ) {
-                    value = withContext(Dispatchers.IO) {
-                    runCatching {
-                        val requirementBlockers =
-                            GuestProbeRequirements.blockers(
-                                probe = selectedProbe,
-                                installedToolIds =
-                                    installedTools
-                                        .map { it.manifest.id }
-                                        .toSet(),
-                                overlayValid =
-                                    toolOverlayPlan.valid,
-                                installedWindowsLayerIds =
-                                    deployedWindowsLayersByRuntime[
-                                        runtimeLayerStateKey(
-                                            runtime,
-                                        )
-                                    ].orEmpty()
-                                        .map {
-                                            it.manifest.id
-                                        }
-                                        .toSet(),
-                            )
-                        if (requirementBlockers.isNotEmpty()) {
-                            ProotInvocationPlan(
-                                ready = false,
-                                argv = emptyList(),
-                                environment = emptyMap(),
-                                blockers =
-                                    (
-                                        requirementBlockers +
-                                            toolOverlayPlan.blockers
-                                    ).distinct(),
-                            )
-                        } else {
-                            ProotInvocationPlanner.buildProbe(
-                                runtime = runtime,
-                                substrate = substrate,
-                                probe = selectedProbe,
-                                binds =
-                                    bindPlanner.base(runtime) +
-                                        toolOverlayPlan.binds,
-                                allowedHostRoots =
-                                    bindPlanner.allowedHostRoots(),
-                            )
-                        }
-                    }.getOrElse { failure ->
-                        ProotInvocationPlan(
-                            ready = false,
-                            argv = emptyList(),
-                            environment =
-                                emptyMap(),
-                            blockers =
-                                listOf(
-                                    "BIND_PLAN_FAILED:" +
-                                        (
-                                            failure.message
-                                                ?: failure
-                                                    .javaClass
-                                                    .simpleName
-                                            )
-                                ),
+                    value =
+                        buildProbeInvocationPlan(
+                            runtime = runtime,
+                            probe =
+                                selectedProbe,
+                            layers =
+                                deployedWindowsLayers,
                         )
-                    }
-                    }
                 }
                 val executionRequestReady =
                     invocationPlan.argv.isNotEmpty() &&
@@ -1487,10 +1466,6 @@ fun RuntimeApp(
                             ProotExecutionController
                                 .EXECUTION_APPROVAL_BLOCKER
                         )
-                val deployedWindowsLayers =
-                    deployedWindowsLayersByRuntime[
-                        runtimeLayerStateKey(runtime)
-                    ].orEmpty()
                 val runtimeProbeEvidence =
                     remember(
                         runtime,
@@ -2028,7 +2003,14 @@ fun RuntimeApp(
                                                 .size
                                     }
                             } catch (
-                                failure: Throwable
+                                cancellation:
+                                    CancellationException
+                            ) {
+                                status =
+                                    "FULL_RUNTIME_DIAGNOSTIC_CANCELLED"
+                                throw cancellation
+                            } catch (
+                                failure: Exception
                             ) {
                                 report.appendLine(
                                     "SUITE ERROR: " +
