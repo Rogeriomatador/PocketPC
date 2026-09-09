@@ -29,6 +29,8 @@ int main(void) {
     uint64_t parent_id = 0u;
     uint64_t child_id = 0u;
     uintptr_t handle = 0u;
+    uint32_t lifecycle_state = 0u;
+    uint64_t last_sequence = 0u;
     char error[160] = {0};
 
     if (
@@ -79,6 +81,20 @@ int main(void) {
     }
 
     if (
+        pdb_wine_window_state(
+            &bridge.windows,
+            (uintptr_t)0x1000u,
+            &lifecycle_state,
+            &last_sequence
+        ) != 0 ||
+        lifecycle_state !=
+            PDB_WINE_WINDOW_CREATE_SENT ||
+        last_sequence != 1u
+    ) {
+        return 22;
+    }
+
+    if (
         pdb_receive_frame(
             &host,
             &frame,
@@ -126,6 +142,20 @@ int main(void) {
         return 24;
     }
     pdb_release_frame(&frame);
+
+    if (
+        pdb_wine_window_state(
+            &bridge.windows,
+            (uintptr_t)0x1000u,
+            &lifecycle_state,
+            &last_sequence
+        ) != 0 ||
+        lifecycle_state !=
+            PDB_WINE_WINDOW_GEOMETRY_SENT ||
+        last_sequence != 2u
+    ) {
+        return 25;
+    }
 
     if (
         pdb_wine_window_bridge_create(
