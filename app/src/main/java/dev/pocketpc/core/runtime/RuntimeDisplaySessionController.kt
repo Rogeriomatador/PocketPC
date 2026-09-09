@@ -15,6 +15,8 @@ class RuntimeDisplaySessionController(
     private val endpoint:
         RuntimeDisplayBridgeEndpoint,
     hostTempDirectory: File,
+    desktopBridge:
+        RuntimeDesktopBridge? = null,
 ) : Closeable {
     private val closed =
         AtomicBoolean(false)
@@ -25,6 +27,17 @@ class RuntimeDisplaySessionController(
         )
     private val compositor =
         RuntimeDisplayCompositorModel()
+    private val desktopBinding =
+        desktopBridge?.bind { command ->
+            runCatching {
+                check(!closed.get()) {
+                    "DISPLAY_SESSION_CLOSED"
+                }
+                processor.sendWindowCommand(
+                    command,
+                )
+            }
+        }
 
     private val mutableWindows =
         MutableStateFlow<
@@ -56,8 +69,14 @@ class RuntimeDisplaySessionController(
 
                     compositor.apply(step)
                         .getOrThrow()
-                    mutableWindows.value =
+                    val snapshot =
                         compositor.snapshot()
+                    mutableWindows.value =
+                        snapshot
+                    desktopBinding
+                        ?.publish(
+                            snapshot,
+                        )
 
                     if (
                         step.presentedFrame !=
@@ -177,6 +196,7 @@ class RuntimeDisplaySessionController(
             compositor.clear()
             mutableWindows.value =
                 emptyList()
+            desktopBinding?.close()
 
             (
                 endpoint as?
