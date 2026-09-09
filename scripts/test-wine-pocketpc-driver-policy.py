@@ -203,6 +203,11 @@ def main() -> int:
             "POCKETPC_HOST_EVENT_QUEUE_LIMIT",
             "POCKETPC_QueueHostEventLocked",
             "POCKETPC_DequeueHostEventLocked",
+            "POCKETPC_DequeueHostEventForMaskLocked",
+            "host_event_matches_mask",
+            "POCKETPC_FailBridgeLocked",
+            "PDB_HOST_EVENT_MASK_DEFERRED",
+            "PDB_UNEXPECTED_HOST_EVENT",
             "PDB_MSG_FRAME_PRESENTED",
         ),
     )
