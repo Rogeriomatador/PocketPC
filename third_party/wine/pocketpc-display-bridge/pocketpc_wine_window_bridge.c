@@ -50,6 +50,7 @@ int pdb_wine_window_bridge_create(
 ) {
     uint64_t allocated = 0u;
     uint64_t parent_id = 0u;
+    uint64_t create_sequence = 0u;
 
     if (
         !bridge ||
@@ -96,6 +97,9 @@ int pdb_wine_window_bridge_create(
         return -1;
     }
 
+    create_sequence =
+        bridge->connection->next_sequence;
+
     if (
         pdb_send_window_create(
             bridge->connection,
@@ -111,6 +115,22 @@ int pdb_wine_window_bridge_create(
         (void)pdb_wine_window_unregister(
             &bridge->windows,
             native_handle
+        );
+        return -1;
+    }
+
+    if (
+        pdb_wine_window_mark_sent(
+            &bridge->windows,
+            native_handle,
+            PDB_WINE_WINDOW_CREATE_SENT,
+            create_sequence
+        ) != 0
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_CREATE_STATE_FAILED"
         );
         return -1;
     }
@@ -132,6 +152,9 @@ int pdb_wine_window_bridge_geometry(
     size_t error_bytes
 ) {
     uint64_t window_id = 0u;
+    uint64_t geometry_sequence = 0u;
+    uint32_t lifecycle_state = 0u;
+    uint64_t last_sent_sequence = 0u;
 
     if (
         !bridge ||
@@ -150,18 +173,65 @@ int pdb_wine_window_bridge_geometry(
         return -1;
     }
 
-    return pdb_send_window_geometry(
-        bridge->connection,
-        window_id,
-        x,
-        y,
-        width,
-        height,
-        visible,
-        z_order,
-        error,
-        error_bytes
-    );
+    if (
+        pdb_wine_window_state(
+            &bridge->windows,
+            native_handle,
+            &lifecycle_state,
+            &last_sent_sequence
+        ) != 0 ||
+        (
+            lifecycle_state !=
+                PDB_WINE_WINDOW_CREATE_SENT &&
+            lifecycle_state !=
+                PDB_WINE_WINDOW_GEOMETRY_SENT
+        )
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_NOT_CREATED"
+        );
+        return -1;
+    }
+
+    geometry_sequence =
+        bridge->connection->next_sequence;
+
+    if (
+        pdb_send_window_geometry(
+            bridge->connection,
+            window_id,
+            x,
+            y,
+            width,
+            height,
+            visible,
+            z_order,
+            error,
+            error_bytes
+        ) != 0
+    ) {
+        return -1;
+    }
+
+    if (
+        pdb_wine_window_mark_sent(
+            &bridge->windows,
+            native_handle,
+            PDB_WINE_WINDOW_GEOMETRY_SENT,
+            geometry_sequence
+        ) != 0
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_GEOMETRY_STATE_FAILED"
+        );
+        return -1;
+    }
+
+    return 0;
 }
 
 int pdb_wine_window_bridge_destroy(
@@ -171,6 +241,9 @@ int pdb_wine_window_bridge_destroy(
     size_t error_bytes
 ) {
     uint64_t window_id = 0u;
+    uint64_t destroy_sequence = 0u;
+    uint32_t lifecycle_state = 0u;
+    uint64_t last_sent_sequence = 0u;
     int child_state;
 
     if (
@@ -186,6 +259,28 @@ int pdb_wine_window_bridge_destroy(
             error,
             error_bytes,
             "PDB_WINE_WINDOW_UNKNOWN"
+        );
+        return -1;
+    }
+
+    if (
+        pdb_wine_window_state(
+            &bridge->windows,
+            native_handle,
+            &lifecycle_state,
+            &last_sent_sequence
+        ) != 0 ||
+        (
+            lifecycle_state !=
+                PDB_WINE_WINDOW_CREATE_SENT &&
+            lifecycle_state !=
+                PDB_WINE_WINDOW_GEOMETRY_SENT
+        )
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_NOT_DESTROYABLE"
         );
         return -1;
     }
@@ -206,6 +301,9 @@ int pdb_wine_window_bridge_destroy(
         return -1;
     }
 
+    destroy_sequence =
+        bridge->connection->next_sequence;
+
     if (
         pdb_send_window_destroy(
             bridge->connection,
@@ -214,6 +312,22 @@ int pdb_wine_window_bridge_destroy(
             error_bytes
         ) != 0
     ) {
+        return -1;
+    }
+
+    if (
+        pdb_wine_window_mark_sent(
+            &bridge->windows,
+            native_handle,
+            PDB_WINE_WINDOW_DESTROY_SENT,
+            destroy_sequence
+        ) != 0
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_DESTROY_STATE_FAILED"
+        );
         return -1;
     }
 
