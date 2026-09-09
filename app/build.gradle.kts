@@ -12,6 +12,25 @@ val pocketPcSourceRevision = providers.environmentVariable("GITHUB_SHA")
 val pocketPcSourceRevisionPinned =
     Regex("^[0-9a-fA-F]{40}$").matches(pocketPcSourceRevision)
 
+val pocketPcVersionCode =
+    providers.environmentVariable("POCKETPC_VERSION_CODE")
+        .orNull
+        ?.trim()
+        ?.toIntOrNull()
+        ?.takeIf { it > 0 }
+        ?: 22
+
+val pocketPcVersionName =
+    providers.environmentVariable("POCKETPC_VERSION_NAME")
+        .orNull
+        ?.trim()
+        ?.takeIf {
+            it.isNotEmpty() &&
+                it.length <= 96 &&
+                Regex("^[A-Za-z0-9._+-]+$").matches(it)
+        }
+        ?: "0.1.0-alpha22"
+
 val pocketPcSigningStoreFile =
     providers.environmentVariable(
         "POCKETPC_SIGNING_STORE_FILE"
@@ -113,8 +132,8 @@ android {
         applicationId = "dev.pocketpc.core"
         minSdk = 26
         targetSdk = 37
-        versionCode = 22
-        versionName = "0.1.0-alpha22"
+        versionCode = pocketPcVersionCode
+        versionName = pocketPcVersionName
 
         if (!pocketPcSkipNativeBuild) {
             ndk {
@@ -239,7 +258,6 @@ android {
 
     packaging {
         jniLibs {
-            // A future PRoot loader must exist as a real extracted file in nativeLibraryDir.
             useLegacyPackaging = true
         }
     }
