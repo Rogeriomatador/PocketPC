@@ -10,10 +10,12 @@ from pathlib import Path
 import shutil
 import struct
 import subprocess
+import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK_PATH = ROOT / "third_party/wine/LOCK.json"
+DRIVER_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver.py"
 
 
 def sha256(path: Path) -> str:
@@ -610,6 +612,35 @@ def main() -> int:
     if "GNU LESSER GENERAL PUBLIC LICENSE" not in copying or "Version 2.1" not in copying:
         raise SystemExit("WINE_LICENSE_EVIDENCE_MISMATCH")
 
+    driver_overlay_evidence =
+        work / "wine-pocketpc-driver-overlay-evidence.json"
+    run(
+        [
+            sys.executable,
+            str(DRIVER_PREPARER),
+            "--wine-source",
+            str(source),
+            "--evidence",
+            str(driver_overlay_evidence),
+        ],
+        work,
+        work / "wine-pocketpc-driver-overlay.log",
+    )
+    overlay = json.loads(
+        driver_overlay_evidence.read_text(
+            encoding="utf-8",
+        )
+    )
+    if (
+        overlay.get("protocolVersion") != 3
+        or overlay.get("driverName") != "winepocketpc.drv"
+        or overlay.get("surfaceCallbackImplemented") is not True
+        or overlay.get("inputInjectionImplemented") is not True
+    ):
+        raise SystemExit(
+            "WINE_POCKETPC_DRIVER_OVERLAY_EVIDENCE_INVALID"
+        )
+
     build.mkdir()
     common_env = {
         "LC_ALL": "C",
@@ -660,6 +691,58 @@ def main() -> int:
         raise SystemExit(
             "WINE_ELF_TARGET_MISMATCH "
             f"class={elf_class} type={elf_type} machine={machine}"
+        )
+
+    pocketpc_pe_candidates =
+        sorted(
+            installed_root.rglob(
+                "winepocketpc.drv"
+            ),
+            key=lambda item: item.as_posix(),
+        )
+    pocketpc_unix_candidates =
+        sorted(
+            installed_root.rglob(
+                "winepocketpc.so"
+            ),
+            key=lambda item: item.as_posix(),
+        )
+    if (
+        len(pocketpc_pe_candidates) != 1
+        or len(pocketpc_unix_candidates) != 1
+    ):
+        raise SystemExit(
+            "WINE_POCKETPC_DRIVER_INSTALL_MISSING:"
+            f"pe={len(pocketpc_pe_candidates)}:"
+            f"unix={len(pocketpc_unix_candidates)}"
+        )
+
+    pocketpc_pe =
+        pocketpc_pe_candidates[0]
+    pocketpc_unix =
+        pocketpc_unix_candidates[0]
+
+    if pocketpc_pe.read_bytes()[:2] != b"MZ":
+        raise SystemExit(
+            "WINE_POCKETPC_DRIVER_PE_INVALID"
+        )
+    (
+        driver_elf_class,
+        driver_elf_type,
+        driver_machine,
+    ) = elf_header(
+        pocketpc_unix
+    )
+    if (
+        driver_elf_class != 2
+        or driver_machine != 62
+        or driver_elf_type not in (2, 3)
+    ):
+        raise SystemExit(
+            "WINE_POCKETPC_DRIVER_UNIXLIB_INVALID:"
+            f"class={driver_elf_class}:"
+            f"type={driver_elf_type}:"
+            f"machine={driver_machine}"
         )
 
     records = flatten_install_tree(installed_root, package_root)
@@ -769,7 +852,7 @@ def main() -> int:
 
     evidence = {
         "schemaVersion": 1,
-        "status": "WINE_X86_64_HEADLESS_COMPILED_PACKAGE_NOT_GUEST_TESTED_NOT_APPROVED",
+        "status": "WINE_X86_64_WITH_POCKETPC_DRIVER_COMPILED_PACKAGE_NOT_GUEST_TESTED_NOT_APPROVED",
         "version": lock["version"],
         "sourceCommit": actual,
         "sourceLockSha256": sha256(LOCK_PATH),
@@ -777,6 +860,22 @@ def main() -> int:
             "path": "bin/wine",
             "sha256": sha256(package_root / "bin/wine"),
             "machine": machine,
+        },
+        "pocketPcDriver": {
+            "protocolVersion": 3,
+            "pePath": pocketpc_pe.relative_to(
+                installed_root
+            ).as_posix(),
+            "peSha256": sha256(pocketpc_pe),
+            "unixPath": pocketpc_unix.relative_to(
+                installed_root
+            ).as_posix(),
+            "unixSha256": sha256(pocketpc_unix),
+            "unixMachine": driver_machine,
+            "surfaceCallbackImplemented": True,
+            "inputInjectionImplemented": True,
+            "loaded": False,
+            "runtimeTested": False,
         },
         "win64Smoke": {
             "path": smoke_relative.as_posix(),
@@ -816,12 +915,15 @@ def main() -> int:
             "zipSha256": sha256(zip_path),
         },
         "limitations": [
-            "headless smoke configuration",
-            "graphics disabled",
+            "PocketPC display driver compiled but not loaded or device-tested",
+            "OpenGL disabled",
             "audio disabled",
             "TLS/gnutls disabled",
         ],
         "notExecuted": [
+            "winepocketpc.drv driver load",
+            "PocketPC shared surface presentation through Wine",
+            "PocketPC pointer/keyboard injection through Wine",
             "Wine under Box64",
             "wineboot prefix creation",
             "Win64 smoke executable",
@@ -839,7 +941,7 @@ def main() -> int:
         json.dumps(evidence, indent=2) + "\n",
         encoding="utf-8",
     )
-    print("WINE_X86_64_HEADLESS_PACKAGE_READY_FOR_REVIEW_NOT_RUNTIME_TESTED")
+    print("WINE_X86_64_WITH_POCKETPC_DRIVER_PACKAGE_READY_FOR_REVIEW_NOT_RUNTIME_TESTED")
     return 0
 
 
