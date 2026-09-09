@@ -13,6 +13,8 @@ FILES = {
     "host": ROOT / "app/src/main/java/dev/pocketpc/core/ui/PocketPcApp.kt",
     "manager": ROOT / "app/src/main/java/dev/pocketpc/core/ui/TaskManagerApp.kt",
     "processes": ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeProcessSupervisor.kt",
+    "activity": ROOT / "app/src/main/java/dev/pocketpc/core/MainActivity.kt",
+    "commands": ROOT / "app/src/main/java/dev/pocketpc/core/desktop/DesktopCommand.kt",
 }
 
 
@@ -71,6 +73,16 @@ def main() -> int:
             '"protegido"',
             "force = false",
             "force = true",
+        ),
+        "activity": (
+            '"Gerenciador de Tarefas"',
+            "KeyEvent.KEYCODE_ESCAPE",
+            "event.isCtrlPressed",
+            "event.isShiftPressed",
+            "DesktopCommand.OPEN_TASK_MANAGER",
+        ),
+        "commands": (
+            "OPEN_TASK_MANAGER",
         ),
         "processes": (
             "data class RuntimeProcessSnapshot",
