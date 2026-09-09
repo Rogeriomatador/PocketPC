@@ -76,6 +76,8 @@ data class RuntimeBridgeKeyEvent(
 
 data class RuntimeBridgeFramePresented(
     val windowId: Long,
+    val surfaceId: Long,
+    val generation: Long,
     val frameId: Long,
     val status: Int,
 )
@@ -96,7 +98,7 @@ object RuntimeDisplayBridgePayloadCodec {
     const val FRAME_READY_BYTES = 32
     const val POINTER_EVENT_BYTES = 32
     const val KEY_EVENT_BYTES = 28
-    const val FRAME_PRESENTED_BYTES = 20
+    const val FRAME_PRESENTED_BYTES = 36
 
     const val PIXEL_FORMAT_BGRA8888 = 1
 
@@ -399,8 +401,14 @@ object RuntimeDisplayBridgePayloadCodec {
         value: RuntimeBridgeFramePresented,
     ): ByteArray {
         requireWindowId(value.windowId)
+        require(value.surfaceId > 0L) {
+            "DISPLAY_BRIDGE_SURFACE_ID_INVALID"
+        }
+        require(value.generation > 0L) {
+            "DISPLAY_BRIDGE_SURFACE_GENERATION_INVALID"
+        }
         require(
-            value.frameId >= 0L,
+            value.frameId > 0L,
         ) {
             "DISPLAY_BRIDGE_FRAME_ID_INVALID"
         }
@@ -413,6 +421,8 @@ object RuntimeDisplayBridgePayloadCodec {
             FRAME_PRESENTED_BYTES,
         ).apply {
             putLong(value.windowId)
+            putLong(value.surfaceId)
+            putLong(value.generation)
             putLong(value.frameId)
             putInt(value.status)
         }.array()
@@ -616,15 +626,23 @@ object RuntimeDisplayBridgePayloadCodec {
                     FRAME_PRESENTED_BYTES,
                 )
             RuntimeBridgeFramePresented(
-                b.long,
-                b.long,
-                b.int,
+                windowId = b.long,
+                surfaceId = b.long,
+                generation = b.long,
+                frameId = b.long,
+                status = b.int,
             ).also {
                 requireWindowId(
                     it.windowId,
                 )
+                require(it.surfaceId > 0L) {
+                    "DISPLAY_BRIDGE_SURFACE_ID_INVALID"
+                }
+                require(it.generation > 0L) {
+                    "DISPLAY_BRIDGE_SURFACE_GENERATION_INVALID"
+                }
                 require(
-                    it.frameId >= 0L,
+                    it.frameId > 0L,
                 ) {
                     "DISPLAY_BRIDGE_FRAME_ID_INVALID"
                 }
