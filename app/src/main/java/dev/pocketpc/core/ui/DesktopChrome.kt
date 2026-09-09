@@ -2011,16 +2011,39 @@ fun DesktopContextMenu(
 internal fun Modifier.desktopSecondaryClick(
     onSecondaryClick: () -> Unit,
 ): Modifier =
+    desktopSecondaryClickAt {
+        onSecondaryClick()
+    }
+
+internal fun Modifier.desktopSecondaryClickAt(
+    onSecondaryClick:
+        (Offset) -> Unit,
+): Modifier =
     pointerInput(onSecondaryClick) {
         awaitPointerEventScope {
             while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val event =
+                    awaitPointerEvent(
+                        PointerEventPass.Initial,
+                    )
                 if (
-                    event.type == PointerEventType.Press &&
-                    event.buttons.isSecondaryPressed
+                    event.type ==
+                        PointerEventType.Press &&
+                    event.buttons
+                        .isSecondaryPressed
                 ) {
-                    event.changes.forEach { change -> change.consume() }
-                    onSecondaryClick()
+                    val position =
+                        event.changes
+                            .firstOrNull()
+                            ?.position
+                            ?: Offset.Zero
+                    event.changes
+                        .forEach { change ->
+                            change.consume()
+                        }
+                    onSecondaryClick(
+                        position,
+                    )
                 }
             }
         }
