@@ -274,6 +274,29 @@ static BOOL inject_key(
     return TRUE;
 }
 
+BOOL POCKETPC_DispatchHostEvent(
+    const struct pdb_host_event *event
+) {
+    if (!event)
+        return FALSE;
+
+    switch (event->type)
+    {
+    case PDB_MSG_POINTER_EVENT:
+        return inject_pointer(
+            &event->data.pointer
+        );
+
+    case PDB_MSG_KEY_EVENT:
+        return inject_key(
+            &event->data.key
+        );
+
+    default:
+        return FALSE;
+    }
+}
+
 BOOL POCKETPC_ProcessEvents(
     DWORD mask
 ) {
@@ -361,9 +384,7 @@ BOOL POCKETPC_ProcessEvents(
                 next_type !=
                     PDB_MSG_POINTER_EVENT &&
                 next_type !=
-                    PDB_MSG_KEY_EVENT &&
-                next_type !=
-                    PDB_MSG_FRAME_PRESENTED
+                    PDB_MSG_KEY_EVENT
             ) {
                 pthread_mutex_unlock(
                     &pocketpc_bridge_mutex
@@ -394,9 +415,10 @@ BOOL POCKETPC_ProcessEvents(
             &pocketpc_bridge_mutex
         );
 
-        switch (event.type)
-        {
-        case PDB_MSG_POINTER_EVENT:
+        if (
+            event.type ==
+                PDB_MSG_POINTER_EVENT
+        ) {
             if (
                 mask &
                 (
@@ -404,48 +426,27 @@ BOOL POCKETPC_ProcessEvents(
                     QS_MOUSEBUTTON
                 )
             ) {
-                (void)inject_pointer(
-                    &event.data.pointer
-                );
+                (void)
+                    POCKETPC_DispatchHostEvent(
+                        &event
+                    );
             }
-            break;
-
-        case PDB_MSG_KEY_EVENT:
+        } else if (
+            event.type ==
+                PDB_MSG_KEY_EVENT
+        ) {
             if (mask & QS_KEY)
             {
-                (void)inject_key(
-                    &event.data.key
-                );
+                (void)
+                    POCKETPC_DispatchHostEvent(
+                        &event
+                    );
             }
-            break;
-
-        case PDB_MSG_FRAME_PRESENTED:
-            if (
-                event.data.frame_presented.status != 0u
-            ) {
-                WARN(
-                    "frame presentation status window=%llu frame=%llu status=%u\n",
-                    (unsigned long long)
-                        event.data.frame_presented.window_id,
-                    (unsigned long long)
-                        event.data.frame_presented.frame_id,
-                    event.data.frame_presented.status
-                );
-            }
-            break;
-
-        case PDB_MSG_SURFACE_AVAILABLE:
+        } else {
             ERR(
-                "unexpected surface response escaped handshake\n"
-            );
-            break;
-
-        default:
-            WARN(
-                "unexpected host event type=%u\n",
+                "non-input event escaped input peek type=%u\n",
                 event.type
             );
-            break;
         }
 
         processed += 1u;
