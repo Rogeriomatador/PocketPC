@@ -105,6 +105,8 @@
     "winePocketPcWindowProbeBrokerImplemented": true,
     "winePocketPcWindowProbeBrokerSoftwareTestExecuted": false,
     "winePocketPcWindowEvidenceImplemented": true,
-    "winePocketPcWindowEvidenceSoftwareTestExecuted": false
+    "winePocketPcWindowEvidenceSoftwareTestExecuted": false,
+    "wineGraphicsDriverSelectionImplemented": true,
+    "wineGraphicsDriverSelectionSoftwareTestExecuted": false
   }
 }
