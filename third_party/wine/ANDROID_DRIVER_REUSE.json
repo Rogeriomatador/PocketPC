@@ -77,6 +77,10 @@
     "surfaceQualifiedFrameAckImplemented": true,
     "surfaceQualifiedFrameAckSoftwareTestExecuted": false,
     "processEventsMaskPreservationImplemented": true,
-    "processEventsMaskPreservationSoftwareTestExecuted": false
+    "processEventsMaskPreservationSoftwareTestExecuted": false,
+    "frameFailureFailClosedImplemented": true,
+    "frameFailureFailClosedSoftwareTestExecuted": false,
+    "windowLifecyclePostSendFailClosedImplemented": true,
+    "windowLifecyclePostSendFailClosedSoftwareTestExecuted": false
   }
 }
