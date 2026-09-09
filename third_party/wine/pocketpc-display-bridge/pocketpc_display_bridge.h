@@ -102,6 +102,7 @@ int pdb_connect_from_environment(struct pdb_connection*,char*,size_t);
 int pdb_send_frame(struct pdb_connection*,uint16_t,const void*,uint32_t,char*,size_t);
 int pdb_receive_frame(struct pdb_connection*,struct pdb_frame*,char*,size_t);
 int pdb_connection_has_input(struct pdb_connection*,char*,size_t);
+int pdb_peek_message_type(struct pdb_connection*,uint16_t*,char*,size_t);
 int pdb_receive_host_event(struct pdb_connection*,struct pdb_host_event*,char*,size_t);
 int pdb_send_surface_request(struct pdb_connection*,const struct pdb_surface_request*,char*,size_t);
 int pdb_receive_surface_available(struct pdb_connection*,struct pdb_surface_available*,char*,size_t);
