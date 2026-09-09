@@ -98,6 +98,9 @@ jobs:
           python3 -m json.tool third_party/graphics/LOCK.json >/dev/null
           python3 scripts/test-pc-runtime-source-locks.py
 
+      - name: Repository Python syntax policy
+        run: python3 scripts/test-python-syntax.py
+
       - name: Guest tool runtime policy
         run: python3 scripts/test-guest-tool-runtime-policy.py
 
