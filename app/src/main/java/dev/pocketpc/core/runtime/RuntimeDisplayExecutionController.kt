@@ -252,18 +252,27 @@ class RuntimeDisplayExecutionController(
                 val peerId =
                     synchronized(stateLock) {
                         if (
-                            authenticatedPeerCount >=
+                            activeSessions.size >=
                                 MAX_AUTHENTICATED_PEERS
                         ) {
                             0
                         } else {
                             val allocated =
                                 nextPeerId
-                            nextPeerId += 1
-                            authenticatedPeerCount +=
-                                1
-                            lastPeerActivityNanos =
-                                System.nanoTime()
+                            check(
+                                allocated > 0
+                            ) {
+                                "DISPLAY_BRIDGE_PEER_ID_EXHAUSTED"
+                            }
+                            nextPeerId =
+                                if (
+                                    allocated ==
+                                        Int.MAX_VALUE
+                                ) {
+                                    0
+                                } else {
+                                    allocated + 1
+                                }
                             allocated
                         }
                     }
@@ -305,6 +314,10 @@ class RuntimeDisplayExecutionController(
                     activeSessions[
                         peerId
                     ] = activeSession
+                    authenticatedPeerCount +=
+                        1
+                    lastPeerActivityNanos =
+                        System.nanoTime()
                 }
 
                 val job =
