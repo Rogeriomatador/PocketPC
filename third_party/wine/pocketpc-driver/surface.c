@@ -4,31 +4,22 @@
 
 #include "config.h"
 
-#include <fcntl.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include "pocketpcdrv.h"
+#include "pocketpc_surface_writer.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(pocketpcdrv);
+
+#define POCKETPC_SURFACE_MAX_BYTES     (256u * 1024u * 1024u)
 
 struct pocketpc_window_surface
 {
     struct window_surface header;
-    uint64_t window_id;
-    uint64_t surface_id;
+    struct pdb_surface_writer writer;
+    BOOL layered;
     uint64_t generation;
-    uint64_t next_frame_id;
-    int fd;
-    void *mapped;
-    size_t mapped_bytes;
-    int width;
-    int height;
-    int stride_bytes;
 };
 
 static uint64_t next_surface_generation = 1u;
@@ -52,168 +43,6 @@ static void pocketpc_surface_set_clip(
     (void)count;
 }
 
-static BOOL copy_bgra_frame(
-    struct pocketpc_window_surface *surface,
-    const RECT *rect,
-    const BITMAPINFO *color_info,
-    const void *color_bits
-) {
-    const BITMAPINFOHEADER *header;
-    const unsigned char *source;
-    unsigned char *destination;
-    int source_width;
-    int source_height;
-    int copy_width;
-    int copy_height;
-    int y;
-
-    if (
-        !surface ||
-        !rect ||
-        !color_info ||
-        !color_bits ||
-        !surface->mapped
-    ) {
-        return FALSE;
-    }
-
-    header =
-        &color_info->bmiHeader;
-
-    if (
-        header->biBitCount != 32 ||
-        header->biCompression != BI_RGB ||
-        header->biWidth <= 0 ||
-        header->biHeight == 0
-    ) {
-        WARN(
-            "unsupported surface bitmap format width=%ld height=%ld bpp=%u compression=%lu\n",
-            header->biWidth,
-            header->biHeight,
-            header->biBitCount,
-            header->biCompression
-        );
-        return FALSE;
-    }
-
-    source_width =
-        header->biWidth;
-    source_height =
-        header->biHeight < 0
-            ? -header->biHeight
-            : header->biHeight;
-
-    copy_width =
-        min(
-            surface->width,
-            min(
-                source_width,
-                rect->right -
-                    rect->left
-            )
-        );
-    copy_height =
-        min(
-            surface->height,
-            min(
-                source_height,
-                rect->bottom -
-                    rect->top
-            )
-        );
-
-    if (
-        copy_width <= 0 ||
-        copy_height <= 0
-    ) {
-        return FALSE;
-    }
-
-    source =
-        (const unsigned char *)
-            color_bits;
-    destination =
-        (unsigned char *)
-            surface->mapped;
-
-    for (y = 0; y < copy_height; ++y)
-    {
-        int source_y =
-            header->biHeight < 0
-                ? y
-                : source_height -
-                    1 -
-                    y;
-        const unsigned char *src_row =
-            source +
-            (size_t)source_y *
-                (size_t)source_width *
-                4u;
-        unsigned char *dst_row =
-            destination +
-            (size_t)y *
-                (size_t)surface
-                    ->stride_bytes;
-        int x;
-
-        memcpy(
-            dst_row,
-            src_row,
-            (size_t)copy_width *
-                4u
-        );
-
-        for (
-            x = 0;
-            x < copy_width;
-            ++x
-        ) {
-            dst_row[
-                (size_t)x *
-                    4u +
-                3u
-            ] = 0xffu;
-        }
-
-        if (
-            surface->stride_bytes >
-            copy_width * 4
-        ) {
-            memset(
-                dst_row +
-                    (size_t)copy_width *
-                        4u,
-                0,
-                (size_t)
-                    (
-                        surface
-                            ->stride_bytes -
-                        copy_width *
-                            4
-                    )
-            );
-        }
-    }
-
-    for (
-        y = copy_height;
-        y < surface->height;
-        ++y
-    ) {
-        memset(
-            destination +
-                (size_t)y *
-                    (size_t)surface
-                        ->stride_bytes,
-            0,
-            (size_t)surface
-                ->stride_bytes
-        );
-    }
-
-    return TRUE;
-}
-
 static BOOL pocketpc_surface_flush(
     struct window_surface *window_surface,
     const RECT *rect,
@@ -228,61 +57,105 @@ static BOOL pocketpc_surface_flush(
         get_pocketpc_surface(
             window_surface
         );
-    struct pdb_frame_ready ready;
-    struct pdb_frame_presented presented;
+    struct pdb_surface_rect copy_rect;
+    const BITMAPINFOHEADER *header;
+    int width;
+    int height;
+    int stride;
+    int top_down;
+    uint64_t frame_id = 0u;
     char error[160] = {0};
 
-    (void)dirty;
+    (void)rect;
     (void)shape_changed;
     (void)shape_info;
-    (void)shape_bits;
 
     if (
-        !copy_bgra_frame(
-            surface,
-            rect,
-            color_info,
-            color_bits
-        )
+        !pocketpc_bridge_ready ||
+        !dirty ||
+        !color_info ||
+        !color_bits
     ) {
         return FALSE;
     }
 
-    if (msync(
-            surface->mapped,
-            surface->mapped_bytes,
-            MS_SYNC
-        ) != 0
-    ) {
-        ERR(
-            "surface msync failed hwnd=%p\n",
+    if (shape_bits) {
+        WARN(
+            "shaped surface unsupported hwnd=%p\n",
             window_surface->hwnd
         );
         return FALSE;
     }
 
-    memset(
-        &ready,
-        0,
-        sizeof(ready)
-    );
-    ready.window_id =
-        surface->window_id;
-    ready.surface_id =
-        surface->surface_id;
-    ready.generation =
-        surface->generation;
-    ready.frame_id =
-        surface->next_frame_id;
+    header =
+        &color_info->bmiHeader;
+    width = header->biWidth;
+    height = header->biHeight;
+    top_down = height < 0;
+    if (height < 0) height = -height;
+
+    if (
+        width <= 0 ||
+        height <= 0 ||
+        header->biPlanes != 1 ||
+        header->biBitCount != 32 ||
+        header->biCompression != BI_RGB ||
+        width > INT32_MAX / 4
+    ) {
+        WARN(
+            "unsupported surface bitmap hwnd=%p width=%ld height=%ld bpp=%u compression=%lu\n",
+            window_surface->hwnd,
+            header->biWidth,
+            header->biHeight,
+            header->biBitCount,
+            header->biCompression
+        );
+        return FALSE;
+    }
+
+    if (
+        dirty->right <= dirty->left ||
+        dirty->bottom <= dirty->top
+    ) {
+        return TRUE;
+    }
+
+    stride = width * 4;
+    copy_rect.left = dirty->left;
+    copy_rect.top = dirty->top;
+    copy_rect.right = dirty->right;
+    copy_rect.bottom = dirty->bottom;
+
+    if (
+        pdb_surface_writer_copy_bgra(
+            &surface->writer,
+            color_bits,
+            width,
+            height,
+            stride,
+            top_down,
+            &copy_rect,
+            surface->layered ? 0 : 1,
+            error,
+            sizeof(error)
+        ) != 0
+    ) {
+        ERR(
+            "surface copy failed hwnd=%p: %s\n",
+            window_surface->hwnd,
+            error
+        );
+        return FALSE;
+    }
 
     pthread_mutex_lock(
         &pocketpc_bridge_mutex
     );
-
     if (
-        pdb_send_frame_ready(
+        pdb_surface_writer_commit(
+            &surface->writer,
             &pocketpc_connection,
-            &ready,
+            &frame_id,
             error,
             sizeof(error)
         ) != 0
@@ -291,71 +164,24 @@ static BOOL pocketpc_surface_flush(
             &pocketpc_bridge_mutex
         );
         ERR(
-            "FRAME_READY failed hwnd=%p: %s\n",
+            "surface commit failed hwnd=%p: %s\n",
             window_surface->hwnd,
             error
         );
         return FALSE;
     }
-
-    if (
-        pdb_receive_frame_presented(
-            &pocketpc_connection,
-            &presented,
-            error,
-            sizeof(error)
-        ) != 0
-    ) {
-        pthread_mutex_unlock(
-            &pocketpc_bridge_mutex
-        );
-        ERR(
-            "FRAME_PRESENTED failed hwnd=%p: %s\n",
-            window_surface->hwnd,
-            error
-        );
-        return FALSE;
-    }
-
     pthread_mutex_unlock(
         &pocketpc_bridge_mutex
     );
 
-    if (
-        presented.window_id !=
-            ready.window_id ||
-        presented.frame_id !=
-            ready.frame_id ||
-        presented.status != 0u
-    ) {
-        ERR(
-            "frame ack mismatch hwnd=%p window=%llu/%llu frame=%llu/%llu status=%u\n",
-            window_surface->hwnd,
-            (unsigned long long)
-                presented.window_id,
-            (unsigned long long)
-                ready.window_id,
-            (unsigned long long)
-                presented.frame_id,
-            (unsigned long long)
-                ready.frame_id,
-            presented.status
-        );
-        return FALSE;
-    }
-
-    if (
-        surface->next_frame_id ==
-        UINT64_MAX
-    ) {
-        ERR(
-            "frame id exhausted hwnd=%p\n",
-            window_surface->hwnd
-        );
-        return FALSE;
-    }
-
-    surface->next_frame_id += 1u;
+    TRACE(
+        "surface committed hwnd=%p generation=%llu frame=%llu\n",
+        window_surface->hwnd,
+        (unsigned long long)
+            surface->generation,
+        (unsigned long long)
+            frame_id
+    );
     return TRUE;
 }
 
@@ -367,30 +193,9 @@ static void pocketpc_surface_destroy(
             window_surface
         );
 
-    TRACE(
-        "destroy surface hwnd=%p id=%llu generation=%llu\n",
-        window_surface->hwnd,
-        (unsigned long long)
-            surface->surface_id,
-        (unsigned long long)
-            surface->generation
+    pdb_surface_writer_close(
+        &surface->writer
     );
-
-    if (
-        surface->mapped &&
-        surface->mapped != MAP_FAILED
-    ) {
-        munmap(
-            surface->mapped,
-            surface->mapped_bytes
-        );
-        surface->mapped = NULL;
-    }
-    if (surface->fd >= 0)
-    {
-        close(surface->fd);
-        surface->fd = -1;
-    }
 }
 
 static const struct window_surface_funcs
@@ -401,19 +206,75 @@ pocketpc_surface_funcs =
     pocketpc_surface_destroy
 };
 
-static BOOL request_surface(
+BOOL POCKETPC_CreateWindowSurface(
     HWND hwnd,
+    BOOL layered,
     const RECT *surface_rect,
-    struct pocketpc_window_surface *surface
+    struct window_surface **surface
 ) {
+    struct window_surface *previous;
+    struct window_surface *created;
+    struct pocketpc_window_surface *created_surface;
     struct pdb_surface_request request;
     struct pdb_surface_available available;
-    struct stat status;
+    struct pdb_surface_writer writer;
+    BITMAPINFO info;
     uint64_t window_id = 0u;
     uint64_t generation;
-    uint64_t expected_bytes;
-    char path[128] = {0};
+    uint64_t image_bytes;
+    int width;
+    int height;
     char error[160] = {0};
+
+    if (
+        !surface ||
+        !surface_rect ||
+        !pocketpc_bridge_ready
+    ) {
+        return FALSE;
+    }
+
+    previous = *surface;
+    if (
+        previous &&
+        previous->funcs ==
+            &pocketpc_surface_funcs &&
+        EqualRect(
+            &previous->rect,
+            surface_rect
+        ) &&
+        get_pocketpc_surface(previous)
+            ->layered == layered
+    ) {
+        return TRUE;
+    }
+
+    width =
+        surface_rect->right -
+        surface_rect->left;
+    height =
+        surface_rect->bottom -
+        surface_rect->top;
+    image_bytes =
+        (uint64_t)width *
+        (uint64_t)height *
+        4u;
+
+    if (
+        width <= 0 ||
+        height <= 0 ||
+        width > 16384 ||
+        height > 16384 ||
+        image_bytes == 0u ||
+        image_bytes >
+            POCKETPC_SURFACE_MAX_BYTES
+    ) {
+        return FALSE;
+    }
+
+    pthread_mutex_lock(
+        &pocketpc_bridge_mutex
+    );
 
     if (
         pdb_wine_window_lookup(
@@ -422,61 +283,36 @@ static BOOL request_surface(
             &window_id
         ) != 0
     ) {
-        ERR(
-            "surface requested for unbridged hwnd=%p\n",
-            hwnd
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
         );
         return FALSE;
     }
 
-    if (
-        next_surface_generation ==
-        0u ||
-        next_surface_generation ==
-        UINT64_MAX
-    ) {
-        ERR(
-            "surface generation exhausted\n"
+    generation =
+        next_surface_generation;
+    if (!generation) {
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
         );
         return FALSE;
     }
-    generation =
-        next_surface_generation++;
+    next_surface_generation =
+        generation == UINT64_MAX
+            ? 0u
+            : generation + 1u;
 
     memset(
         &request,
         0,
         sizeof(request)
     );
-    request.window_id =
-        window_id;
-    request.generation =
-        generation;
-    request.width =
-        surface_rect->right -
-        surface_rect->left;
-    request.height =
-        surface_rect->bottom -
-        surface_rect->top;
+    request.window_id = window_id;
+    request.generation = generation;
+    request.width = width;
+    request.height = height;
     request.pixel_format = 1u;
-
-    if (
-        request.width <= 0 ||
-        request.height <= 0 ||
-        request.width > 16384 ||
-        request.height > 16384
-    ) {
-        ERR(
-            "surface dimensions invalid %dx%d\n",
-            request.width,
-            request.height
-        );
-        return FALSE;
-    }
-
-    pthread_mutex_lock(
-        &pocketpc_bridge_mutex
-    );
+    request.flags = 0u;
 
     if (
         pdb_send_surface_request(
@@ -509,271 +345,102 @@ static BOOL request_surface(
 
     if (
         available.window_id !=
-            request.window_id ||
+            window_id ||
         available.generation !=
-            request.generation ||
-        available.width !=
-            request.width ||
-        available.height !=
-            request.height ||
-        available.pixel_format !=
-            request.pixel_format ||
-        available.surface_id == 0u ||
-        available.stride_bytes <
-            available.width * 4
+            generation ||
+        available.width != width ||
+        available.height != height ||
+        available.pixel_format != 1u
     ) {
         ERR(
-            "surface identity mismatch hwnd=%p\n",
+            "surface response mismatch hwnd=%p\n",
             hwnd
         );
         return FALSE;
     }
 
+    pdb_surface_writer_init(
+        &writer
+    );
     if (
-        pdb_surface_guest_path(
+        pdb_surface_writer_open(
+            &writer,
             &available,
-            path,
-            sizeof(path)
+            error,
+            sizeof(error)
         ) != 0
     ) {
         ERR(
-            "surface path invalid hwnd=%p\n",
-            hwnd
+            "surface writer open failed hwnd=%p: %s\n",
+            hwnd,
+            error
         );
-        return FALSE;
-    }
-
-    expected_bytes =
-        (uint64_t)
-            available.stride_bytes *
-        (uint64_t)
-            available.height;
-
-    if (
-        expected_bytes == 0u ||
-        expected_bytes >
-            64u *
-            1024u *
-            1024u
-    ) {
-        ERR(
-            "surface bytes invalid %llu\n",
-            (unsigned long long)
-                expected_bytes
-        );
-        return FALSE;
-    }
-
-    surface->fd =
-        open(
-            path,
-            O_RDWR |
-                O_CLOEXEC
-        );
-    if (surface->fd < 0)
-    {
-        ERR(
-            "surface open failed path=%s\n",
-            path
-        );
-        return FALSE;
-    }
-
-    if (
-        fstat(
-            surface->fd,
-            &status
-        ) != 0 ||
-        status.st_size !=
-            (off_t)expected_bytes
-    ) {
-        ERR(
-            "surface file size mismatch path=%s\n",
-            path
-        );
-        close(surface->fd);
-        surface->fd = -1;
-        return FALSE;
-    }
-
-    surface->mapped =
-        mmap(
-            NULL,
-            (size_t)expected_bytes,
-            PROT_READ |
-                PROT_WRITE,
-            MAP_SHARED,
-            surface->fd,
-            0
-        );
-    if (surface->mapped == MAP_FAILED)
-    {
-        ERR(
-            "surface mmap failed path=%s\n",
-            path
-        );
-        surface->mapped = NULL;
-        close(surface->fd);
-        surface->fd = -1;
-        return FALSE;
-    }
-
-    surface->window_id =
-        available.window_id;
-    surface->surface_id =
-        available.surface_id;
-    surface->generation =
-        available.generation;
-    surface->next_frame_id = 1u;
-    surface->mapped_bytes =
-        (size_t)expected_bytes;
-    surface->width =
-        available.width;
-    surface->height =
-        available.height;
-    surface->stride_bytes =
-        available.stride_bytes;
-
-    return TRUE;
-}
-
-BOOL POCKETPC_CreateWindowSurface(
-    HWND hwnd,
-    BOOL layered,
-    const RECT *surface_rect,
-    struct window_surface **surface
-) {
-    struct pocketpc_window_surface *created;
-    struct window_surface *window_surface;
-    struct window_surface *previous;
-    char info_buffer[
-        FIELD_OFFSET(
-            BITMAPINFO,
-            bmiColors[256]
-        )
-    ];
-    BITMAPINFO *info =
-        (BITMAPINFO *)info_buffer;
-    int width;
-    int height;
-
-    (void)layered;
-
-    if (
-        !pocketpc_bridge_ready ||
-        !surface_rect ||
-        !surface
-    ) {
-        return FALSE;
-    }
-
-    previous = *surface;
-    if (
-        previous &&
-        previous->funcs ==
-            &pocketpc_surface_funcs &&
-        EqualRect(
-            &previous->rect,
-            surface_rect
-        )
-    ) {
-        return TRUE;
-    }
-
-    width =
-        surface_rect->right -
-        surface_rect->left;
-    height =
-        surface_rect->bottom -
-        surface_rect->top;
-    if (
-        width <= 0 ||
-        height <= 0 ||
-        width > 16384 ||
-        height > 16384
-    ) {
         return FALSE;
     }
 
     memset(
-        info,
+        &info,
         0,
-        sizeof(info_buffer)
+        sizeof(info)
     );
-    info->bmiHeader.biSize =
-        sizeof(
-            info->bmiHeader
-        );
-    info->bmiHeader.biWidth =
+    info.bmiHeader.biSize =
+        sizeof(info.bmiHeader);
+    info.bmiHeader.biWidth =
         width;
-    info->bmiHeader.biHeight =
+    info.bmiHeader.biHeight =
         -height;
-    info->bmiHeader.biPlanes = 1;
-    info->bmiHeader.biBitCount = 32;
-    info->bmiHeader.biCompression =
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biSizeImage =
+        (DWORD)image_bytes;
+    info.bmiHeader.biCompression =
         BI_RGB;
-    info->bmiHeader.biSizeImage =
-        (DWORD)
-            (
-                (uint64_t)width *
-                (uint64_t)height *
-                4u
-            );
 
-    window_surface =
+    created =
         window_surface_create(
-            sizeof(*created),
+            sizeof(
+                struct pocketpc_window_surface
+            ),
             &pocketpc_surface_funcs,
             hwnd,
             surface_rect,
-            info,
+            &info,
             0
         );
-    if (!window_surface)
-        return FALSE;
-
-    created =
-        get_pocketpc_surface(
-            window_surface
-        );
-    created->fd = -1;
-    created->mapped = NULL;
-
-    if (
-        !request_surface(
-            hwnd,
-            surface_rect,
-            created
-        )
-    ) {
-        window_surface_release(
-            window_surface
+    if (!created) {
+        pdb_surface_writer_close(
+            &writer
         );
         return FALSE;
     }
 
-    if (previous)
-    {
+    created_surface =
+        get_pocketpc_surface(
+            created
+        );
+    created_surface->writer =
+        writer;
+    created_surface->layered =
+        layered;
+    created_surface->generation =
+        generation;
+
+    if (previous) {
         window_surface_release(
             previous
         );
     }
-
-    *surface = window_surface;
+    *surface = created;
 
     TRACE(
-        "created surface hwnd=%p window=%llu surface=%llu generation=%llu size=%dx%d stride=%d\n",
+        "created surface hwnd=%p window=%llu generation=%llu size=%dx%d\n",
         hwnd,
         (unsigned long long)
-            created->window_id,
+            window_id,
         (unsigned long long)
-            created->surface_id,
-        (unsigned long long)
-            created->generation,
-        created->width,
-        created->height,
-        created->stride_bytes
+            generation,
+        width,
+        height
     );
-
     return TRUE;
 }
