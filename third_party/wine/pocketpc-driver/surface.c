@@ -684,13 +684,15 @@ static BOOL request_surface(
             event.type ==
                 PDB_MSG_FRAME_PRESENTED
         ) {
-            if (
-                event.data
-                    .frame_presented
-                    .status != 0u
-            ) {
+            const BOOL accepted =
+                POCKETPC_HandleFramePresented(
+                    &event.data
+                        .frame_presented
+                );
+
+            if (!accepted) {
                 WARN(
-                    "frame presentation status during surface handshake window=%llu frame=%llu status=%u\n",
+                    "frame ACK rejected or unmatched during surface handshake window=%llu frame=%llu status=%u\n",
                     (unsigned long long)
                         event.data
                             .frame_presented
