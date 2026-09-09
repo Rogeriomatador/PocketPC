@@ -81,6 +81,8 @@
     "frameFailureFailClosedImplemented": true,
     "frameFailureFailClosedSoftwareTestExecuted": false,
     "windowLifecyclePostSendFailClosedImplemented": true,
-    "windowLifecyclePostSendFailClosedSoftwareTestExecuted": false
+    "windowLifecyclePostSendFailClosedSoftwareTestExecuted": false,
+    "bridgeReadySynchronizationImplemented": true,
+    "bridgeReadySynchronizationSoftwareTestExecuted": false
   }
 }
