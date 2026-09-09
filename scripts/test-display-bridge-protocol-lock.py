@@ -68,8 +68,9 @@ def main() -> int:
     layouts = lock.get("payloadLayouts") or {}
     shared = lock.get("sharedFramebuffer") or {}
     z_order = lock.get("zOrder") or {}
-    input_semantics =
+    input_semantics = (
         lock.get("inputSemantics") or {}
+    )
 
     checks = (
         (wire.get("magicHex"), "0x31424450", "wire magic"),
@@ -140,10 +141,12 @@ def main() -> int:
     if direction != expected_direction:
         failures.append("message direction map changed")
 
-    expected_pointer =
-        (input_semantics.get("pointer") or {})
-    expected_keyboard =
-        (input_semantics.get("keyboard") or {})
+    expected_pointer = (
+        input_semantics.get("pointer") or {}
+    )
+    expected_keyboard = (
+        input_semantics.get("keyboard") or {}
+    )
     if expected_pointer.get("actions") != {
         "MOVE": 0,
         "DOWN": 1,
