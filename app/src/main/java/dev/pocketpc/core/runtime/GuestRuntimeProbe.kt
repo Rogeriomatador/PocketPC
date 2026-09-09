@@ -128,7 +128,7 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 [ -n "$POCKETPC_DISPLAY_TOKEN" ] || { printf 'bridge_token=missing\nprobe=failed\n'; exit 77; }
                 [ -n "$POCKETPC_DISPLAY_RUNTIME_SHA256" ] || { printf 'bridge_runtime_id=missing\nprobe=failed\n'; exit 78; }
                 mkdir -p /home/pocket/windows-prefixes/smoke || exit 79
-                if ! WINEDEBUG=-all WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine reg.exe add 'HKCU\\Software\\Wine\\Drivers' /v Graphics /t REG_SZ /d pocketpc /f >/dev/null; then
+                if ! WINEDEBUG=-all WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine reg.exe add 'HKCU\Software\Wine\Drivers' /v Graphics /t REG_SZ /d pocketpc /f >/dev/null; then
                     printf 'wine_graphics_driver_config=failed\nprobe=failed\n'
                     exit 80
                 fi
@@ -159,7 +159,7 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 [ -x /opt/pocketpc/wine/bin/wine ] || { printf 'wine=missing\nprobe=failed\n'; exit 37; }
                 [ -f /opt/pocketpc/wine/share/tests/pocketpc-d3d11-present-smoke.exe ] || { printf 'present_smoke=missing\nprobe=failed\n'; exit 38; }
                 [ -f /home/pocket/.pocketpc/windows-layers/dxvk/3.0.2/DEPLOYMENT.tsv ] || { printf 'dxvk=not_deployed\nprobe=failed\n'; exit 39; }
-                if ! WINEDEBUG=-all WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine reg.exe add 'HKCU\\Software\\Wine\\Drivers' /v Graphics /t REG_SZ /d pocketpc /f >/dev/null; then
+                if ! WINEDEBUG=-all WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine reg.exe add 'HKCU\Software\Wine\Drivers' /v Graphics /t REG_SZ /d pocketpc /f >/dev/null; then
                     printf 'wine_graphics_driver_config=failed\nprobe=failed\n'
                     exit 40
                 fi
