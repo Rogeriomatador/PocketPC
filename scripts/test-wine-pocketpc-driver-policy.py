@@ -95,6 +95,7 @@ def main() -> int:
         "dxvkLaunchOverrideImplemented",
         "winePocketPcWindowProbeBrokerImplemented",
         "winePocketPcWindowEvidenceImplemented",
+        "wineGraphicsDriverSelectionImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
@@ -114,6 +115,7 @@ def main() -> int:
         "dxvkLaunchOverrideSoftwareTestExecuted",
         "winePocketPcWindowProbeBrokerSoftwareTestExecuted",
         "winePocketPcWindowEvidenceSoftwareTestExecuted",
+        "wineGraphicsDriverSelectionSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
