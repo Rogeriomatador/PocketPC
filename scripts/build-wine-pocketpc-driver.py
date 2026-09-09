@@ -210,15 +210,13 @@ def discover_build_targets(
 
     # A generated Wine Makefile is an authoritative fallback for
     # exact target names if make's database is unavailable/incomplete.
-    makefile_targets =
-        _parse_make_targets(
+    makefile_targets = _parse_make_targets(
             makefile.read_text(
                 encoding="utf-8",
                 errors="replace",
             ),
         )
-    fallback_selected =
-        _select_official_targets(
+    fallback_selected = _select_official_targets(
             makefile_targets,
         )
 
@@ -403,8 +401,7 @@ def main() -> int:
         write_evidence(evidence_path, base)
         return 31
 
-    discovery =
-        discover_build_targets(
+    discovery = discover_build_targets(
             build,
             generated_makefile,
         )
