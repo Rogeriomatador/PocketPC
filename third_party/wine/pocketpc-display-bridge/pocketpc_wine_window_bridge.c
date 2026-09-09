@@ -1,0 +1,251 @@
+#include "pocketpc_wine_window_bridge.h"
+
+#include <stdio.h>
+#include <string.h>
+
+static void bridge_error(
+    char *error,
+    size_t error_bytes,
+    const char *message
+) {
+    if (error && error_bytes) {
+        snprintf(
+            error,
+            error_bytes,
+            "%s",
+            message ? message : "PDB_WINE_WINDOW_BRIDGE_ERROR"
+        );
+    }
+}
+
+void pdb_wine_window_bridge_init(
+    struct pdb_wine_window_bridge *bridge,
+    struct pdb_connection *connection
+) {
+    if (!bridge) {
+        return;
+    }
+
+    memset(
+        bridge,
+        0,
+        sizeof(*bridge)
+    );
+    bridge->connection = connection;
+    pdb_wine_window_map_init(
+        &bridge->windows
+    );
+}
+
+int pdb_wine_window_bridge_create(
+    struct pdb_wine_window_bridge *bridge,
+    uintptr_t native_handle,
+    uintptr_t parent_handle,
+    uint32_t flags,
+    int32_t width,
+    int32_t height,
+    uint64_t *window_id,
+    char *error,
+    size_t error_bytes
+) {
+    uint64_t allocated = 0u;
+    uint64_t parent_id = 0u;
+
+    if (
+        !bridge ||
+        !bridge->connection ||
+        !window_id
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_BRIDGE_ARGUMENT_INVALID"
+        );
+        return -1;
+    }
+
+    if (
+        parent_handle != (uintptr_t)0 &&
+        pdb_wine_window_lookup(
+            &bridge->windows,
+            parent_handle,
+            &parent_id
+        ) != 0
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_PARENT_UNKNOWN"
+        );
+        return -1;
+    }
+
+    if (
+        pdb_wine_window_register(
+            &bridge->windows,
+            native_handle,
+            parent_handle,
+            &allocated
+        ) != 0
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_REGISTER_FAILED"
+        );
+        return -1;
+    }
+
+    if (
+        pdb_send_window_create(
+            bridge->connection,
+            allocated,
+            parent_id,
+            flags,
+            width,
+            height,
+            error,
+            error_bytes
+        ) != 0
+    ) {
+        (void)pdb_wine_window_unregister(
+            &bridge->windows,
+            native_handle
+        );
+        return -1;
+    }
+
+    *window_id = allocated;
+    return 0;
+}
+
+int pdb_wine_window_bridge_geometry(
+    struct pdb_wine_window_bridge *bridge,
+    uintptr_t native_handle,
+    int32_t x,
+    int32_t y,
+    int32_t width,
+    int32_t height,
+    uint32_t visible,
+    int32_t z_order,
+    char *error,
+    size_t error_bytes
+) {
+    uint64_t window_id = 0u;
+
+    if (
+        !bridge ||
+        !bridge->connection ||
+        pdb_wine_window_lookup(
+            &bridge->windows,
+            native_handle,
+            &window_id
+        ) != 0
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_UNKNOWN"
+        );
+        return -1;
+    }
+
+    return pdb_send_window_geometry(
+        bridge->connection,
+        window_id,
+        x,
+        y,
+        width,
+        height,
+        visible,
+        z_order,
+        error,
+        error_bytes
+    );
+}
+
+int pdb_wine_window_bridge_destroy(
+    struct pdb_wine_window_bridge *bridge,
+    uintptr_t native_handle,
+    char *error,
+    size_t error_bytes
+) {
+    uint64_t window_id = 0u;
+    int child_state;
+
+    if (
+        !bridge ||
+        !bridge->connection ||
+        pdb_wine_window_lookup(
+            &bridge->windows,
+            native_handle,
+            &window_id
+        ) != 0
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_UNKNOWN"
+        );
+        return -1;
+    }
+
+    child_state =
+        pdb_wine_window_has_children(
+            &bridge->windows,
+            native_handle
+        );
+    if (child_state != 0) {
+        bridge_error(
+            error,
+            error_bytes,
+            child_state > 0
+                ? "PDB_WINE_WINDOW_HAS_CHILDREN"
+                : "PDB_WINE_WINDOW_CHILD_CHECK_FAILED"
+        );
+        return -1;
+    }
+
+    if (
+        pdb_send_window_destroy(
+            bridge->connection,
+            window_id,
+            error,
+            error_bytes
+        ) != 0
+    ) {
+        return -1;
+    }
+
+    if (
+        pdb_wine_window_unregister(
+            &bridge->windows,
+            native_handle
+        ) != 0
+    ) {
+        bridge_error(
+            error,
+            error_bytes,
+            "PDB_WINE_WINDOW_UNREGISTER_FAILED_AFTER_SEND"
+        );
+        return -1;
+    }
+
+    return 0;
+}
+
+int pdb_wine_window_bridge_handle_for_id(
+    const struct pdb_wine_window_bridge *bridge,
+    uint64_t window_id,
+    uintptr_t *native_handle
+) {
+    if (!bridge) {
+        return -1;
+    }
+
+    return pdb_wine_window_handle_for_id(
+        &bridge->windows,
+        window_id,
+        native_handle
+    );
+}
