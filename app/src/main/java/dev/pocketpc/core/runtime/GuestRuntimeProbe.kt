@@ -128,12 +128,17 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 [ -n "$POCKETPC_DISPLAY_TOKEN" ] || { printf 'bridge_token=missing\nprobe=failed\n'; exit 77; }
                 [ -n "$POCKETPC_DISPLAY_RUNTIME_SHA256" ] || { printf 'bridge_runtime_id=missing\nprobe=failed\n'; exit 78; }
                 mkdir -p /home/pocket/windows-prefixes/smoke || exit 79
+                if ! WINEDEBUG=-all WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine reg.exe add 'HKCU\\Software\\Wine\\Drivers' /v Graphics /t REG_SZ /d pocketpc /f >/dev/null; then
+                    printf 'wine_graphics_driver_config=failed\nprobe=failed\n'
+                    exit 80
+                fi
+                printf 'wine_graphics_driver_config=pocketpc\n'
                 if WINEDEBUG=-all WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine /opt/pocketpc/wine/share/tests/pocketpc-window-smoke.exe; then
                     printf 'wine_pocketpc_driver_smoke=passed\nprobe=complete\n'
                     exit 0
                 fi
                 printf 'wine_pocketpc_driver_smoke=failed\nprobe=failed\n'
-                exit 80
+                exit 81
             """.trimIndent()
             D3D11_SMOKE -> """
                 printf 'POCKETPC_D3D11_VULKAN_SMOKE_PROBE_V1\n'
@@ -154,12 +159,17 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 [ -x /opt/pocketpc/wine/bin/wine ] || { printf 'wine=missing\nprobe=failed\n'; exit 37; }
                 [ -f /opt/pocketpc/wine/share/tests/pocketpc-d3d11-present-smoke.exe ] || { printf 'present_smoke=missing\nprobe=failed\n'; exit 38; }
                 [ -f /home/pocket/.pocketpc/windows-layers/dxvk/3.0.2/DEPLOYMENT.tsv ] || { printf 'dxvk=not_deployed\nprobe=failed\n'; exit 39; }
+                if ! WINEDEBUG=-all WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine reg.exe add 'HKCU\\Software\\Wine\\Drivers' /v Graphics /t REG_SZ /d pocketpc /f >/dev/null; then
+                    printf 'wine_graphics_driver_config=failed\nprobe=failed\n'
+                    exit 40
+                fi
+                printf 'wine_graphics_driver_config=pocketpc\n'
                 if WINEDLLOVERRIDES='d3d11=n;dxgi=n' WINEPREFIX=/home/pocket/windows-prefixes/smoke WINEARCH=win64 /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine /opt/pocketpc/wine/share/tests/pocketpc-d3d11-present-smoke.exe; then
                     printf 'd3d11_present_smoke=passed\nprobe=complete\n'
                     exit 0
                 fi
                 printf 'd3d11_present_smoke=failed\nprobe=failed\n'
-                exit 40
+                exit 41
             """.trimIndent()
             WINDOWS_PROCESS_SMOKE -> """
                 printf 'POCKETPC_WINDOWS_PROCESS_SMOKE_PROBE_V1\n'
