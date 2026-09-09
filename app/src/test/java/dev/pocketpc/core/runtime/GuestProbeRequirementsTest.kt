@@ -1,6 +1,7 @@
 package dev.pocketpc.core.runtime
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -97,7 +98,38 @@ class GuestProbeRequirementsTest {
                 installedWindowsLayerIds =
                     setOf("dxvk"),
             )
-        assertTrue(ready.isEmpty())
+      
+    @Test
+    fun d3d11PresentFailsClosedUntilVulkanWsiExists() {
+        val blockers =
+            GuestProbeRequirements.blockers(
+                probe =
+                    GuestRuntimeProbe
+                        .D3D11_PRESENT_SMOKE,
+                installedToolIds =
+                    setOf("box64", "wine"),
+                overlayValid = true,
+                installedWindowsLayerIds =
+                    setOf("dxvk"),
+            )
+
+        assertEquals(
+            listOf(
+                "VULKAN_WSI_NOT_IMPLEMENTED",
+            ),
+            blockers,
+        )
+        assertFalse(
+            PocketPcVulkanWsiContract
+                .implemented,
+        )
+        assertEquals(
+            47,
+            PocketPcVulkanWsiContract
+                .WINE_VULKAN_DRIVER_VERSION,
+        )
+    }
+  assertTrue(ready.isEmpty())
     }
 
 }
