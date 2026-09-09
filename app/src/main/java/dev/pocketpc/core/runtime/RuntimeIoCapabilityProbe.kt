@@ -39,21 +39,21 @@ object RuntimeIoCapabilityProbe {
         val devices =
             inputManager
                 ?.inputDeviceIds
-                ?.mapNotNull { id ->
+                ?.map { id ->
                     runCatching { inputManager.getInputDevice(id) }.getOrNull()
                 }
+                ?.filterNotNull()
                 .orEmpty()
 
         fun countSource(source: Int): Int =
             devices.count { device ->
-                device.sources and source == source
+                device.supportsSource(source)
             }
 
         val gamepads =
             devices.count { device ->
-                val sources = device.sources
-                (sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) ||
-                    (sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
+                device.supportsSource(InputDevice.SOURCE_GAMEPAD) ||
+                    device.supportsSource(InputDevice.SOURCE_JOYSTICK)
             }
 
         return RuntimeIoHostCapabilities(
