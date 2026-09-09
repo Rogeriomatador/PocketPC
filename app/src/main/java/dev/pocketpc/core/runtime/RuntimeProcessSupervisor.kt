@@ -1091,8 +1091,7 @@ class RuntimeProcessSupervisor {
             var registryId: Long? = null
 
             if (spec.argv.isEmpty()) {
-                return@withContext
-                    ProcessRunResult(
+                return@withContext ProcessRunResult(
                         started = false,
                         exitCode = null,
                         timedOut = false,
@@ -1150,8 +1149,7 @@ class RuntimeProcessSupervisor {
                             }
                     }
                 }.getOrElse {
-                    return@withContext
-                        ProcessRunResult(
+                    return@withContext ProcessRunResult(
                             started = false,
                             exitCode = null,
                             timedOut = false,
