@@ -42,7 +42,7 @@ data class RuntimeDisplayBridgeFrame(
 )
 
 object RuntimeDisplayBridgeProtocol {
-    const val VERSION = 3
+    const val VERSION = 4
     const val HEADER_BYTES = 20
     const val MAX_PAYLOAD_BYTES =
         1024 * 1024
