@@ -22,6 +22,14 @@ class RuntimeDisplayBridgePeer internal constructor(
         RuntimeDisplayBridgeProtocol.writeFrame(socket.outputStream, frame)
     }
 
+    fun sendSurfaceAvailable(
+        surface: RuntimeBridgeSurfaceAvailable,
+    ) = send(
+        RuntimeDisplayBridgeMessageType.SURFACE_AVAILABLE,
+        RuntimeDisplayBridgeCapabilities.WINDOW_SURFACE,
+        RuntimeDisplayBridgePayloadCodec.encodeSurfaceAvailable(surface),
+    )
+
     fun sendPointer(event: RuntimeBridgePointerEvent) = send(
         RuntimeDisplayBridgeMessageType.POINTER_EVENT,
         RuntimeDisplayBridgeCapabilities.POINTER,
