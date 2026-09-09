@@ -41,6 +41,7 @@ jobs:
 
       - name: Validate runtime and driver policies
         run: |
+          python3 scripts/test-python-syntax.py
           python3 scripts/test-pc-runtime-source-locks.py
           python3 scripts/test-display-bridge-protocol-lock.py
           python3 scripts/test-wine-pocketpc-driver-policy.py
