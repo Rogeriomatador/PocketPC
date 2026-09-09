@@ -18,6 +18,8 @@ WINDOW_MAP_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_wi
 WINDOW_MAP_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_wine_window_map.c"
 WINDOW_BRIDGE_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_wine_window_bridge.h"
 WINDOW_BRIDGE_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_wine_window_bridge.c"
+SURFACE_WRITER_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_surface_writer.h"
+SURFACE_WRITER_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_surface_writer.c"
 
 
 def require_sentinels(
@@ -57,7 +59,7 @@ def main() -> int:
 
     checks = (
         (wire.get("magicHex"), "0x31424450", "wire magic"),
-        (wire.get("version"), 2, "version"),
+        (wire.get("version"), 3, "version"),
         (wire.get("headerBytes"), 20, "header"),
         (
             wire.get("maxPayloadBytes"),
@@ -83,6 +85,7 @@ def main() -> int:
         "WINDOW_CREATE": 10,
         "WINDOW_GEOMETRY": 11,
         "WINDOW_DESTROY": 12,
+        "SURFACE_REQUEST": 19,
         "SURFACE_AVAILABLE": 20,
         "FRAME_READY": 21,
         "POINTER_EVENT": 30,
@@ -111,6 +114,7 @@ def main() -> int:
         "WINDOW_CREATE": "guest-to-host",
         "WINDOW_GEOMETRY": "guest-to-host",
         "WINDOW_DESTROY": "guest-to-host",
+        "SURFACE_REQUEST": "guest-to-host",
         "SURFACE_AVAILABLE": "host-to-guest",
         "FRAME_READY": "guest-to-host",
         "POINTER_EVENT": "host-to-guest",
@@ -126,6 +130,7 @@ def main() -> int:
         "WINDOW_CREATE": 28,
         "WINDOW_GEOMETRY": 40,
         "WINDOW_DESTROY": 8,
+        "SURFACE_REQUEST": 32,
         "SURFACE_AVAILABLE": 56,
         "FRAME_READY": 32,
         "POINTER_EVENT": 32,
@@ -151,6 +156,21 @@ def main() -> int:
         or z_order.get("flags") != expected_z_flags
     ):
         failures.append("z-order contract changed")
+
+    surface_request_fields = (
+        layouts.get("SURFACE_REQUEST") or {}
+    ).get("fields") or []
+    if surface_request_fields != [
+        "windowId:u64",
+        "generation:u64",
+        "width:i32",
+        "height:i32",
+        "pixelFormat:u32",
+        "flags:u32",
+    ]:
+        failures.append(
+            "SURFACE_REQUEST v3 field contract changed"
+        )
 
     geometry_fields = (
         layouts.get("WINDOW_GEOMETRY") or {}
@@ -193,6 +213,8 @@ def main() -> int:
     window_map_source = WINDOW_MAP_SOURCE.read_text(encoding="utf-8")
     window_bridge_header = WINDOW_BRIDGE_HEADER.read_text(encoding="utf-8")
     window_bridge_source = WINDOW_BRIDGE_SOURCE.read_text(encoding="utf-8")
+    surface_writer_header = SURFACE_WRITER_HEADER.read_text(encoding="utf-8")
+    surface_writer_source = SURFACE_WRITER_SOURCE.read_text(encoding="utf-8")
 
     require_sentinels(
         failures,
@@ -204,12 +226,13 @@ def main() -> int:
             "WINDOW_CREATE(10)",
             "WINDOW_GEOMETRY(11)",
             "WINDOW_DESTROY(12)",
+            "SURFACE_REQUEST(19)",
             "SURFACE_AVAILABLE(20)",
             "FRAME_READY(21)",
             "POINTER_EVENT(30)",
             "KEY_EVENT(31)",
             "FRAME_PRESENTED(40)",
-            "const val VERSION = 2",
+            "const val VERSION = 3",
             "const val HEADER_BYTES = 20",
         ),
     )
@@ -218,6 +241,7 @@ def main() -> int:
         "Kotlin payload codec",
         payloads,
         (
+            "SURFACE_REQUEST_BYTES = 32",
             "SURFACE_AVAILABLE_BYTES = 56",
             "FRAME_READY_BYTES = 32",
             "PIXEL_FORMAT_BGRA8888 = 1",
@@ -227,6 +251,9 @@ def main() -> int:
             "insertAfterWindowId",
             "DISPLAY_BRIDGE_Z_ORDER_FLAGS_INVALID",
             "DISPLAY_BRIDGE_Z_ORDER_SELF_REFERENCE",
+            "encodeSurfaceRequest",
+            "decodeSurfaceRequest",
+            "DISPLAY_BRIDGE_SURFACE_FLAGS_INVALID",
             "encodeSurfaceAvailable",
             "decodeSurfaceAvailable",
             "encodeFrameReady",
@@ -254,13 +281,16 @@ def main() -> int:
         header,
         (
             "#define PDB_MAGIC 0x31424450u",
-            "#define PDB_VERSION 2u",
+            "#define PDB_VERSION 3u",
             "#define PDB_WINDOW_GEOMETRY_BYTES 40u",
             "#define PDB_ZORDER_NO_CHANGE (1u << 0)",
             "#define PDB_ZORDER_AFTER_WINDOW (1u << 5)",
+            "#define PDB_SURFACE_REQUEST_BYTES 32u",
+            "#define PDB_MSG_SURFACE_REQUEST 19u",
             "#define PDB_SURFACE_AVAILABLE_BYTES 56u",
             "#define PDB_FRAME_READY_BYTES 32u",
             "#define PDB_MSG_FRAME_READY 21u",
+            "pdb_send_surface_request",
             "pdb_receive_surface_available",
             "pdb_surface_guest_path",
             "pdb_send_frame_ready",
@@ -276,6 +306,7 @@ def main() -> int:
         (
             "PDB_CAPABILITY_NOT_NEGOTIATED",
             "PDB_SEQUENCE_INVALID",
+            "PDB_SURFACE_REQUEST_INVALID",
             "PDB_SURFACE_PAYLOAD_INVALID",
             "PDB_FRAME_READY_INVALID",
             "PDB_POINTER_PAYLOAD_INVALID",
@@ -291,6 +322,7 @@ def main() -> int:
         (
             "POCKETPC_DISPLAY_BRIDGE_SMOKE_OK",
             "POCKETPC_DISPLAY_BRIDGE_FRAME_WRITTEN_OK",
+            "pdb_send_surface_request",
             "pdb_receive_surface_available",
             "pdb_send_frame_ready",
             "MAP_SHARED",
@@ -331,6 +363,21 @@ def main() -> int:
     )
     require_sentinels(
         failures,
+        "Shared surface writer",
+        surface_writer_header + surface_writer_source,
+        (
+            "pdb_surface_writer_open",
+            "O_NOFOLLOW",
+            "st.st_nlink != 1",
+            "MAP_SHARED",
+            "pdb_surface_writer_copy_bgra",
+            "pdb_surface_writer_commit",
+            "PDB_SURFACE_FRAME_ID_EXHAUSTED",
+            "pdb_send_frame_ready",
+        ),
+    )
+    require_sentinels(
+        failures,
         "Box64 bridge builder",
         box64,
         (
@@ -354,7 +401,7 @@ def main() -> int:
         return 1
 
     print("DISPLAY_BRIDGE_PROTOCOL_LOCK_OK")
-    print("protocol_version=2")
+    print("protocol_version=3")
     print("shared_framebuffer=BGRA8888")
     print("runtime_integration_evidence=false")
     return 0
