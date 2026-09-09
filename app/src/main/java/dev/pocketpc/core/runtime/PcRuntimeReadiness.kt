@@ -188,27 +188,39 @@ object PcRuntimeReadinessProbe {
                 ),
                 PcRuntimeStage(
                     id = "graphics-bridge",
-                    label = "Direct3D → Vulkan",
+                    label = "Direct3D → Vulkan / WSI",
                     state =
-                        if (
+                        when {
+                            !PocketPcVulkanWsiContract
+                                .implemented ->
+                                PcRuntimeStageState
+                                    .NOT_IMPLEMENTED
+
                             probeEvidence?.d3d11SmokePassed ==
                                 true &&
                             probeEvidence
-                                .graphicsPresentationSmokePassed
-                        ) {
-                            PcRuntimeStageState.READY
-                        } else {
-                            PcRuntimeStageState.BLOCKED
+                                .graphicsPresentationSmokePassed ->
+                                PcRuntimeStageState.READY
+
+                            else ->
+                                PcRuntimeStageState.BLOCKED
                         },
                     detail =
                         when {
+                            !PocketPcVulkanWsiContract
+                                .implemented ->
+                                "DXVK pode criar um dispositivo Vulkan, mas winepocketpc.drv ainda não implementa pVulkanInit/Wine Vulkan WSI. GDI window_surface.flush não é evidência de swapchain Vulkan. Present permanece bloqueado fail-closed."
+
                             probeEvidence?.d3d11SmokePassed !=
                                 true ->
-                                "DXVK/vkd3d possuem supply-chain e implantação preparada, mas o smoke D3D11→Vulkan atual ainda não foi comprovado."
-                            !probeEvidence.graphicsPresentationSmokePassed ->
-                                "D3D11 criou dispositivo via DXVK, mas janela/swapchain/Present ainda não foram comprovados."
+                                "O backend WSI existe, mas o smoke D3D11→Vulkan ainda precisa ser comprovado."
+
+                            !probeEvidence
+                                .graphicsPresentationSmokePassed ->
+                                "D3D11 criou dispositivo via DXVK, mas o round-trip real de janela/swapchain/Present ainda não foi comprovado."
+
                             else ->
-                                "D3D11 e swapchain/Present passaram com evidência vinculada ao rootfs, Box64, Wine e DLLs DXVK atuais."
+                                "D3D11 e swapchain/Present passaram através do backend Vulkan WSI atual com evidência vinculada à identidade do runtime."
                         },
                 ),
                 PcRuntimeStage(
