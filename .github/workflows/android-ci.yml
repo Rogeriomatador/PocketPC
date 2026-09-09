@@ -161,6 +161,9 @@ jobs:
       - name: Taskbar and Task Manager policy
         run: python3 scripts/test-taskbar-task-manager-policy.py
 
+      - name: Runtime process family policy
+        run: python3 scripts/test-runtime-process-family-policy.py
+
       - name: CI version evidence policy
         run: python3 scripts/test-ci-version-policy.py
 
