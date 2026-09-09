@@ -10,6 +10,7 @@ object RuntimeDiagnosticSuite {
             GuestRuntimeProbe.BOX64_SMOKE,
             GuestRuntimeProbe.DISPLAY_BRIDGE_SMOKE,
             GuestRuntimeProbe.WINE_SMOKE,
+            GuestRuntimeProbe.WINE_POCKETPC_WINDOW_SMOKE,
             GuestRuntimeProbe.WINDOWS_PROCESS_SMOKE,
             GuestRuntimeProbe.WINSOCK_SMOKE,
             GuestRuntimeProbe.WINMM_AUDIO_API_SMOKE,
