@@ -98,6 +98,9 @@ def main() -> int:
         "wineGraphicsDriverSelectionImplemented",
         "wineDriverAbiLockImplemented",
         "wineGraphicsConfigurationIsolationImplemented",
+        "wineProcessWindowNamespaceImplemented",
+        "multiPeerDesktopRoutingImplemented",
+        "multiPeerDisplayExecutionImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
@@ -120,6 +123,9 @@ def main() -> int:
         "wineGraphicsDriverSelectionSoftwareTestExecuted",
         "wineDriverAbiLockSoftwareTestExecuted",
         "wineGraphicsConfigurationIsolationSoftwareTestExecuted",
+        "wineProcessWindowNamespaceSoftwareTestExecuted",
+        "multiPeerDesktopRoutingSoftwareTestExecuted",
+        "multiPeerDisplayExecutionSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
@@ -194,6 +200,9 @@ def main() -> int:
         (
             "pdb_connect_from_environment",
             "pdb_wine_window_bridge_init",
+            "pdb_wine_window_map_set_namespace",
+            "process_namespace",
+            "0x7fffffffu",
             "__wine_set_user_driver",
             "WINE_GDI_DRIVER_VERSION",
             "POCKETPC_BridgeReady",
