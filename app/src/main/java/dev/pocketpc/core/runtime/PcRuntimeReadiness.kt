@@ -17,8 +17,8 @@ data class PcRuntimeStage(
 data class PcRuntimeReadiness(
     val target: String,
     val stages: List<PcRuntimeStage>,
-    val controlledAttemptReady: Boolean,
     val executableReady: Boolean,
+    val controlledAttemptReady: Boolean = false,
 ) {
     val readyCount: Int
         get() =
