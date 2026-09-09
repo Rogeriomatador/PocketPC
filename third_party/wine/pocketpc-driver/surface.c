@@ -66,111 +66,6 @@ static void pocketpc_surface_set_clip(
     (void)count;
 }
 
-static BOOL wait_frame_presented_locked(
-    uint64_t window_id,
-    uint64_t frame_id,
-    char *error,
-    size_t error_bytes
-) {
-    unsigned int received = 0u;
-
-    while (
-        received <
-        POCKETPC_HOST_EVENT_QUEUE_LIMIT
-    ) {
-        struct pdb_host_event event;
-
-        if (
-            pdb_receive_host_event(
-                &pocketpc_connection,
-                &event,
-                error,
-                error_bytes
-            ) != 0
-        ) {
-            return FALSE;
-        }
-        received += 1u;
-
-        if (
-            event.type ==
-                PDB_MSG_POINTER_EVENT ||
-            event.type ==
-                PDB_MSG_KEY_EVENT ||
-            event.type ==
-                PDB_MSG_WINDOW_COMMAND
-        ) {
-            if (
-                !POCKETPC_QueueHostEventLocked(
-                    &event
-                )
-            ) {
-                snprintf(
-                    error,
-                    error_bytes,
-                    "PDB_HOST_EVENT_QUEUE_FULL"
-                );
-                return FALSE;
-            }
-            continue;
-        }
-
-        if (
-            event.type ==
-                PDB_MSG_FRAME_PRESENTED
-        ) {
-            if (
-                event.data
-                    .frame_presented
-                    .window_id !=
-                    window_id ||
-                event.data
-                    .frame_presented
-                    .frame_id !=
-                    frame_id
-            ) {
-                snprintf(
-                    error,
-                    error_bytes,
-                    "PDB_FRAME_ACK_IDENTITY_MISMATCH"
-                );
-                return FALSE;
-            }
-            if (
-                event.data
-                    .frame_presented
-                    .status != 0u
-            ) {
-                snprintf(
-                    error,
-                    error_bytes,
-                    "PDB_FRAME_PRESENTATION_REJECTED:%u",
-                    event.data
-                        .frame_presented
-                        .status
-                );
-                return FALSE;
-            }
-            return TRUE;
-        }
-
-        snprintf(
-            error,
-            error_bytes,
-            "PDB_UNEXPECTED_EVENT_DURING_FRAME_ACK:%u",
-            event.type
-        );
-        return FALSE;
-    }
-
-    snprintf(
-        error,
-        error_bytes,
-        "PDB_FRAME_ACK_EVENT_LIMIT"
-    );
-    return FALSE;
-}
-
 static BOOL pocketpc_surface_flush(
     struct window_surface *window_surface,
     const RECT *rect,
@@ -302,34 +197,12 @@ static BOOL pocketpc_surface_flush(
         return FALSE;
     }
 
-    if (
-        !wait_frame_presented_locked(
-            surface->writer
-                .surface.window_id,
-            frame_id,
-            error,
-            sizeof(error)
-        )
-    ) {
-        pthread_mutex_unlock(
-            &pocketpc_bridge_mutex
-        );
-        ERR(
-            "FRAME_PRESENTED failed hwnd=%p frame=%llu: %s\n",
-            window_surface->hwnd,
-            (unsigned long long)
-                frame_id,
-            error
-        );
-        return FALSE;
-    }
-
     pthread_mutex_unlock(
         &pocketpc_bridge_mutex
     );
 
     TRACE(
-        "FRAME_PRESENTED confirmed hwnd=%p window=%llu frame=%llu\n",
+        "FRAME_READY published hwnd=%p window=%llu frame=%llu; presentation ACK is asynchronous\n",
         window_surface->hwnd,
         (unsigned long long)
             surface->writer.surface.window_id,
