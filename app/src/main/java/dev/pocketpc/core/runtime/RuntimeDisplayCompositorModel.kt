@@ -11,6 +11,8 @@ data class RuntimeDisplayCompositorWindow(
     val frameId: Long,
     val frame:
         RuntimeDisplayFramePixels?,
+    val topmost: Boolean = false,
+    val zIndex: Int = 0,
 )
 
 class RuntimeDisplayCompositorModel {
@@ -19,11 +21,15 @@ class RuntimeDisplayCompositorModel {
             Long,
             RuntimeDisplayCompositorWindow
         >()
+    private val zOrder =
+        mutableListOf<Long>()
 
     @Synchronized
     fun snapshot():
         List<RuntimeDisplayCompositorWindow> =
-        windows.values.toList()
+        zOrder.mapNotNull(
+            windows::get,
+        )
 
     @Synchronized
     fun apply(
@@ -59,7 +65,14 @@ class RuntimeDisplayCompositorModel {
                                 null,
                             frameId = 0L,
                             frame = null,
+                            topmost = false,
+                            zIndex = 0,
                         )
+                    insertAtTopOfGroup(
+                        event.window.windowId,
+                        topmost = false,
+                    )
+                    refreshZIndices()
                 }
 
                 is RuntimeDisplayBridgeEvent
@@ -79,6 +92,10 @@ class RuntimeDisplayCompositorModel {
                             geometry =
                                 event.geometry,
                         )
+                    applyZOrder(
+                        event.geometry,
+                    )
+                    refreshZIndices()
                 }
 
                 is RuntimeDisplayBridgeEvent
@@ -136,6 +153,10 @@ class RuntimeDisplayCompositorModel {
                     ) {
                         "DISPLAY_COMPOSITOR_WINDOW_MISSING"
                     }
+                    zOrder.remove(
+                        event.windowId,
+                    )
+                    refreshZIndices()
                 }
 
                 is RuntimeDisplayBridgeEvent
@@ -155,5 +176,170 @@ class RuntimeDisplayCompositorModel {
     @Synchronized
     fun clear() {
         windows.clear()
+        zOrder.clear()
+    }
+
+    private fun applyZOrder(
+        geometry:
+            RuntimeBridgeWindowGeometry,
+    ) {
+        val id =
+            geometry.windowId
+        val current =
+            windows[id]
+                ?: error(
+                    "DISPLAY_COMPOSITOR_WINDOW_MISSING",
+                )
+
+        when (
+            geometry.zOrderFlags
+        ) {
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_NO_CHANGE ->
+                return
+
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_BOTTOM -> {
+                windows[id] =
+                    current.copy(
+                        topmost = false,
+                    )
+                zOrder.remove(id)
+                zOrder.add(
+                    0,
+                    id,
+                )
+            }
+
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_TOPMOST -> {
+                windows[id] =
+                    current.copy(
+                        topmost = true,
+                    )
+                zOrder.remove(id)
+                zOrder.add(id)
+            }
+
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_NOTOPMOST -> {
+                windows[id] =
+                    current.copy(
+                        topmost = false,
+                    )
+                insertAtTopOfGroup(
+                    id,
+                    topmost = false,
+                )
+            }
+
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_TOP -> {
+                insertAtTopOfGroup(
+                    id,
+                    topmost =
+                        current.topmost,
+                )
+            }
+
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_AFTER_WINDOW -> {
+                val targetId =
+                    geometry
+                        .insertAfterWindowId
+                val target =
+                    windows[targetId]
+                        ?: error(
+                            "DISPLAY_COMPOSITOR_Z_TARGET_MISSING",
+                        )
+
+                val desiredTopmost =
+                    if (
+                        current.topmost &&
+                        !target.topmost
+                    ) {
+                        false
+                    } else {
+                        current.topmost
+                    }
+                windows[id] =
+                    current.copy(
+                        topmost =
+                            desiredTopmost,
+                    )
+
+                zOrder.remove(id)
+                if (
+                    desiredTopmost ==
+                    target.topmost
+                ) {
+                    val targetIndex =
+                        zOrder.indexOf(
+                            targetId,
+                        )
+                    require(
+                        targetIndex >= 0,
+                    ) {
+                        "DISPLAY_COMPOSITOR_Z_TARGET_MISSING"
+                    }
+                    zOrder.add(
+                        targetIndex,
+                        id,
+                    )
+                } else {
+                    insertAtTopOfGroup(
+                        id,
+                        topmost =
+                            desiredTopmost,
+                    )
+                }
+            }
+
+            else ->
+                error(
+                    "DISPLAY_COMPOSITOR_Z_ORDER_INVALID",
+                )
+        }
+    }
+
+    private fun insertAtTopOfGroup(
+        id: Long,
+        topmost: Boolean,
+    ) {
+        zOrder.remove(id)
+
+        if (topmost) {
+            zOrder.add(id)
+            return
+        }
+
+        val firstTopmost =
+            zOrder.indexOfFirst {
+                windows[it]
+                    ?.topmost ==
+                    true
+            }
+        if (firstTopmost < 0) {
+            zOrder.add(id)
+        } else {
+            zOrder.add(
+                firstTopmost,
+                id,
+            )
+        }
+    }
+
+    private fun refreshZIndices() {
+        zOrder.forEachIndexed {
+            index,
+            id ->
+            windows[id]?.let {
+                window ->
+                windows[id] =
+                    window.copy(
+                        zIndex = index,
+                    )
+            }
+        }
     }
 }
