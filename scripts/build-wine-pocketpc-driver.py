@@ -111,7 +111,7 @@ def discover_build_targets(
     makefile: Path,
 ) -> tuple[list[str], list[str]]:
     candidates = (
-        "dlls/winepocketpc.drv",
+        "dlls/winepocketpc.drv/all",
         "dlls/winepocketpc.drv/winepocketpc.drv",
         "dlls/winepocketpc.drv/winepocketpc.so",
     )
@@ -348,7 +348,7 @@ def main() -> int:
     if not build_targets:
         base["status"] = "BUILD_TARGET_NOT_FOUND"
         base["targetCandidates"] = [
-            "dlls/winepocketpc.drv",
+            "dlls/winepocketpc.drv/all",
             "dlls/winepocketpc.drv/winepocketpc.drv",
             "dlls/winepocketpc.drv/winepocketpc.so",
         ]
