@@ -354,4 +354,49 @@ class RuntimeDisplayBridgePayloadCodecTest {
         )
     }
 
+    @Test
+    fun keyRejectsUnknownModifierBits() {
+        val result =
+            runCatching {
+                RuntimeDisplayBridgePayloadCodec
+                    .encodeKeyEvent(
+                        RuntimeBridgeKeyEvent(
+                            windowId = 1,
+                            action =
+                                RuntimeDisplayBridgePayloadCodec
+                                    .KEY_ACTION_DOWN,
+                            keyCode = 0x41,
+                            scanCode = 0x1e,
+                            modifiers = 1 shl 8,
+                            repeatCount = 0,
+                        ),
+                    )
+            }
+
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun pointerRejectsUnknownModifierBits() {
+        val result =
+            runCatching {
+                RuntimeDisplayBridgePayloadCodec
+                    .encodePointerEvent(
+                        RuntimeBridgePointerEvent(
+                            windowId = 1,
+                            action =
+                                RuntimeDisplayBridgePayloadCodec
+                                    .POINTER_ACTION_MOVE,
+                            x = 1,
+                            y = 1,
+                            buttons = 0,
+                            verticalScroll = 0,
+                            modifiers = 1 shl 8,
+                        ),
+                    )
+            }
+
+        assertTrue(result.isFailure)
+    }
+
 }
