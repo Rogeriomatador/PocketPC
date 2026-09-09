@@ -124,6 +124,27 @@ if ($authExit -ne 0) {
 
 Write-Host "GitHub CLI: READY" -ForegroundColor Green
 
+$ghDirectory = Split-Path -Parent $gh
+$pathEntries = @(
+    $env:Path -split ";"
+) | Where-Object {
+    -not [string]::IsNullOrWhiteSpace($_)
+}
+if (
+    $pathEntries -notcontains
+        $ghDirectory
+) {
+    $env:Path =
+        (
+            @($env:Path, $ghDirectory) -
+            join ";"
+        )
+    Write-Host (
+        "GitHub CLI adicionado ao PATH desta sessao: " +
+        $ghDirectory
+    ) -ForegroundColor DarkGray
+}
+
 $bootstrap = Join-Path $PSScriptRoot "bootstrap-home-test-ota-windows.ps1"
 if (-not (Test-Path -LiteralPath $bootstrap)) {
     Fail ("Bootstrap OTA principal nao encontrado: " + $bootstrap)
