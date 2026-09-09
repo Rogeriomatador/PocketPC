@@ -84,6 +84,8 @@ def main() -> int:
         "frameFailureFailClosedImplemented",
         "windowLifecyclePostSendFailClosedImplemented",
         "bridgeReadySynchronizationImplemented",
+        "frameAckControlPlaneDrainImplemented",
+        "surfaceRegistryPublishFailClosedImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
@@ -92,6 +94,8 @@ def main() -> int:
         "frameFailureFailClosedSoftwareTestExecuted",
         "windowLifecyclePostSendFailClosedSoftwareTestExecuted",
         "bridgeReadySynchronizationSoftwareTestExecuted",
+        "frameAckControlPlaneDrainSoftwareTestExecuted",
+        "surfaceRegistryPublishFailClosedSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
@@ -222,6 +226,8 @@ def main() -> int:
             "PDB_UNEXPECTED_HOST_EVENT",
             "PDB_MSG_FRAME_PRESENTED",
             "PDB_FRAME_ACK_REJECTED_OR_UNMATCHED",
+            "FRAME_PRESENTED is a control-plane ownership ACK",
+            "must drain for every Wine queue mask",
             "POCKETPC_BridgeReady()",
         ),
     )
@@ -255,6 +261,7 @@ def main() -> int:
             "PDB_FRAME_READY_SEND_FAILED",
             "PDB_FRAME_ACK_REJECTED_DURING_SURFACE",
             "PDB_FRAME_SLOT_IDENTITY_MISMATCH",
+            "PDB_SURFACE_REGISTRY_PUBLISH_FAILED",
             "POCKETPC_BridgeReady()",
             "POCKETPC_QueueHostEventLocked",
             "PDB_MSG_FRAME_PRESENTED",
