@@ -1097,7 +1097,7 @@ def main() -> int:
             "sha256": sha256(pocketpc_window_destination),
             "expectedOutput": "POCKETPC_WINE_DRIVER_SMOKE_OK",
             "requiresDriver": "winepocketpc.drv",
-            "requiresDisplayBridgeProtocol": 3,
+            "requiresDisplayBridgeProtocol": 4,
         },
         "d3d11Smoke": {
             "path": d3d11_relative.as_posix(),
