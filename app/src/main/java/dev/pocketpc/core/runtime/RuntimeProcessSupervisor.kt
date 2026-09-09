@@ -16,6 +16,13 @@ data class ProcessRunSpec(
     val maxOutputBytes: Int = 1024 * 1024,
 )
 
+data class ProcessSessionSpec(
+    val argv: List<String>,
+    val environment: Map<String, String>,
+    val workingDirectory: File? = null,
+    val maxOutputBytes: Int = 1024 * 1024,
+)
+
 data class ProcessRunResult(
     val started: Boolean,
     val exitCode: Int?,
@@ -336,6 +343,217 @@ class RuntimeProcessSupervisor {
                         )
                 }
                 synchronized(this@RuntimeProcessSupervisor) {
+                    if (active === process) {
+                        active = null
+                    }
+                }
+            }
+        }
+
+    suspend fun runSession(
+        spec: ProcessSessionSpec,
+    ): ProcessRunResult =
+        withContext(Dispatchers.IO) {
+            var registryId: Long? = null
+
+            if (spec.argv.isEmpty()) {
+                return@withContext
+                    ProcessRunResult(
+                        started = false,
+                        exitCode = null,
+                        timedOut = false,
+                        output = "",
+                        outputTruncated =
+                            false,
+                        error = "argv vazio.",
+                    )
+            }
+
+            require(
+                spec.maxOutputBytes in
+                    1024..
+                        (16 * 1024 * 1024),
+            )
+
+            val process =
+                runCatching {
+                    synchronized(
+                        this@RuntimeProcessSupervisor,
+                    ) {
+                        check(active == null) {
+                            "Já existe um processo supervisionado ativo."
+                        }
+                        ProcessBuilder(
+                            spec.argv,
+                        )
+                            .directory(
+                                spec.workingDirectory,
+                            )
+                            .redirectErrorStream(
+                                true,
+                            )
+                            .apply {
+                                environment()
+                                    .clear()
+                                environment()
+                                    .putAll(
+                                        spec.environment,
+                                    )
+                            }
+                            .start()
+                            .also {
+                                startedProcess ->
+                                active =
+                                    startedProcess
+                                registryId =
+                                    RuntimeProcessRegistry
+                                        .register(
+                                            startedProcess,
+                                            spec.argv,
+                                        )
+                            }
+                    }
+                }.getOrElse {
+                    return@withContext
+                        ProcessRunResult(
+                            started = false,
+                            exitCode = null,
+                            timedOut = false,
+                            output = "",
+                            outputTruncated =
+                                false,
+                            error =
+                                it.message
+                                    ?: it.javaClass
+                                        .simpleName,
+                        )
+                }
+
+            try {
+                process.outputStream
+                    .close()
+
+                val stored =
+                    ByteArrayOutputStream(
+                        minOf(
+                            spec.maxOutputBytes,
+                            64 * 1024,
+                        ),
+                    )
+                val buffer =
+                    ByteArray(8192)
+                var truncated = false
+
+                fun drainAvailable() {
+                    var remaining =
+                        64 * 1024
+                    while (remaining > 0) {
+                        val available =
+                            process.inputStream
+                                .available()
+                        if (available <= 0) {
+                            break
+                        }
+                        val read =
+                            process.inputStream
+                                .read(
+                                    buffer,
+                                    0,
+                                    minOf(
+                                        buffer.size,
+                                        available,
+                                        remaining,
+                                    ),
+                                )
+                        if (read < 0) {
+                            break
+                        }
+                        val room =
+                            spec.maxOutputBytes -
+                                stored.size()
+                        if (room > 0) {
+                            stored.write(
+                                buffer,
+                                0,
+                                minOf(
+                                    room,
+                                    read,
+                                ),
+                            )
+                        }
+                        if (read > room) {
+                            truncated = true
+                        }
+                        remaining -= read
+                    }
+                }
+
+                while (true) {
+                    currentCoroutineContext()
+                        .ensureActive()
+                    drainAvailable()
+
+                    if (!process.isAlive) {
+                        drainAvailable()
+                        break
+                    }
+
+                    process.waitFor(
+                        25,
+                        TimeUnit.MILLISECONDS,
+                    )
+                }
+
+                ProcessRunResult(
+                    started = true,
+                    exitCode =
+                        runCatching {
+                            process.exitValue()
+                        }.getOrNull(),
+                    timedOut = false,
+                    output =
+                        stored.toByteArray()
+                            .toString(
+                                Charsets.UTF_8,
+                            ),
+                    outputTruncated =
+                        truncated,
+                )
+            } finally {
+                if (process.isAlive) {
+                    process.destroy()
+                    if (
+                        !process.waitFor(
+                            500,
+                            TimeUnit.MILLISECONDS,
+                        )
+                    ) {
+                        process.destroyForcibly()
+                        process.waitFor(
+                            2,
+                            TimeUnit.SECONDS,
+                        )
+                    }
+                }
+                runCatching {
+                    process.outputStream.close()
+                }
+                runCatching {
+                    process.inputStream.close()
+                }
+                runCatching {
+                    process.errorStream.close()
+                }
+                registryId?.let { id ->
+                    RuntimeProcessRegistry
+                        .unregister(
+                            id,
+                            process,
+                        )
+                }
+                synchronized(
+                    this@RuntimeProcessSupervisor,
+                ) {
                     if (active === process) {
                         active = null
                     }
