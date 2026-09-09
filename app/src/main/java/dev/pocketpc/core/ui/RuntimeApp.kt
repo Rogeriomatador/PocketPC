@@ -2026,8 +2026,6 @@ fun RuntimeApp(
                                                         plan,
                                                     userApproved =
                                                         true,
-                                                    desktopBridge =
-                                                        desktopBridge,
                                                 )
                                     if (
                                         bridgeResult !=
@@ -2285,8 +2283,6 @@ fun RuntimeApp(
                                             plan = plan,
                                             userApproved =
                                                 true,
-                                            desktopBridge =
-                                                desktopBridge,
                                         )
                             probePreviewFrame =
                                 bridgeResult
