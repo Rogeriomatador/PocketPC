@@ -592,9 +592,6 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
         if (desktop.contextMenuOpen) {
             DesktopContextMenu(
                 desktop = desktop,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 14.dp, bottom = (desktopLayout.taskbarHeightDp + 8f).dp),
             )
         }
 
