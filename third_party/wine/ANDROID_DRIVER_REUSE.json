@@ -87,6 +87,8 @@
     "frameAckControlPlaneDrainImplemented": true,
     "frameAckControlPlaneDrainSoftwareTestExecuted": false,
     "surfaceRegistryPublishFailClosedImplemented": true,
-    "surfaceRegistryPublishFailClosedSoftwareTestExecuted": false
+    "surfaceRegistryPublishFailClosedSoftwareTestExecuted": false,
+    "authTimeoutScopedToHandshakeImplemented": true,
+    "authTimeoutScopedToHandshakeSoftwareTestExecuted": false
   }
 }
