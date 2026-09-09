@@ -15,6 +15,7 @@ extern "C" {
 #define PDB_WINDOW_CREATE_BYTES 28u
 #define PDB_WINDOW_GEOMETRY_BYTES 40u
 #define PDB_WINDOW_DESTROY_BYTES 8u
+#define PDB_WINDOW_COMMAND_BYTES 16u
 #define PDB_SURFACE_REQUEST_BYTES 32u
 #define PDB_SURFACE_AVAILABLE_BYTES 56u
 #define PDB_FRAME_READY_BYTES 32u
@@ -26,6 +27,7 @@ extern "C" {
 #define PDB_MSG_WINDOW_CREATE 10u
 #define PDB_MSG_WINDOW_GEOMETRY 11u
 #define PDB_MSG_WINDOW_DESTROY 12u
+#define PDB_MSG_WINDOW_COMMAND 13u
 #define PDB_MSG_SURFACE_REQUEST 19u
 #define PDB_MSG_SURFACE_AVAILABLE 20u
 #define PDB_MSG_FRAME_READY 21u
@@ -52,6 +54,12 @@ extern "C" {
 #define PDB_KEY_ACTION_DOWN 1u
 #define PDB_KEY_ACTION_UP 2u
 #define PDB_KEY_ACTION_REPEAT 3u
+#define PDB_WINDOW_COMMAND_ACTIVATE 1u
+#define PDB_WINDOW_COMMAND_MINIMIZE 2u
+#define PDB_WINDOW_COMMAND_RESTORE 3u
+#define PDB_WINDOW_COMMAND_MAXIMIZE 4u
+#define PDB_WINDOW_COMMAND_CLOSE 5u
+
 
 #define PDB_ZORDER_NO_CHANGE (1u << 0)
 #define PDB_ZORDER_TOP (1u << 1)
@@ -89,6 +97,7 @@ struct pdb_frame_ready {
 struct pdb_pointer_event { uint64_t window_id; uint32_t action; int32_t x; int32_t y; uint32_t buttons; int32_t vertical_scroll; uint32_t modifiers; };
 struct pdb_key_event { uint64_t window_id; uint32_t action; uint32_t key_code; uint32_t scan_code; uint32_t modifiers; uint32_t repeat_count; };
 struct pdb_frame_presented { uint64_t window_id; uint64_t frame_id; uint32_t status; };
+struct pdb_window_command { uint64_t window_id; uint32_t command; uint32_t flags; };
 struct pdb_host_event {
     uint16_t type;
     union {
@@ -96,6 +105,7 @@ struct pdb_host_event {
         struct pdb_pointer_event pointer;
         struct pdb_key_event key;
         struct pdb_frame_presented frame_presented;
+        struct pdb_window_command window_command;
     } data;
 };
 int pdb_connect_from_environment(struct pdb_connection*,char*,size_t);
