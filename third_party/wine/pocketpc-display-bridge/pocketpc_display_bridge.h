@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 #define PDB_MAGIC 0x31424450u
-#define PDB_VERSION 3u
+#define PDB_VERSION 4u
 #define PDB_HEADER_BYTES 20u
 #define PDB_MAX_PAYLOAD_BYTES 1048576u
 #define PDB_TOKEN_BYTES 32u
@@ -21,7 +21,7 @@ extern "C" {
 #define PDB_FRAME_READY_BYTES 32u
 #define PDB_POINTER_EVENT_BYTES 32u
 #define PDB_KEY_EVENT_BYTES 28u
-#define PDB_FRAME_PRESENTED_BYTES 20u
+#define PDB_FRAME_PRESENTED_BYTES 36u
 #define PDB_MSG_HELLO 1u
 #define PDB_MSG_HELLO_ACK 2u
 #define PDB_MSG_WINDOW_CREATE 10u
@@ -101,7 +101,7 @@ struct pdb_frame_ready {
 };
 struct pdb_pointer_event { uint64_t window_id; uint32_t action; int32_t x; int32_t y; uint32_t buttons; int32_t vertical_scroll; uint32_t modifiers; };
 struct pdb_key_event { uint64_t window_id; uint32_t action; uint32_t key_code; uint32_t scan_code; uint32_t modifiers; uint32_t repeat_count; };
-struct pdb_frame_presented { uint64_t window_id; uint64_t frame_id; uint32_t status; };
+struct pdb_frame_presented { uint64_t window_id; uint64_t surface_id; uint64_t generation; uint64_t frame_id; uint32_t status; };
 struct pdb_window_command { uint64_t window_id; uint32_t command; uint32_t flags; };
 struct pdb_host_event {
     uint16_t type;
