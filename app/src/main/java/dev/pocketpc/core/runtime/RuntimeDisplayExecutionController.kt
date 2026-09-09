@@ -9,6 +9,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -197,6 +198,8 @@ class RuntimeDisplayExecutionController(
                 mutableListOf<String>()
             var nextPeerId = 1
             var authenticatedPeerCount = 0
+            var lastPeerActivityNanos =
+                System.nanoTime()
             var acceptLoop: Job? = null
 
             val windowCollector =
@@ -241,6 +244,8 @@ class RuntimeDisplayExecutionController(
                             nextPeerId += 1
                             authenticatedPeerCount +=
                                 1
+                            lastPeerActivityNanos =
+                                System.nanoTime()
                             allocated
                         }
                     }
@@ -316,6 +321,8 @@ class RuntimeDisplayExecutionController(
                                 .remove(
                                     peerId,
                                 )
+                            lastPeerActivityNanos =
+                                System.nanoTime()
                         }
                     }
 
@@ -402,33 +409,64 @@ class RuntimeDisplayExecutionController(
                             )
                     }
 
-                if (
-                    startup is
-                    RuntimeDisplayStartup.Process
-                ) {
-                    return@coroutineScope
-                        RuntimeDisplayExecutionResult(
-                            process =
-                                startup.result,
-                            bridgeAuthenticated =
-                                false,
-                            bridgeError =
-                                "DISPLAY_PROCESS_ENDED_BEFORE_BRIDGE_HANDSHAKE",
-                        )
-                }
+                val rootProcessResult =
+                    (
+                        startup as?
+                            RuntimeDisplayStartup.Process
+                    )?.result
+
+                val firstPeerResult =
+                    if (
+                        rootProcessResult != null
+                    ) {
+                        try {
+                            withTimeout(
+                                PEER_HANDOFF_GRACE_MILLIS,
+                            ) {
+                                acceptDeferred.await()
+                            }
+                        } catch (
+                            cancellation:
+                                CancellationException
+                        ) {
+                            throw cancellation
+                        } catch (
+                            failure: Throwable
+                        ) {
+                            Result.failure(
+                                IllegalStateException(
+                                    "DISPLAY_CHILD_PEER_HANDOFF_TIMEOUT:" +
+                                        (
+                                            failure.message
+                                                ?: failure
+                                                    .javaClass
+                                                    .simpleName
+                                        ),
+                                ),
+                            )
+                        }
+                    } else {
+                        (
+                            startup as
+                                RuntimeDisplayStartup.Peer
+                        ).result
+                    }
 
                 val firstPeer =
-                    (
-                        startup as
-                            RuntimeDisplayStartup.Peer
-                    ).result
+                    firstPeerResult
                         .getOrElse {
                             failure ->
-                            executionController
-                                .stopActive()
-                            val process =
+                            if (
                                 processDeferred
-                                    .await()
+                                    .isActive
+                            ) {
+                                executionController
+                                    .stopActive()
+                            }
+                            val process =
+                                rootProcessResult
+                                    ?: processDeferred
+                                        .await()
                             return@coroutineScope
                                 RuntimeDisplayExecutionResult(
                                     process =
@@ -436,13 +474,26 @@ class RuntimeDisplayExecutionController(
                                     bridgeAuthenticated =
                                         false,
                                     bridgeError =
-                                        "DISPLAY_BRIDGE_HANDSHAKE_FAILED:" +
-                                            (
-                                                failure.message
-                                                    ?: failure
-                                                        .javaClass
-                                                        .simpleName
-                                            ),
+                                        if (
+                                            rootProcessResult !=
+                                                null
+                                        ) {
+                                            "DISPLAY_PROCESS_ENDED_BEFORE_BRIDGE_HANDSHAKE:" +
+                                                (
+                                                    failure.message
+                                                        ?: failure
+                                                            .javaClass
+                                                            .simpleName
+                                                )
+                                        } else {
+                                            "DISPLAY_BRIDGE_HANDSHAKE_FAILED:" +
+                                                (
+                                                    failure.message
+                                                        ?: failure
+                                                            .javaClass
+                                                            .simpleName
+                                                )
+                                        },
                                 )
                         }
 
@@ -453,9 +504,7 @@ class RuntimeDisplayExecutionController(
                 acceptLoop =
                     launch(Dispatchers.IO) {
                         while (
-                            !closed.get() &&
-                            processDeferred
-                                .isActive
+                            !closed.get()
                         ) {
                             val accepted =
                                 host.acceptAuthenticated(
@@ -473,8 +522,7 @@ class RuntimeDisplayExecutionController(
                                 .onFailure {
                                     failure ->
                                     if (
-                                        processDeferred
-                                            .isActive
+                                        !closed.get()
                                     ) {
                                         rememberFailure(
                                             "DISPLAY_BRIDGE_ADDITIONAL_HANDSHAKE_FAILED:" +
@@ -491,7 +539,61 @@ class RuntimeDisplayExecutionController(
                     }
 
                 val process =
-                    processDeferred.await()
+                    rootProcessResult
+                        ?: processDeferred
+                            .await()
+
+                while (
+                    !closed.get()
+                ) {
+                    val peerState =
+                        synchronized(
+                            stateLock,
+                        ) {
+                            activeSessions.size to
+                                lastPeerActivityNanos
+                        }
+                    if (
+                        peerState.first >
+                            0
+                    ) {
+                        delay(
+                            PEER_DRAIN_POLL_MILLIS,
+                        )
+                        continue
+                    }
+
+                    val quietNanos =
+                        System.nanoTime() -
+                            peerState.second
+                    val graceNanos =
+                        PEER_HANDOFF_GRACE_MILLIS *
+                            1_000_000L
+                    if (
+                        quietNanos >=
+                            graceNanos
+                    ) {
+                        break
+                    }
+
+                    val remainingMillis =
+                        (
+                            (
+                                graceNanos -
+                                    quietNanos
+                            ) /
+                                1_000_000L
+                        ).coerceAtLeast(
+                            1L,
+                        )
+                    delay(
+                        minOf(
+                            PEER_DRAIN_POLL_MILLIS,
+                            remainingMillis,
+                        ),
+                    )
+                }
+
                 val peers =
                     synchronized(stateLock) {
                         authenticatedPeerCount
@@ -598,5 +700,11 @@ class RuntimeDisplayExecutionController(
         private const val
             MAX_RECORDED_PEER_FAILURES =
             8
+        private const val
+            PEER_HANDOFF_GRACE_MILLIS =
+            5_000L
+        private const val
+            PEER_DRAIN_POLL_MILLIS =
+            100L
     }
 }
