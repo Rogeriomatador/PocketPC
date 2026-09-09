@@ -355,4 +355,60 @@ class PcRuntimeReadinessTest {
         assertFalse(result.executableReady)
     }
 
+    @Test
+    fun completeCoreEvidenceEnablesOnlyControlledAttempt() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                        displayBridgeSmokePassed = true,
+                        d3d11SmokePassed = true,
+                        graphicsPresentationSmokePassed = true,
+                        windowsProcessSmokePassed = true,
+                    ),
+                windowsStateReady = true,
+            )
+
+        assertTrue(
+            result.controlledAttemptReady,
+        )
+        assertFalse(
+            result.executableReady,
+        )
+        assertEquals(
+            PcRuntimeStageState.NOT_IMPLEMENTED,
+            result.stages.single {
+                it.id == "io-integration"
+            }.state,
+        )
+        assertEquals(
+            PcRuntimeStageState.UNKNOWN,
+            result.stages.single {
+                it.id == "roblox-compatibility"
+            }.state,
+        )
+    }
+
 }
