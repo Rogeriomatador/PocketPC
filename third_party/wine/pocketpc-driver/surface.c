@@ -357,25 +357,36 @@ static BOOL pocketpc_surface_flush(
     if (
         color_info->bmiHeader.biBitCount != 32 ||
         color_info->bmiHeader.biCompression != BI_RGB ||
-        color_info->bmiHeader.biWidth <= 0 ||
-        color_info->bmiHeader.biHeight == 0
+        color_info->bmiHeader.biWidth !=
+            surface->writer.surface.width ||
+        (
+            color_info->bmiHeader.biHeight !=
+                surface->writer.surface.height &&
+            color_info->bmiHeader.biHeight !=
+                -surface->writer.surface.height
+        )
     ) {
         WARN(
-            "unsupported surface format width=%ld height=%ld bpp=%u compression=%lu\n",
+            "unsupported surface format width=%ld height=%ld bpp=%u compression=%lu expected=%dx%d\n",
             color_info->bmiHeader.biWidth,
             color_info->bmiHeader.biHeight,
             color_info->bmiHeader.biBitCount,
-            color_info->bmiHeader.biCompression
+            color_info->bmiHeader.biCompression,
+            surface->writer.surface.width,
+            surface->writer.surface.height
         );
         return FALSE;
     }
 
+    /*
+     * The descriptor must match the already-attested surface before
+     * stride/height arithmetic. This also avoids negating an arbitrary
+     * LONG height (for example INT32_MIN) on the frame hot path.
+     */
     source_height =
-        color_info->bmiHeader.biHeight < 0
-            ? -color_info->bmiHeader.biHeight
-            : color_info->bmiHeader.biHeight;
+        surface->writer.surface.height;
     source_stride =
-        color_info->bmiHeader.biWidth * 4;
+        surface->writer.surface.width * 4;
 
     if (
         dirty &&
