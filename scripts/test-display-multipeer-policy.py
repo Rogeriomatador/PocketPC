@@ -54,11 +54,13 @@ def main() -> int:
         "wineProcessWindowNamespaceImplemented",
         "multiPeerDesktopRoutingImplemented",
         "multiPeerDisplayExecutionImplemented",
+        "wineLauncherChildDisplayHandoffImplemented",
     )
     expected_false = (
         "wineProcessWindowNamespaceSoftwareTestExecuted",
         "multiPeerDesktopRoutingSoftwareTestExecuted",
         "multiPeerDisplayExecutionSoftwareTestExecuted",
+        "wineLauncherChildDisplayHandoffSoftwareTestExecuted",
     )
 
     for label, document in (
@@ -166,6 +168,10 @@ def main() -> int:
             "host.acceptAuthenticated",
             "desktopMultiplexer",
             "DISPLAY_BRIDGE_PEER_LIMIT_REACHED",
+            "DISPLAY_CHILD_PEER_HANDOFF_TIMEOUT",
+            "PEER_HANDOFF_GRACE_MILLIS",
+            "PEER_DRAIN_POLL_MILLIS",
+            "rootProcessResult",
         ),
     )
     require(
