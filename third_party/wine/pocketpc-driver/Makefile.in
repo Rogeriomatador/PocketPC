@@ -7,6 +7,7 @@ SOURCES = \
 	dllmain.c \
 	input.c \
 	pocketpcdrv_main.c \
+	surface.c \
 	window.c \
 	pocketpc_display_bridge.c \
 	pocketpc_wine_window_map.c \
