@@ -81,11 +81,15 @@ def main() -> int:
         "singleBufferOwnershipAckImplemented",
         "surfaceQualifiedFrameAckImplemented",
         "processEventsMaskPreservationImplemented",
+        "frameFailureFailClosedImplemented",
+        "windowLifecyclePostSendFailClosedImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
         "surfaceQualifiedFrameAckSoftwareTestExecuted",
         "processEventsMaskPreservationSoftwareTestExecuted",
+        "frameFailureFailClosedSoftwareTestExecuted",
+        "windowLifecyclePostSendFailClosedSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
@@ -213,6 +217,7 @@ def main() -> int:
             "PDB_HOST_EVENT_MASK_DEFERRED",
             "PDB_UNEXPECTED_HOST_EVENT",
             "PDB_MSG_FRAME_PRESENTED",
+            "PDB_FRAME_ACK_REJECTED_OR_UNMATCHED",
         ),
     )
     require(
@@ -242,6 +247,9 @@ def main() -> int:
             "POCKETPC_FailBridgeLocked",
             "PDB_SURFACE_IDENTITY_MISMATCH",
             "PDB_SURFACE_RESPONSE_MISSING",
+            "PDB_FRAME_READY_SEND_FAILED",
+            "PDB_FRAME_ACK_REJECTED_DURING_SURFACE",
+            "PDB_FRAME_SLOT_IDENTITY_MISMATCH",
             "POCKETPC_QueueHostEventLocked",
             "PDB_MSG_FRAME_PRESENTED",
             "PDB_MSG_SURFACE_AVAILABLE",
@@ -323,10 +331,36 @@ def main() -> int:
             "pdb_wine_window_bridge_create",
             "pdb_wine_window_bridge_geometry",
             "pdb_wine_window_bridge_destroy",
+            "fail_closed_if_connection_invalid_locked",
+            "pocketpc_connection.fd < 0",
+            "POCKETPC_FailBridgeLocked",
             "pthread_mutex_lock",
             "pthread_mutex_unlock",
         ),
     )
+
+    window_bridge_source = (
+        ROOT /
+        "third_party/wine/pocketpc-display-bridge/pocketpc_wine_window_bridge.c"
+    ).read_text(encoding="utf-8")
+    require(
+        failures,
+        "Window lifecycle post-send fail-closed",
+        window_bridge_source,
+        (
+            "PDB_WINE_WINDOW_CREATE_STATE_FAILED",
+            "PDB_WINE_WINDOW_GEOMETRY_STATE_FAILED",
+            "PDB_WINE_WINDOW_DESTROY_STATE_FAILED",
+            "PDB_WINE_WINDOW_UNREGISTER_FAILED_AFTER_SEND",
+            "pdb_close(bridge->connection)",
+        ),
+    )
+    if window_bridge_source.count(
+        "pdb_close(bridge->connection)"
+    ) < 4:
+        failures.append(
+            "window lifecycle post-send failures must close the bridge"
+        )
 
     if not PREPARER.is_file():
         failures.append(
