@@ -382,6 +382,7 @@ function Invoke-PythonPolicyChecks {
         "scripts\test-python-script-syntax.py",
         "scripts\verify-android-build-lock.py",
         "scripts\test-gitignore-policy.py",
+        "scripts\test-python-syntax.py",
         "scripts\test-proot-artifact-policy.py",
         "scripts\verify-proot-approval.py",
         "scripts\test-device-evidence-bundle-verifier.py",
