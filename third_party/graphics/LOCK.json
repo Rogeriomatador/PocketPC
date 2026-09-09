@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 2,
-  "status": "GUEST_VULKAN_SOURCE_PINNED_NOT_BUILT_NOT_RUNTIME_TESTED",
+  "schemaVersion": 3,
+  "status": "GUEST_VULKAN_STACK_SOURCES_PINNED_NOT_BUILT_NOT_RUNTIME_TESTED",
   "guestVulkan": {
     "architecture": "pluggable-guest-icd",
     "firstBackend": "mesa-turnip-kgsl",
-    "selectionStatus": "SOURCE_PINNED_NOT_BUILT",
-    "reason": "PocketPC currently runs a Linux/glibc ARM64 guest. Android system Vulkan is Bionic and is not exposed to that guest; an in-guest Vulkan ICD must be proven before Wine Vulkan WSI or DXVK Present can be accepted.",
+    "selectionStatus": "SOURCES_PINNED_NOT_BUILT",
+    "reason": "PocketPC currently runs a Linux/glibc ARM64 guest. Android system Vulkan is Bionic and is not exposed to that guest; an in-guest Vulkan loader plus ICD must be proven before Wine Vulkan WSI or DXVK Present can be accepted.",
     "mesaTurnipKgsl": {
       "version": "26.2.2",
       "sourceUrl": "https://archive.mesa3d.org/mesa-26.2.2.tar.xz",
@@ -15,7 +15,7 @@
       "vulkanDriver": "freedreno/turnip",
       "kernelInterface": "kgsl",
       "gpuFamily": "Qualcomm Adreno",
-      "buildIntent": "Vulkan-only first; no window-system dependency is required for the initial vkCreateInstance/vkCreateDevice guest smoke.",
+      "buildIntent": "Vulkan-only first with Mesa platforms=[]; no X11/Wayland WSI dependency is accepted for the initial vkCreateInstance/vkCreateDevice guest smoke.",
       "built": false,
       "packaged": false,
       "guestLoaded": false,
@@ -26,10 +26,25 @@
     },
     "vulkanLoader": {
       "required": true,
-      "sourcePinned": false,
+      "repository": "https://github.com/KhronosGroup/Vulkan-Loader.git",
+      "tag": "v1.4.357",
+      "commit": "5f157b62e333c63260d05d81bf66faa216ab0fb8",
+      "target": "Linux/glibc AArch64 guest",
+      "sourcePinned": true,
+      "built": false,
       "packaged": false,
       "guestLoaded": false,
-      "note": "Ubuntu Base does not guarantee libvulkan.so.1 in the pinned rootfs. PocketPC must package or otherwise attest a loader explicitly."
+      "license": "Apache-2.0-style Khronos license",
+      "licenseEvidence": "LICENSE.txt at pinned commit"
+    },
+    "vulkanHeaders": {
+      "repository": "https://github.com/KhronosGroup/Vulkan-Headers.git",
+      "tag": "v1.4.357",
+      "tagObject": "354fab82dbd91d2526a41ee4dbfff1012a623798",
+      "commit": "e3b1eec08173d6b825cd3ac88c885a63b621504a",
+      "sourcePinned": true,
+      "built": false,
+      "license": "Apache-2.0"
     },
     "nonAdrenoBackend": {
       "status": "NOT_SELECTED",
@@ -64,7 +79,9 @@
   "gates": {
     "guestVulkanBackendSourcePinned": true,
     "guestVulkanBackendBuilt": false,
-    "guestVulkanLoaderPinned": false,
+    "guestVulkanLoaderPinned": true,
+    "guestVulkanHeadersPinned": true,
+    "guestVulkanLoaderBuilt": false,
     "guestVulkanLoaderPackaged": false,
     "guestVulkanIcdLoaded": false,
     "guestVulkanDeviceCreated": false,
