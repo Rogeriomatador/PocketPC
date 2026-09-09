@@ -270,6 +270,20 @@ def main() -> int:
             "SURFACE_REQUEST v3 field contract changed"
         )
 
+    frame_presented_fields = (
+        layouts.get("FRAME_PRESENTED") or {}
+    ).get("fields") or []
+    if frame_presented_fields != [
+        "windowId:u64",
+        "surfaceId:u64",
+        "generation:u64",
+        "frameId:u64",
+        "status:u32",
+    ]:
+        failures.append(
+            "FRAME_PRESENTED v4 field contract changed"
+        )
+
     geometry_fields = (
         layouts.get("WINDOW_GEOMETRY") or {}
     ).get("fields") or []
@@ -358,6 +372,7 @@ def main() -> int:
             "SURFACE_REQUEST_BYTES = 32",
             "SURFACE_AVAILABLE_BYTES = 56",
             "FRAME_READY_BYTES = 32",
+            "FRAME_PRESENTED_BYTES = 36",
             "PIXEL_FORMAT_BGRA8888 = 1",
             "WINDOW_GEOMETRY_BYTES = 40",
             "Z_ORDER_NO_CHANGE = 1 shl 0",
@@ -561,6 +576,7 @@ def main() -> int:
             "#define PDB_MSG_SURFACE_REQUEST 19u",
             "#define PDB_SURFACE_AVAILABLE_BYTES 56u",
             "#define PDB_FRAME_READY_BYTES 32u",
+            "#define PDB_FRAME_PRESENTED_BYTES 36u",
             "#define PDB_MSG_FRAME_READY 21u",
             "pdb_send_surface_request",
             "pdb_receive_surface_available",
@@ -568,6 +584,9 @@ def main() -> int:
             "pdb_send_frame_ready",
             "pdb_receive_pointer_event",
             "pdb_receive_key_event",
+            "struct pdb_frame_presented",
+            "surface_id",
+            "generation",
             "pdb_receive_frame_presented",
         ),
     )
@@ -673,6 +692,7 @@ def main() -> int:
             "POCKETPC_DISPLAY_BRIDGE_WINDOW_COMMAND_OK",
             "struct.pack(",
             '"<QII"',
+            '"<QQQQI"',
             "window_command=native-host-to-guest",
         ),
     )
