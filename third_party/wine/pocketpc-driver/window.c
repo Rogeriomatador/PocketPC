@@ -139,8 +139,8 @@ BOOL POCKETPC_WindowPosChanging(
     (void)shaped;
 
     if (
-        !pocketpc_bridge_ready ||
-        !rects
+        !rects ||
+        !POCKETPC_BridgeReady()
     ) {
         return FALSE;
     }
@@ -244,8 +244,8 @@ void POCKETPC_WindowPosChanged(
     (void)surface;
 
     if (
-        !pocketpc_bridge_ready ||
-        !new_rects
+        !new_rects ||
+        !POCKETPC_BridgeReady()
     ) {
         return;
     }
@@ -323,7 +323,7 @@ void POCKETPC_DestroyWindow(
     uint64_t window_id = 0u;
     char error[160] = {0};
 
-    if (!pocketpc_bridge_ready)
+    if (!POCKETPC_BridgeReady())
         return;
 
     pthread_mutex_lock(
