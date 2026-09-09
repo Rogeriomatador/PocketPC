@@ -136,6 +136,30 @@ object PcRuntimeReadinessProbe {
                         },
                 ),
                 PcRuntimeStage(
+                    id = "wine-display-driver",
+                    label = "Janelas Wine → PocketPC",
+                    state =
+                        if (
+                            probeEvidence
+                                ?.winePocketPcWindowSmokePassed ==
+                            true
+                        ) {
+                            PcRuntimeStageState.READY
+                        } else {
+                            PcRuntimeStageState.BLOCKED
+                        },
+                    detail =
+                        if (
+                            probeEvidence
+                                ?.winePocketPcWindowSmokePassed ==
+                            true
+                        ) {
+                            "winepocketpc.drv carregou uma janela GDI, apresentou pixels e recebeu mouse/teclado através da bridge com evidência vinculada à identidade atual."
+                        } else {
+                            "Ainda falta comprovar o carregamento real de winepocketpc.drv com janela, framebuffer e input de volta ao Win32."
+                        },
+                ),
+                PcRuntimeStage(
                     id = "windows-state",
                     label = "Filesystem, registro e processos Windows",
                     state =
@@ -248,6 +272,7 @@ object PcRuntimeReadinessProbe {
                 "rootfs",
                 "x86-64-translation",
                 "win32-compat",
+                "wine-display-driver",
                 "windows-state",
                 "graphics-bridge",
             )
