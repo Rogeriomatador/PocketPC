@@ -96,7 +96,9 @@ static BOOL wait_frame_presented_locked(
             event.type ==
                 PDB_MSG_POINTER_EVENT ||
             event.type ==
-                PDB_MSG_KEY_EVENT
+                PDB_MSG_KEY_EVENT ||
+            event.type ==
+                PDB_MSG_WINDOW_COMMAND
         ) {
             if (
                 !POCKETPC_QueueHostEventLocked(
@@ -483,7 +485,9 @@ static BOOL request_surface(
             event.type ==
                 PDB_MSG_POINTER_EVENT ||
             event.type ==
-                PDB_MSG_KEY_EVENT
+                PDB_MSG_KEY_EVENT ||
+            event.type ==
+                PDB_MSG_WINDOW_COMMAND
         ) {
             if (
                 !POCKETPC_QueueHostEventLocked(
