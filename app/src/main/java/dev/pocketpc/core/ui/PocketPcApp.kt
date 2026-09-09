@@ -548,6 +548,10 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                             desktopCapabilities = desktopCapabilities,
                         )
                         DesktopApp.PERFORMANCE -> PerformanceApp(sample)
+                        DesktopApp.TASK_MANAGER ->
+                            TaskManagerApp(
+                                desktop = desktop,
+                            )
                     }
                 }
                 }
