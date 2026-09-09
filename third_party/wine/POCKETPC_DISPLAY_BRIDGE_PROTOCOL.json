@@ -192,5 +192,32 @@
       ],
       "reusePolicy": "signature/behavior reference only; do not reuse wineandroid.drv binary or Java/JNI ABI"
     }
+  },
+  "inputSemantics": {
+    "pointer": {
+      "actions": {
+        "MOVE": 0,
+        "DOWN": 1,
+        "UP": 2,
+        "SCROLL": 3
+      },
+      "buttons": {
+        "PRIMARY": 1,
+        "SECONDARY": 2,
+        "MIDDLE": 4
+      },
+      "coordinates": "window-relative integer pixels",
+      "verticalScroll": "Windows WHEEL_DELTA units; zero unless action=SCROLL"
+    },
+    "keyboard": {
+      "actions": {
+        "DOWN": 1,
+        "UP": 2,
+        "REPEAT": 3
+      },
+      "keyCode": "Win32 virtual-key code",
+      "scanCode": "Win32 scan code; bit 0x100 marks extended key",
+      "repeatCount": "0 means one event for DOWN/UP; REPEAT uses max(1, repeatCount)"
+    }
   }
 }
