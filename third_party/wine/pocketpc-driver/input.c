@@ -29,7 +29,9 @@ BOOL POCKETPC_QueueHostEventLocked(
             event->type !=
                 PDB_MSG_POINTER_EVENT &&
             event->type !=
-                PDB_MSG_KEY_EVENT
+                PDB_MSG_KEY_EVENT &&
+            event->type !=
+                PDB_MSG_WINDOW_COMMAND
         ) ||
         host_event_queue_count >=
             POCKETPC_HOST_EVENT_QUEUE_LIMIT
@@ -402,6 +404,77 @@ static BOOL inject_key(
     return TRUE;
 }
 
+static BOOL dispatch_window_command(
+    const struct pdb_window_command *command
+) {
+    HWND hwnd;
+
+    if (!command)
+        return FALSE;
+
+    hwnd =
+        hwnd_for_window_id(
+            command->window_id
+        );
+    if (!hwnd)
+    {
+        WARN(
+            "window command for unknown window_id=%llu command=%u\n",
+            (unsigned long long)
+                command->window_id,
+            command->command
+        );
+        return FALSE;
+    }
+
+    TRACE(
+        "window command hwnd=%p command=%u\n",
+        hwnd,
+        command->command
+    );
+
+    switch (command->command)
+    {
+    case PDB_WINDOW_COMMAND_ACTIVATE:
+        (void)NtUserShowWindow(
+            hwnd,
+            SW_RESTORE
+        );
+        return NtUserSetForegroundWindow(
+            hwnd
+        );
+
+    case PDB_WINDOW_COMMAND_MINIMIZE:
+        return NtUserShowWindow(
+            hwnd,
+            SW_MINIMIZE
+        );
+
+    case PDB_WINDOW_COMMAND_RESTORE:
+        return NtUserShowWindow(
+            hwnd,
+            SW_RESTORE
+        );
+
+    case PDB_WINDOW_COMMAND_MAXIMIZE:
+        return NtUserShowWindow(
+            hwnd,
+            SW_MAXIMIZE
+        );
+
+    case PDB_WINDOW_COMMAND_CLOSE:
+        return NtUserPostMessage(
+            hwnd,
+            WM_CLOSE,
+            0,
+            0
+        );
+
+    default:
+        return FALSE;
+    }
+}
+
 BOOL POCKETPC_DispatchHostEvent(
     const struct pdb_host_event *event
 ) {
@@ -418,6 +491,11 @@ BOOL POCKETPC_DispatchHostEvent(
     case PDB_MSG_KEY_EVENT:
         return inject_key(
             &event->data.key
+        );
+
+    case PDB_MSG_WINDOW_COMMAND:
+        return dispatch_window_command(
+            &event->data.window_command
         );
 
     default:
@@ -519,6 +597,8 @@ BOOL POCKETPC_ProcessEvents(
                     next_type !=
                         PDB_MSG_KEY_EVENT &&
                     next_type !=
+                        PDB_MSG_WINDOW_COMMAND &&
+                    next_type !=
                         PDB_MSG_FRAME_PRESENTED
                 ) {
                     pthread_mutex_unlock(
@@ -578,6 +658,14 @@ BOOL POCKETPC_ProcessEvents(
                         &event
                     );
             }
+        } else if (
+            event.type ==
+                PDB_MSG_WINDOW_COMMAND
+        ) {
+            (void)
+                POCKETPC_DispatchHostEvent(
+                    &event
+                );
         } else if (
             event.type ==
                 PDB_MSG_FRAME_PRESENTED
