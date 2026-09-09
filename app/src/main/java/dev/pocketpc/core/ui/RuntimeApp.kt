@@ -505,6 +505,84 @@ fun RuntimeApp(
             }
         }
 
+
+    suspend fun preparePcApplicationAttempt(
+        selectedTarget: PcApplicationTarget,
+    ): Result<PendingPcApplicationAttempt> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val candidate =
+                    pcRuntimeCandidate
+                        ?: error(
+                            "PC_RUNTIME_CANDIDATE_MISSING",
+                        )
+                require(
+                    pcReadiness
+                        .controlledAttemptReady,
+                ) {
+                    "PC_RUNTIME_CONTROLLED_ATTEMPT_BLOCKED"
+                }
+
+                val runtime =
+                    candidate.runtime
+                val runtimeHome =
+                    bindPlanner
+                        .homeDirectory(runtime)
+                val materialized =
+                    targetMaterializer
+                        .materialize(
+                            target =
+                                selectedTarget,
+                            runtimeHome =
+                                runtimeHome,
+                        )
+                        .getOrThrow()
+                val prefix =
+                    WindowsPrefixPlanner
+                        .plan(
+                            storageRoot =
+                                runtimeHome,
+                            profileId =
+                                "smoke",
+                        )
+                val plan =
+                    PcWindowsLaunchAttemptPlanner
+                        .build(
+                            runtime =
+                                runtime,
+                            substrate =
+                                substrate,
+                            binds =
+                                bindPlanner
+                                    .base(runtime) +
+                                    toolOverlayPlan
+                                        .binds,
+                            allowedHostRoots =
+                                bindPlanner
+                                    .allowedHostRoots(),
+                            prefixPlan =
+                                prefix,
+                            target =
+                                materialized,
+                            evidence =
+                                candidate.evidence,
+                        )
+
+                require(plan.ready) {
+                    "PC_WINDOWS_ATTEMPT_BLOCKED:" +
+                        plan.blockers
+                            .joinToString(",")
+                }
+
+                PendingPcApplicationAttempt(
+                    runtime = runtime,
+                    layers =
+                        candidate.layers,
+                    plan = plan,
+                )
+            }
+        }
+
     val scrollState = rememberLazyListState()
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -813,9 +891,9 @@ fun RuntimeApp(
                                 executionPlan.attemptEligible
                             ) {
                                 "Runtime base READY para tentativa " +
-                                    "controlada; o aplicativo permanece " +
-                                    "UNVALIDATED. Falta materializar o " +
-                                    "alvo e conectá-lo ao executor Windows."
+                                    "controlada. O aplicativo continuará " +
+                                    "UNVALIDATED até existir evidência real " +
+                                    "desta execução."
                             } else {
                                 "Tentativa bloqueada pelos gates do runtime."
                             },
@@ -825,6 +903,46 @@ fun RuntimeApp(
                                 MaterialTheme.typography
                                     .labelSmall,
                         )
+                    }
+
+                    if (
+                        executionPlan.attemptEligible &&
+                        pcRuntimeCandidate != null
+                    ) {
+                        Button(
+                            enabled = !busy,
+                            onClick = {
+                                busy = true
+                                status =
+                                    "PC_WINDOWS_ATTEMPT_PREPARING"
+                                scope.launch {
+                                    preparePcApplicationAttempt(
+                                        selectedTarget,
+                                    ).onSuccess {
+                                        prepared ->
+                                        pendingPcApplicationAttempt =
+                                            prepared
+                                        status =
+                                            "PC_WINDOWS_ATTEMPT_READY_FOR_CONFIRMATION"
+                                    }.onFailure {
+                                        failure ->
+                                        status =
+                                            "PC_WINDOWS_ATTEMPT_PREPARE_FAILED: " +
+                                                (
+                                                    failure.message
+                                                        ?: failure
+                                                            .javaClass
+                                                            .simpleName
+                                                )
+                                    }
+                                    busy = false
+                                }
+                            },
+                        ) {
+                            Text(
+                                "Preparar tentativa Windows"
+                            )
+                        }
                     }
                 }
             }
@@ -1923,6 +2041,223 @@ fun RuntimeApp(
             }
     }
 
+
+    pendingPcApplicationAttempt?.let {
+        (
+            runtime,
+            executedLayers,
+            attempt,
+        ) ->
+        AlertDialog(
+            onDismissRequest = {
+                pendingPcApplicationAttempt =
+                    null
+            },
+            title = {
+                Text(
+                    "Executar aplicativo Windows?"
+                )
+            },
+            text = {
+                Column(
+                    modifier =
+                        Modifier.verticalScroll(
+                            rememberScrollState(),
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            6.dp,
+                        ),
+                ) {
+                    Text(
+                        attempt.target
+                            .source
+                            .fileName,
+                    )
+                    Text(
+                        "Runtime: " +
+                            runtime.manifest.name +
+                            " " +
+                            runtime.manifest.version,
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                    )
+                    Text(
+                        "SHA-256: " +
+                            attempt.target.sha256
+                                .take(24) +
+                            "…",
+                        style =
+                            MaterialTheme.typography
+                                .labelSmall,
+                    )
+                    Text(
+                        "O arquivo foi materializado em uma área " +
+                            "controlada do runtime. A execução usará " +
+                            "PRoot → Box64 → Wine e a Display Bridge.",
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                    )
+                    Text(
+                        "Esta é uma tentativa de integração. " +
+                            "Ela NÃO marca o aplicativo, Roblox ou " +
+                            "o runtime completo como compatível/validado.",
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .error,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        pendingPcApplicationAttempt =
+                            null
+                        busy = true
+                        showProbeOutput = true
+                        status =
+                            "PC_WINDOWS_ATTEMPT_START"
+
+                        scope.launch {
+                            try {
+                                val result =
+                                    displayExecutionController
+                                        .execute(
+                                            basePlan =
+                                                attempt
+                                                    .invocation,
+                                            runtime =
+                                                runtime,
+                                            tools =
+                                                installedTools,
+                                            layers =
+                                                executedLayers,
+                                            userApproved =
+                                                true,
+                                            desktopBridge =
+                                                desktopBridge,
+                                        )
+
+                                probeOutput =
+                                    buildString {
+                                        appendLine(
+                                            "Tentativa Windows: " +
+                                                attempt.target
+                                                    .source
+                                                    .fileName
+                                        )
+                                        appendLine(
+                                            "Processo: " +
+                                                result.process
+                                                    .state.name +
+                                                " • exit=" +
+                                                (
+                                                    result.process
+                                                        .exitCode
+                                                        ?: "—"
+                                                )
+                                        )
+                                        appendLine(
+                                            "Display Bridge autenticada: " +
+                                                result
+                                                    .bridgeAuthenticated
+                                        )
+                                        result.bridgeError
+                                            ?.let {
+                                                appendLine(
+                                                    "Bridge: " +
+                                                        it
+                                                )
+                                            }
+                                        if (
+                                            result.process
+                                                .output
+                                                .isNotBlank()
+                                        ) {
+                                            appendLine()
+                                            appendLine(
+                                                result.process
+                                                    .output
+                                                    .take(
+                                                        24_000,
+                                                    )
+                                            )
+                                        }
+                                        result.process
+                                            .error
+                                            ?.let {
+                                                appendLine(
+                                                    "Erro: " +
+                                                        it
+                                                )
+                                            }
+                                        appendLine()
+                                        append(
+                                            "Resultado de tentativa; " +
+                                                "compatibilidade permanece UNVALIDATED."
+                                        )
+                                    }
+
+                                status =
+                                    if (
+                                        result.process
+                                            .started &&
+                                        result
+                                            .bridgeAuthenticated
+                                    ) {
+                                        "PC_WINDOWS_ATTEMPT_FINISHED_UNVALIDATED"
+                                    } else {
+                                        "PC_WINDOWS_ATTEMPT_FAILED_UNVALIDATED"
+                                    }
+                            } catch (
+                                cancellation:
+                                    CancellationException
+                            ) {
+                                status =
+                                    "PC_WINDOWS_ATTEMPT_CANCELLED"
+                                throw cancellation
+                            } catch (
+                                failure: Exception
+                            ) {
+                                probeOutput =
+                                    "Tentativa Windows falhou: " +
+                                        (
+                                            failure.message
+                                                ?: failure
+                                                    .javaClass
+                                                    .simpleName
+                                        ) +
+                                        "\nCompatibilidade permanece UNVALIDATED."
+                                status =
+                                    "PC_WINDOWS_ATTEMPT_ERROR_UNVALIDATED"
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    },
+                ) {
+                    Text(
+                        "Executar tentativa"
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingPcApplicationAttempt =
+                            null
+                    },
+                ) {
+                    Text("Cancelar")
+                }
+            },
+        )
+    }
 
     pendingSuiteExecution?.let {
         (runtime, suiteLayers) ->
