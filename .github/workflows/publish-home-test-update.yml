@@ -1,0 +1,238 @@
+name: PocketPC Home Test OTA
+
+on:
+  push:
+    branches:
+      - improve/alpha22-desktop-continuity
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pocketpc-home-test-ota
+  cancel-in-progress: true
+
+jobs:
+  publish-home-test:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Checkout Alpha 22 source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+          path: source
+
+      - name: Gate release signing
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.POCKETPC_SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.POCKETPC_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.POCKETPC_SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.POCKETPC_SIGNING_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import os
+          required = [
+              os.environ.get("KEYSTORE_B64", ""),
+              os.environ.get("STORE_PASSWORD", ""),
+              os.environ.get("KEY_ALIAS", ""),
+              os.environ.get("KEY_PASSWORD", ""),
+          ]
+          ready = all(required)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"ready={'true' if ready else 'false'}\n")
+          if not ready:
+              print("HOME_TEST_OTA_BLOCKED_SIGNING_NOT_CONFIGURED")
+          else:
+              print("HOME_TEST_OTA_SIGNING_READY")
+          PY
+
+      - name: Stop when signing is unavailable
+        if: steps.signing.outputs.ready != 'true'
+        run: |
+          echo "A signed OTA cannot be produced without the PocketPC release key." >&2
+          exit 1
+
+      - name: Derive monotonic development version
+        id: version
+        run: |
+          python3 - <<'PY'
+          import os
+          run_number = int(os.environ["GITHUB_RUN_NUMBER"])
+          code = 220000 + run_number
+          if code >= 230000:
+              raise SystemExit("HOME_TEST_OTA_ALPHA22_VERSION_RANGE_EXHAUSTED")
+          name = f"0.1.0-alpha22.dev.{run_number}"
+          tag = f"home-alpha22-{run_number}"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"code={code}\n")
+              out.write(f"name={name}\n")
+              out.write(f"tag={tag}\n")
+          print(f"HOME_TEST_OTA_VERSION code={code} name={name}")
+          PY
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install pinned Android toolchain
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-37" \
+            "build-tools;36.0.0" \
+            "ndk;29.0.14206865" \
+            "cmake;3.22.1"
+
+      - name: Setup pinned Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Materialize signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.POCKETPC_SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+          destination = Path(os.environ["RUNNER_TEMP"]) / "pocketpc-home-test.jks"
+          destination.write_bytes(base64.b64decode(os.environ["KEYSTORE_B64"], validate=True))
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"POCKETPC_SIGNING_STORE_FILE={destination}\n")
+          PY
+
+      - name: Run OTA source policies
+        working-directory: source
+        run: |
+          python3 scripts/test-python-script-syntax.py
+          python3 scripts/test-update-feed-policy.py
+          python3 scripts/test-desktop-mode-policy.py
+          python3 scripts/test-desktop-enum-coverage.py
+
+      - name: Build and unit-test signed home build
+        working-directory: source
+        env:
+          POCKETPC_SOURCE_REVISION: ${{ github.sha }}
+          POCKETPC_VERSION_CODE: ${{ steps.version.outputs.code }}
+          POCKETPC_VERSION_NAME: ${{ steps.version.outputs.name }}
+          POCKETPC_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETPC_SIGNING_STORE_PASSWORD }}
+          POCKETPC_SIGNING_KEY_ALIAS: ${{ secrets.POCKETPC_SIGNING_KEY_ALIAS }}
+          POCKETPC_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETPC_SIGNING_KEY_PASSWORD }}
+        run: |
+          gradle --no-daemon \
+            :app:testDebugUnitTest \
+            :app:assembleRelease
+
+      - name: Verify APK identity and signature
+        id: apk
+        working-directory: source
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          OUT="app/build/outputs/apk/release/PocketPC-${EXPECTED_VERSION}.apk"
+          cp "$APK" "$OUT"
+
+          APK_SIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$APK_SIGNER" verify --verbose --print-certs "$OUT"
+          SIGNER_SHA="$($APK_SIGNER verify --print-certs "$OUT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
+          test -n "$SIGNER_SHA"
+          python3 scripts/verify-bootstrap-signer.py --signer-sha256 "$SIGNER_SHA"
+
+          echo "path=$OUT" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$OUT")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish immutable home-test prerelease
+        working-directory: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.name }}
+          APK: ${{ steps.apk.outputs.path }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "HOME_TEST_OTA_RELEASE_ALREADY_EXISTS" >&2
+            exit 1
+          fi
+          gh release create "$TAG" "$APK" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_SHA" \
+            --title "PocketPC $VERSION (Home Test)" \
+            --notes "Signed home-test OTA built from $SOURCE_SHA. DEVELOPMENT / NOT PHYSICAL-PASS." \
+            --prerelease
+
+      - name: Render development feed
+        working-directory: source
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          APK_NAME: ${{ steps.apk.outputs.name }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          APK_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+          python3 scripts/prepare-update-feed.py \
+            --apk "${{ steps.apk.outputs.path }}" \
+            --apk-url "$APK_URL" \
+            --source-revision "$SOURCE_SHA" \
+            --version-code "$VERSION_CODE" \
+            --version-name "$VERSION_NAME" \
+            --channel development \
+            --notes "Alpha 22 home-test build from $SOURCE_SHA" \
+            --output "$RUNNER_TEMP/stable.json" \
+            --publish
+          cat "$RUNNER_TEMP/stable.json"
+
+      - name: Checkout main feed branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: feed-main
+
+      - name: Publish OTA feed to main
+        env:
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          current_path = Path("feed-main/updates/stable.json")
+          candidate_path = Path(os.environ["RUNNER_TEMP"]) / "stable.json"
+          current = json.loads(current_path.read_text(encoding="utf-8"))
+          candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+          current_code = int(current.get("versionCode", -1))
+          candidate_code = int(candidate["versionCode"])
+          if current.get("published") is True and current_code >= candidate_code:
+              raise SystemExit("HOME_TEST_OTA_FEED_NOT_NEWER")
+          current_path.write_text(candidate_path.read_text(encoding="utf-8"), encoding="utf-8")
+          PY
+
+          cd feed-main
+          git config user.name "PocketPC Home Test Bot"
+          git config user.email "pocketpc-home-test@users.noreply.github.com"
+          git add updates/stable.json
+          git commit -m "release: publish home-test OTA ${{ steps.version.outputs.name }} [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Report OTA publication
+        run: |
+          echo "HOME_TEST_OTA_PUBLISHED"
+          echo "version=${{ steps.version.outputs.name }}"
+          echo "version_code=${{ steps.version.outputs.code }}"
+          echo "source=$SOURCE_SHA"
