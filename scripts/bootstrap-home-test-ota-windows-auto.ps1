@@ -130,18 +130,9 @@ $pathEntries = @(
 ) | Where-Object {
     -not [string]::IsNullOrWhiteSpace($_)
 }
-if (
-    $pathEntries -notcontains
-        $ghDirectory
-) {
-    $env:Path =
-        $env:Path +
-        ";" +
-        $ghDirectory
-    Write-Host (
-        "GitHub CLI adicionado ao PATH desta sessao: " +
-        $ghDirectory
-    ) -ForegroundColor DarkGray
+if ($pathEntries -notcontains $ghDirectory) {
+    $env:Path = $env:Path + ";" + $ghDirectory
+    Write-Host ("GitHub CLI adicionado ao PATH desta sessao: " + $ghDirectory) -ForegroundColor DarkGray
 }
 
 $bootstrap = Join-Path $PSScriptRoot "bootstrap-home-test-ota-windows.ps1"
