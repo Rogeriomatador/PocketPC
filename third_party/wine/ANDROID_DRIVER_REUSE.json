@@ -117,6 +117,8 @@
     "multiPeerDesktopRoutingImplemented": true,
     "multiPeerDesktopRoutingSoftwareTestExecuted": false,
     "multiPeerDisplayExecutionImplemented": true,
-    "multiPeerDisplayExecutionSoftwareTestExecuted": false
+    "multiPeerDisplayExecutionSoftwareTestExecuted": false,
+    "wineLauncherChildDisplayHandoffImplemented": true,
+    "wineLauncherChildDisplayHandoffSoftwareTestExecuted": false
   }
 }
