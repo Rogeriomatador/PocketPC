@@ -1,5 +1,7 @@
 package dev.pocketpc.core.runtime
 
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -107,6 +109,123 @@ class RuntimeDisplayBridgePayloadCodecTest {
                     payload,
                 )
                 .getOrThrow(),
+        )
+    }
+
+    @Test
+    fun windowGeometryAfterSiblingDecodes() {
+        val payload =
+            ByteBuffer
+                .allocate(
+                    RuntimeDisplayBridgePayloadCodec
+                        .WINDOW_GEOMETRY_BYTES,
+                )
+                .order(
+                    ByteOrder.LITTLE_ENDIAN,
+                )
+                .apply {
+                    putLong(7)
+                    putInt(10)
+                    putInt(20)
+                    putInt(800)
+                    putInt(600)
+                    putInt(1)
+                    putInt(
+                        RuntimeDisplayBridgePayloadCodec
+                            .Z_ORDER_AFTER_WINDOW,
+                    )
+                    putLong(5)
+                }
+                .array()
+
+        val geometry =
+            RuntimeDisplayBridgePayloadCodec
+                .decodeWindowGeometry(
+                    payload,
+                )
+                .getOrThrow()
+
+        assertEquals(7L, geometry.windowId)
+        assertEquals(
+            RuntimeDisplayBridgePayloadCodec
+                .Z_ORDER_AFTER_WINDOW,
+            geometry.zOrderFlags,
+        )
+        assertEquals(
+            5L,
+            geometry.insertAfterWindowId,
+        )
+    }
+
+    @Test
+    fun multipleZOrderFlagsFailClosed() {
+        val payload =
+            ByteBuffer
+                .allocate(
+                    RuntimeDisplayBridgePayloadCodec
+                        .WINDOW_GEOMETRY_BYTES,
+                )
+                .order(
+                    ByteOrder.LITTLE_ENDIAN,
+                )
+                .apply {
+                    putLong(7)
+                    putInt(0)
+                    putInt(0)
+                    putInt(10)
+                    putInt(10)
+                    putInt(1)
+                    putInt(
+                        RuntimeDisplayBridgePayloadCodec
+                            .Z_ORDER_TOP or
+                            RuntimeDisplayBridgePayloadCodec
+                                .Z_ORDER_TOPMOST,
+                    )
+                    putLong(0)
+                }
+                .array()
+
+        assertTrue(
+            RuntimeDisplayBridgePayloadCodec
+                .decodeWindowGeometry(
+                    payload,
+                )
+                .isFailure,
+        )
+    }
+
+    @Test
+    fun afterWindowRejectsSelfReference() {
+        val payload =
+            ByteBuffer
+                .allocate(
+                    RuntimeDisplayBridgePayloadCodec
+                        .WINDOW_GEOMETRY_BYTES,
+                )
+                .order(
+                    ByteOrder.LITTLE_ENDIAN,
+                )
+                .apply {
+                    putLong(7)
+                    putInt(0)
+                    putInt(0)
+                    putInt(10)
+                    putInt(10)
+                    putInt(1)
+                    putInt(
+                        RuntimeDisplayBridgePayloadCodec
+                            .Z_ORDER_AFTER_WINDOW,
+                    )
+                    putLong(7)
+                }
+                .array()
+
+        assertTrue(
+            RuntimeDisplayBridgePayloadCodec
+                .decodeWindowGeometry(
+                    payload,
+                )
+                .isFailure,
         )
     }
 
