@@ -376,6 +376,15 @@ class RuntimeDisplayBridgeHost(
                         ),
                     )
 
+                /*
+                 * The timeout above protects only the unauthenticated
+                 * handshake. An established desktop can legitimately be
+                 * idle for an arbitrary amount of time; keeping the same
+                 * SO_RCVTIMEO would tear down a healthy bridge after a
+                 * few seconds without guest traffic.
+                 */
+                socket.soTimeout = 0
+
                 RuntimeDisplayBridgePeer(
                     socket,
                     authentication
