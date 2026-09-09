@@ -121,7 +121,8 @@ int main(void) {
             640,
             480,
             1u,
-            2,
+            PDB_ZORDER_TOP,
+            0u,
             error,
             sizeof(error)
         ) != 0
