@@ -54,6 +54,22 @@ CHECKS = {
         "RuntimeDisplayBridgeSessionFactory",
         "RuntimeDisplayBridgeHost",
         "POCKETPC_DISPLAY_BRIDGE_HOST_AUTH_OK",
+        "POCKETPC_DISPLAY_BRIDGE_HOST_FRAMEBUFFER_OK",
+    ),
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDiagnosticSuite.kt": (
+        "GuestRuntimeProbe.SHELL",
+        "GuestRuntimeProbe.BOX64_SMOKE",
+        "GuestRuntimeProbe.DISPLAY_BRIDGE_SMOKE",
+        "GuestRuntimeProbe.WINE_SMOKE",
+        "GuestRuntimeProbe.D3D11_PRESENT_SMOKE",
+    ),
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeTestReadiness.kt": (
+        '"native-host"',
+        '"proot"',
+        '"rootfs"',
+        '"box64"',
+        '"wine"',
+        '"dxvk"',
     ),
     "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt": (
         "guestToolPackages.stageZip",
@@ -61,6 +77,10 @@ CHECKS = {
         "GuestToolOverlayPlanner.plan",
         "TOOL_STAGED_VERIFIED",
         "TOOL_INSTALLED_ATTESTED",
+        "RuntimeDiagnosticSuite.orderedProbes",
+        '"Teste completo"',
+        '"Pronto para testar no celular?"',
+        "FULL_RUNTIME_DIAGNOSTIC_STOPPED",
     ),
 }
 
