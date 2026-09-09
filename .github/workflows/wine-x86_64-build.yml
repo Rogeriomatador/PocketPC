@@ -1,4 +1,4 @@
-name: Wine 11 x86_64 Headless Build
+name: Wine 11 x86_64 PocketPC Driver Build
 
 on:
   workflow_dispatch:
@@ -32,7 +32,13 @@ jobs:
       - name: Validate pinned runtime source locks
         run: python3 scripts/test-pc-runtime-source-locks.py
 
-      - name: Build pinned Wine 11 headless x86_64 package
+      - name: Validate PocketPC Wine driver policy
+        run: python3 scripts/test-wine-pocketpc-driver-policy.py
+
+      - name: Validate display bridge protocol
+        run: python3 scripts/test-display-bridge-protocol-lock.py
+
+      - name: Build pinned Wine 11 x86_64 package with PocketPC driver
         run: |
           python3 scripts/build-wine-x86_64.py \
             --work "$RUNNER_TEMP/pocketpc-wine-build"
@@ -40,11 +46,12 @@ jobs:
       - name: Retain review package and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-Wine11-x86_64-headless-review
+          name: PocketPC-Wine11-x86_64-pocketpc-driver-review
           path: |
             ${{ runner.temp }}/pocketpc-wine-build/guest-package.zip
             ${{ runner.temp }}/pocketpc-wine-build/guest-package/guest-tool-manifest.json
             ${{ runner.temp }}/pocketpc-wine-build/wine-build-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-build/wine-pocketpc-driver-overlay-evidence.json
             ${{ runner.temp }}/pocketpc-wine-build/*.log
           if-no-files-found: error
 
