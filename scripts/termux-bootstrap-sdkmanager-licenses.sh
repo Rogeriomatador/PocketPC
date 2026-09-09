@@ -6,6 +6,9 @@ SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
 TMP_ROOT="${TMPDIR:-$PREFIX/tmp}/pocketpc-sdkmanager"
 INDEX="$TMP_ROOT/repository2-3.xml"
 REPOSITORY_XML_URL="https://dl.google.com/android/repository/repository2-3.xml"
+CMDLINE_TOOLS_VERSION="19.0"
+CMDLINE_TOOLS_PATH="cmdline-tools;$CMDLINE_TOOLS_VERSION"
+CMDLINE_TOOLS_DIR="$SDK_ROOT/cmdline-tools/$CMDLINE_TOOLS_VERSION"
 
 echo "PocketPC Termux sdkmanager/license bootstrap"
 echo "Classification : SDK_LICENSE_SETUP_ATTEMPT"
@@ -24,17 +27,10 @@ done
 
 mkdir -p "$TMP_ROOT" "$SDK_ROOT/cmdline-tools"
 
-SDKMANAGER=""
-for candidate in     "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"     "$SDK_ROOT/cmdline-tools/bin/sdkmanager"
-do
-    if [ -f "$candidate" ]; then
-        SDKMANAGER="$candidate"
-        break
-    fi
-done
+SDKMANAGER="$CMDLINE_TOOLS_DIR/bin/sdkmanager"
 
-if [ -z "$SDKMANAGER" ]; then
-    echo "sdkmanager=missing"
+if [ ! -f "$SDKMANAGER" ]; then
+    echo "sdkmanager_pinned=missing:$CMDLINE_TOOLS_PATH"
     echo "Downloading official Android command-line tools metadata..."
     curl --fail --location --silent --show-error         "$REPOSITORY_XML_URL"         --output "$INDEX"
 
@@ -44,6 +40,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 path = sys.argv[1]
+wanted = "cmdline-tools;19.0"
 root = ET.parse(path).getroot()
 
 def local(tag):
@@ -58,34 +55,16 @@ def child_text(node, name):
             return x.text.strip()
     return None
 
-packages = []
-for node in root.iter():
-    if local(node.tag) != "remotePackage":
+node = None
+for candidate in root.iter():
+    if local(candidate.tag) != "remotePackage":
         continue
-    p = node.attrib.get("path", "")
-    if p.startswith("cmdline-tools;"):
-        rev = child_text(node, "revision")
-        packages.append(node)
+    if candidate.attrib.get("path", "") == wanted:
+        node = candidate
+        break
 
-def version_tuple(node):
-    r = None
-    for c in node:
-        if local(c.tag) == "revision":
-            r = c
-            break
-    if r is None:
-        return (0,0,0,0)
-    vals = []
-    for n in ("major","minor","micro","preview"):
-        t = child_text(r,n)
-        try: vals.append(int(t or 0))
-        except: vals.append(0)
-    return tuple(vals)
-
-if not packages:
-    raise SystemExit("CMDLINE_TOOLS_PACKAGE_NOT_FOUND")
-
-node = max(packages, key=version_tuple)
+if node is None:
+    raise SystemExit("CMDLINE_TOOLS_PINNED_PACKAGE_NOT_FOUND:" + wanted)
 archive = None
 for a in children(node, "archive"):
     host = child_text(a, "host-os")
@@ -164,11 +143,11 @@ PY
         exit 6
     fi
 
-    rm -rf "$SDK_ROOT/cmdline-tools/latest"
-    mkdir -p "$SDK_ROOT/cmdline-tools/latest"
-    cp -a "$SOURCE/." "$SDK_ROOT/cmdline-tools/latest/"
+    rm -rf "$CMDLINE_TOOLS_DIR"
+    mkdir -p "$CMDLINE_TOOLS_DIR"
+    cp -a "$SOURCE/." "$CMDLINE_TOOLS_DIR/"
 
-    SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+    SDKMANAGER="$CMDLINE_TOOLS_DIR/bin/sdkmanager"
 
     if command -v termux-fix-shebang >/dev/null 2>&1; then
         termux-fix-shebang "$SDKMANAGER" || true
@@ -180,6 +159,7 @@ PY
 fi
 
 echo "sdkmanager=$SDKMANAGER"
+echo "cmdline_tools_version=$CMDLINE_TOOLS_VERSION"
 echo
 echo "Android requires you to accept the SDK license yourself."
 echo "The following command is interactive; answer y to agreements you accept."
