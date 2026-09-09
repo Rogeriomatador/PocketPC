@@ -132,6 +132,12 @@ int pdb_wine_window_bridge_create(
             error_bytes,
             "PDB_WINE_WINDOW_CREATE_STATE_FAILED"
         );
+        /*
+         * WINDOW_CREATE is already visible to the host. If the
+         * local lifecycle state cannot record that fact, continuing
+         * would make host and guest disagree about the window.
+         */
+        pdb_close(bridge->connection);
         return -1;
     }
 
@@ -230,6 +236,11 @@ int pdb_wine_window_bridge_geometry(
             error_bytes,
             "PDB_WINE_WINDOW_GEOMETRY_STATE_FAILED"
         );
+        /*
+         * Geometry was already sent. Fail the transport rather than
+         * keep a local lifecycle state that no longer matches host.
+         */
+        pdb_close(bridge->connection);
         return -1;
     }
 
@@ -330,6 +341,11 @@ int pdb_wine_window_bridge_destroy(
             error_bytes,
             "PDB_WINE_WINDOW_DESTROY_STATE_FAILED"
         );
+        /*
+         * WINDOW_DESTROY is already committed on the wire, so a
+         * local state failure is unrecoverable for this session.
+         */
+        pdb_close(bridge->connection);
         return -1;
     }
 
@@ -344,6 +360,12 @@ int pdb_wine_window_bridge_destroy(
             error_bytes,
             "PDB_WINE_WINDOW_UNREGISTER_FAILED_AFTER_SEND"
         );
+        /*
+         * Host has destroyed the window but the guest map still
+         * retained it. Close the session instead of reusing a stale
+         * window identity.
+         */
+        pdb_close(bridge->connection);
         return -1;
     }
 
