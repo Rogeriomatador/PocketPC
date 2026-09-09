@@ -919,9 +919,9 @@ BOOL POCKETPC_CreateWindowSurface(
     int height;
 
     if (
-        !pocketpc_bridge_ready ||
         !surface_rect ||
-        !surface
+        !surface ||
+        !POCKETPC_BridgeReady()
     ) {
         return FALSE;
     }
