@@ -95,4 +95,52 @@ class PcRuntimeExecutionPlannerTest {
             plan.nextAction.contains("integração")
         )
     }
+    @Test
+    fun controlledAttemptDoesNotPromoteApplicationValidation() {
+        val readiness =
+            PcRuntimeReadiness(
+                target = "Windows x64 em Android ARM64",
+                stages =
+                    listOf(
+                        PcRuntimeStage(
+                            id = "runtime",
+                            label = "Runtime base",
+                            state = PcRuntimeStageState.READY,
+                            detail = "ok",
+                        )
+                    ),
+                executableReady = false,
+                controlledAttemptReady = true,
+            )
+        val target =
+            PcApplicationTarget(
+                uri = "content://downloads/setup",
+                fileName = "setup.exe",
+                sizeBytes = 1L,
+            )
+        val compatibility =
+            PcApplicationCompatibilityProbe.assess(
+                fileName = target.fileName,
+                readiness = readiness,
+            )
+
+        val plan =
+            PcRuntimeExecutionPlanner.build(
+                target = target,
+                readiness = readiness,
+                compatibility = compatibility,
+            )
+
+        assertTrue(plan.attemptEligible)
+        assertFalse(plan.launchEligible)
+        assertFalse(
+            compatibility.applicationValidated,
+        )
+        assertTrue(
+            plan.nextAction.contains(
+                "UNVALIDATED",
+            )
+        )
+    }
+
 }
