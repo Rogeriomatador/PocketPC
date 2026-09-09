@@ -270,10 +270,30 @@ object RuntimeProcessRegistry {
         }
     }
 
+    internal fun associateMember(
+        id: Long,
+        pid: Long,
+    ): Boolean {
+        val current =
+            readProcProcess(pid)
+                ?: return false
+
+        return synchronized(lock) {
+            val entry =
+                entries[id]
+                    ?: return@synchronized false
+            entry.knownMembers[
+                current.pid
+            ] =
+                current.startTimeTicks
+            true
+        }
+    }
+
     internal fun markRootExited(
         id: Long,
         process: Process,
-    ) {
+    ): Boolean =
         synchronized(lock) {
             val entry =
                 entries[id]
@@ -281,7 +301,7 @@ object RuntimeProcessRegistry {
                         it.process ===
                             process
                     }
-                    ?: return
+                    ?: return@synchronized false
 
             entry.rootExited = true
             entry.rootPid?.let {
@@ -294,9 +314,11 @@ object RuntimeProcessRegistry {
                     .isEmpty()
             ) {
                 entries.remove(id)
+                false
+            } else {
+                true
             }
         }
-    }
 
     fun snapshots():
         List<RuntimeProcessSnapshot> {
@@ -1100,15 +1122,16 @@ class RuntimeProcessSupervisor {
                 runCatching {
                     process.errorStream.close()
                 }
-                registryId?.let { id ->
-                    RuntimeProcessRegistry
-                        .observeFamily(id)
-                    RuntimeProcessRegistry
-                        .markRootExited(
-                            id,
-                            process,
-                        )
-                }
+                val familyRetained =
+                    registryId?.let { id ->
+                        RuntimeProcessRegistry
+                            .observeFamily(id)
+                        RuntimeProcessRegistry
+                            .markRootExited(
+                                id,
+                                process,
+                            )
+                    } ?: false
                 synchronized(
                     this@RuntimeProcessSupervisor,
                 ) {
@@ -1117,7 +1140,8 @@ class RuntimeProcessSupervisor {
                     }
                     if (
                         activeRegistryId ==
-                            registryId
+                            registryId &&
+                        !familyRetained
                     ) {
                         activeRegistryId =
                             null
@@ -1125,6 +1149,23 @@ class RuntimeProcessSupervisor {
                 }
             }
         }
+
+    fun activeFamilyId():
+        Long? =
+        activeRegistryId
+
+    fun associateActiveFamilyPid(
+        pid: Long,
+    ): Boolean {
+        val id =
+            activeRegistryId
+                ?: return false
+        return RuntimeProcessRegistry
+            .associateMember(
+                id,
+                pid,
+            )
+    }
 
     fun stopActive(): Boolean {
         val current =
