@@ -1,6 +1,7 @@
 package dev.pocketpc.core.runtime
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -21,7 +22,6 @@ class RuntimeDiagnosticSuiteTest {
                 GuestRuntimeProbe.WINMM_AUDIO_API_SMOKE,
                 GuestRuntimeProbe.RAW_INPUT_API_SMOKE,
                 GuestRuntimeProbe.D3D11_SMOKE,
-                GuestRuntimeProbe.D3D11_PRESENT_SMOKE,
             ),
             RuntimeDiagnosticSuite
                 .orderedProbes,
@@ -70,6 +70,26 @@ class RuntimeDiagnosticSuiteTest {
         assertTrue(bridge > 0)
         assertTrue(bridge < wine)
         assertTrue(wine < wineWindow)
-        assertTrue(wineWindow < graphics)
+        ass
+    @Test
+    fun presentProbeIsExplicitlyBlockedUntilWsiBackendExists() {
+        assertFalse(
+            RuntimeDiagnosticSuite
+                .orderedProbes
+                .contains(
+                    GuestRuntimeProbe
+                        .D3D11_PRESENT_SMOKE,
+                ),
+        )
+        assertTrue(
+            RuntimeDiagnosticSuite
+                .structurallyBlockedProbes
+                .contains(
+                    GuestRuntimeProbe
+                        .D3D11_PRESENT_SMOKE,
+                ),
+        )
+    }
+ertTrue(wineWindow < graphics)
     }
 }
