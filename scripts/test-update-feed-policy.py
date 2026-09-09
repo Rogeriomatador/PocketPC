@@ -20,6 +20,15 @@ MAIN_ACTIVITY = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "c
 AUTO_TEST = ROOT / "app" / "src" / "test" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdaterPolicyTest.kt"
 PREPARE = ROOT / "scripts" / "prepare-update-feed.py"
 PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-update.yml"
+HOME_PUBLISH_WORKFLOW = (
+    ROOT / ".github" / "workflows" / "publish-home-test-update.yml"
+)
+HOME_BOOTSTRAP_WINDOWS = (
+    ROOT / "scripts" / "bootstrap-home-test-ota-windows.ps1"
+)
+HOME_BOOTSTRAP_AUTO = (
+    ROOT / "scripts" / "bootstrap-home-test-ota-windows-auto.ps1"
+)
 BOOTSTRAP_SIGNER = ROOT / "updates" / "bootstrap-signer.json"
 VERIFY_BOOTSTRAP_SIGNER = ROOT / "scripts" / "verify-bootstrap-signer.py"
 TEST_BOOTSTRAP_SIGNER = ROOT / "scripts" / "test-bootstrap-signer-verifier.py"
@@ -133,7 +142,7 @@ def main() -> int:
             "pocketPcSourceRevisionPinned",
         ),
         UPDATER: (
-            "raw.githubusercontent.com/Rogeriomatador/PocketPC/main/updates/stable.json",
+            "raw.githubusercontent.com/Rogeriomatador/PocketPC-Updates/main/latest.json",
             'manifest.apkUrl.startsWith("https://")',
             "SHA-256 do APK não confere.",
             "archiveInfo.packageName",
@@ -297,6 +306,37 @@ def main() -> int:
             "test-update-feed-policy.py",
             "updates/stable.json",
             "HEAD:main",
+        ),
+        HOME_PUBLISH_WORKFLOW: (
+            "PocketPC Home Test OTA",
+            "improve/alpha22-desktop-continuity",
+            "Rogeriomatador/PocketPC-Updates",
+            "POCKETPC_OTA_PUBLISH_TOKEN",
+            "POCKETPC_VERSION_CODE",
+            "POCKETPC_VERSION_NAME",
+            ":app:testDebugUnitTest",
+            ":app:assembleRelease",
+            "prepare-update-feed.py",
+            "--channel development",
+            "latest.json",
+        ),
+        HOME_BOOTSTRAP_WINDOWS: (
+            "Rogeriomatador/PocketPC-Updates",
+            "improve/alpha22-desktop-continuity",
+            "POCKETPC_OTA_PUBLISH_TOKEN",
+            "POCKETPC_VERSION_CODE",
+            "POCKETPC_VERSION_NAME",
+            ":app:testDebugUnitTest",
+            ":app:assembleRelease",
+            "prepare-update-feed.py",
+            '"development"',
+            "latest.json",
+            'adb @("install", "-r", $namedApk)',
+        ),
+        HOME_BOOTSTRAP_AUTO: (
+            "bootstrap-home-test-ota-windows.ps1",
+            "GitHub CLI: READY",
+            "gh auth login",
         ),
         PUBLISH_WORKFLOW: (
             "PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED",
