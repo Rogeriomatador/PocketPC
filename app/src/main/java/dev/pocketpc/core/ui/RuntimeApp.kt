@@ -566,6 +566,8 @@ fun RuntimeApp(
                                 materialized,
                             evidence =
                                 candidate.evidence,
+                            deployedLayers =
+                                candidate.layers,
                         )
 
                 require(plan.ready) {
