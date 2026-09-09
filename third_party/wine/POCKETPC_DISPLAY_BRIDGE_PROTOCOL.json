@@ -91,7 +91,9 @@
     "frameFailureFailClosedImplemented": true,
     "frameFailureFailClosedSoftwareTestExecuted": false,
     "windowLifecyclePostSendFailClosedImplemented": true,
-    "windowLifecyclePostSendFailClosedSoftwareTestExecuted": false
+    "windowLifecyclePostSendFailClosedSoftwareTestExecuted": false,
+    "bridgeReadySynchronizationImplemented": true,
+    "bridgeReadySynchronizationSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -239,7 +241,8 @@
     "frameAckIdentityRule": "FRAME_PRESENTED must exactly match windowId, surfaceId, generation and frameId of the in-flight FRAME_READY",
     "lateAckRule": "ACK from a replaced/destroyed surface cannot release ownership of a newer surface even when frameId is reused",
     "inputMaskRule": "Pointer/key events received while the current pProcessEvents mask excludes them are retained in the bounded host-event queue. Eligible events may be selected past deferred events, matching Wine queue-mask semantics; queue overflow or an unexpected transaction event fails the bridge closed.",
-    "frameFailureRule": "FRAME_PRESENTED with non-zero status, wrong active identity or wrong in-flight frame is fatal for the current bridge session; the guest closes the transport instead of silently releasing ownership and continuing."
+    "frameFailureRule": "FRAME_PRESENTED with non-zero status, wrong active identity or wrong in-flight frame is fatal for the current bridge session; the guest closes the transport instead of silently releasing ownership and continuing.",
+    "bridgeReadinessRule": "Bridge readiness is read through the driver mutex and requires both pocketpc_bridge_ready and a non-negative transport fd. Callbacks re-check readiness under the mutex immediately before IPC."
   },
   "zOrder": {
     "model": "single-choice flags",
