@@ -215,15 +215,35 @@ class RuntimeDisplayBridgeProbeController(
                 compositor =
                     activeCompositor
                 desktopBinding =
-                    desktopBridge?.bind {
-                        command ->
-                        runCatching {
-                            activeProcessor
-                                .sendWindowCommand(
-                                    command,
-                                )
-                        }
-                    }
+                    desktopBridge?.bind(
+                        commandSender = {
+                            command ->
+                            runCatching {
+                                activeProcessor
+                                    .sendWindowCommand(
+                                        command,
+                                    )
+                            }
+                        },
+                        pointerSender = {
+                            event ->
+                            runCatching {
+                                activeProcessor
+                                    .sendPointer(
+                                        event,
+                                    )
+                            }
+                        },
+                        keySender = {
+                            event ->
+                            runCatching {
+                                activeProcessor
+                                    .sendKey(
+                                        event,
+                                    )
+                            }
+                        },
+                    )
 
                 fun publishStep(
                     step:
