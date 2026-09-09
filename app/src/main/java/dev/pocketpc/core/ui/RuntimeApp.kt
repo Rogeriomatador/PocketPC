@@ -41,6 +41,7 @@ import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceState
 import dev.pocketpc.core.runtime.RuntimeDisplayBridgeProbeController
+import dev.pocketpc.core.runtime.RuntimeDiagnosticSuite
 import dev.pocketpc.core.runtime.StagedRuntime
 import dev.pocketpc.core.runtime.StagedGuestToolPackage
 import dev.pocketpc.core.runtime.WindowsPrefixPlanner
@@ -58,6 +59,11 @@ private data class PendingRuntimeProbeExecution(
     val runtime: InstalledRuntime,
     val plan: ProotInvocationPlan,
     val probe: GuestRuntimeProbe,
+    val layers: List<DeployedWindowsRuntimeLayer>,
+)
+
+private data class PendingRuntimeSuiteExecution(
+    val runtime: InstalledRuntime,
     val layers: List<DeployedWindowsRuntimeLayer>,
 )
 
@@ -128,6 +134,11 @@ fun RuntimeApp(
     var pendingExecution by remember {
         mutableStateOf<
             PendingRuntimeProbeExecution?
+        >(null)
+    }
+    var pendingSuiteExecution by remember {
+        mutableStateOf<
+            PendingRuntimeSuiteExecution?
         >(null)
     }
     var staged by remember { mutableStateOf<List<StagedRuntime>>(emptyList()) }
@@ -325,6 +336,84 @@ fun RuntimeApp(
             tools = installedTools,
             allowedHostRoots = bindPlanner.allowedHostRoots(),
         )
+
+    suspend fun buildProbeInvocationPlan(
+        runtime: InstalledRuntime,
+        probe: GuestRuntimeProbe,
+        layers: List<DeployedWindowsRuntimeLayer>,
+    ): ProotInvocationPlan =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val requirementBlockers =
+                    GuestProbeRequirements.blockers(
+                        probe = probe,
+                        installedToolIds =
+                            installedTools
+                                .map {
+                                    it.manifest.id
+                                }
+                                .toSet(),
+                        overlayValid =
+                            toolOverlayPlan.valid,
+                        installedWindowsLayerIds =
+                            layers
+                                .map {
+                                    it.manifest.id
+                                }
+                                .toSet(),
+                    )
+                if (
+                    requirementBlockers
+                        .isNotEmpty()
+                ) {
+                    ProotInvocationPlan(
+                        ready = false,
+                        argv = emptyList(),
+                        environment =
+                            emptyMap(),
+                        blockers =
+                            (
+                                requirementBlockers +
+                                    toolOverlayPlan
+                                        .blockers
+                                ).distinct(),
+                    )
+                } else {
+                    ProotInvocationPlanner
+                        .buildProbe(
+                            runtime = runtime,
+                            substrate =
+                                substrate,
+                            probe = probe,
+                            binds =
+                                bindPlanner
+                                    .base(runtime) +
+                                    toolOverlayPlan
+                                        .binds,
+                            allowedHostRoots =
+                                bindPlanner
+                                    .allowedHostRoots(),
+                        )
+                }
+            }.getOrElse { failure ->
+                ProotInvocationPlan(
+                    ready = false,
+                    argv = emptyList(),
+                    environment =
+                        emptyMap(),
+                    blockers =
+                        listOf(
+                            "BIND_PLAN_FAILED:" +
+                                (
+                                    failure.message
+                                        ?: failure
+                                            .javaClass
+                                            .simpleName
+                                    ),
+                        ),
+                )
+            }
+        }
 
     val scrollState = rememberLazyListState()
     LazyColumn(
@@ -1458,6 +1547,25 @@ fun RuntimeApp(
                     enabled = !busy,
                     executionReady =
                         executionRequestReady,
+                    onRunSuite =
+                        if (
+                            RootfsExecutionReadinessProbe
+                                .assess(runtime)
+                                .ready &&
+                            !busy
+                        ) {
+                            {
+                                pendingSuiteExecution =
+                                    PendingRuntimeSuiteExecution(
+                                        runtime =
+                                            runtime,
+                                        layers =
+                                            deployedWindowsLayers,
+                                    )
+                            }
+                        } else {
+                            null
+                        },
                     onRunProbe =
                         if (
                             executionRequestReady &&
@@ -1859,6 +1967,7 @@ private fun InstalledRuntimeCard(
     runtime: InstalledRuntime,
     enabled: Boolean,
     executionReady: Boolean,
+    onRunSuite: (() -> Unit)?,
     onRunProbe: (() -> Unit)?,
     onPrepareLinks: (() -> Unit)?,
     onVerifyLinks: (() -> Unit)?,
@@ -1897,12 +2006,20 @@ private fun InstalledRuntimeCard(
             )
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (onRunProbe != null) {
+                if (onRunSuite != null) {
                     Button(
+                        onClick = onRunSuite,
+                        enabled = enabled,
+                    ) {
+                        Text("Teste completo")
+                    }
+                }
+                if (onRunProbe != null) {
+                    TextButton(
                         onClick = onRunProbe,
                         enabled = enabled,
                     ) {
-                        Text("Executar probe")
+                        Text("Probe individual")
                     }
                 }
                 if (onPrepareLinks != null) {
