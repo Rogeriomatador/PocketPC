@@ -166,10 +166,9 @@ class RuntimeDisplayBridgeProbeController(
             var peer:
                 RuntimeDisplayBridgePeer? =
                 null
-            val surfaceRegistry =
-                RuntimeDisplaySurfaceRegistry(
-                    hostTemp,
-                )
+            var processor:
+                RuntimeDisplayHostProcessor? =
+                null
             var negotiated = 0
             var authenticated = false
             var roundTrip = false
@@ -189,20 +188,22 @@ class RuntimeDisplayBridgeProbeController(
                 negotiated =
                     peer.negotiatedCapabilities
 
-                val machine =
-                    RuntimeDisplayBridgeStateMachine(
-                        negotiated,
+                val activeProcessor =
+                    RuntimeDisplayHostProcessor(
+                        endpoint = peer,
+                        hostTempDirectory =
+                            hostTemp,
                     )
+                processor =
+                    activeProcessor
 
-                val create =
-                    peer.readFrame()
-                        .getOrThrow()
-                val createEvent =
-                    machine.apply(create)
+                val createStep =
+                    activeProcessor
+                        .processNext()
                         .getOrThrow()
                 val window =
                     (
-                        createEvent as?
+                        createStep.event as?
                             RuntimeDisplayBridgeEvent
                                 .WindowCreated
                         )?.window
@@ -210,16 +211,13 @@ class RuntimeDisplayBridgeProbeController(
                             "DISPLAY_BRIDGE_EXPECTED_WINDOW_CREATE",
                         )
 
-                val surfaceRequestFrame =
-                    peer.readFrame()
+                val surfaceStep =
+                    activeProcessor
+                        .processNext()
                         .getOrThrow()
-                val surfaceRequestEvent =
-                    machine.apply(
-                        surfaceRequestFrame,
-                    ).getOrThrow()
                 val surfaceRequest =
                     (
-                        surfaceRequestEvent as?
+                        surfaceStep.event as?
                             RuntimeDisplayBridgeEvent
                                 .SurfaceRequested
                         )?.request
@@ -234,36 +232,21 @@ class RuntimeDisplayBridgeProbeController(
                     "DISPLAY_BRIDGE_SURFACE_REQUEST_WINDOW_MISMATCH"
                 }
 
-                val allocatedSurface =
-                    surfaceRegistry
-                        .allocate(
-                            surfaceRequest,
-                        )
-                        .getOrElse {
-                            throw IllegalStateException(
-                                "DISPLAY_BRIDGE_FRAMEBUFFER_ALLOCATION_FAILED:" +
-                                    (
-                                        it.message
-                                            ?: it.javaClass
-                                                .simpleName
-                                    ),
-                                it,
-                            )
-                        }
-
-                peer.sendSurfaceAvailable(
-                    allocatedSurface,
-                )
-
-                val geometry =
-                    peer.readFrame()
+                val geometryStep =
+                    activeProcessor
+                        .processNext()
                         .getOrThrow()
-                machine.apply(
-                    geometry,
-                ).getOrThrow()
+                require(
+                    geometryStep.event is
+                        RuntimeDisplayBridgeEvent
+                            .WindowGeometryChanged
+                ) {
+                    "DISPLAY_BRIDGE_EXPECTED_WINDOW_GEOMETRY"
+                }
 
                 require(
-                    machine.snapshot()
+                    activeProcessor
+                        .windowsSnapshot()
                         .singleOrNull()
                         ?.geometry
                         ?.visible ==
@@ -272,52 +255,32 @@ class RuntimeDisplayBridgeProbeController(
                     "DISPLAY_BRIDGE_WINDOW_NOT_VISIBLE"
                 }
 
-                val frameReady =
-                    peer.readFrame()
+                val frameStep =
+                    activeProcessor
+                        .processNext()
                         .getOrThrow()
-                val readyEvent =
-                    machine.apply(
-                        frameReady,
-                    ).getOrThrow()
-                val ready =
-                    (
-                        readyEvent as?
-                            RuntimeDisplayBridgeEvent
-                                .FrameReady
-                        )?.frame
+                val presented =
+                    frameStep
+                        .presentedFrame
                         ?: error(
                             "DISPLAY_BRIDGE_EXPECTED_FRAME_READY",
                         )
 
                 require(
-                    ready.frameId == 1L
+                    presented.ready.frameId ==
+                        1L &&
+                        presented.ready.windowId ==
+                            window.windowId
                 ) {
                     "DISPLAY_BRIDGE_FRAME_READY_IDENTITY_MISMATCH"
                 }
 
-                val acceptedFramebuffer =
-                    surfaceRegistry
-                        .acceptFrame(
-                            ready,
-                        )
-                        .getOrElse {
-                            throw IllegalStateException(
-                                "DISPLAY_BRIDGE_FRAME_READY_IDENTITY_MISMATCH:" +
-                                    (
-                                        it.message
-                                            ?: it.javaClass
-                                                .simpleName
-                                    ),
-                                it,
-                            )
-                        }
-
-                acceptedFramebuffer
-                    .validateSmokePattern()
-                    .getOrThrow()
+                validateSmokeFrame(
+                    presented.pixels,
+                ).getOrThrow()
                 frameValidated = true
 
-                peer.sendPointer(
+                activeProcessor.sendPointer(
                     RuntimeBridgePointerEvent(
                         windowId =
                             window.windowId,
@@ -330,7 +293,7 @@ class RuntimeDisplayBridgeProbeController(
                         modifiers = 0,
                     ),
                 )
-                peer.sendKey(
+                activeProcessor.sendKey(
                     RuntimeBridgeKeyEvent(
                         windowId =
                             window.windowId,
@@ -341,43 +304,28 @@ class RuntimeDisplayBridgeProbeController(
                         repeatCount = 0,
                     ),
                 )
-                peer.sendFramePresented(
-                    RuntimeBridgeFramePresented(
-                        windowId =
-                            window.windowId,
-                        frameId =
-                            ready.frameId,
-                        status = 0,
-                    ),
-                )
+                activeProcessor
+                    .acknowledgePendingFrame()
+                    .getOrThrow()
 
-                val destroy =
-                    peer.readFrame()
+                val destroyStep =
+                    activeProcessor
+                        .processNext()
                         .getOrThrow()
-                val destroyEvent =
-                    machine.apply(
-                        destroy,
-                    ).getOrThrow()
-                val destroyedWindowId =
-                    (
-                        destroyEvent as?
-                            RuntimeDisplayBridgeEvent
-                                .WindowDestroyed
-                        )?.windowId
-                        ?: error(
-                            "DISPLAY_BRIDGE_EXPECTED_WINDOW_DESTROY",
-                        )
                 require(
-                    surfaceRegistry
-                        .removeWindow(
-                            destroyedWindowId,
-                        )
+                    destroyStep.event is
+                        RuntimeDisplayBridgeEvent
+                            .WindowDestroyed
                 ) {
-                    "DISPLAY_BRIDGE_SURFACE_REMOVE_FAILED"
+                    "DISPLAY_BRIDGE_EXPECTED_WINDOW_DESTROY"
                 }
                 require(
-                    machine.snapshot()
-                        .isEmpty(),
+                    activeProcessor
+                        .windowsSnapshot()
+                        .isEmpty() &&
+                        activeProcessor
+                            .surfacesSnapshot()
+                            .isEmpty(),
                 ) {
                     "DISPLAY_BRIDGE_WINDOW_DESTROY_FAILED"
                 }
@@ -388,9 +336,9 @@ class RuntimeDisplayBridgeProbeController(
                         ?: error.javaClass
                             .simpleName
             } finally {
+                processor?.close()
                 peer?.close()
                 host.close()
-                surfaceRegistry.close()
             }
 
             val process =
@@ -465,4 +413,47 @@ class RuntimeDisplayBridgeProbeController(
                     bridgeError,
             )
         }
+
+    private fun validateSmokeFrame(
+        frame:
+            RuntimeDisplayFramePixels,
+    ): Result<Unit> =
+        runCatching {
+            require(
+                frame.width == 64 &&
+                    frame.height == 64 &&
+                    frame.argb.size ==
+                        64 * 64,
+            ) {
+                "DISPLAY_BRIDGE_FRAMEBUFFER_SIZE_INVALID"
+            }
+
+            for (y in 0 until 64) {
+                for (x in 0 until 64) {
+                    val expected =
+                        (
+                            0xff shl 24
+                        ) or
+                            (
+                                (x xor y) shl
+                                    16
+                            ) or
+                            (
+                                y shl 8
+                            ) or
+                            x
+                    require(
+                        frame.argb[
+                            y * 64 + x
+                        ] == expected,
+                    ) {
+                        "DISPLAY_BRIDGE_FRAMEBUFFER_PATTERN_MISMATCH:" +
+                            x +
+                            "," +
+                            y
+                    }
+                }
+            }
+        }
+
 }
