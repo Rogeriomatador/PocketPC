@@ -1,0 +1,83 @@
+name: Wine PocketPC Driver Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'third_party/wine/**'
+      - 'scripts/prepare-wine-source.py'
+      - 'scripts/prepare-wine-pocketpc-driver.py'
+      - 'scripts/build-wine-pocketpc-driver.py'
+      - 'scripts/test-wine-pocketpc-driver-policy.py'
+      - 'scripts/test-display-bridge-protocol-lock.py'
+      - '.github/workflows/wine-pocketpc-driver-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-driver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout PocketPC
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Wine build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            gcc-mingw-w64-x86-64 \
+            bison \
+            flex \
+            pkg-config
+
+      - name: Validate runtime and driver policies
+        run: |
+          python3 scripts/test-pc-runtime-source-locks.py
+          python3 scripts/test-display-bridge-protocol-lock.py
+          python3 scripts/test-wine-pocketpc-driver-policy.py
+
+      - name: Fetch exact pinned Wine source
+        run: |
+          python3 scripts/prepare-wine-source.py \
+            --work "$RUNNER_TEMP/pocketpc-wine-driver-source"
+
+      - name: Apply PocketPC driver overlay
+        run: |
+          python3 scripts/prepare-wine-pocketpc-driver.py \
+            --wine-source "$RUNNER_TEMP/pocketpc-wine-driver-source/source" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json"
+
+      - name: Build only winepocketpc driver
+        run: |
+          python3 scripts/build-wine-pocketpc-driver.py \
+            --wine-source "$RUNNER_TEMP/pocketpc-wine-driver-source/source" \
+            --work "$RUNNER_TEMP/pocketpc-wine-driver-build"
+
+      - name: Prove repository stayed unmodified
+        if: always()
+        run: |
+          git diff --exit-code -- app third_party scripts
+
+      - name: Upload Wine PocketPC driver evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Wine11-driver-build-evidence
+          path: |
+            ${{ runner.temp }}/pocketpc-wine-driver-source/wine-build-plan.json
+            ${{ runner.temp }}/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json
+            ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-driver-build/configure.log
+            ${{ runner.temp }}/pocketpc-wine-driver-build/driver-build.log
+            ${{ runner.temp }}/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv
+            ${{ runner.temp }}/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.so
+          if-no-files-found: warn
