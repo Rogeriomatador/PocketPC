@@ -248,7 +248,7 @@ def main() -> int:
             "PDB_POINTER_ACTION_DOWN",
             "PDB_POINTER_ACTION_UP",
             "PDB_POINTER_ACTION_SCROLL",
-            "PDB_KEY_ACTION_DOWN",
+            "KEYEVENTF_KEYUP",
             "PDB_KEY_ACTION_UP",
             "PDB_KEY_ACTION_REPEAT",
             "pdb_peek_message_type",
