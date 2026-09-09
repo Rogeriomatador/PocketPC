@@ -204,6 +204,17 @@ class ProotExecutionController(
         )
     }
 
+    fun activeFamilyId():
+        Long? =
+        supervisor.activeFamilyId()
+
+    fun associateActiveFamilyPid(
+        pid: Long,
+    ): Boolean =
+        supervisor.associateActiveFamilyPid(
+            pid,
+        )
+
     fun stopActive(): Boolean =
         supervisor.stopActive()
 
