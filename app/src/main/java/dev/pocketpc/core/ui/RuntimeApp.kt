@@ -2290,7 +2290,12 @@ fun RuntimeApp(
                                         result.process
                                             .started &&
                                         result
-                                            .bridgeAuthenticated
+                                            .bridgeAuthenticated &&
+                                        result
+                                            .authenticatedPeerCount >
+                                            0 &&
+                                        result.bridgeError ==
+                                            null
                                     ) {
                                         "PC_WINDOWS_ATTEMPT_FINISHED_UNVALIDATED"
                                     } else {
