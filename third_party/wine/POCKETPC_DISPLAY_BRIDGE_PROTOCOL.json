@@ -129,7 +129,9 @@
     "multiPeerDesktopRoutingImplemented": true,
     "multiPeerDesktopRoutingSoftwareTestExecuted": false,
     "multiPeerDisplayExecutionImplemented": true,
-    "multiPeerDisplayExecutionSoftwareTestExecuted": false
+    "multiPeerDisplayExecutionSoftwareTestExecuted": false,
+    "wineLauncherChildDisplayHandoffImplemented": true,
+    "wineLauncherChildDisplayHandoffSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -401,6 +403,8 @@
     "desktopRouting": "RuntimeDesktopBridge keeps concurrent bindings, maps every windowId to one owning binding, and routes window commands, pointer events and keyboard events to that owner",
     "sessionLifecycle": "RuntimeDisplayExecutionController requires the first authenticated peer, then continues accepting authenticated peers until the launched PRoot/Wine session exits",
     "zOrderMerge": "per-peer compositor order is merged; topmost windows stay above non-topmost windows and global zIndex is reassigned",
-    "evidence": "source/unit/native smoke prepared; CI/physical execution remains false until a runner/device executes it"
+    "evidence": "source/unit/native smoke prepared; CI/physical execution remains false until a runner/device executes it",
+    "launcherChildHandoff": "if the supervised root/launcher exits before a first graphical peer, wait up to 5000 ms for a child peer; after authentication keep the host alive while any peer session remains active, then require 5000 ms of peer quiescence before teardown",
+    "rootProcessLimitation": "RuntimeProcessSupervisor still owns only the initial host Process; descendant termination/process-family supervision remains a separate unvalidated stage"
   }
 }
