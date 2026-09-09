@@ -59,7 +59,10 @@
     "protocolV3NativeIntegrationExecuted": false,
     "surfaceWriterNativeSoftwareTestExecuted": false,
     "hostSurfaceRegistryImplemented": true,
-    "hostSurfaceRegistrySoftwareTestExecuted": false
+    "hostSurfaceRegistrySoftwareTestExecuted": false,
+    "singleBufferOwnershipAckImplemented": true,
+    "doubleBufferingImplemented": false,
+    "surfaceVisibilityCrossProcessSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -187,7 +190,10 @@
     "hostCurrentMaxBytes": 67108864,
     "coherence": "MAP_SHARED page-cache visibility ordered by FRAME_READY; no per-frame MS_SYNC",
     "frameRule": "frameId must strictly increase for the active windowId/surfaceId/generation",
-    "resizeRule": "new backing surface is allocated before the previous backing file is released"
+    "resizeRule": "new backing surface is allocated before the previous backing file is released",
+    "ownershipRule": "single buffer: guest must not modify the active surface after FRAME_READY until matching FRAME_PRESENTED(status=0)",
+    "frameAckDemux": "while waiting for FRAME_PRESENTED, pointer/key events may be queued; mismatched ACK or unexpected message fails closed",
+    "buffering": "single-buffer-v3; double/triple buffering not implemented"
   },
   "zOrder": {
     "model": "single-choice flags",
