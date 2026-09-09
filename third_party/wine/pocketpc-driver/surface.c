@@ -1032,8 +1032,22 @@ BOOL POCKETPC_CreateWindowSurface(
             created
         )
     ) {
+        /*
+         * SURFACE_AVAILABLE has already been accepted and mapped.
+         * If the guest registry cannot publish the same surface,
+         * host and guest would disagree about the active generation.
+         */
+        pthread_mutex_lock(
+            &pocketpc_bridge_mutex
+        );
+        POCKETPC_FailBridgeLocked(
+            "PDB_SURFACE_REGISTRY_PUBLISH_FAILED"
+        );
+        pthread_mutex_unlock(
+            &pocketpc_bridge_mutex
+        );
         ERR(
-            "surface registry full hwnd=%p\n",
+            "surface registry full/desynced hwnd=%p\n",
             hwnd
         );
         window_surface_release(
