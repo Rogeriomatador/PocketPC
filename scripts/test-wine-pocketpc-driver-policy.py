@@ -101,6 +101,7 @@ def main() -> int:
         "wineProcessWindowNamespaceImplemented",
         "multiPeerDesktopRoutingImplemented",
         "multiPeerDisplayExecutionImplemented",
+        "wineLauncherChildDisplayHandoffImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
@@ -126,6 +127,7 @@ def main() -> int:
         "wineProcessWindowNamespaceSoftwareTestExecuted",
         "multiPeerDesktopRoutingSoftwareTestExecuted",
         "multiPeerDisplayExecutionSoftwareTestExecuted",
+        "wineLauncherChildDisplayHandoffSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
