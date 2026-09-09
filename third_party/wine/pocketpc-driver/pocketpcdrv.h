@@ -18,12 +18,15 @@
 #include "pocketpc_display_bridge.h"
 #include "pocketpc_wine_window_bridge.h"
 
+#define POCKETPC_MAX_EVENTS_PER_PUMP 64u
+
 extern struct pdb_connection pocketpc_connection;
 extern struct pdb_wine_window_bridge pocketpc_windows;
 extern pthread_mutex_t pocketpc_bridge_mutex;
 extern BOOL pocketpc_bridge_ready;
 
 BOOL POCKETPC_CreateWindow(HWND hwnd);
+BOOL POCKETPC_ProcessEvents(DWORD mask);
 void POCKETPC_DestroyWindow(HWND hwnd);
 BOOL POCKETPC_WindowPosChanging(
     HWND hwnd,
