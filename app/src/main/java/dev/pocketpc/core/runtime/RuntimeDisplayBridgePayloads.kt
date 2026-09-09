@@ -83,6 +83,23 @@ object RuntimeDisplayBridgePayloadCodec {
 
     const val PIXEL_FORMAT_BGRA8888 = 1
 
+    const val POINTER_ACTION_MOVE = 0
+    const val POINTER_ACTION_DOWN = 1
+    const val POINTER_ACTION_UP = 2
+    const val POINTER_ACTION_SCROLL = 3
+
+    const val POINTER_BUTTON_PRIMARY = 1 shl 0
+    const val POINTER_BUTTON_SECONDARY = 1 shl 1
+    const val POINTER_BUTTON_MIDDLE = 1 shl 2
+    private const val POINTER_BUTTON_ALLOWED_MASK =
+        POINTER_BUTTON_PRIMARY or
+            POINTER_BUTTON_SECONDARY or
+            POINTER_BUTTON_MIDDLE
+
+    const val KEY_ACTION_DOWN = 1
+    const val KEY_ACTION_UP = 2
+    const val KEY_ACTION_REPEAT = 3
+
     const val Z_ORDER_NO_CHANGE = 1 shl 0
     const val Z_ORDER_TOP = 1 shl 1
     const val Z_ORDER_BOTTOM = 1 shl 2
@@ -198,9 +215,18 @@ object RuntimeDisplayBridgePayloadCodec {
         requireCoordinate(value.x)
         requireCoordinate(value.y)
         require(
-            value.action in 0..16,
+            value.action in
+                POINTER_ACTION_MOVE..
+                    POINTER_ACTION_SCROLL,
         ) {
             "DISPLAY_BRIDGE_POINTER_ACTION_INVALID"
+        }
+        require(
+            value.buttons and
+                POINTER_BUTTON_ALLOWED_MASK ==
+                value.buttons,
+        ) {
+            "DISPLAY_BRIDGE_POINTER_BUTTON_MASK_INVALID"
         }
         return buffer(
             POINTER_EVENT_BYTES,
@@ -220,7 +246,9 @@ object RuntimeDisplayBridgePayloadCodec {
     ): ByteArray {
         requireWindowId(value.windowId)
         require(
-            value.action in 0..4,
+            value.action in
+                KEY_ACTION_DOWN..
+                    KEY_ACTION_REPEAT,
         ) {
             "DISPLAY_BRIDGE_KEY_ACTION_INVALID"
         }
@@ -385,9 +413,18 @@ object RuntimeDisplayBridgePayloadCodec {
                 requireCoordinate(it.x)
                 requireCoordinate(it.y)
                 require(
-                    it.action in 0..16,
+                    it.action in
+                        POINTER_ACTION_MOVE..
+                            POINTER_ACTION_SCROLL,
                 ) {
                     "DISPLAY_BRIDGE_POINTER_ACTION_INVALID"
+                }
+                require(
+                    it.buttons and
+                        POINTER_BUTTON_ALLOWED_MASK ==
+                        it.buttons,
+                ) {
+                    "DISPLAY_BRIDGE_POINTER_BUTTON_MASK_INVALID"
                 }
             }
         }
@@ -413,7 +450,9 @@ object RuntimeDisplayBridgePayloadCodec {
                     it.windowId,
                 )
                 require(
-                    it.action in 0..4,
+                    it.action in
+                        KEY_ACTION_DOWN..
+                            KEY_ACTION_REPEAT,
                 ) {
                     "DISPLAY_BRIDGE_KEY_ACTION_INVALID"
                 }
