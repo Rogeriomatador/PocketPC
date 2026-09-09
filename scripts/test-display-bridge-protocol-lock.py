@@ -10,6 +10,8 @@ LOCK = ROOT / "third_party/wine/POCKETPC_DISPLAY_BRIDGE_PROTOCOL.json"
 KOTLIN = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeProtocol.kt"
 PAYLOADS = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgePayloads.kt"
 FRAMEBUFFER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySharedFramebuffer.kt"
+STATE_MACHINE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeStateMachine.kt"
+PROBE_CONTROLLER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeProbeController.kt"
 BOX64 = ROOT / "scripts/build-box64-aarch64.py"
 HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.h"
 SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_display_bridge.c"
@@ -205,6 +207,8 @@ def main() -> int:
     kotlin = KOTLIN.read_text(encoding="utf-8")
     payloads = PAYLOADS.read_text(encoding="utf-8")
     framebuffer = FRAMEBUFFER.read_text(encoding="utf-8")
+    state_machine = STATE_MACHINE.read_text(encoding="utf-8")
+    probe_controller = PROBE_CONTROLLER.read_text(encoding="utf-8")
     header = HEADER.read_text(encoding="utf-8")
     source = SOURCE.read_text(encoding="utf-8")
     smoke = SMOKE.read_text(encoding="utf-8")
@@ -261,6 +265,30 @@ def main() -> int:
             "encodePointerEvent",
             "encodeKeyEvent",
             "encodeFramePresented",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Kotlin v3 state machine",
+        state_machine,
+        (
+            "SurfaceRequested",
+            "decodeSurfaceRequest",
+            "DISPLAY_BRIDGE_SURFACE_GENERATION_STALE",
+            "surfaceGeneration",
+            "DISPLAY_BRIDGE_SURFACE_GENERATION_MISMATCH",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Kotlin v3 probe ordering",
+        probe_controller,
+        (
+            "DISPLAY_BRIDGE_EXPECTED_SURFACE_REQUEST",
+            "SurfaceRequested",
+            "RuntimeDisplaySharedFramebuffer",
+            "peer.sendSurfaceAvailable",
+            "DISPLAY_BRIDGE_FRAME_READY_IDENTITY_MISMATCH",
         ),
     )
     require_sentinels(
@@ -385,6 +413,7 @@ def main() -> int:
             "pocketpc_display_bridge.c",
             "display_bridge_smoke.c",
             "displayBridgeSources",
+            '"protocolVersion": 3',
         ),
     )
 
