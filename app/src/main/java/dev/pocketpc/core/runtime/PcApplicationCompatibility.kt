@@ -49,7 +49,8 @@ object PcApplicationCompatibilityProbe {
                 }
                 .map { it.label }
 
-        val runtimeReady = readiness.executableReady
+        val runtimeReady =
+            readiness.controlledAttemptReady
         val state =
             if (runtimeReady) {
                 PcApplicationCompatibilityState
