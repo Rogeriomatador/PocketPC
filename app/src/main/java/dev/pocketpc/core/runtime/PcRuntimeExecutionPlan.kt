@@ -22,9 +22,9 @@ data class PcRuntimeExecutionGate(
 data class PcRuntimeExecutionPlan(
     val target: PcApplicationTarget,
     val gates: List<PcRuntimeExecutionGate>,
-    val attemptEligible: Boolean,
     val launchEligible: Boolean,
     val nextAction: String,
+    val attemptEligible: Boolean = false,
 )
 
 object PcRuntimeExecutionPlanner {
