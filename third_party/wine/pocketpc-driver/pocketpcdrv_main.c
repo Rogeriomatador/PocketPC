@@ -20,6 +20,23 @@ pthread_mutex_t pocketpc_bridge_mutex =
     PTHREAD_MUTEX_INITIALIZER;
 BOOL pocketpc_bridge_ready = FALSE;
 
+BOOL POCKETPC_BridgeReady(void)
+{
+    BOOL ready;
+
+    pthread_mutex_lock(
+        &pocketpc_bridge_mutex
+    );
+    ready =
+        pocketpc_bridge_ready &&
+        pocketpc_connection.fd >= 0;
+    pthread_mutex_unlock(
+        &pocketpc_bridge_mutex
+    );
+
+    return ready;
+}
+
 static const struct user_driver_funcs
 pocketpcdrv_funcs =
 {
