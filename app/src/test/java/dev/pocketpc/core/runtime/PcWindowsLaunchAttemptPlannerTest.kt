@@ -28,9 +28,17 @@ class PcWindowsLaunchAttemptPlannerTest {
             "-c",
             args[0],
         )
-        assertEquals(
-            "exec \"\$@\"",
-            args[1],
+        assertTrue(
+            args[1].contains(
+                "reg.exe add " +
+                    "'HKCU\\\\Software\\\\Wine\\\\Drivers' " +
+                    "/v Graphics /t REG_SZ /d pocketpc /f",
+            ),
+        )
+        assertTrue(
+            args[1].contains(
+                "exec \"\\$box64\" \"\\$wine\" \"\\$@\"",
+            ),
         )
         assertEquals(
             "pocketpc-windows-launch",
@@ -42,6 +50,11 @@ class PcWindowsLaunchAttemptPlannerTest {
         )
         assertFalse(
             args[1].contains(target),
+        )
+        assertFalse(
+            args[1].contains(
+                "'HKCU\\\\\\\\Software",
+            ),
         )
     }
 
