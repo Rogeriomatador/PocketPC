@@ -160,6 +160,9 @@ def main() -> int:
         executable =
             work /
             "display_bridge_smoke"
+        window_map_executable =
+            work /
+            "window_map_smoke"
 
         run(
             [
@@ -185,6 +188,50 @@ def main() -> int:
             ],
             work,
         )
+        run(
+            [
+                compiler,
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-Wpedantic",
+                "-O2",
+                "-I",
+                str(BRIDGE),
+                str(
+                    BRIDGE /
+                    "pocketpc_wine_window_map.c"
+                ),
+                str(
+                    BRIDGE /
+                    "window_map_smoke.c"
+                ),
+                "-o",
+                str(window_map_executable),
+            ],
+            work,
+        )
+        window_map_result =
+            subprocess.run(
+                [
+                    str(
+                        window_map_executable,
+                    )
+                ],
+                cwd=work,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        if (
+            "POCKETPC_WINE_WINDOW_MAP_OK"
+            not in window_map_result.stdout
+        ):
+            raise RuntimeError(
+                "WINE_WINDOW_MAP_MARKER_MISSING"
+            )
+
 
         server =
             socket.socket(
@@ -460,6 +507,9 @@ def main() -> int:
             )
             print(
                 "shared_framebuffer=BGRA8888"
+            )
+            print(
+                "wine_window_map=native-software-pass"
             )
             print(
                 "transport=x86_64-native-host-fixture"
