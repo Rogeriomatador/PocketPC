@@ -44,6 +44,7 @@ import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceState
 import dev.pocketpc.core.runtime.RuntimeDisplayBridgeProbeController
+import dev.pocketpc.core.runtime.RuntimeDisplayBridgeProbeMode
 import dev.pocketpc.core.runtime.RuntimeDisplayExecutionController
 import dev.pocketpc.core.runtime.RuntimeDisplayFramePixels
 import dev.pocketpc.core.runtime.RuntimeDiagnosticSuite
@@ -96,6 +97,7 @@ private data class PcRuntimeEvidenceCandidate(
                 evidence.box64SmokePassed,
                 evidence.wineSmokePassed,
                 evidence.displayBridgeSmokePassed,
+                evidence.winePocketPcWindowSmokePassed,
                 evidence.d3d11SmokePassed,
                 evidence.graphicsPresentationSmokePassed,
                 evidence.windowsProcessSmokePassed,
@@ -2377,8 +2379,11 @@ fun RuntimeApp(
                                     val bridgeResult =
                                         if (
                                             probe ==
-                                            GuestRuntimeProbe
-                                                .DISPLAY_BRIDGE_SMOKE
+                                                GuestRuntimeProbe
+                                                    .DISPLAY_BRIDGE_SMOKE ||
+                                            probe ==
+                                                GuestRuntimeProbe
+                                                    .WINE_POCKETPC_WINDOW_SMOKE
                                         ) {
                                             displayBridgeProbeController
                                                 .execute(
@@ -2394,6 +2399,18 @@ fun RuntimeApp(
                                                         true,
                                                     desktopBridge =
                                                         desktopBridge,
+                                                    mode =
+                                                        if (
+                                                            probe ==
+                                                            GuestRuntimeProbe
+                                                                .WINE_POCKETPC_WINDOW_SMOKE
+                                                        ) {
+                                                            RuntimeDisplayBridgeProbeMode
+                                                                .WINE_DRIVER_WINDOW
+                                                        } else {
+                                                            RuntimeDisplayBridgeProbeMode
+                                                                .GENERIC_PATTERN
+                                                        },
                                                 )
                                         } else {
                                             null
@@ -2637,8 +2654,11 @@ fun RuntimeApp(
                             val bridgeResult =
                                 if (
                                     probe ==
-                                    GuestRuntimeProbe
-                                        .DISPLAY_BRIDGE_SMOKE
+                                        GuestRuntimeProbe
+                                            .DISPLAY_BRIDGE_SMOKE ||
+                                    probe ==
+                                        GuestRuntimeProbe
+                                            .WINE_POCKETPC_WINDOW_SMOKE
                                 ) {
                                     displayBridgeProbeController
                                         .execute(
@@ -2652,6 +2672,18 @@ fun RuntimeApp(
                                                 true,
                                             desktopBridge =
                                                 desktopBridge,
+                                            mode =
+                                                if (
+                                                    probe ==
+                                                    GuestRuntimeProbe
+                                                        .WINE_POCKETPC_WINDOW_SMOKE
+                                                ) {
+                                                    RuntimeDisplayBridgeProbeMode
+                                                        .WINE_DRIVER_WINDOW
+                                                } else {
+                                                    RuntimeDisplayBridgeProbeMode
+                                                        .GENERIC_PATTERN
+                                                },
                                         )
                                 } else {
                                     null
