@@ -106,6 +106,29 @@ def elf_identity(path: Path) -> dict[str, int]:
     }
 
 
+def discover_build_target(
+    makefile: Path,
+) -> str | None:
+    text = makefile.read_text(
+        encoding="utf-8",
+        errors="replace",
+    )
+    candidates = (
+        "dlls/winepocketpc.drv/winepocketpc.drv",
+        "dlls/winepocketpc.drv/winepocketpc.so",
+        "dlls/winepocketpc.drv",
+    )
+    lines = text.splitlines()
+    for candidate in candidates:
+        prefix = candidate + ":"
+        if any(
+            line.startswith(prefix)
+            for line in lines
+        ):
+            return candidate
+    return None
+
+
 def write_evidence(
     path: Path,
     data: dict[str, object],
@@ -232,12 +255,6 @@ def main() -> int:
         *CONFIGURE_ARGS,
     ]
     base["configure"] = configure_argv
-    base["buildCommand"] = [
-        "make",
-        "-j2",
-        "dlls/winepocketpc.drv",
-    ]
-
     configure_rc = run_logged(
         configure_argv,
         build,
@@ -255,11 +272,44 @@ def main() -> int:
         )
         return 30
 
+    generated_makefile =
+        build /
+        "Makefile"
+    if not generated_makefile.is_file():
+        base["status"] = "GENERATED_MAKEFILE_MISSING"
+        write_evidence(evidence_path, base)
+        return 31
+
+    build_target =
+        discover_build_target(
+            generated_makefile,
+        )
+    if not build_target:
+        base["status"] = "BUILD_TARGET_NOT_FOUND"
+        base["targetCandidates"] = [
+            "dlls/winepocketpc.drv/winepocketpc.drv",
+            "dlls/winepocketpc.drv/winepocketpc.so",
+            "dlls/winepocketpc.drv",
+        ]
+        write_evidence(evidence_path, base)
+        print(
+            "WINE_POCKETPC_DRIVER_BUILD_TARGET_NOT_FOUND"
+        )
+        return 32
+
+    base["selectedBuildTarget"] =
+        build_target
+    base["buildCommand"] = [
+        "make",
+        "-j2",
+        build_target,
+    ]
+
     build_rc = run_logged(
         [
             "make",
             "-j2",
-            "dlls/winepocketpc.drv",
+            build_target,
         ],
         build,
         build_log,
@@ -275,7 +325,7 @@ def main() -> int:
         print(
             "WINE_POCKETPC_DRIVER_BUILD_FAILED"
         )
-        return 31
+        return 33
 
     output_dir = (
         build /
@@ -293,15 +343,15 @@ def main() -> int:
     if not pe.is_file():
         base["status"] = "PE_DRIVER_ARTIFACT_MISSING"
         write_evidence(evidence_path, base)
-        return 32
+        return 34
     if pe.read_bytes()[:2] != b"MZ":
         base["status"] = "PE_DRIVER_HEADER_INVALID"
         write_evidence(evidence_path, base)
-        return 33
+        return 35
     if not unixlib.is_file():
         base["status"] = "UNIXLIB_ARTIFACT_MISSING"
         write_evidence(evidence_path, base)
-        return 34
+        return 36
 
     try:
         unix_identity = elf_identity(
@@ -311,7 +361,7 @@ def main() -> int:
         base["status"] = "UNIXLIB_AUDIT_FAILED"
         base["auditError"] = str(error)
         write_evidence(evidence_path, base)
-        return 35
+        return 37
 
     base["status"] = (
         "COMPILED_X86_64_NOT_LOADED_NOT_RUNTIME_TESTED"
