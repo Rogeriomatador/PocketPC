@@ -139,9 +139,33 @@ def main() -> int:
             '"hostArchitecture": "arm64-v8a"',
             '"protocolImplemented": true',
             '"hostBrokerImplemented": true',
+            '"windowIdentityMapImplemented": true',
+            '"windowLifecycleAdapterImplemented": true',
+            '"windowLifecycleAdapterSoftwareTestExecuted": false',
+            '"guestDriverImplemented": false',
         ):
             if sentinel not in android_text:
                 failures.append("Wine Android reuse audit missing sentinel: " + sentinel)
+
+    native_bridge_test = (
+        ROOT / "scripts/test-display-bridge-native-integration.py"
+    )
+    if not native_bridge_test.is_file():
+        failures.append("missing native display bridge integration test")
+    else:
+        native_text = native_bridge_test.read_text(encoding="utf-8")
+        for sentinel in (
+            "pocketpc_wine_window_map.c",
+            "window_map_smoke.c",
+            "pocketpc_wine_window_bridge.c",
+            "window_bridge_smoke.c",
+            "POCKETPC_WINE_WINDOW_BRIDGE_OK",
+        ):
+            if sentinel not in native_text:
+                failures.append(
+                    "native bridge test missing Wine lifecycle sentinel: "
+                    + sentinel
+                )
 
     approval = ROOT / "app/src/main/assets/proot-substrate-approval.json"
     if approval.is_file():
