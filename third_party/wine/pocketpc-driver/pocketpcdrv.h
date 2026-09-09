@@ -26,6 +26,9 @@ extern struct pdb_wine_window_bridge pocketpc_windows;
 extern pthread_mutex_t pocketpc_bridge_mutex;
 extern BOOL pocketpc_bridge_ready;
 
+void POCKETPC_FailBridgeLocked(
+    const char *reason
+);
 BOOL POCKETPC_CreateWindow(HWND hwnd);
 BOOL POCKETPC_ProcessEvents(DWORD mask);
 BOOL POCKETPC_DispatchHostEvent(
