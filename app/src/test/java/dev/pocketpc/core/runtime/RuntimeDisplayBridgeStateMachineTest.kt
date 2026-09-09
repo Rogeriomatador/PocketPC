@@ -49,4 +49,60 @@ class RuntimeDisplayBridgeStateMachineTest {
         assertTrue(machine.apply(RuntimeDisplayBridgeFrame(RuntimeDisplayBridgeMessageType.WINDOW_DESTROY,3,destroy)).isFailure)
         assertEquals(2,machine.snapshot().size)
     }
+    @Test
+    fun frameReadyAdvancesGuestSequence() {
+        val machine =
+            RuntimeDisplayBridgeStateMachine(
+                RuntimeDisplayBridgeCapabilities
+                    .WINDOW_SURFACE,
+            )
+        val create =
+            payload(
+                RuntimeDisplayBridgePayloadCodec
+                    .WINDOW_CREATE_BYTES,
+            ) {
+                putLong(1)
+                putLong(0)
+                putInt(0)
+                putInt(64)
+                putInt(64)
+            }
+        assertTrue(
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .WINDOW_CREATE,
+                    1,
+                    create,
+                ),
+            ).isSuccess,
+        )
+
+        val ready =
+            RuntimeDisplayBridgePayloadCodec
+                .encodeFrameReady(
+                    RuntimeBridgeFrameReady(
+                        windowId = 1,
+                        surfaceId = 1,
+                        generation = 1,
+                        frameId = 1,
+                    ),
+                )
+        val event =
+            machine.apply(
+                RuntimeDisplayBridgeFrame(
+                    RuntimeDisplayBridgeMessageType
+                        .FRAME_READY,
+                    2,
+                    ready,
+                ),
+            ).getOrThrow()
+
+        assertTrue(
+            event is
+                RuntimeDisplayBridgeEvent
+                    .FrameReady,
+        )
+    }
+
 }
