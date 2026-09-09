@@ -249,4 +249,90 @@ class RuntimeDisplaySurfaceRegistryTest {
             temp.deleteRecursively()
         }
     }
+    @Test
+    fun failedFrameReadDoesNotAdvancePresentationState() {
+        val temp =
+            Files.createTempDirectory(
+                "pocketpc-surface-registry-",
+            ).toFile()
+
+        try {
+            RuntimeDisplaySurfaceRegistry(
+                temp,
+            ).use { registry ->
+                val surface =
+                    registry.allocate(
+                        request(
+                            generation = 6L,
+                            width = 2,
+                            height = 2,
+                        ),
+                    ).getOrThrow()
+
+                val ready =
+                    RuntimeBridgeFrameReady(
+                        windowId = 1L,
+                        surfaceId =
+                            surface.surfaceId,
+                        generation =
+                            surface.generation,
+                        frameId = 1L,
+                    )
+
+                val backing =
+                    registry.snapshot()
+                        .single()
+                        .framebuffer
+                        .descriptor
+                        .hostFile
+
+                java.io.RandomAccessFile(
+                    backing,
+                    "rw",
+                ).use { file ->
+                    file.write(
+                        ByteArray(16) {
+                            0x7f
+                        },
+                    )
+                }
+
+                assertTrue(
+                    registry.readFrame(
+                        ready,
+                    ).isSuccess,
+                )
+                assertEquals(
+                    1L,
+                    registry.snapshot()
+                        .single()
+                        .lastFrameId,
+                )
+
+                java.io.RandomAccessFile(
+                    backing,
+                    "rw",
+                ).use { file ->
+                    file.setLength(4L)
+                }
+
+                assertTrue(
+                    registry.readFrame(
+                        ready.copy(
+                            frameId = 2L,
+                        ),
+                    ).isFailure,
+                )
+                assertEquals(
+                    1L,
+                    registry.snapshot()
+                        .single()
+                        .lastFrameId,
+                )
+            }
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
 }
