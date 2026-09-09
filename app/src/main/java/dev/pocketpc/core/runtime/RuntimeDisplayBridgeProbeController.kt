@@ -148,13 +148,6 @@ class RuntimeDisplayBridgeProbeController(
                 RuntimeDisplayBridgeHost(
                     session,
                 )
-            val framebuffer =
-                RuntimeDisplaySharedFramebuffer
-                    .createSmoke(
-                        hostTempDirectory =
-                            hostTemp,
-                    )
-
             val acceptDeferred =
                 async(Dispatchers.IO) {
                     host.acceptAuthenticated()
@@ -172,6 +165,9 @@ class RuntimeDisplayBridgeProbeController(
 
             var peer:
                 RuntimeDisplayBridgePeer? =
+                null
+            var framebuffer:
+                RuntimeDisplaySharedFramebuffer? =
                 null
             var negotiated = 0
             var authenticated = false
@@ -213,6 +209,57 @@ class RuntimeDisplayBridgeProbeController(
                             "DISPLAY_BRIDGE_EXPECTED_WINDOW_CREATE",
                         )
 
+                val surfaceRequestFrame =
+                    peer.readFrame()
+                        .getOrThrow()
+                val surfaceRequestEvent =
+                    machine.apply(
+                        surfaceRequestFrame,
+                    ).getOrThrow()
+                val surfaceRequest =
+                    (
+                        surfaceRequestEvent as?
+                            RuntimeDisplayBridgeEvent
+                                .SurfaceRequested
+                        )?.request
+                        ?: error(
+                            "DISPLAY_BRIDGE_EXPECTED_SURFACE_REQUEST",
+                        )
+
+                require(
+                    surfaceRequest.windowId ==
+                        window.windowId
+                ) {
+                    "DISPLAY_BRIDGE_SURFACE_REQUEST_WINDOW_MISMATCH"
+                }
+
+                framebuffer =
+                    RuntimeDisplaySharedFramebuffer
+                        .createSmoke(
+                            hostTempDirectory =
+                                hostTemp,
+                            windowId =
+                                surfaceRequest.windowId,
+                            generation =
+                                surfaceRequest.generation,
+                            width =
+                                surfaceRequest.width,
+                            height =
+                                surfaceRequest.height,
+                        )
+
+                val allocatedSurface =
+                    framebuffer
+                        ?.descriptor
+                        ?.surface
+                        ?: error(
+                            "DISPLAY_BRIDGE_FRAMEBUFFER_ALLOCATION_FAILED",
+                        )
+
+                peer.sendSurfaceAvailable(
+                    allocatedSurface,
+                )
+
                 val geometry =
                     peer.readFrame()
                         .getOrThrow()
@@ -229,22 +276,6 @@ class RuntimeDisplayBridgeProbeController(
                 ) {
                     "DISPLAY_BRIDGE_WINDOW_NOT_VISIBLE"
                 }
-
-                require(
-                    window.windowId ==
-                        framebuffer
-                            .descriptor
-                            .surface
-                            .windowId
-                ) {
-                    "DISPLAY_BRIDGE_FRAMEBUFFER_WINDOW_MISMATCH"
-                }
-
-                peer.sendSurfaceAvailable(
-                    framebuffer
-                        .descriptor
-                        .surface,
-                )
 
                 val frameReady =
                     peer.readFrame()
@@ -265,8 +296,11 @@ class RuntimeDisplayBridgeProbeController(
 
                 val surface =
                     framebuffer
-                        .descriptor
-                        .surface
+                        ?.descriptor
+                        ?.surface
+                        ?: error(
+                            "DISPLAY_BRIDGE_FRAMEBUFFER_MISSING",
+                        )
                 require(
                     ready.windowId ==
                         surface.windowId &&
@@ -280,8 +314,11 @@ class RuntimeDisplayBridgeProbeController(
                 }
 
                 framebuffer
-                    .validateSmokePattern()
-                    .getOrThrow()
+                    ?.validateSmokePattern()
+                    ?.getOrThrow()
+                    ?: error(
+                        "DISPLAY_BRIDGE_FRAMEBUFFER_MISSING",
+                    )
                 frameValidated = true
 
                 peer.sendPointer(
@@ -339,7 +376,7 @@ class RuntimeDisplayBridgeProbeController(
             } finally {
                 peer?.close()
                 host.close()
-                framebuffer.close()
+                framebuffer?.close()
             }
 
             val process =
