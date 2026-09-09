@@ -41,6 +41,7 @@ import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceState
 import dev.pocketpc.core.runtime.RuntimeDisplayBridgeProbeController
+import dev.pocketpc.core.runtime.RuntimeDisplayFramePixels
 import dev.pocketpc.core.runtime.RuntimeDiagnosticSuite
 import dev.pocketpc.core.runtime.RuntimeTestReadinessProbe
 import dev.pocketpc.core.runtime.StagedRuntime
@@ -132,6 +133,11 @@ fun RuntimeApp(
     var selectedProbeName by rememberSaveable { mutableStateOf(GuestRuntimeProbe.SHELL.name) }
     val selectedProbe = GuestRuntimeProbe.valueOf(selectedProbeName)
     var probeOutput by remember { mutableStateOf<String?>(null) }
+    var probePreviewFrame by remember {
+        mutableStateOf<
+            RuntimeDisplayFramePixels?
+        >(null)
+    }
     var showProbeOutput by rememberSaveable { mutableStateOf(false) }
     var pendingExecution by remember {
         mutableStateOf<
@@ -1486,7 +1492,39 @@ fun RuntimeApp(
                             Text(if (showProbeOutput) "Ocultar resultado" else "Ver resultado do teste")
                         }
                         if (showProbeOutput) {
-                            SelectionContainer { Text(output, style = MaterialTheme.typography.bodySmall) }
+                            probePreviewFrame
+                                ?.let { frame ->
+                                    Surface(
+                                        tonalElevation =
+                                            2.dp,
+                                        shape =
+                                            MaterialTheme
+                                                .shapes
+                                                .medium,
+                                    ) {
+                                        RuntimeDisplayFramePreview(
+                                            frame = frame,
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .aspectRatio(
+                                                        frame.width
+                                                            .toFloat() /
+                                                            frame.height
+                                                                .toFloat(),
+                                                    ),
+                                        )
+                                    }
+                                }
+                            SelectionContainer {
+                                Text(
+                                    output,
+                                    style =
+                                        MaterialTheme
+                                            .typography
+                                            .bodySmall,
+                                )
+                            }
                         }
                     }
                 }
@@ -1890,6 +1928,8 @@ fun RuntimeApp(
                         pendingSuiteExecution =
                             null
                         busy = true
+                        probePreviewFrame =
+                            null
                         showProbeOutput =
                             true
                         status =
@@ -1951,7 +1991,7 @@ fun RuntimeApp(
                                         break
                                     }
 
-                                    val result =
+                                    val bridgeResult =
                                         if (
                                             probe ==
                                             GuestRuntimeProbe
@@ -1970,16 +2010,27 @@ fun RuntimeApp(
                                                     userApproved =
                                                         true,
                                                 )
-                                                .process
                                         } else {
-                                            executionController
+                                            null
+                                        }
+                                    val result =
+                                        bridgeResult
+                                            ?.process
+                                            ?: executionController
                                                 .executeOneShot(
                                                     plan =
                                                         plan,
                                                     userApproved =
                                                         true,
                                                 )
-                                        }
+                                    if (
+                                        bridgeResult !=
+                                        null
+                                    ) {
+                                        probePreviewFrame =
+                                            bridgeResult
+                                                .previewFrame
+                                    }
 
                                     val recorded =
                                         probeEvidenceStore
@@ -2193,10 +2244,12 @@ fun RuntimeApp(
                     onClick = {
                         pendingExecution = null
                         busy = true
+                        probePreviewFrame =
+                            null
                         status =
                             "R1_EXECUTION_ATTEMPT"
                         scope.launch {
-                            val result =
+                            val bridgeResult =
                                 if (
                                     probe ==
                                     GuestRuntimeProbe
@@ -2213,15 +2266,21 @@ fun RuntimeApp(
                                             userApproved =
                                                 true,
                                         )
-                                        .process
                                 } else {
-                                    executionController
+                                    null
+                                }
+                            val result =
+                                bridgeResult
+                                    ?.process
+                                    ?: executionController
                                         .executeOneShot(
                                             plan = plan,
                                             userApproved =
                                                 true,
                                         )
-                                }
+                            probePreviewFrame =
+                                bridgeResult
+                                    ?.previewFrame
                             val evidenceRecorded =
                                 probeEvidenceStore
                                     .recordIfValid(
