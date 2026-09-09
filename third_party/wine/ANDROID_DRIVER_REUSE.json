@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "UPSTREAM_PRESENT_DIRECT_REUSE_BLOCKED_BROKER_REQUIRED",
+  "status": "UPSTREAM_DIRECT_REUSE_BLOCKED_POCKETPC_DRIVER_TEMPLATE_IMPLEMENTED_NOT_BUILT",
   "wineVersion": "11.0",
   "wineSourceCommit": "db11d0fe6a169c457e23d007e20404643d067aa8",
   "driverPath": "dlls/wineandroid.drv",
@@ -40,7 +40,10 @@
       "DXVK/vkd3d rendering",
       "guest display driver shim",
       "input injection into Win32"
-    ]
+    ],
+    "driverName": "winepocketpc.drv",
+    "graphicsSelection": "HKCU\\Software\\Wine\\Drivers\\Graphics=pocketpc",
+    "protocolVersion": 2
   },
   "gates": {
     "protocolImplemented": true,
@@ -52,6 +55,11 @@
     "robloxWindowPresented": false,
     "windowIdentityMapImplemented": true,
     "windowLifecycleAdapterImplemented": true,
-    "windowLifecycleAdapterSoftwareTestExecuted": false
+    "windowLifecycleAdapterSoftwareTestExecuted": false,
+    "protocolV2NativeIntegrationExecuted": false,
+    "guestDriverTemplateImplemented": true,
+    "guestDriverOverlayPreparerImplemented": true,
+    "guestDriverBuilt": false,
+    "guestDriverLoaded": false
   }
 }
