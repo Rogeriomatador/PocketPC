@@ -33,6 +33,8 @@ SURFACE_WRITER_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketp
 VISIBILITY_SMOKE = ROOT / "third_party/wine/pocketpc-display-bridge/surface_writer_visibility_smoke.c"
 NATIVE_INTEGRATION = ROOT / "scripts/test-display-bridge-native-integration.py"
 WINE_DRIVER_INPUT = ROOT / "third_party/wine/pocketpc-driver/input.c"
+WINDOWS_KEY_MAPPER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeWindowsKeyMapper.kt"
+RUNTIME_WINDOW_LAYER = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeDesktopWindowLayer.kt"
 
 
 def require_sentinels(
@@ -170,6 +172,19 @@ def main() -> int:
     expected_keyboard = (
         input_semantics.get("keyboard") or {}
     )
+    expected_modifiers = {
+        "SHIFT": 1,
+        "CONTROL": 2,
+        "ALT": 4,
+        "META": 8,
+    }
+    if (
+        input_semantics.get("modifiers")
+        != expected_modifiers
+    ):
+        failures.append(
+            "input modifier semantics changed"
+        )
     if expected_pointer.get("actions") != {
         "MOVE": 0,
         "DOWN": 1,
@@ -311,6 +326,8 @@ def main() -> int:
     visibility_smoke = VISIBILITY_SMOKE.read_text(encoding="utf-8")
     native_integration = NATIVE_INTEGRATION.read_text(encoding="utf-8")
     wine_driver_input = WINE_DRIVER_INPUT.read_text(encoding="utf-8")
+    windows_key_mapper = WINDOWS_KEY_MAPPER.read_text(encoding="utf-8")
+    runtime_window_layer = RUNTIME_WINDOW_LAYER.read_text(encoding="utf-8")
 
     require_sentinels(
         failures,
@@ -368,7 +385,13 @@ def main() -> int:
             "KEY_ACTION_DOWN = 1",
             "KEY_ACTION_UP = 2",
             "KEY_ACTION_REPEAT = 3",
+            "MODIFIER_SHIFT = 1 shl 0",
+            "MODIFIER_CONTROL = 1 shl 1",
+            "MODIFIER_ALT = 1 shl 2",
+            "MODIFIER_META = 1 shl 3",
             "DISPLAY_BRIDGE_POINTER_BUTTON_MASK_INVALID",
+            "DISPLAY_BRIDGE_POINTER_MODIFIER_MASK_INVALID",
+            "DISPLAY_BRIDGE_KEY_MODIFIER_MASK_INVALID",
             "encodePointerEvent",
             "encodeKeyEvent",
             "encodeFramePresented",
@@ -530,6 +553,10 @@ def main() -> int:
             "#define PDB_WINDOW_COMMAND_BYTES 16u",
             "#define PDB_WINDOW_COMMAND_ACTIVATE 1u",
             "#define PDB_WINDOW_COMMAND_CLOSE 5u",
+            "#define PDB_MODIFIER_SHIFT (1u << 0)",
+            "#define PDB_MODIFIER_CONTROL (1u << 1)",
+            "#define PDB_MODIFIER_ALT (1u << 2)",
+            "#define PDB_MODIFIER_META (1u << 3)",
             "struct pdb_window_command",
             "#define PDB_MSG_SURFACE_REQUEST 19u",
             "#define PDB_SURFACE_AVAILABLE_BYTES 56u",
@@ -567,6 +594,7 @@ def main() -> int:
             "PDB_SEND_FAILED",
             "PDB_RECEIVE_FAILED",
             "PDB_POINTER_BUTTON_ALLOWED",
+            "PDB_MODIFIER_ALLOWED_LOCAL",
             "pdb_peek_message_type",
             "pdb_receive_host_event",
         ),
@@ -665,6 +693,39 @@ def main() -> int:
             "surface writer must not force MS_SYNC on the frame hot path"
         )
 
+    require_sentinels(
+        failures,
+        "Android to Win32 keyboard mapper",
+        windows_key_mapper,
+        (
+            "RuntimeWindowsKeyMapper",
+            "RuntimeWindowsKey",
+            "KeyEvent.KEYCODE_A",
+            "virtualKey =",
+            "scanCode =",
+            "KEYCODE_CTRL_RIGHT",
+            "0x11d",
+            "KEYCODE_F12",
+            "MODIFIER_SHIFT",
+            "RuntimeDisplayBridgePayloadCodec",
+            "else -> null",
+        ),
+    )
+    require_sentinels(
+        failures,
+        "Runtime Win32 keyboard focus layer",
+        runtime_window_layer,
+        (
+            "FocusRequester",
+            "onPreviewKeyEvent",
+            "nativeKeyEvent",
+            "RuntimeWindowsKeyMapper",
+            "RuntimeBridgeKeyEvent",
+            "KEY_ACTION_REPEAT",
+            "focusedWindowId",
+            "requestFocus",
+        ),
+    )
     require_sentinels(
         failures,
         "Wine HWND window command dispatch",
