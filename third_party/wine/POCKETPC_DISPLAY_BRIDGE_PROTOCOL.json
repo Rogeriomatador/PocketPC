@@ -85,7 +85,9 @@
     "singleBufferAsyncOwnershipImplemented": true,
     "androidToWin32KeyMappingImplemented": true,
     "androidToWin32KeyMappingSoftwareTestExecuted": false,
-    "protocolV4NativeIntegrationExecuted": false
+    "protocolV4NativeIntegrationExecuted": false,
+    "processEventsMaskPreservationImplemented": true,
+    "processEventsMaskPreservationSoftwareTestExecuted": false
   },
   "direction": {
     "HELLO": "guest-to-host",
@@ -226,12 +228,13 @@
     "frameRule": "frameId must strictly increase for the active windowId/surfaceId/generation",
     "resizeRule": "new backing surface is allocated before the previous backing file is released",
     "ownershipRule": "single buffer: at most one FRAME_READY may be in flight per active Wine surface; guest must not modify backing bytes until matching FRAME_PRESENTED releases ownership",
-    "frameAckDemux": "FRAME_PRESENTED is consumed asynchronously by pProcessEvents or by the bounded SURFACE_AVAILABLE transaction demux; both paths call POCKETPC_HandleFramePresented to release the exact in-flight windowId/frameId",
+    "frameAckDemux": "FRAME_PRESENTED is drained asynchronously by pProcessEvents or by the bounded SURFACE_AVAILABLE transaction demux. pProcessEvents may consume socket input that does not match the current Wine queue mask, but preserves pointer/key events in a bounded queue instead of dropping them, allowing FRAME_PRESENTED behind them to release the exact in-flight windowId/surfaceId/generation/frameId.",
     "buffering": "single-buffer-v3-async-ownership; double/triple buffering not implemented",
     "hostAckPoint": "successful frame bytes are copied to host ARGB memory before FRAME_PRESENTED(status=0)",
     "coalescingRule": "if Wine flushes while a frame is still in flight, the flush is coalesced without touching the shared mmap; a later paint after ACK may publish the newest pixels",
     "frameAckIdentityRule": "FRAME_PRESENTED must exactly match windowId, surfaceId, generation and frameId of the in-flight FRAME_READY",
-    "lateAckRule": "ACK from a replaced/destroyed surface cannot release ownership of a newer surface even when frameId is reused"
+    "lateAckRule": "ACK from a replaced/destroyed surface cannot release ownership of a newer surface even when frameId is reused",
+    "inputMaskRule": "Pointer/key events received while the current pProcessEvents mask excludes them are retained in the bounded host-event queue. Eligible events may be selected past deferred events, matching Wine queue-mask semantics; queue overflow or an unexpected transaction event fails the bridge closed."
   },
   "zOrder": {
     "model": "single-choice flags",
