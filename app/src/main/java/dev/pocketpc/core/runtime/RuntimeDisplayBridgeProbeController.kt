@@ -28,6 +28,8 @@ class RuntimeDisplayBridgeProbeController(
             List<DeployedWindowsRuntimeLayer>,
         userApproved: Boolean,
         timeoutMillis: Long = 15_000L,
+        desktopBridge:
+            RuntimeDesktopBridge? = null,
     ): RuntimeDisplayBridgeProbeResult =
         coroutineScope {
             val structural =
@@ -172,6 +174,12 @@ class RuntimeDisplayBridgeProbeController(
             var processor:
                 RuntimeDisplayHostProcessor? =
                 null
+            var desktopBinding:
+                RuntimeDesktopBinding? =
+                null
+            var compositor:
+                RuntimeDisplayCompositorModel? =
+                null
             var negotiated = 0
             var authenticated = false
             var roundTrip = false
@@ -202,11 +210,42 @@ class RuntimeDisplayBridgeProbeController(
                     )
                 processor =
                     activeProcessor
+                val activeCompositor =
+                    RuntimeDisplayCompositorModel()
+                compositor =
+                    activeCompositor
+                desktopBinding =
+                    desktopBridge?.bind {
+                        command ->
+                        runCatching {
+                            activeProcessor
+                                .sendWindowCommand(
+                                    command,
+                                )
+                        }
+                    }
+
+                fun publishStep(
+                    step:
+                        RuntimeDisplayHostStep,
+                ) {
+                    activeCompositor
+                        .apply(step)
+                        .getOrThrow()
+                    desktopBinding
+                        ?.publish(
+                            activeCompositor
+                                .snapshot(),
+                        )
+                }
 
                 val createStep =
                     activeProcessor
                         .processNext()
                         .getOrThrow()
+                publishStep(
+                    createStep,
+                )
                 val window =
                     (
                         createStep.event as?
@@ -221,6 +260,9 @@ class RuntimeDisplayBridgeProbeController(
                     activeProcessor
                         .processNext()
                         .getOrThrow()
+                publishStep(
+                    surfaceStep,
+                )
                 val surfaceRequest =
                     (
                         surfaceStep.event as?
@@ -242,6 +284,9 @@ class RuntimeDisplayBridgeProbeController(
                     activeProcessor
                         .processNext()
                         .getOrThrow()
+                publishStep(
+                    geometryStep,
+                )
                 require(
                     geometryStep.event is
                         RuntimeDisplayBridgeEvent
@@ -265,6 +310,9 @@ class RuntimeDisplayBridgeProbeController(
                     activeProcessor
                         .processNext()
                         .getOrThrow()
+                publishStep(
+                    frameStep,
+                )
                 val presented =
                     frameStep
                         .presentedFrame
@@ -331,6 +379,9 @@ class RuntimeDisplayBridgeProbeController(
                     activeProcessor
                         .processNext()
                         .getOrThrow()
+                publishStep(
+                    destroyStep,
+                )
                 require(
                     destroyStep.event is
                         RuntimeDisplayBridgeEvent
@@ -355,6 +406,8 @@ class RuntimeDisplayBridgeProbeController(
                         ?: error.javaClass
                             .simpleName
             } finally {
+                desktopBinding?.close()
+                compositor?.clear()
                 processor?.close()
                 peer?.close()
                 host.close()
