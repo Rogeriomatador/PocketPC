@@ -234,8 +234,22 @@ object PcWindowsLaunchAttemptPlanner {
         wineArgv: List<String>,
     ): List<String> =
         buildList {
+            require(
+                wineArgv.size >= 3,
+            ) {
+                "WINDOWS_LAUNCH_ARGV_INVALID"
+            }
             add("-c")
-            add("exec \"\$@\"")
+            add(
+                "set -eu; " +
+                    "box64=\"\\$1\"; " +
+                    "wine=\"\\$2\"; " +
+                    "shift 2; " +
+                    "\"\\$box64\" \"\\$wine\" reg.exe add " +
+                    "'HKCU\\\\Software\\\\Wine\\\\Drivers' " +
+                    "/v Graphics /t REG_SZ /d pocketpc /f >/dev/null; " +
+                    "exec \"\\$box64\" \"\\$wine\" \"\\$@\"",
+            )
             add(
                 "pocketpc-windows-launch",
             )
