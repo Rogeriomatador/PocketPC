@@ -344,7 +344,7 @@ object RuntimeDisplayBridgePayloadCodec {
                 MODIFIER_ALLOWED_MASK ==
                 value.modifiers,
         ) {
-            "DISPLAY_BRIDGE_MODIFIER_MASK_INVALID"
+            "DISPLAY_BRIDGE_KEY_MODIFIER_MASK_INVALID"
         }
         require(
             value.repeatCount in
@@ -546,7 +546,7 @@ object RuntimeDisplayBridgePayloadCodec {
                         MODIFIER_ALLOWED_MASK ==
                         it.modifiers,
                 ) {
-                    "DISPLAY_BRIDGE_POINTER_MODIFIER_DECODE_INVALID"
+                    "DISPLAY_BRIDGE_POINTER_MODIFIER_MASK_INVALID"
                 }
             }
         }
