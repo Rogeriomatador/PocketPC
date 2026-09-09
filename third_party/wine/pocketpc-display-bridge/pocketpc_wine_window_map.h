@@ -45,6 +45,11 @@ int pdb_wine_window_handle_for_id(
     uintptr_t *native_handle
 );
 
+int pdb_wine_window_has_children(
+    const struct pdb_wine_window_map *map,
+    uintptr_t native_handle
+);
+
 int pdb_wine_window_unregister(
     struct pdb_wine_window_map *map,
     uintptr_t native_handle
