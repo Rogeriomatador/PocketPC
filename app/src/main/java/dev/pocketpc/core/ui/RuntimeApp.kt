@@ -43,6 +43,7 @@ import dev.pocketpc.core.runtime.RuntimeProbeEvidenceState
 import dev.pocketpc.core.runtime.RuntimeDisplayBridgeProbeController
 import dev.pocketpc.core.runtime.RuntimeDisplayFramePixels
 import dev.pocketpc.core.runtime.RuntimeDiagnosticSuite
+import dev.pocketpc.core.runtime.RuntimeDesktopBridge
 import dev.pocketpc.core.runtime.RuntimeTestReadinessProbe
 import dev.pocketpc.core.runtime.StagedRuntime
 import dev.pocketpc.core.runtime.StagedGuestToolPackage
@@ -88,6 +89,7 @@ fun RuntimeApp(
     guestToolPackages: GuestToolPackageManager,
     probeEvidenceStore: RuntimeProbeEvidenceStore,
     windowsLayerPackages: WindowsRuntimeLayerPackageManager,
+    desktopBridge: RuntimeDesktopBridge,
     linkManager: RootfsLinkManager,
     nativeHost: NativeHostStatus,
     substrate: ExecutionSubstrateStatus,
@@ -2009,6 +2011,8 @@ fun RuntimeApp(
                                                         suiteLayers,
                                                     userApproved =
                                                         true,
+                                                    desktopBridge =
+                                                        desktopBridge,
                                                 )
                                         } else {
                                             null
@@ -2022,6 +2026,8 @@ fun RuntimeApp(
                                                         plan,
                                                     userApproved =
                                                         true,
+                                                    desktopBridge =
+                                                        desktopBridge,
                                                 )
                                     if (
                                         bridgeResult !=
@@ -2265,6 +2271,8 @@ fun RuntimeApp(
                                                 executedLayers,
                                             userApproved =
                                                 true,
+                                            desktopBridge =
+                                                desktopBridge,
                                         )
                                 } else {
                                     null
@@ -2277,6 +2285,8 @@ fun RuntimeApp(
                                             plan = plan,
                                             userApproved =
                                                 true,
+                                            desktopBridge =
+                                                desktopBridge,
                                         )
                             probePreviewFrame =
                                 bridgeResult
