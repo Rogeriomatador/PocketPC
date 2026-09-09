@@ -27,6 +27,7 @@ DRIVER_FILES = (
     "input.c",
     "pocketpcdrv.h",
     "pocketpcdrv_main.c",
+    "surface.c",
     "window.c",
 )
 
@@ -244,7 +245,7 @@ def main() -> int:
         "wineCommit": lock["commit"],
         "driverName": "winepocketpc.drv",
         "unixLibrary": "winepocketpc.so",
-        "protocolVersion": 2,
+        "protocolVersion": 3,
         "graphicsSelection": {
             "registryPath": r"HKCU\Software\Wine\Drivers",
             "valueName": "Graphics",
@@ -255,10 +256,11 @@ def main() -> int:
             "pCreateWindow",
             "pDestroyWindow",
             "pProcessEvents",
+            "pCreateWindowSurface",
             "pWindowPosChanging",
             "pWindowPosChanged",
         ],
-        "surfaceCallbackImplemented": False,
+        "surfaceCallbackImplemented": True,
         "inputInjectionImplemented": True,
         "vulkanDriverImplemented": False,
         "openglDriverImplemented": False,
@@ -271,6 +273,8 @@ def main() -> int:
             ],
             "unixLibrarySources": [
                 "pocketpcdrv_main.c",
+                "input.c",
+                "surface.c",
                 "window.c",
                 "pocketpc_display_bridge.c",
                 "pocketpc_wine_window_map.c",
