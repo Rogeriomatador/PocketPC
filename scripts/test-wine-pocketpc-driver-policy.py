@@ -80,10 +80,12 @@ def main() -> int:
         "hostSurfaceRegistryImplemented",
         "singleBufferOwnershipAckImplemented",
         "surfaceQualifiedFrameAckImplemented",
+        "processEventsMaskPreservationImplemented",
     )
     expected_false = (
         "protocolV4NativeIntegrationExecuted",
         "surfaceQualifiedFrameAckSoftwareTestExecuted",
+        "processEventsMaskPreservationSoftwareTestExecuted",
         "surfaceWriterNativeSoftwareTestExecuted",
         "surfaceVisibilityCrossProcessSoftwareTestExecuted",
         "doubleBufferingImplemented",
