@@ -302,6 +302,8 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                 DesktopCommand.OPEN_FILES -> desktop.open(DesktopApp.FILES)
                 DesktopCommand.OPEN_BROWSER -> desktop.open(DesktopApp.BROWSER)
                 DesktopCommand.OPEN_TERMINAL -> desktop.open(DesktopApp.TERMINAL)
+                DesktopCommand.OPEN_TASK_MANAGER ->
+                    desktop.open(DesktopApp.TASK_MANAGER)
                 DesktopCommand.OPEN_DESKTOP_CONTEXT ->
                     desktop.openContextMenu(null)
                 DesktopCommand.DISMISS_OVERLAYS -> {
