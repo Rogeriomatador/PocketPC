@@ -105,7 +105,7 @@ class DesktopPopupPositionProviderTest {
         val result =
             provider.calculatePosition(
                 anchorBounds =
-                    IntRect.Zero,
+                    IntRect(0, 0, 0, 0),
                 windowSize =
                     IntSize(
                         width = 1000,
@@ -144,7 +144,7 @@ class DesktopPopupPositionProviderTest {
         val result =
             provider.calculatePosition(
                 anchorBounds =
-                    IntRect.Zero,
+                    IntRect(0, 0, 0, 0),
                 windowSize =
                     IntSize(
                         width = 1000,
@@ -183,7 +183,7 @@ class DesktopPopupPositionProviderTest {
         val result =
             provider.calculatePosition(
                 anchorBounds =
-                    IntRect.Zero,
+                    IntRect(0, 0, 0, 0),
                 windowSize =
                     IntSize(
                         width = 1000,
