@@ -1,6 +1,8 @@
 package dev.pocketpc.core.ui
 
+import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,19 +19,30 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.nativeKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import dev.pocketpc.core.runtime.RuntimeBridgeKeyEvent
 import dev.pocketpc.core.runtime.RuntimeBridgePointerEvent
 import dev.pocketpc.core.runtime.RuntimeDesktopBridge
 import dev.pocketpc.core.runtime.RuntimeDisplayBridgePayloadCodec
 import dev.pocketpc.core.runtime.RuntimeDisplayCompositorWindow
+import dev.pocketpc.core.runtime.RuntimeWindowsKeyMapper
 import kotlin.math.roundToInt
 
 @Composable
@@ -44,6 +57,34 @@ internal fun RuntimeDesktopWindowLayer(
     val density =
         LocalDensity.current
 
+    val keyboardFocusRequester =
+        remember {
+            FocusRequester()
+        }
+    var focusedWindowId by
+        remember {
+            mutableStateOf<Long?>(
+                null,
+            )
+        }
+
+    LaunchedEffect(
+        windows.map {
+            it.windowId
+        },
+    ) {
+        val current =
+            focusedWindowId
+        if (
+            current != null &&
+            windows.none {
+                it.windowId == current
+            }
+        ) {
+            focusedWindowId = null
+        }
+    }
+
     val workspaceWidthPx =
         with(density) {
             layout.widthDp.dp.toPx()
@@ -57,7 +98,81 @@ internal fun RuntimeDesktopWindowLayer(
         }.coerceAtLeast(1f)
 
     Box(
-        modifier = modifier,
+        modifier =
+            modifier
+                .focusRequester(
+                    keyboardFocusRequester,
+                )
+                .onPreviewKeyEvent {
+                    composeEvent ->
+                    val windowId =
+                        focusedWindowId
+                            ?: return@onPreviewKeyEvent false
+                    val native =
+                        composeEvent
+                            .nativeKeyEvent
+                    val mapped =
+                        RuntimeWindowsKeyMapper
+                            .map(
+                                native.keyCode,
+                            )
+                            ?: return@onPreviewKeyEvent false
+
+                    val action =
+                        when (
+                            native.action
+                        ) {
+                            AndroidKeyEvent
+                                .ACTION_DOWN ->
+                                if (
+                                    native.repeatCount >
+                                    0
+                                ) {
+                                    RuntimeDisplayBridgePayloadCodec
+                                        .KEY_ACTION_REPEAT
+                                } else {
+                                    RuntimeDisplayBridgePayloadCodec
+                                        .KEY_ACTION_DOWN
+                                }
+
+                            AndroidKeyEvent
+                                .ACTION_UP ->
+                                RuntimeDisplayBridgePayloadCodec
+                                    .KEY_ACTION_UP
+
+                            else ->
+                                return@onPreviewKeyEvent false
+                        }
+
+                    bridge.sendKey(
+                        RuntimeBridgeKeyEvent(
+                            windowId =
+                                windowId,
+                            action =
+                                action,
+                            keyCode =
+                                mapped.virtualKey,
+                            scanCode =
+                                mapped.scanCode,
+                            modifiers =
+                                RuntimeWindowsKeyMapper
+                                    .modifiers(
+                                        native.metaState,
+                                    ),
+                            repeatCount =
+                                if (
+                                    action ==
+                                    RuntimeDisplayBridgePayloadCodec
+                                        .KEY_ACTION_REPEAT
+                                ) {
+                                    1
+                                } else {
+                                    0
+                                },
+                        ),
+                    ).isSuccess
+                }
+                .focusable(),
     ) {
         windows
             .filter {
@@ -193,6 +308,10 @@ internal fun RuntimeDesktopWindowLayer(
                                                                         1,
                                                                 )
 
+                                                        focusedWindowId =
+                                                            window.windowId
+                                                        keyboardFocusRequester
+                                                            .requestFocus()
                                                         bridge.activate(
                                                             window.windowId,
                                                         )
