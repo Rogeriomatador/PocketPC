@@ -146,6 +146,9 @@ jobs:
       - name: Desktop enum coverage
         run: python3 scripts/test-desktop-enum-coverage.py
 
+      - name: Taskbar and Task Manager policy
+        run: python3 scripts/test-taskbar-task-manager-policy.py
+
       - name: CI version evidence policy
         run: python3 scripts/test-ci-version-policy.py
 
