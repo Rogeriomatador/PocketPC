@@ -40,7 +40,7 @@ class RuntimeDisplayBridgeProbeController(
             RuntimeDisplayBridgeProbeMode
                 .GENERIC_PATTERN,
     ): RuntimeDisplayBridgeProbeResult =
-        coroutineScope {
+        coroutineScope<RuntimeDisplayBridgeProbeResult> {
             val structural =
                 basePlan.blockers.filterNot {
                     it ==
