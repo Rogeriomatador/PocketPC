@@ -640,7 +640,7 @@ BOOL POCKETPC_ProcessEvents(
     unsigned int processed = 0u;
     char error[160] = {0};
 
-    if (!pocketpc_bridge_ready)
+    if (!POCKETPC_BridgeReady())
         return FALSE;
 
     if (
