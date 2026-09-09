@@ -83,6 +83,10 @@
     "windowLifecyclePostSendFailClosedImplemented": true,
     "windowLifecyclePostSendFailClosedSoftwareTestExecuted": false,
     "bridgeReadySynchronizationImplemented": true,
-    "bridgeReadySynchronizationSoftwareTestExecuted": false
+    "bridgeReadySynchronizationSoftwareTestExecuted": false,
+    "frameAckControlPlaneDrainImplemented": true,
+    "frameAckControlPlaneDrainSoftwareTestExecuted": false,
+    "surfaceRegistryPublishFailClosedImplemented": true,
+    "surfaceRegistryPublishFailClosedSoftwareTestExecuted": false
   }
 }
