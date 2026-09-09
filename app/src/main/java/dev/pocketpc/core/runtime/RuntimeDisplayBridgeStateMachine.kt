@@ -103,6 +103,8 @@ class RuntimeDisplayBridgeStateMachine(
                     RuntimeDisplayBridgeMessageType
                         .SURFACE_AVAILABLE,
                     RuntimeDisplayBridgeMessageType
+                        .WINDOW_COMMAND,
+                    RuntimeDisplayBridgeMessageType
                         .POINTER_EVENT,
                     RuntimeDisplayBridgeMessageType
                         .KEY_EVENT,
