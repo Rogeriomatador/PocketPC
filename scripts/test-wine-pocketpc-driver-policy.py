@@ -188,7 +188,7 @@ def main() -> int:
             "pdb_surface_writer_copy_bgra",
             "pdb_surface_writer_commit",
             "pdb_receive_frame_presented",
-            "POCKETPC_MAX_EVENTS_PER_PUMP",
+            "pdb_surface_writer_close",
         ),
     )
     require(
