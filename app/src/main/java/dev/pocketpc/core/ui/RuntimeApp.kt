@@ -24,6 +24,9 @@ import dev.pocketpc.core.runtime.InstalledRuntime
 import dev.pocketpc.core.runtime.NativeHostStatus
 import dev.pocketpc.core.runtime.PcApplicationCompatibilityProbe
 import dev.pocketpc.core.runtime.PcApplicationTarget
+import dev.pocketpc.core.runtime.PcApplicationTargetMaterializer
+import dev.pocketpc.core.runtime.PcWindowsLaunchAttemptPlan
+import dev.pocketpc.core.runtime.PcWindowsLaunchAttemptPlanner
 import dev.pocketpc.core.runtime.PcRuntimeExecutionGateState
 import dev.pocketpc.core.runtime.PcRuntimeExecutionPlanner
 import dev.pocketpc.core.runtime.PcRuntimeReadinessProbe
@@ -41,6 +44,7 @@ import dev.pocketpc.core.runtime.RuntimePackageManager
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceStore
 import dev.pocketpc.core.runtime.RuntimeProbeEvidenceState
 import dev.pocketpc.core.runtime.RuntimeDisplayBridgeProbeController
+import dev.pocketpc.core.runtime.RuntimeDisplayExecutionController
 import dev.pocketpc.core.runtime.RuntimeDisplayFramePixels
 import dev.pocketpc.core.runtime.RuntimeDiagnosticSuite
 import dev.pocketpc.core.runtime.RuntimeDesktopBridge
@@ -69,6 +73,14 @@ private data class PendingRuntimeProbeExecution(
 private data class PendingRuntimeSuiteExecution(
     val runtime: InstalledRuntime,
     val layers: List<DeployedWindowsRuntimeLayer>,
+)
+
+private data class PendingPcApplicationAttempt(
+    val runtime: InstalledRuntime,
+    val layers:
+        List<DeployedWindowsRuntimeLayer>,
+    val plan:
+        PcWindowsLaunchAttemptPlan,
 )
 
 private data class PcRuntimeEvidenceCandidate(
@@ -148,8 +160,26 @@ fun RuntimeApp(
                 executionController,
             )
         }
-    DisposableEffect(executionController) {
-        onDispose { executionController.stopActive() }
+    val displayExecutionController =
+        remember(executionController) {
+            RuntimeDisplayExecutionController(
+                executionController,
+            )
+        }
+    val targetMaterializer =
+        remember(appContext) {
+            PcApplicationTargetMaterializer(
+                appContext,
+            )
+        }
+    DisposableEffect(
+        executionController,
+        displayExecutionController,
+    ) {
+        onDispose {
+            displayExecutionController.close()
+            executionController.stopActive()
+        }
     }
     var showSubstrateDetails by rememberSaveable { mutableStateOf(false) }
     var selectedProbeName by rememberSaveable { mutableStateOf(GuestRuntimeProbe.SHELL.name) }
@@ -171,6 +201,12 @@ fun RuntimeApp(
             PendingRuntimeSuiteExecution?
         >(null)
     }
+    var pendingPcApplicationAttempt by
+        remember {
+            mutableStateOf<
+                PendingPcApplicationAttempt?
+            >(null)
+        }
     var staged by remember { mutableStateOf<List<StagedRuntime>>(emptyList()) }
     var stagedTools by remember { mutableStateOf<List<StagedGuestToolPackage>>(emptyList()) }
     var stagedWindowsLayers by remember { mutableStateOf<List<StagedWindowsRuntimeLayer>>(emptyList()) }
