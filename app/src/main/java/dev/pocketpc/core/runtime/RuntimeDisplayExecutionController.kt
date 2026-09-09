@@ -77,6 +77,8 @@ class RuntimeDisplayExecutionController(
         userApproved: Boolean,
         handshakeTimeoutMillis:
             Long = 15_000L,
+        desktopBridge:
+            RuntimeDesktopBridge? = null,
     ): RuntimeDisplayExecutionResult =
         coroutineScope {
             check(!closed.get()) {
@@ -317,6 +319,8 @@ class RuntimeDisplayExecutionController(
                         endpoint = peer,
                         hostTempDirectory =
                             hostTemp,
+                        desktopBridge =
+                            desktopBridge,
                     )
                 displaySession =
                     activeSession
