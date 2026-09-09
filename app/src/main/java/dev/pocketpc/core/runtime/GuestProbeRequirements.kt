@@ -13,6 +13,7 @@ object GuestProbeRequirements {
             GuestRuntimeProbe.DISPLAY_BRIDGE_SMOKE ->
                 setOf("box64")
             GuestRuntimeProbe.WINE_SMOKE,
+            GuestRuntimeProbe.WINE_POCKETPC_WINDOW_SMOKE,
             GuestRuntimeProbe.D3D11_SMOKE,
             GuestRuntimeProbe.D3D11_PRESENT_SMOKE,
             GuestRuntimeProbe.WINDOWS_PROCESS_SMOKE,
