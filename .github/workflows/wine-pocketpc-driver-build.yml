@@ -10,6 +10,7 @@ on:
       - 'scripts/build-wine-pocketpc-driver.py'
       - 'scripts/pocketpc_pe.py'
       - 'scripts/audit-wine-pocketpc-driver-pe.py'
+      - 'scripts/verify-wine-pocketpc-driver-artifact-set.py'
       - 'scripts/test-pocketpc-pe-audit.py'
       - 'scripts/test-wine-pocketpc-pe-policy.py'
       - 'scripts/test-wine-pocketpc-build-target-discovery.py'
@@ -81,6 +82,15 @@ jobs:
             --driver "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv" \
             --evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json"
 
+      - name: Verify coherent driver artifact set
+        run: |
+          python3 scripts/verify-wine-pocketpc-driver-artifact-set.py \
+            --build-evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json" \
+            --pe-evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json" \
+            --driver "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv" \
+            --unixlib "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.so" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-artifact-set.json"
+
       - name: Prove repository stayed unmodified
         if: always()
         run: |
@@ -96,6 +106,7 @@ jobs:
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json
+            ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-artifact-set.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/configure.log
             ${{ runner.temp }}/pocketpc-wine-driver-build/driver-build.log
             ${{ runner.temp }}/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv
