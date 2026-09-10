@@ -127,6 +127,17 @@ if has gradle; then
 fi
 
 AAPT2_OK=false
+LOCAL_AAPT2="$HOME/.local/pocketpc/android-build-tools/16.0.0.4/bin/aapt2"
+if [ -x "$LOCAL_AAPT2" ]; then
+  AAPT2_CANDIDATE="$LOCAL_AAPT2"
+  AAPT2_SOURCE="pocketpc_local"
+elif has aapt2; then
+  AAPT2_CANDIDATE="$(command -v aapt2)"
+  AAPT2_SOURCE="termux_system"
+else
+  AAPT2_CANDIDATE=""
+  AAPT2_SOURCE="missing"
+fi
 
 ANDROID_HOME_CANDIDATE="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
 PLATFORM_DIR_NAME="${PLATFORM_PACKAGE#platforms;}"
@@ -159,8 +170,10 @@ else
   echo "  build_tools=MISSING_OR_INCOMPLETE:$BUILD_TOOLS_DIR"
 fi
 
-if has aapt2; then
-  echo "  aapt2_version=$(aapt2 version 2>&1 | head -1)"
+if [ -n "$AAPT2_CANDIDATE" ]; then
+  echo "  aapt2=$AAPT2_CANDIDATE"
+  echo "  aapt2_source=$AAPT2_SOURCE"
+  echo "  aapt2_version=$("$AAPT2_CANDIDATE" version 2>&1 | head -1)"
   if command -v dpkg-query >/dev/null 2>&1; then
     AAPT2_PACKAGE_VERSION="$(dpkg-query -W -f='${Version}' aapt 2>/dev/null || true)"
     echo "  aapt2_package_version=${AAPT2_PACKAGE_VERSION:-unknown}"
@@ -175,7 +188,7 @@ if has aapt2; then
 </manifest>
 EOF
 
-    if aapt2 link \
+    if "$AAPT2_CANDIDATE" link \
       -o "$AAPT2_PROBE_DIR/probe.apk" \
       -I "$ANDROID_JAR" \
       --manifest "$AAPT2_PROBE_DIR/AndroidManifest.xml" \
