@@ -1216,8 +1216,7 @@ fun PocketPcUpdateAutoCheck(
             attempts < 360
         ) {
             val status =
-                pending?.status
-                    ?: break
+                pending.status
 
             if (
                 status ==
