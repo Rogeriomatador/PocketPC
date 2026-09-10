@@ -19,7 +19,7 @@ data class VulkanExternalImageFdLease(
                 generation > 0L &&
                 width in 1..VulkanExternalImageFdBroker.MAX_DIMENSION &&
                 height in 1..VulkanExternalImageFdBroker.MAX_DIMENSION &&
-                format > 0 &&
+                format == VulkanExternalImageFdBroker.FORMAT_R8G8B8A8_UNORM &&
                 allocationSize > 0L &&
                 memoryTypeBits > 0L &&
                 memoryTypeIndex in 0..31 &&
@@ -38,7 +38,7 @@ data class VulkanExternalImageFdLease(
             height = height,
             layers = 1,
             pixelFormat = format,
-            usage = 0L,
+            usage = VulkanExternalImageFdBroker.IMAGE_USAGE_FLAGS,
             producerPid = producerPid,
             processNamespace = processNamespace,
             syncSequence = syncSequence,
@@ -52,6 +52,8 @@ data class VulkanExternalImageFdLease(
 object VulkanExternalImageFdBroker {
     const val PROTOCOL_VERSION = 1
     const val MAX_DIMENSION = 4_096
+    const val FORMAT_R8G8B8A8_UNORM = 37
+    const val IMAGE_USAGE_FLAGS = 0x17L
 
     private external fun nativeCreate(
         width: Int,
