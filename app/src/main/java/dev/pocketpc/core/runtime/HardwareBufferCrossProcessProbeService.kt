@@ -31,8 +31,12 @@ class HardwareBufferCrossProcessProbeService : Service() {
                 -1,
             ) ?: -1
 
-        if (socket == null || receiver == null) {
-            socket?.close()
+        if (
+            socket == null ||
+            receiver == null ||
+            senderPid <= 0
+        ) {
+            runCatching { socket?.close() }
             stopSelf(startId)
             return START_NOT_STICKY
         }
@@ -42,13 +46,19 @@ class HardwareBufferCrossProcessProbeService : Service() {
                 val remotePid = Process.myPid()
                 val nativeResult =
                     try {
-                        NativeRuntimeHost
-                            .receiveHardwareBufferCrossProcessProbe(
-                                socket.fd,
-                            )
+                        runCatching {
+                            NativeRuntimeHost
+                                .receiveHardwareBufferCrossProcessProbe(
+                                    socket.fd,
+                                )
+                        }.getOrElse { error ->
+                            "ahb-xproc-recv=exception;" +
+                                "error=${error.javaClass.simpleName}"
+                        }
                     } finally {
                         runCatching { socket.close() }
                     }
+
                 val data =
                     Bundle().apply {
                         putInt(KEY_SENDER_PID, senderPid)
@@ -58,11 +68,17 @@ class HardwareBufferCrossProcessProbeService : Service() {
                             nativeResult,
                         )
                     }
-                receiver.send(
-                    RESULT_RECEIVED,
-                    data,
-                )
-                stopSelf(startId)
+
+                try {
+                    runCatching {
+                        receiver.send(
+                            RESULT_RECEIVED,
+                            data,
+                        )
+                    }
+                } finally {
+                    stopSelf(startId)
+                }
             },
             "PocketPC-AHB-XProc-Recv",
         ).apply {
