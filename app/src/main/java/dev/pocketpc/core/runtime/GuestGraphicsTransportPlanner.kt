@@ -31,7 +31,7 @@ object GuestGraphicsTransportPlanner {
             return GuestGraphicsTransportPlan(
                 candidate = GuestGraphicsTransportCandidate.NONE,
                 capabilityProbeReady = false,
-                hostFoundationReady = hostFoundationReady(),
+                hostFoundationReady = baseFoundationReady(),
                 guestTransportReady = false,
                 blockers = listOf(
                     "HOST_VULKAN_EXTERNAL_RESOURCE_PROBE_NOT_READY",
@@ -59,8 +59,10 @@ object GuestGraphicsTransportPlanner {
                     GuestGraphicsTransportCandidate.NONE
             }
 
+        val hostFoundationReady =
+            candidateFoundationReady(candidate)
         val blockers = mutableListOf<String>()
-        if (!hostFoundationReady()) {
+        if (!hostFoundationReady) {
             blockers += "HOST_GRAPHICS_TRANSPORT_FOUNDATION_NOT_READY"
         }
 
@@ -103,17 +105,41 @@ object GuestGraphicsTransportPlanner {
         return GuestGraphicsTransportPlan(
             candidate = candidate,
             capabilityProbeReady = true,
-            hostFoundationReady = hostFoundationReady(),
+            hostFoundationReady = hostFoundationReady,
             guestTransportReady = guestReady,
             blockers = blockers.distinct(),
         )
     }
 
-    private fun hostFoundationReady(): Boolean =
+    private fun baseFoundationReady(): Boolean =
         GuestGraphicsTransportContract
             .descriptorProtocolImplemented &&
             GuestGraphicsTransportContract
                 .ownershipProtocolImplemented &&
             GuestGraphicsTransportContract
                 .externalResourceCapabilityProbeImplemented
+
+    private fun candidateFoundationReady(
+        candidate: GuestGraphicsTransportCandidate,
+    ): Boolean =
+        when (candidate) {
+            GuestGraphicsTransportCandidate.OPAQUE_FD,
+            GuestGraphicsTransportCandidate.DMA_BUF_FD,
+            ->
+                baseFoundationReady() &&
+                    GuestGraphicsTransportContract
+                        .ancillaryFdTransportPrimitiveImplemented &&
+                    GuestGraphicsTransportContract
+                        .handleBindingImplemented
+
+            GuestGraphicsTransportCandidate.AHB_HOST_BROKER_ONLY ->
+                baseFoundationReady() &&
+                    GuestGraphicsTransportContract
+                        .hostAhardwareBufferBrokerImplemented &&
+                    GuestGraphicsTransportContract
+                        .handleBindingImplemented
+
+            GuestGraphicsTransportCandidate.NONE ->
+                baseFoundationReady()
+        }
 }
