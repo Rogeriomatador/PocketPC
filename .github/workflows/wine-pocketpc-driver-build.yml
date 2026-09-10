@@ -7,6 +7,8 @@ on:
       - 'third_party/wine/**'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsResourceDescriptor.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsOwnershipProtocol.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanSurfaceBackend.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiContract.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiFoundation.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxPlayerDeepLink.kt'
@@ -31,6 +33,7 @@ on:
       - 'scripts/test-wine-pocketpc-vulkan-abi-policy.py'
       - 'scripts/test-vulkan-wsi-policy.py'
       - 'scripts/test-ahardwarebuffer-vulkan-transport-policy.py'
+      - 'scripts/test-guest-graphics-protocol-policy.py'
       - 'scripts/test-roblox-browser-launch-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - 'scripts/test-display-multipeer-policy.py'
@@ -74,6 +77,7 @@ jobs:
           python3 scripts/test-wine-pocketpc-vulkan-abi-policy.py
           python3 scripts/test-vulkan-wsi-policy.py
           python3 scripts/test-ahardwarebuffer-vulkan-transport-policy.py
+          python3 scripts/test-guest-graphics-protocol-policy.py
           python3 scripts/test-roblox-browser-launch-policy.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
           python3 scripts/test-pocketpc-pe-audit.py
