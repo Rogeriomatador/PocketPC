@@ -71,6 +71,19 @@ class PocketFileOpenPlanTest {
     }
 
     @Test
+    fun isoUsesInternalInspectorButOtherDiskImagesRemainPending() {
+        assertImplementedInternal("instalacao.iso", "application/x-iso9660-image", PocketFileHandler.DISK_IMAGE_MANAGER)
+
+        for (name in listOf("disco.img", "maquina.vhd", "maquina.vhdx")) {
+            val plan = planPocketFileOpen(name)
+            assertEquals(PocketFileHandler.DISK_IMAGE_MANAGER, plan.association.handler)
+            assertEquals(PocketFileHandlerReadiness.ROUTE_ONLY, plan.association.readiness)
+            assertFalse(plan.canAttemptNow)
+            assertFalse(plan.leavesPocketPc)
+        }
+    }
+
+    @Test
     fun modernOfficeContainersUseInternalTextPreview() {
         assertImplementedInternal(
             "trabalho.docx",
