@@ -4,6 +4,7 @@ set -euo pipefail
 PREFIX_DIR="${PREFIX:-/data/data/com.termux/files/usr}"
 APT_ETC="$PREFIX_DIR/etc/apt"
 MODE="${1:-diagnostic}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 collect_sources() {
     python - "$APT_ETC" <<'PY'
@@ -87,7 +88,9 @@ echo "Classification : TERMUX_REPOSITORY_DIAGNOSTIC"
 
 if [ -z "$SOURCES" ]; then
     echo "repository_state=UNKNOWN_NO_ACTIVE_DEB_SOURCE"
-    [ "$MODE" = "--require-modern" ] && exit 14
+    if [ "$MODE" = "--require-compatible" ] || [ "$MODE" = "--require-modern" ]; then
+        exit 14
+    fi
     exit 0
 fi
 
@@ -96,33 +99,76 @@ printf '%s\n' "$SOURCES" | while IFS='|' read -r source_file uri; do
     echo "  source_uri=$uri"
 done
 
-if printf '%s\n' "$SOURCES" | cut -d'|' -f2- | grep -Eq 'https?://([^/]*[.])?termux[.]net([/[:space:]]|$)'; then
-    echo "repository_state=LEGACY_TERMUX_NET"
-    echo "recommended_main_repo=deb https://packages.termux.dev/apt/termux-main stable main"
-    echo "action_required=CHANGE_TERMUX_MAIN_REPOSITORY"
-    echo "note=pkg_update_does_not_change_repository"
-    if command -v termux-change-repo >/dev/null 2>&1; then
-        echo "recovery_command=termux-change-repo"
-        echo "recovery_hint=Select Main repository, then choose the packages.termux.dev primary mirror."
-    else
-        echo "recovery_command=manual_sources_list_edit"
-        echo "recovery_file=$APT_ETC/sources.list"
-        echo "recovery_backup=cp -a $APT_ETC/sources.list $APT_ETC/sources.list.pocketpc-backup"
-        echo "recovery_source=deb https://packages.termux.dev/apt/termux-main stable main"
-        echo "recovery_hint=Inspect every source_file printed above; disable any legacy termux.net entry, including *.sources files, then run pkg update."
+TERMUX_VARIANT="$(bash "$SCRIPT_DIR/termux-detect-variant.sh" --value 2>/dev/null || printf '%s' classic_or_unknown)"
+echo "termux_variant=$TERMUX_VARIANT"
+
+SOURCE_URIS="$(printf '%s\n' "$SOURCES" | cut -d'|' -f2-)"
+HAS_TERMUX_NET=false
+HAS_CLASSIC_MAIN=false
+
+if printf '%s\n' "$SOURCE_URIS" | grep -Eq 'https?://([^/]*[.])?termux[.]net([/[:space:]]|$)'; then
+    HAS_TERMUX_NET=true
+fi
+if printf '%s\n' "$SOURCE_URIS" | grep -Eq 'https?://([^/]*[.])?packages(-cf)?[.]termux[.]dev/apt/termux-main/?([[:space:]]|$)'; then
+    HAS_CLASSIC_MAIN=true
+fi
+
+if [ "$TERMUX_VARIANT" = "googleplay" ]; then
+    if [ "$HAS_TERMUX_NET" = true ] && [ "$HAS_CLASSIC_MAIN" = true ]; then
+        echo "repository_state=MIXED_GOOGLE_PLAY_AND_CLASSIC"
+        echo "action_required=REMOVE_CLASSIC_REPOSITORY_FROM_GOOGLE_PLAY_TERMUX"
+        echo "note=Google Play Termux uses its own package set; do not mix packages.termux.dev with termux.net."
+        echo "recovery_hint=Remove the packages.termux.dev main entry you added; keep the original termux.net Google Play source."
+        echo "Classification : TERMUX_REPOSITORY_VARIANT_MIXED"
+        if [ "$MODE" = "--require-compatible" ] || [ "$MODE" = "--require-modern" ]; then
+            exit 15
+        fi
+        exit 0
     fi
-    echo "Classification : TERMUX_REPOSITORY_LEGACY"
-    [ "$MODE" = "--require-modern" ] && exit 13
+
+    if [ "$HAS_CLASSIC_MAIN" = true ]; then
+        echo "repository_state=WRONG_CLASSIC_REPOSITORY_FOR_GOOGLE_PLAY"
+        echo "action_required=RESTORE_GOOGLE_PLAY_REPOSITORY"
+        echo "note=Google Play Termux packages are maintained separately from the classic Termux repository."
+        echo "Classification : TERMUX_REPOSITORY_VARIANT_MISMATCH"
+        if [ "$MODE" = "--require-compatible" ] || [ "$MODE" = "--require-modern" ]; then
+            exit 16
+        fi
+        exit 0
+    fi
+
+    if [ "$HAS_TERMUX_NET" = true ]; then
+        echo "repository_state=GOOGLE_PLAY_PRIMARY"
+        echo "Classification : TERMUX_REPOSITORY_GOOGLE_PLAY_OK"
+        exit 0
+    fi
+
+    echo "repository_state=GOOGLE_PLAY_CUSTOM_OR_UNKNOWN"
+    echo "Classification : TERMUX_REPOSITORY_GOOGLE_PLAY_UNKNOWN"
+    if [ "$MODE" = "--require-compatible" ] || [ "$MODE" = "--require-modern" ]; then
+        exit 17
+    fi
     exit 0
 fi
 
-if printf '%s\n' "$SOURCES" | cut -d'|' -f2- | grep -Fq 'packages.termux.dev/apt/termux-main'; then
-    echo "repository_state=OFFICIAL_PRIMARY"
+if [ "$HAS_TERMUX_NET" = true ]; then
+    echo "repository_state=LEGACY_TERMUX_NET_CLASSIC"
+    echo "recommended_main_repo=deb https://packages.termux.dev/apt/termux-main stable main"
+    echo "action_required=CHANGE_CLASSIC_TERMUX_MAIN_REPOSITORY"
+    echo "Classification : TERMUX_REPOSITORY_LEGACY"
+    if [ "$MODE" = "--require-compatible" ] || [ "$MODE" = "--require-modern" ]; then
+        exit 13
+    fi
+    exit 0
+fi
+
+if [ "$HAS_CLASSIC_MAIN" = true ]; then
+    echo "repository_state=CLASSIC_PRIMARY"
     echo "Classification : TERMUX_REPOSITORY_PRIMARY_OK"
     exit 0
 fi
 
 echo "repository_state=NON_PRIMARY_MIRROR_OR_CUSTOM"
-echo "note=Termux supports multiple mirrors; compatibility is determined by the AAPT2 probe."
+echo "note=Repository compatibility is not proven by host name alone."
 echo "Classification : TERMUX_REPOSITORY_NON_PRIMARY"
 exit 0
