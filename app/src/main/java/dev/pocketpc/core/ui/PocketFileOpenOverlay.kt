@@ -31,8 +31,7 @@ fun PocketFileOpenOverlay() {
     val request by PocketFileOpenCoordinator.request.collectAsState()
     val currentRequest = request ?: return
     val current = currentRequest.plan
-    val extension =
-        current.fileName.substringAfterLast('.', "").lowercase()
+    val extension = current.fileName.substringAfterLast('.', "").lowercase()
 
     var editorDirty by remember(currentRequest.uri) { mutableStateOf(false) }
     var discardRequested by remember(currentRequest.uri) { mutableStateOf(false) }
@@ -49,6 +48,9 @@ fun PocketFileOpenOverlay() {
         current.association.handler == PocketFileHandler.IMAGE_VIEWER && implemented && !isSvgViewer
     val isArchiveViewer =
         current.association.handler == PocketFileHandler.ARCHIVE_MANAGER && implemented
+    val isIsoInspector =
+        current.association.handler == PocketFileHandler.DISK_IMAGE_MANAGER &&
+            implemented && extension == "iso"
     val isPdfViewer =
         current.association.handler == PocketFileHandler.PDF_VIEWER && implemented
     val isOfficePreview =
@@ -86,6 +88,7 @@ fun PocketFileOpenOverlay() {
                         }
                     isSvgViewer || isImageViewer -> "Fotos do PocketPC"
                     isArchiveViewer -> "Compactador do PocketPC"
+                    isIsoInspector -> "Gerenciador de imagens de disco"
                     isPdfViewer -> "Leitor de PDF do PocketPC"
                     isOfficePreview -> "Documentos do PocketPC"
                     isWebDocument -> "Documento Web do PocketPC"
@@ -122,6 +125,9 @@ fun PocketFileOpenOverlay() {
 
                     isArchiveViewer ->
                         PocketZipArchivePane(request = currentRequest)
+
+                    isIsoInspector ->
+                        PocketIsoInspectorPane(request = currentRequest)
 
                     isPdfViewer ->
                         PocketPdfViewerPane(request = currentRequest)
@@ -200,7 +206,7 @@ fun PocketFileOpenOverlay() {
                 Text(
                     if (
                         isTextEditor || isSvgViewer || isImageViewer || isArchiveViewer ||
-                        isPdfViewer || isOfficePreview || isWebDocument ||
+                        isIsoInspector || isPdfViewer || isOfficePreview || isWebDocument ||
                         isVideoPlayer || isAudioPlayer
                     ) {
                         "Fechar"
