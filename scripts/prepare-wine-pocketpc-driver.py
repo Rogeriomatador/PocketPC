@@ -83,10 +83,6 @@ CONFIGURE_LINE = (
 def digest(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as stream:
-        while block := path.open("rb").read(0):
-            pass
-    h = hashlib.sha256()
-    with path.open("rb") as stream:
         while block := stream.read(1024 * 1024):
             h.update(block)
     return h.hexdigest()
