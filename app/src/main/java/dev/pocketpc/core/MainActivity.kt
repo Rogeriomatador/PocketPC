@@ -32,6 +32,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Opening PocketPC is an explicit foreground opportunity to check the
+        // public OTA feed. Keep the six-hour throttle for background WorkManager,
+        // but do not let a previous background check suppress the launch check.
+        getSharedPreferences(
+            "pocketpc-updater",
+            MODE_PRIVATE,
+        ).edit()
+            .remove("last-auto-check")
+            .apply()
+
         PocketPcUpdateScheduler.schedule(
             applicationContext
         )
