@@ -28,6 +28,7 @@ DRIVER_FILES = (
     "pocketpcdrv.h",
     "pocketpcdrv_main.c",
     "surface.c",
+    "vulkan.c",
     "window.c",
 )
 
@@ -255,7 +256,7 @@ def main() -> int:
     )
 
     evidence = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "status": "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT_NOT_RUNTIME_TESTED",
         "wineVersion": lock["version"],
         "wineCommit": lock["commit"],
@@ -275,9 +276,14 @@ def main() -> int:
             "pCreateWindowSurface",
             "pWindowPosChanging",
             "pWindowPosChanged",
+            "pVulkanInit_fail_closed_v47",
         ],
         "surfaceCallbackImplemented": True,
         "inputInjectionImplemented": True,
+        "vulkanAbiEntryPointImplemented": True,
+        "vulkanAbiDriverVersion": 47,
+        "vulkanSurfaceCreateImplemented": False,
+        "vulkanPresentationSupportImplemented": False,
         "vulkanDriverImplemented": False,
         "openglDriverImplemented": False,
         "configureAcPatched": ac_changed,
@@ -291,6 +297,7 @@ def main() -> int:
                 "pocketpcdrv_main.c",
                 "input.c",
                 "surface.c",
+                "vulkan.c",
                 "window.c",
                 "pocketpc_display_bridge.c",
                 "pocketpc_surface_writer.c",
@@ -303,13 +310,16 @@ def main() -> int:
             "Wine configure",
             "winepocketpc.drv compilation",
             "winepocketpc.so compilation",
+            "pVulkanInit through Wine",
+            "Wine Vulkan surface creation",
+            "Vulkan presentation support",
             "Wine driver load",
             "HWND lifecycle through Wine",
             "surface presentation through Wine",
             "input injection through Wine",
             "Box64 execution",
             "Android execution",
-            "DXVK/Vulkan",
+            "DXVK/Vulkan Present",
             "Roblox",
         ],
     }
@@ -334,6 +344,12 @@ def main() -> int:
     )
     print(
         "graphics_driver=winepocketpc.drv"
+    )
+    print(
+        "vulkan_abi_entrypoint=true"
+    )
+    print(
+        "vulkan_surface_implemented=false"
     )
     print(
         "runtime_execution_evidence=false"
