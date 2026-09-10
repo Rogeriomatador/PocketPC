@@ -241,8 +241,8 @@ def main() -> int:
         "externalImagePvi1ProtocolImplemented": True,
         "guestVulkanImportPrimitiveImplemented": True,
         "externalTimelineSemaphorePvs1ProtocolImplemented": True,
+        "hostTimelineSemaphoreExporterImplemented": True,
         "guestVulkanTimelineImportPrimitiveImplemented": True,
-        "hostTimelineSemaphoreExporterImplemented": False,
         "guestGraphicsHandleReceiveIntegrated": False,
         "guestGraphicsImportIntegrated": False,
         "guestGraphicsSynchronizationImplemented": False,
@@ -283,8 +283,9 @@ def main() -> int:
             "PVI1 external image receive through Wine",
             "guest Vulkan import primitive through Wine VkDevice",
             "PVS1 timeline semaphore receive through Wine",
+            "host timeline semaphore export execution on Android Vulkan device",
             "guest Vulkan timeline semaphore import through Wine VkDevice",
-            "host timeline semaphore export",
+            "timeline semaphore signal/wait round-trip",
             "authenticated guest graphics receive integration",
             "guest graphics Vulkan import integration",
             "guest graphics GPU synchronization",
@@ -319,8 +320,8 @@ def main() -> int:
     print("external_image_fd_protocol=PVI1")
     print("guest_vulkan_import_primitive=true")
     print("external_timeline_semaphore_fd_protocol=PVS1")
+    print("host_timeline_semaphore_exporter=true")
     print("guest_vulkan_timeline_import_primitive=true")
-    print("host_timeline_semaphore_exporter=false")
     print("guest_graphics_handle_receive_integrated=false")
     print("guest_graphics_import_integrated=false")
     print("guest_graphics_synchronization=false")
