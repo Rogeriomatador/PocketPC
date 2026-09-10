@@ -59,7 +59,7 @@ object GraphicsSeqpacketSessionHost {
 
         override fun close() {
             if (fd >= 0 && closed.compareAndSet(false, true)) {
-                nativeCloseAcceptedFd(fd)
+                GraphicsSeqpacketSessionHost.nativeCloseAcceptedFd(fd)
             }
         }
     }
@@ -73,13 +73,16 @@ object GraphicsSeqpacketSessionHost {
         /** Blocking. Call from the runtime IO executor, never the Compose thread. */
         fun acceptAuthenticated(): AcceptedConnection? {
             if (closed.get() || sessionId <= 0L) return null
-            val fd = runCatching { nativeAcceptAuthenticated(sessionId) }.getOrNull() ?: return null
+            val fd =
+                runCatching {
+                    GraphicsSeqpacketSessionHost.nativeAcceptAuthenticated(sessionId)
+                }.getOrNull() ?: return null
             return fd.takeIf { it >= 0 }?.let(::AcceptedConnection)
         }
 
         override fun close() {
             if (sessionId > 0L && closed.compareAndSet(false, true)) {
-                nativeCloseServer(sessionId)
+                GraphicsSeqpacketSessionHost.nativeCloseServer(sessionId)
             }
         }
     }
