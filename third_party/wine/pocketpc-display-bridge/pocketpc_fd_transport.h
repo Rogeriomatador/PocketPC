@@ -25,11 +25,14 @@ enum pocketpc_fd_transport_result {
     POCKETPC_FD_TRANSPORT_BAD_CONTROL = -4,
     POCKETPC_FD_TRANSPORT_BAD_TOKEN = -5,
     POCKETPC_FD_TRANSPORT_CLOEXEC_FAILED = -6,
+    POCKETPC_FD_TRANSPORT_WRONG_SOCKET_TYPE = -7,
 };
 
 /*
  * Send exactly one kernel-owned file descriptor out-of-band with SCM_RIGHTS.
  * The descriptor number itself is never serialized in the token payload.
+ * A SOCK_SEQPACKET channel is required so token and ancillary data remain one
+ * atomic protocol record rather than depending on stream framing accidents.
  */
 int pocketpc_fd_transport_send(
     int socket_fd,
@@ -40,8 +43,8 @@ int pocketpc_fd_transport_send(
 /*
  * Receive exactly one SCM_RIGHTS descriptor and its versioned identity token.
  * On success, ownership of *received_fd is transferred to the caller and the
- * descriptor is guaranteed to have FD_CLOEXEC set. On failure no descriptor
- * ownership is transferred and *received_fd remains -1.
+ * descriptor is guaranteed to have FD_CLOEXEC set. On every failure path any
+ * received SCM_RIGHTS descriptors are closed before returning.
  */
 int pocketpc_fd_transport_receive(
     int socket_fd,
