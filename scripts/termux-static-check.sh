@@ -82,6 +82,7 @@ CHECKS=(
     "scripts/test-pocketdrive-research-policy.py"
     "scripts/test-kotlin-source-regressions.py"
     "scripts/test-termux-aapt2-policy.py"
+    "scripts/test-termux-repository-behavior.py"
 )
 
 echo "Python syntax"
