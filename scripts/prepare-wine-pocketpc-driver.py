@@ -47,6 +47,10 @@ BRIDGE_FILES = (
     "pocketpc_external_image_fd_protocol.c",
     "pocketpc_guest_vulkan_import.h",
     "pocketpc_guest_vulkan_import.c",
+    "pocketpc_external_timeline_semaphore_fd_protocol.h",
+    "pocketpc_external_timeline_semaphore_fd_protocol.c",
+    "pocketpc_guest_vulkan_timeline_semaphore.h",
+    "pocketpc_guest_vulkan_timeline_semaphore.c",
     "pocketpc_surface_writer.h",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.h",
@@ -63,6 +67,8 @@ UNIX_ONLY_C_FILES = {
     "pocketpc_guest_graphics_receive.c",
     "pocketpc_external_image_fd_protocol.c",
     "pocketpc_guest_vulkan_import.c",
+    "pocketpc_external_timeline_semaphore_fd_protocol.c",
+    "pocketpc_guest_vulkan_timeline_semaphore.c",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.c",
     "pocketpc_wine_window_bridge.c",
@@ -106,9 +112,7 @@ def patch_once(path: Path, anchor: str, line: str) -> bool:
     if line in text:
         return False
     if text.count(anchor) != 1:
-        raise RuntimeError(
-            f"PATCH_ANCHOR_INVALID:{path.name}:{text.count(anchor)}"
-        )
+        raise RuntimeError(f"PATCH_ANCHOR_INVALID:{path.name}:{text.count(anchor)}")
     text = text.replace(anchor, anchor + "\n" + line, 1)
     path.write_text(text, encoding="utf-8")
     return True
@@ -135,10 +139,7 @@ def main() -> int:
     if not copying.is_file():
         raise SystemExit("WINE_LICENSE_FILE_MISSING")
     license_text = copying.read_text(encoding="utf-8", errors="replace")
-    if (
-        "GNU LESSER GENERAL PUBLIC LICENSE" not in license_text
-        or "Version 2.1" not in license_text
-    ):
+    if "GNU LESSER GENERAL PUBLIC LICENSE" not in license_text or "Version 2.1" not in license_text:
         raise SystemExit("WINE_LICENSE_EVIDENCE_MISMATCH")
 
     destination = source / "dlls/winepocketpc.drv"
@@ -172,9 +173,7 @@ def main() -> int:
         if name in UNIX_ONLY_C_FILES:
             original = dst.read_text(encoding="utf-8")
             if "#pragma makedep unix" in original:
-                raise SystemExit(
-                    f"BRIDGE_SOURCE_ALREADY_HAS_WINE_MAKEDEP:{name}"
-                )
+                raise SystemExit(f"BRIDGE_SOURCE_ALREADY_HAS_WINE_MAKEDEP:{name}")
             dst.write_text(UNIX_MAKEDEP_PREAMBLE + original, encoding="utf-8")
         copied.append(
             {
@@ -192,19 +191,11 @@ def main() -> int:
     if not configure.is_file():
         raise SystemExit("WINE_CONFIGURE_MISSING")
 
-    ac_changed = patch_once(
-        configure_ac,
-        CONFIGURE_AC_ANCHOR,
-        CONFIGURE_AC_LINE,
-    )
-    configure_changed = patch_once(
-        configure,
-        CONFIGURE_ANCHOR,
-        CONFIGURE_LINE,
-    )
+    ac_changed = patch_once(configure_ac, CONFIGURE_AC_ANCHOR, CONFIGURE_AC_LINE)
+    configure_changed = patch_once(configure, CONFIGURE_ANCHOR, CONFIGURE_LINE)
 
     evidence = {
-        "schemaVersion": 6,
+        "schemaVersion": 7,
         "status": "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT_NOT_RUNTIME_TESTED",
         "wineVersion": lock["version"],
         "wineCommit": lock["commit"],
@@ -215,6 +206,8 @@ def main() -> int:
         "graphicsFdTransportProtocolVersion": 1,
         "externalImageFdProtocol": "PVI1",
         "externalImageFdProtocolVersion": 1,
+        "externalTimelineSemaphoreFdProtocol": "PVS1",
+        "externalTimelineSemaphoreFdProtocolVersion": 1,
         "graphicsSelection": {
             "registryPath": r"HKCU\Software\Wine\Drivers",
             "valueName": "Graphics",
@@ -235,6 +228,7 @@ def main() -> int:
         "vulkanAbiEntryPointImplemented": True,
         "vulkanAbiDriverVersion": 47,
         "vulkanHeadlessDiagnosticImplemented": True,
+        "vulkanHeadlessPresentObserverImplemented": True,
         "vulkanExternalFdExtensionMappingImplemented": True,
         "vulkanVisibleSurfaceCreateImplemented": False,
         "vulkanVisiblePresentationSupportImplemented": False,
@@ -246,6 +240,9 @@ def main() -> int:
         "guestGraphicsReceivePrimitiveImplemented": True,
         "externalImagePvi1ProtocolImplemented": True,
         "guestVulkanImportPrimitiveImplemented": True,
+        "externalTimelineSemaphorePvs1ProtocolImplemented": True,
+        "guestVulkanTimelineImportPrimitiveImplemented": True,
+        "hostTimelineSemaphoreExporterImplemented": False,
         "guestGraphicsHandleReceiveIntegrated": False,
         "guestGraphicsImportIntegrated": False,
         "guestGraphicsSynchronizationImplemented": False,
@@ -268,6 +265,8 @@ def main() -> int:
                 "pocketpc_guest_graphics_receive.c",
                 "pocketpc_external_image_fd_protocol.c",
                 "pocketpc_guest_vulkan_import.c",
+                "pocketpc_external_timeline_semaphore_fd_protocol.c",
+                "pocketpc_guest_vulkan_timeline_semaphore.c",
                 "pocketpc_surface_writer.c",
                 "pocketpc_wine_window_map.c",
                 "pocketpc_wine_window_bridge.c",
@@ -280,8 +279,12 @@ def main() -> int:
             "winepocketpc.so compilation",
             "pVulkanInit through Wine",
             "headless diagnostic Vulkan surface through Wine",
+            "headless Present observer through Wine",
             "PVI1 external image receive through Wine",
             "guest Vulkan import primitive through Wine VkDevice",
+            "PVS1 timeline semaphore receive through Wine",
+            "guest Vulkan timeline semaphore import through Wine VkDevice",
+            "host timeline semaphore export",
             "authenticated guest graphics receive integration",
             "guest graphics Vulkan import integration",
             "guest graphics GPU synchronization",
@@ -306,6 +309,7 @@ def main() -> int:
     print("graphics_driver=winepocketpc.drv")
     print("vulkan_abi_entrypoint=true")
     print("vulkan_headless_diagnostic=true")
+    print("vulkan_headless_present_observer=true")
     print("vulkan_external_fd_extension_mapping=true")
     print("guest_graphics_descriptor_protocol=true")
     print("guest_graphics_ownership_protocol=true")
@@ -314,8 +318,12 @@ def main() -> int:
     print("guest_graphics_receive_primitive=true")
     print("external_image_fd_protocol=PVI1")
     print("guest_vulkan_import_primitive=true")
+    print("external_timeline_semaphore_fd_protocol=PVS1")
+    print("guest_vulkan_timeline_import_primitive=true")
+    print("host_timeline_semaphore_exporter=false")
     print("guest_graphics_handle_receive_integrated=false")
     print("guest_graphics_import_integrated=false")
+    print("guest_graphics_synchronization=false")
     print("visible_vulkan_surface_implemented=false")
     print("runtime_execution_evidence=false")
     return 0
