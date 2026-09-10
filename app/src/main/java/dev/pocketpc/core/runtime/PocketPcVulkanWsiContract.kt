@@ -16,21 +16,34 @@ object PocketPcVulkanWsiContract {
     const val PINNED_WINE_COMMIT =
         "db11d0fe6a169c457e23d007e20404643d067aa8"
 
-    // The v47 pVulkanInit ABI is represented by the driver, but all WSI
-    // behavior below intentionally remains blocked until the real transport
-    // and presentation path exists.
+    // The v47 pVulkanInit ABI is represented by the driver.
     const val abiEntryPointImplemented =
         true
     const val abiEntryPointSoftwareTestExecuted =
         false
+
+    /*
+     * External Win32 handle mappings can exist before presentation. They use
+     * Wine's normal Linux fd translation model and are deliberately separated
+     * from the surface/swapchain WSI gates below.
+     */
+    const val externalHandleExtensionMappingImplemented =
+        true
+    const val externalHandleExtensionMappingSoftwareTestExecuted =
+        false
+
     const val surfaceCreateImplemented =
         false
     const val presentationSupportImplemented =
         false
-    const val extensionMappingImplemented =
+    const val surfaceExtensionMappingImplemented =
         false
     const val swapchainPresentationImplemented =
         false
+
+    const val extensionMappingImplemented =
+        externalHandleExtensionMappingImplemented &&
+            surfaceExtensionMappingImplemented
 
     const val implemented =
         false
@@ -69,7 +82,7 @@ object PocketPcVulkanWsiContract {
         implemented &&
             surfaceCreateImplemented &&
             presentationSupportImplemented &&
-            extensionMappingImplemented &&
+            surfaceExtensionMappingImplemented &&
             swapchainPresentationImplemented &&
             foundation.readyForWsiImplementation &&
             foundation.guestGraphicsTransportReady
