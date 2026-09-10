@@ -22,6 +22,17 @@ extern "C" {
 #define PGT_RESOURCE_DESCRIPTOR_BYTES 64u
 #define PGT_MAX_FRAME_BYTES 4096u
 
+/* Authenticated SOCK_SEQPACKET session handshake ("PGH1"). */
+#define PGT_SESSION_MAGIC 0x31484750u
+#define PGT_SESSION_VERSION 1u
+#define PGT_SESSION_TOKEN_BYTES 32u
+#define PGT_SESSION_TOKEN_HEX_BYTES 64u
+#define PGT_SESSION_HANDSHAKE_BYTES 48u
+#define PGT_SESSION_MAX_SOCKET_NAME_BYTES 80u
+#define PGT_SESSION_ENV_SOCKET_NAME "POCKETPC_GRAPHICS_SOCKET_NAME"
+#define PGT_SESSION_ENV_TOKEN "POCKETPC_GRAPHICS_SESSION_TOKEN"
+#define PGT_SESSION_ENV_PROTOCOL "POCKETPC_GRAPHICS_SESSION_PROTOCOL"
+
 #define PGT_MSG_RESOURCE_OFFER 1u
 #define PGT_MSG_GUEST_IMPORTED 2u
 #define PGT_MSG_GUEST_RENDER_BEGIN 3u
@@ -95,6 +106,18 @@ int pgt_validate_ownership_transition(
     uint64_t next_sequence,
     struct pgt_ownership_record *next
 );
+
+/*
+ * Connect to the Android-hosted abstract AF_UNIX/SOCK_SEQPACKET endpoint and
+ * authenticate the current process. The returned FD is CLOEXEC and owned by
+ * the caller. No graphics capability is implied by a successful handshake.
+ */
+int pgt_connect_authenticated_session(
+    const char *socket_name,
+    const char *token_hex
+);
+
+int pgt_connect_authenticated_session_from_environment(void);
 
 #ifdef __cplusplus
 }
