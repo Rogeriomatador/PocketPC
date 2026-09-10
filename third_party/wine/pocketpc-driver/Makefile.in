@@ -11,6 +11,7 @@ SOURCES = \
 	vulkan.c \
 	window.c \
 	pocketpc_display_bridge.c \
+	pocketpc_graphics_transport.c \
 	pocketpc_surface_writer.c \
 	pocketpc_wine_window_map.c \
 	pocketpc_wine_window_bridge.c
