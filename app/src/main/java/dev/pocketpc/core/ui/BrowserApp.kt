@@ -4,7 +4,6 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.webkit.CookieManager
@@ -16,7 +15,6 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -171,6 +169,7 @@ fun BrowserApp(
     var canGoBack by remember(session.activeTabId) { mutableStateOf(false) }
     var canGoForward by remember(session.activeTabId) { mutableStateOf(false) }
     var loadError by remember(session.activeTabId) { mutableStateOf<String?>(null) }
+    var downloadStatus by remember { mutableStateOf<String?>(null) }
     var mobileUserAgent by remember { mutableStateOf<String?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
     val tabsScroll = rememberLazyListState()
@@ -195,10 +194,18 @@ fun BrowserApp(
             view.reload()
         }
     }
-    fun openExternal() {
+    fun openOutsidePocketPc() {
         runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webView?.url ?: address)))
-        }.onFailure { Toast.makeText(context, "Nenhum aplicativo disponível para abrir esta página.", Toast.LENGTH_SHORT).show() }
+            context.startActivity(
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(webView?.url ?: address),
+                )
+            )
+        }.onFailure {
+            loadError =
+                "O Android não encontrou outro navegador para abrir esta página."
+        }
     }
     BackHandler(enabled = isActive && canGoBack) { webView?.goBack() }
     LaunchedEffect(session.activeTabId) {
@@ -251,7 +258,6 @@ fun BrowserApp(
                 BrowserNavButton("+", description = "Nova aba", enabled = session.canAddTab) { session.newTab() }
                 if (integratedWindowControls) {
                     WindowControlButton("—") { windowActions.minimized.invoke() }
-                    // Compact windows already fill the workspace; maximize would have no visible effect.
                     if (!compactWindowControls) {
                         WindowControlButton(if (windowActions.maximized) "▣" else "□") {
                             windowActions.toggleMaximize.invoke()
@@ -302,16 +308,40 @@ fun BrowserApp(
                                 onClick = { menuOpen = false; toggleDesktopMode() })
                             DropdownMenuItem(text = { Text("Downloads do PocketPC") },
                                 onClick = { menuOpen = false; onOpenDownloads() })
-                            DropdownMenuItem(text = { Text("Abrir em outro navegador") },
-                                onClick = { menuOpen = false; openExternal() })
+                            DropdownMenuItem(
+                                text = { Text("Abrir fora do PocketPC (Android)") },
+                                onClick = { menuOpen = false; openOutsidePocketPc() },
+                            )
                         }
                     }
                 }
             }
         }
-        // Reserve the progress strip so page content doesn't jump on every navigation.
         Box(Modifier.fillMaxWidth().height(2.dp)) {
             if (progress in 0.001f..0.999f) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxSize())
+        }
+        downloadStatus?.let { message ->
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        message,
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    TextButton(onClick = onOpenDownloads) {
+                        Text("Downloads")
+                    }
+                    TextButton(onClick = { downloadStatus = null }) {
+                        Text("Fechar")
+                    }
+                }
+            }
         }
         loadError?.let { message ->
             Surface(color = MaterialTheme.colorScheme.errorContainer) {
@@ -349,8 +379,16 @@ fun BrowserApp(
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                                 val uri = request?.url ?: return false
-                                if (uri.scheme.orEmpty().lowercase() in setOf("http", "https")) return false
-                                return runCatching { activityContext.startActivity(Intent(Intent.ACTION_VIEW, uri)); true }.getOrDefault(true)
+                                val scheme = uri.scheme.orEmpty().lowercase()
+                                if (scheme in setOf("http", "https", "about", "data", "blob")) {
+                                    return false
+                                }
+
+                                if (session.activeTabId == tabId) {
+                                    loadError =
+                                        "O site tentou abrir um link externo ($scheme:). O PocketPC bloqueou a saída automática para o Android."
+                                }
+                                return true
                             }
                             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                                 if (session.activeTabId == tabId) loadError = null
@@ -388,7 +426,19 @@ fun BrowserApp(
                             }
                         }
                         setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-                            enqueueDownload(activityContext, storage, url, userAgent, contentDisposition, mimeType)
+                            enqueueDownload(
+                                context = activityContext,
+                                storage = storage,
+                                url = url,
+                                userAgent = userAgent,
+                                contentDisposition = contentDisposition,
+                                mimeType = mimeType,
+                            ).onSuccess { message ->
+                                downloadStatus = message
+                            }.onFailure { error ->
+                                downloadStatus =
+                                    "Falha no download: ${error.message ?: error.javaClass.simpleName}"
+                            }
                         })
                         val restored = session.webViewState(tabId)?.let(::restoreState)
                         if (restored == null) loadUrl(session.activeTab.url)
@@ -605,46 +655,61 @@ internal fun resolvePocketDownloadFileName(
     )
 }
 
-private fun enqueueDownload(context: Context, storage: StorageRepository, url: String?, userAgent: String?, contentDisposition: String?, mimeType: String?) {
-    if (url.isNullOrBlank()) { Toast.makeText(context, "Download sem URL.", Toast.LENGTH_SHORT).show(); return }
+private fun enqueueDownload(
+    context: Context,
+    storage: StorageRepository,
+    url: String?,
+    userAgent: String?,
+    contentDisposition: String?,
+    mimeType: String?,
+): Result<String> =
     runCatching {
+        require(!url.isNullOrBlank()) {
+            "Download sem URL."
+        }
+
         val fileName =
             resolvePocketDownloadFileName(
                 url = url,
-                contentDisposition =
-                    contentDisposition,
+                contentDisposition = contentDisposition,
                 mimeType = mimeType,
             )
-        val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle(fileName)
-            .setDescription("Download pelo PocketPC")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setAllowedOverMetered(true)
-            .setAllowedOverRoaming(true)
-        if (!mimeType.isNullOrBlank()) request.setMimeType(mimeType)
-        if (!userAgent.isNullOrBlank()) request.addRequestHeader("User-Agent", userAgent)
-        CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }?.let { request.addRequestHeader("Cookie", it) }
-        val pocketDriveConfigured = storage.rootUriString != null
-        if (pocketDriveConfigured) {
-            request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "pocketpc-${System.currentTimeMillis()}-$fileName")
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-        } else {
-            request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
+        val stagingName =
+            "pocketpc-${System.currentTimeMillis()}-$fileName"
+        val request =
+            DownloadManager.Request(Uri.parse(url))
+                .setTitle(fileName)
+                .setDescription("Download pelo PocketPC")
+                .setNotificationVisibility(
+                    DownloadManager.Request.VISIBILITY_HIDDEN
+                )
+                .setAllowedOverMetered(true)
+                .setAllowedOverRoaming(true)
+                .setDestinationInExternalFilesDir(
+                    context,
+                    Environment.DIRECTORY_DOWNLOADS,
+                    stagingName,
+                )
+
+        if (!mimeType.isNullOrBlank()) {
+            request.setMimeType(mimeType)
         }
-        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        if (!userAgent.isNullOrBlank()) {
+            request.addRequestHeader("User-Agent", userAgent)
+        }
+        CookieManager.getInstance()
+            .getCookie(url)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { request.addRequestHeader("Cookie", it) }
+
+        val manager =
+            context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val downloadId = manager.enqueue(request)
         PocketDownloadRegistry(context).register(downloadId)
-        Toast.makeText(
-            context,
-            if (pocketDriveConfigured) {
-                "Baixando $fileName • será importado para P:\\Downloads quando concluir"
-            } else {
-                "Baixando $fileName • conecte um PocketDrive para importar depois"
-            },
-            Toast.LENGTH_LONG,
-        ).show()
-    }.onFailure { error ->
-        Toast.makeText(context, "Falha no download: ${error.message ?: error.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+
+        if (storage.rootUriString != null) {
+            "Baixando $fileName no PocketPC • será movido para P:\\Downloads quando concluir."
+        } else {
+            "Baixando $fileName no armazenamento temporário do PocketPC • conecte o PocketDrive para importar."
+        }
     }
-}
