@@ -28,39 +28,25 @@ private val POCKETPC_VIDEO_EXTENSIONS =
 
 @Composable
 fun PocketFileOpenOverlay() {
-    val request by
-        PocketFileOpenCoordinator
-            .request
-            .collectAsState()
+    val request by PocketFileOpenCoordinator.request.collectAsState()
     val currentRequest = request ?: return
     val current = currentRequest.plan
     val extension =
-        current.fileName
-            .substringAfterLast('.', "")
-            .lowercase()
+        current.fileName.substringAfterLast('.', "").lowercase()
 
-    var editorDirty by remember(currentRequest.uri) {
-        mutableStateOf(false)
-    }
-    var discardRequested by remember(currentRequest.uri) {
-        mutableStateOf(false)
-    }
+    var editorDirty by remember(currentRequest.uri) { mutableStateOf(false) }
+    var discardRequested by remember(currentRequest.uri) { mutableStateOf(false) }
 
     val implemented =
-        current.association.readiness ==
-            PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
+        current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
             currentRequest.uri != null
 
     val isTextEditor =
         current.association.handler == PocketFileHandler.TEXT_EDITOR && implemented
     val isSvgViewer =
-        current.association.handler == PocketFileHandler.IMAGE_VIEWER &&
-            implemented &&
-            extension == "svg"
+        current.association.handler == PocketFileHandler.IMAGE_VIEWER && implemented && extension == "svg"
     val isImageViewer =
-        current.association.handler == PocketFileHandler.IMAGE_VIEWER &&
-            implemented &&
-            !isSvgViewer
+        current.association.handler == PocketFileHandler.IMAGE_VIEWER && implemented && !isSvgViewer
     val isArchiveViewer =
         current.association.handler == PocketFileHandler.ARCHIVE_MANAGER && implemented
     val isPdfViewer =
@@ -74,13 +60,10 @@ fun PocketFileOpenOverlay() {
             implemented &&
             (
                 extension in POCKETPC_VIDEO_EXTENSIONS ||
-                    currentRequest.mimeType
-                        ?.startsWith("video/", ignoreCase = true) == true
+                    currentRequest.mimeType?.startsWith("video/", ignoreCase = true) == true
             )
     val isAudioPlayer =
-        current.association.handler == PocketFileHandler.MEDIA_PLAYER &&
-            implemented &&
-            !isVideoPlayer
+        current.association.handler == PocketFileHandler.MEDIA_PLAYER && implemented && !isVideoPlayer
 
     fun requestClose() {
         if (isTextEditor && editorDirty) {
@@ -112,13 +95,8 @@ fun PocketFileOpenOverlay() {
             )
         },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    current.fileName,
-                    style = MaterialTheme.typography.titleSmall,
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(current.fileName, style = MaterialTheme.typography.titleSmall)
 
                 when {
                     isTextEditor ->
@@ -126,20 +104,18 @@ fun PocketFileOpenOverlay() {
                             request = currentRequest,
                             onDirtyChange = { dirty ->
                                 editorDirty = dirty
-                                if (!dirty) {
-                                    discardRequested = false
-                                }
+                                if (!dirty) discardRequested = false
                             },
                         )
 
                     isSvgViewer ->
-                        PocketWebDocumentPane(
-                            request = currentRequest,
-                            forceSvg = true,
-                        )
+                        PocketWebDocumentPane(request = currentRequest, forceSvg = true)
 
                     isImageViewer ->
                         PocketImageViewerPane(request = currentRequest)
+
+                    isArchiveViewer && extension == "tar" ->
+                        PocketTarArchivePane(request = currentRequest)
 
                     isArchiveViewer && (extension == "gz" || extension == "tgz") ->
                         PocketGzipArchivePane(request = currentRequest)
@@ -183,11 +159,7 @@ fun PocketFileOpenOverlay() {
                                             PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED ->
                                                 "Android necessário"
                                             PocketFileOpenCapability.INTERNAL_HANDLER_PENDING ->
-                                                if (implemented) {
-                                                    "Disponível no PocketPC"
-                                                } else {
-                                                    "Em preparação"
-                                                }
+                                                if (implemented) "Disponível no PocketPC" else "Em preparação"
                                             PocketFileOpenCapability.UNSUPPORTED ->
                                                 "Sem associação"
                                         }
@@ -196,22 +168,16 @@ fun PocketFileOpenOverlay() {
                             )
                         }
 
-                        if (
-                            current.association.readiness ==
-                                PocketFileHandlerReadiness.ROUTE_ONLY
-                        ) {
+                        if (current.association.readiness == PocketFileHandlerReadiness.ROUTE_ONLY) {
                             Text(
-                                "O arquivo continua dentro do PocketPC. " +
-                                    "Esta associação não é evidência de que " +
-                                    "o aplicativo já esteja funcional.",
+                                "O arquivo continua dentro do PocketPC. Esta associação não é evidência de que o aplicativo já esteja funcional.",
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
 
                         if (current.leavesPocketPc) {
                             Text(
-                                "Esta ação cruza uma fronteira do Android " +
-                                    "e só deve ocorrer após uma ação explícita.",
+                                "Esta ação cruza uma fronteira do Android e só deve ocorrer após uma ação explícita.",
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -219,9 +185,7 @@ fun PocketFileOpenOverlay() {
                 }
 
                 if (!editorDirty) {
-                    PocketFileQuickActions(
-                        request = currentRequest,
-                    )
+                    PocketFileQuickActions(request = currentRequest)
                 } else {
                     Text(
                         "Salve ou reverta as alterações antes de executar outras ações neste arquivo.",
@@ -235,15 +199,9 @@ fun PocketFileOpenOverlay() {
             TextButton(onClick = ::requestClose) {
                 Text(
                     if (
-                        isTextEditor ||
-                        isSvgViewer ||
-                        isImageViewer ||
-                        isArchiveViewer ||
-                        isPdfViewer ||
-                        isOfficePreview ||
-                        isWebDocument ||
-                        isVideoPlayer ||
-                        isAudioPlayer
+                        isTextEditor || isSvgViewer || isImageViewer || isArchiveViewer ||
+                        isPdfViewer || isOfficePreview || isWebDocument ||
+                        isVideoPlayer || isAudioPlayer
                     ) {
                         "Fechar"
                     } else {
@@ -257,16 +215,11 @@ fun PocketFileOpenOverlay() {
 
     if (discardRequested) {
         AlertDialog(
-            onDismissRequest = {
-                discardRequested = false
-            },
-            title = {
-                Text("Descartar alterações?")
-            },
+            onDismissRequest = { discardRequested = false },
+            title = { Text("Descartar alterações?") },
             text = {
                 Text(
-                    "${current.fileName} possui alterações não salvas. " +
-                        "Fechar agora descarta apenas essas alterações em memória."
+                    "${current.fileName} possui alterações não salvas. Fechar agora descarta apenas essas alterações em memória."
                 )
             },
             confirmButton = {
@@ -281,11 +234,7 @@ fun PocketFileOpenOverlay() {
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        discardRequested = false
-                    },
-                ) {
+                TextButton(onClick = { discardRequested = false }) {
                     Text("Continuar editando")
                 }
             },
