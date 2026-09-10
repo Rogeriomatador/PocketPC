@@ -7,11 +7,17 @@ data class RobloxGraphicsPreflight(
     val crossProcessEvidence: HardwareBufferCrossProcessEvidence?,
     val wsiFoundation: PocketPcVulkanWsiFoundationStatus,
     val wsiCapabilities: VulkanWsiCapabilitySnapshot?,
+    val externalResourceCapabilities: VulkanExternalResourceSnapshot?,
+    val canonicalAhbImport: VulkanAhardwareBufferImportSnapshot?,
+    val guestTransportPlan: GuestGraphicsTransportPlan,
     val surfaceBackend: PocketPcVulkanSurfaceBackendSelection,
     val capabilityProbeSucceeded: Boolean,
+    val externalResourceProbeSucceeded: Boolean,
     val androidSurfaceRouteAdvertised: Boolean,
     val headlessSurfaceRouteAdvertised: Boolean,
     val ahardwareBufferExternalMemoryAdvertised: Boolean,
+    val canonicalAhbImportQuerySupported: Boolean,
+    val headlessDiagnosticRunnable: Boolean,
     val surfaceBackendRunnable: Boolean,
     val wsiImplemented: Boolean,
     val readyForWsiIntegrationTest: Boolean,
@@ -23,12 +29,16 @@ data class RobloxGraphicsPreflight(
 object RobloxGraphicsPreflightCoordinator {
     const val BLOCKER_WSI_CAPABILITY_PROBE =
         "ROBLOX_VULKAN_WSI_CAPABILITY_PROBE_NOT_PROVEN"
+    const val BLOCKER_EXTERNAL_RESOURCE_PROBE =
+        "ROBLOX_VULKAN_EXTERNAL_RESOURCE_PROBE_NOT_PROVEN"
     const val BLOCKER_WSI_SURFACE_ROUTE =
         "ROBLOX_VULKAN_WSI_SURFACE_ROUTE_NOT_ADVERTISED"
     const val BLOCKER_AHB_EXTERNAL_MEMORY =
         "ROBLOX_VULKAN_AHB_EXTERNAL_MEMORY_NOT_ADVERTISED"
     const val BLOCKER_SURFACE_BACKEND =
-        "ROBLOX_VULKAN_SURFACE_BACKEND_NOT_IMPLEMENTED"
+        "ROBLOX_VULKAN_VISIBLE_SURFACE_BACKEND_NOT_IMPLEMENTED"
+    const val BLOCKER_HEADLESS_DIAGNOSTIC_ONLY =
+        "ROBLOX_VULKAN_HEADLESS_DIAGNOSTIC_NOT_VISIBLE"
 
     fun run(
         context: Context,
@@ -72,12 +82,28 @@ object RobloxGraphicsPreflightCoordinator {
             VulkanWsiCapabilityProbeParser.parse(
                 nativeHost.vulkanWsiCapabilityProbe,
             )
+        val externalResources =
+            VulkanExternalResourceProbeParser.parse(
+                nativeHost.vulkanExternalResourceProbe,
+            )
+        val canonicalAhb =
+            VulkanAhardwareBufferImportProbeParser.parse(
+                nativeHost.vulkanAhardwareBufferImportProbe,
+            )
+        val guestTransportPlan =
+            GuestGraphicsTransportPlanner.plan(
+                snapshot = externalResources,
+                ahbImportSnapshot = canonicalAhb,
+            )
         val surfaceBackend =
             PocketPcVulkanSurfaceBackendProbe.assess(
                 capabilities,
             )
+
         val capabilityProbeSucceeded =
             capabilities?.probeSucceeded == true
+        val externalResourceProbeSucceeded =
+            externalResources?.probeSucceeded == true
         val androidSurfaceRoute =
             capabilities?.androidSurfaceRouteAdvertised == true
         val headlessSurfaceRoute =
@@ -87,6 +113,10 @@ object RobloxGraphicsPreflightCoordinator {
         val ahbExternalMemory =
             capabilities
                 ?.ahardwareBufferExternalMemoryAdvertised == true
+        val canonicalAhbReady =
+            canonicalAhb?.canonicalImportQuerySupported == true
+        val headlessDiagnosticRunnable =
+            surfaceBackend.diagnosticRunnable
         val surfaceBackendRunnable =
             surfaceBackend.runnable
 
@@ -95,15 +125,22 @@ object RobloxGraphicsPreflightCoordinator {
         if (!capabilityProbeSucceeded) {
             blockers += BLOCKER_WSI_CAPABILITY_PROBE
         }
+        if (!externalResourceProbeSucceeded) {
+            blockers += BLOCKER_EXTERNAL_RESOURCE_PROBE
+        }
         if (capabilityProbeSucceeded && !anySurfaceRoute) {
             blockers += BLOCKER_WSI_SURFACE_ROUTE
         }
         if (capabilityProbeSucceeded && !ahbExternalMemory) {
             blockers += BLOCKER_AHB_EXTERNAL_MEMORY
         }
+        blockers += guestTransportPlan.blockers
         if (!surfaceBackendRunnable) {
             blockers += BLOCKER_SURFACE_BACKEND
             blockers += surfaceBackend.selected.blocker
+        }
+        if (headlessDiagnosticRunnable && !surfaceBackendRunnable) {
+            blockers += BLOCKER_HEADLESS_DIAGNOSTIC_ONLY
         }
         if (!PocketPcVulkanWsiContract.implemented) {
             blockers += PocketPcVulkanWsiContract.blocker
@@ -113,38 +150,45 @@ object RobloxGraphicsPreflightCoordinator {
             PocketPcVulkanWsiContract
                 .canEnterWsiIntegrationTest(foundation) &&
                 capabilityProbeSucceeded &&
+                externalResourceProbeSucceeded &&
+                guestTransportPlan.implementationAttemptEligible &&
                 anySurfaceRoute &&
-                ahbExternalMemory &&
                 surfaceBackendRunnable
 
         val detail =
             when {
                 !foundation.guestGraphicsTransportReady ->
-                    "O Android já possui a fundação de transporte em desenvolvimento, mas o recurso gráfico ainda não entra/importa/sincroniza no guest Wine."
+                    "As primitivas host/guest avançaram, mas o recurso gráfico ainda não foi integrado, importado e sincronizado no VkDevice usado pelo Wine/DXVK."
 
                 !foundation.readyForWsiImplementation ->
-                    "A fundação gráfica ainda não provou todos os requisitos necessários ao WSI."
+                    "A fundação gráfica ainda não provou todos os requisitos necessários ao WSI visível."
 
                 !capabilityProbeSucceeded ->
-                    "A fundação de transporte está disponível, mas as capacidades Vulkan WSI desta GPU ainda não foram provadas."
+                    "As capacidades Vulkan WSI desta GPU ainda não foram provadas por um registro válido."
+
+                !externalResourceProbeSucceeded ->
+                    "O WSI foi sondado, mas o probe de memória/sincronização externa ainda não produziu evidência válida."
+
+                !guestTransportPlan.guestTransportReady ->
+                    "Há uma rota candidata de recurso externo, mas receive/import/synchronization do guest ainda não estão integrados e comprovados."
 
                 !anySurfaceRoute ->
-                    "O probe Vulkan respondeu, mas não anunciou uma rota de surface + swapchain utilizável pelo experimento atual."
+                    "O probe Vulkan respondeu, mas não anunciou uma rota de surface + swapchain para o experimento atual."
 
-                !ahbExternalMemory ->
-                    "A GPU anunciou uma rota de surface, mas não anunciou VK_ANDROID_external_memory_android_hardware_buffer."
+                headlessDiagnosticRunnable && !surfaceBackendRunnable ->
+                    "A GPU permite o backend headless de diagnóstico do Wine, porém ele é invisível e não satisfaz o Present do Roblox."
 
                 !surfaceBackendRunnable ->
-                    "A GPU pode anunciar extensões de surface, mas o PocketPC ainda não possui um backend VkSurfaceKHR real e executável."
+                    "A GPU anuncia extensões, mas o PocketPC ainda não possui um backend VkSurfaceKHR visível e executável."
 
                 !PocketPcVulkanWsiContract.implemented ->
-                    "Os pré-requisitos pesquisados estão disponíveis, mas o Wine Vulkan WSI do PocketPC continua não implementado."
+                    "Os pré-requisitos intermediários existem, mas o Wine Vulkan WSI visível do PocketPC continua não implementado."
 
                 !canEnterWsiTest ->
-                    "O backend WSI existe, mas os gates para o teste de integração ainda não estão completos."
+                    "O backend visível existe, mas os gates para o teste de integração ainda não estão completos."
 
                 else ->
-                    "Fundação, capacidades, surface backend e WSI estão aptos a entrar no teste de integração; isso ainda não é prova de Present nem de Roblox."
+                    "Fundação, transporte, surface visível e WSI podem entrar no teste de integração; isso ainda não é prova de Present nem de Roblox."
             }
 
         return RobloxGraphicsPreflight(
@@ -152,11 +196,17 @@ object RobloxGraphicsPreflightCoordinator {
             crossProcessEvidence = crossProcessEvidence,
             wsiFoundation = foundation,
             wsiCapabilities = capabilities,
+            externalResourceCapabilities = externalResources,
+            canonicalAhbImport = canonicalAhb,
+            guestTransportPlan = guestTransportPlan,
             surfaceBackend = surfaceBackend,
             capabilityProbeSucceeded = capabilityProbeSucceeded,
+            externalResourceProbeSucceeded = externalResourceProbeSucceeded,
             androidSurfaceRouteAdvertised = androidSurfaceRoute,
             headlessSurfaceRouteAdvertised = headlessSurfaceRoute,
             ahardwareBufferExternalMemoryAdvertised = ahbExternalMemory,
+            canonicalAhbImportQuerySupported = canonicalAhbReady,
+            headlessDiagnosticRunnable = headlessDiagnosticRunnable,
             surfaceBackendRunnable = surfaceBackendRunnable,
             wsiImplemented = PocketPcVulkanWsiContract.implemented,
             readyForWsiIntegrationTest = canEnterWsiTest,
