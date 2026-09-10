@@ -26,6 +26,7 @@ on:
       - 'scripts/prepare-wine-source.py'
       - 'scripts/prepare-wine-pocketpc-driver.py'
       - 'scripts/build-wine-pocketpc-driver.py'
+      - 'scripts/run-pocketpc-fd-transport-smoke.py'
       - 'scripts/pocketpc_pe.py'
       - 'scripts/audit-wine-pocketpc-driver-pe.py'
       - 'scripts/verify-wine-pocketpc-driver-artifact-set.py'
@@ -96,6 +97,12 @@ jobs:
           python3 scripts/test-wine-pocketpc-driver-load-evidence.py
           python3 scripts/test-wine-pocketpc-driver-load-policy.py
 
+      - name: Compile and execute ancillary FD transport smoke
+        run: |
+          python3 scripts/run-pocketpc-fd-transport-smoke.py \
+            --work "$RUNNER_TEMP/pocketpc-fd-transport-smoke" \
+            --evidence "$RUNNER_TEMP/pocketpc-fd-transport-smoke/fd-transport-evidence.json"
+
       - name: Fetch exact pinned Wine source
         run: |
           python3 scripts/prepare-wine-source.py \
@@ -139,6 +146,7 @@ jobs:
         with:
           name: PocketPC-Wine11-driver-build-evidence
           path: |
+            ${{ runner.temp }}/pocketpc-fd-transport-smoke/fd-transport-evidence.json
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-build-plan.json
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json
