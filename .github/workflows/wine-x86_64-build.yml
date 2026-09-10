@@ -13,6 +13,7 @@ on:
       - 'scripts/verify-wine-pocketpc-driver-load-evidence.py'
       - 'scripts/test-wine-pocketpc-driver-load-evidence.py'
       - 'scripts/test-wine-pocketpc-driver-load-broker.py'
+      - 'scripts/test-wine-pocketpc-driver-load-smoke.py'
       - 'scripts/test-pc-runtime-source-locks.py'
       - 'scripts/test-pocketpc-pe-audit.py'
       - 'scripts/test-wine-pocketpc-driver-policy.py'
@@ -56,6 +57,7 @@ jobs:
           python3 scripts/test-wine-x86_64-driver-package.py
           python3 scripts/test-wine-pocketpc-driver-load-evidence.py
           python3 scripts/test-wine-pocketpc-driver-load-broker.py
+          python3 scripts/test-wine-pocketpc-driver-load-smoke.py
 
       - name: Validate display bridge protocol
         run: python3 scripts/test-display-bridge-protocol-lock.py
