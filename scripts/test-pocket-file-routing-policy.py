@@ -9,6 +9,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 ROUTER = ROOT / "app/src/main/java/dev/pocketpc/core/storage/PocketFileRouter.kt"
 STORAGE = ROOT / "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt"
 DOWNLOADS = ROOT / "app/src/main/java/dev/pocketpc/core/ui/DownloadsApp.kt"
+BROWSER = ROOT / "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt"
+MANIFEST = ROOT / "app/src/main/AndroidManifest.xml"
 ROUTER_TEST = ROOT / "app/src/test/java/dev/pocketpc/core/storage/PocketFileRouterTest.kt"
 
 
@@ -32,6 +34,8 @@ def main() -> int:
     router = read(ROUTER)
     storage = read(STORAGE)
     downloads = read(DOWNLOADS)
+    browser = read(BROWSER)
+    manifest = read(MANIFEST)
     tests = read(ROUTER_TEST)
 
     for sentinel in (
@@ -61,6 +65,21 @@ def main() -> int:
     forbid(downloads, "DownloadManager.ACTION_VIEW_DOWNLOADS", "DownloadsApp.kt")
     forbid(downloads, "PocketOpenRoute", "DownloadsApp.kt")
 
+    require(browser, "DownloadManager.Request.VISIBILITY_HIDDEN", "BrowserApp.kt")
+    require(browser, '"Abrir fora do PocketPC (Android)"', "BrowserApp.kt")
+    require(browser, 'scheme in setOf("http", "https", "about", "data", "blob")', "BrowserApp.kt")
+    require(browser, "O PocketPC bloqueou a saída automática para o Android", "BrowserApp.kt")
+    require(browser, "downloadStatus", "BrowserApp.kt")
+    forbid(browser, "VISIBILITY_VISIBLE_NOTIFY_COMPLETED", "BrowserApp.kt")
+    forbid(browser, "setDestinationInExternalPublicDir", "BrowserApp.kt")
+    forbid(browser, "Toast.makeText", "BrowserApp.kt")
+
+    require(
+        manifest,
+        'android.permission.DOWNLOAD_WITHOUT_NOTIFICATION',
+        "AndroidManifest.xml",
+    )
+
     require(tests, "winrar", "PocketFileRouterTest.kt")
     require(tests, "PocketFileRoute.PC_RUNTIME", "PocketFileRouterTest.kt")
 
@@ -68,6 +87,9 @@ def main() -> int:
     print("generic_android_action_view=false")
     print("pc_runtime_route=true")
     print("android_package_escape=explicit_only")
+    print("browser_external_schemes=blocked_by_default")
+    print("browser_download_notification=hidden")
+    print("browser_download_staging=app_private")
     print("router_unit_test_present=true")
     return 0
 
