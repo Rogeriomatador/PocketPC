@@ -42,14 +42,20 @@ class RobloxGraphicsPreflightTest {
         )
 
     @Test
-    fun verifiedTransportStillDoesNotClaimRobloxGraphics() {
+    fun androidCrossProcessTransportDoesNotClaimGuestGraphicsReadiness() {
         val result =
             RobloxGraphicsPreflightCoordinator.buildResult(
                 nativeHost = nativeHost(),
                 crossProcessEvidence = verifiedCrossProcessEvidence(),
             )
 
-        assertTrue(result.wsiFoundation.readyForWsiImplementation)
+        assertFalse(result.wsiFoundation.readyForWsiImplementation)
+        assertFalse(result.wsiFoundation.guestGraphicsTransportReady)
+        assertTrue(
+            result.wsiFoundation.blockers.contains(
+                PocketPcVulkanWsiFoundationProbe.BLOCKER_GUEST_GRAPHICS_TRANSPORT,
+            ),
+        )
         assertFalse(result.wsiImplemented)
         assertFalse(result.readyForWsiIntegrationTest)
         assertFalse(result.readyForRobloxGraphics)
