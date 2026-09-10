@@ -130,6 +130,12 @@ fun resolvePocketFileAssociation(
                         handler = PocketFileHandler.MEDIA_PLAYER,
                         displayName = "Mídia do PocketPC",
                         route = route.route,
+                        readiness =
+                            if (extension in IMPLEMENTED_VIDEO_EXTENSIONS) {
+                                PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL
+                            } else {
+                                PocketFileHandlerReadiness.ROUTE_ONLY
+                            },
                     )
 
                 extension in OFFICE_EXTENSIONS ->
@@ -210,6 +216,9 @@ private val IMPLEMENTED_AUDIO_EXTENSIONS =
 
 private val VIDEO_EXTENSIONS =
     setOf("mp4", "mkv", "webm", "avi", "mov")
+
+private val IMPLEMENTED_VIDEO_EXTENSIONS =
+    VIDEO_EXTENSIONS
 
 private val OFFICE_EXTENSIONS =
     setOf("doc", "docx", "odt", "xls", "xlsx", "ods", "ppt", "pptx", "odp")
