@@ -215,36 +215,31 @@ def main() -> int:
         "app/build.gradle.kts",
     )
 
-    require_contains(
-        failures,
-        android_ci,
-        f"gradle-version: '{gradle_version}'",
-        "android-ci.yml",
+    # CI must consume the pinned values from android-build-lock.json instead
+    # of duplicating toolchain versions in workflow YAML. This keeps the lock
+    # authoritative and avoids drift between policy checks and the actual CI.
+    ci_lock_sentinels = (
+        'Path("toolchains/android-build-lock.json")',
+        '"jdk": str(lock["jdk"]["major"])',
+        '"gradle": str(lock["gradle"]["version"])',
+        '"platform": str(android["platformPackage"])',
+        '"build_tools": str(android["buildTools"])',
+        '"ndk": str(android["ndk"])',
+        '"cmake": str(android["cmake"])',
+        "java-version: ${{ steps.build_lock.outputs.jdk }}",
+        "gradle-version: ${{ steps.build_lock.outputs.gradle }}",
+        '"${{ steps.build_lock.outputs.platform }}"',
+        '"build-tools;${{ steps.build_lock.outputs.build_tools }}"',
+        '"ndk;${{ steps.build_lock.outputs.ndk }}"',
+        '"cmake;${{ steps.build_lock.outputs.cmake }}"',
     )
-    require_contains(
-        failures,
-        android_ci,
-        f'"{platform_package}"',
-        "android-ci.yml",
-    )
-    require_contains(
-        failures,
-        android_ci,
-        f'"build-tools;{build_tools}"',
-        "android-ci.yml",
-    )
-    require_contains(
-        failures,
-        android_ci,
-        f'"ndk;{ndk}"',
-        "android-ci.yml",
-    )
-    require_contains(
-        failures,
-        android_ci,
-        f'"cmake;{cmake}"',
-        "android-ci.yml",
-    )
+    for sentinel in ci_lock_sentinels:
+        require_contains(
+            failures,
+            android_ci,
+            sentinel,
+            "android-ci.yml",
+        )
 
     require_contains(
         failures,
