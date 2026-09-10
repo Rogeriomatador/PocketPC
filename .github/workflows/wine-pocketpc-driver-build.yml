@@ -10,12 +10,14 @@ on:
       - 'app/src/main/cpp/CMakeLists.txt'
       - 'app/src/main/cpp/hardware_buffer_resource_broker.cpp'
       - 'app/src/main/cpp/vulkan_external_resource_probe.cpp'
+      - 'app/src/main/cpp/vulkan_ahardwarebuffer_import_probe.cpp'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsResourceDescriptor.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsOwnershipProtocol.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportPlanner.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/HostGraphicsResourceBroker.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/VulkanExternalResourceProbe.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/VulkanAhardwareBufferImportProbe.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanSurfaceBackend.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiContract.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiFoundation.kt'
@@ -27,6 +29,7 @@ on:
       - 'scripts/prepare-wine-pocketpc-driver.py'
       - 'scripts/build-wine-pocketpc-driver.py'
       - 'scripts/run-pocketpc-fd-transport-smoke.py'
+      - 'scripts/run-pocketpc-guest-graphics-receive-smoke.py'
       - 'scripts/pocketpc_pe.py'
       - 'scripts/audit-wine-pocketpc-driver-pe.py'
       - 'scripts/verify-wine-pocketpc-driver-artifact-set.py'
@@ -45,6 +48,7 @@ on:
       - 'scripts/test-guest-graphics-protocol-policy.py'
       - 'scripts/test-guest-graphics-host-broker-policy.py'
       - 'scripts/test-guest-graphics-fd-transport-policy.py'
+      - 'scripts/test-guest-graphics-receive-policy.py'
       - 'scripts/test-roblox-browser-launch-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - 'scripts/test-display-multipeer-policy.py'
@@ -91,6 +95,7 @@ jobs:
           python3 scripts/test-guest-graphics-protocol-policy.py
           python3 scripts/test-guest-graphics-host-broker-policy.py
           python3 scripts/test-guest-graphics-fd-transport-policy.py
+          python3 scripts/test-guest-graphics-receive-policy.py
           python3 scripts/test-roblox-browser-launch-policy.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
           python3 scripts/test-pocketpc-pe-audit.py
@@ -104,6 +109,12 @@ jobs:
           python3 scripts/run-pocketpc-fd-transport-smoke.py \
             --work "$RUNNER_TEMP/pocketpc-fd-transport-smoke" \
             --evidence "$RUNNER_TEMP/pocketpc-fd-transport-smoke/fd-transport-evidence.json"
+
+      - name: Compile and execute guest graphics receive smoke
+        run: |
+          python3 scripts/run-pocketpc-guest-graphics-receive-smoke.py \
+            --work "$RUNNER_TEMP/pocketpc-guest-graphics-receive-smoke" \
+            --evidence "$RUNNER_TEMP/pocketpc-guest-graphics-receive-smoke/guest-graphics-receive-evidence.json"
 
       - name: Fetch exact pinned Wine source
         run: |
@@ -126,13 +137,13 @@ jobs:
         run: |
           python3 scripts/audit-wine-pocketpc-driver-pe.py \
             --driver "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv" \
-            --evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/winepocketpc-driver-pe-audit.json"
+            --evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json"
 
       - name: Verify coherent driver artifact set
         run: |
           python3 scripts/verify-wine-pocketpc-driver-artifact-set.py \
             --build-evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json" \
-            --pe-evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/winepocketpc-driver-pe-audit.json" \
+            --pe-evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json" \
             --driver "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv" \
             --unixlib "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.so" \
             --evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/winepocketpc-driver-artifact-set.json"
@@ -149,10 +160,11 @@ jobs:
           name: PocketPC-Wine11-driver-build-evidence
           path: |
             ${{ runner.temp }}/pocketpc-fd-transport-smoke/fd-transport-evidence.json
+            ${{ runner.temp }}/pocketpc-guest-graphics-receive-smoke/guest-graphics-receive-evidence.json
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-build-plan.json
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json
-            ${{ runner.temp }}/pocketpc-wine-driver-build/winepocketpc-driver-pe-audit.json
+            ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/winepocketpc-driver-artifact-set.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/configure.log
             ${{ runner.temp }}/pocketpc-wine-driver-build/driver-build.log
