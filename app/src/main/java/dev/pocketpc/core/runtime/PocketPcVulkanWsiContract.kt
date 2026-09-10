@@ -6,7 +6,8 @@ package dev.pocketpc.core.runtime
  * This is intentionally fail-closed. GDI window_surface flush support does
  * not satisfy Wine's Vulkan graphics-driver ABI, Android-to-Android
  * AHardwareBuffer transport does not prove guest/Wine import, and none of
- * those proofs alone establish a Vulkan surface, swapchain or Present path.
+ * those proofs alone establish a visible Vulkan surface, swapchain or Present
+ * path on Android.
  */
 object PocketPcVulkanWsiContract {
     const val WINE_VULKAN_DRIVER_VERSION =
@@ -25,13 +26,31 @@ object PocketPcVulkanWsiContract {
     /*
      * External Win32 handle mappings can exist before presentation. They use
      * Wine's normal Linux fd translation model and are deliberately separated
-     * from the surface/swapchain WSI gates below.
+     * from the visible surface/swapchain WSI gates below.
      */
     const val externalHandleExtensionMappingImplemented =
         true
     const val externalHandleExtensionMappingSoftwareTestExecuted =
         false
 
+    /*
+     * Diagnostic-only WSI follows Wine's nulldrv model and is enabled only by
+     * POCKETPC_VULKAN_HEADLESS_DIAGNOSTIC=1. It can eventually prove that
+     * Wine/DXVK can form a host VkSurfaceKHR/swapchain without claiming any
+     * Android-visible frame.
+     */
+    const val headlessDiagnosticSurfaceImplemented =
+        true
+    const val headlessDiagnosticPresentationSupportImplemented =
+        true
+    const val headlessDiagnosticExtensionMappingImplemented =
+        true
+    const val headlessDiagnosticSoftwareTestExecuted =
+        false
+    const val headlessDiagnosticIntegrationTestExecuted =
+        false
+
+    // Production-visible Android WSI remains blocked.
     const val surfaceCreateImplemented =
         false
     const val presentationSupportImplemented =
