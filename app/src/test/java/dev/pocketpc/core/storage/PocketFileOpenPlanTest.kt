@@ -16,75 +16,76 @@ class PocketFileOpenPlanTest {
     }
 
     @Test
-    fun textFileUsesImplementedPocketPcViewerWithoutAndroidEscape() {
-        val plan = planPocketFileOpen("notas.txt", "text/plain")
-        assertEquals(PocketFileHandler.TEXT_EDITOR, plan.association.handler)
-        assertEquals(PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL, plan.association.readiness)
-        assertTrue(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
+    fun textFileUsesImplementedPocketPcEditorWithoutAndroidEscape() {
+        assertImplementedInternal("notas.txt", "text/plain", PocketFileHandler.TEXT_EDITOR)
     }
 
     @Test
     fun rasterImageUsesImplementedPocketPcViewerWithoutAndroidEscape() {
-        val plan = planPocketFileOpen("foto.webp", "image/webp")
-        assertEquals(PocketFileHandler.IMAGE_VIEWER, plan.association.handler)
-        assertEquals(PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL, plan.association.readiness)
-        assertTrue(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
+        assertImplementedInternal("foto.webp", "image/webp", PocketFileHandler.IMAGE_VIEWER)
     }
 
     @Test
     fun svgUsesIsolatedPocketPcViewerWithoutAndroidEscape() {
-        val plan = planPocketFileOpen("vetor.svg", "image/svg+xml")
-        assertEquals(PocketFileHandler.IMAGE_VIEWER, plan.association.handler)
-        assertEquals(PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL, plan.association.readiness)
-        assertTrue(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
+        assertImplementedInternal("vetor.svg", "image/svg+xml", PocketFileHandler.IMAGE_VIEWER)
     }
 
     @Test
     fun htmlUsesIsolatedPocketPcViewerWithoutAndroidEscape() {
-        val plan = planPocketFileOpen("offline.html", "text/html")
-        assertEquals(PocketFileHandler.WEB_DOCUMENT, plan.association.handler)
-        assertEquals(PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL, plan.association.readiness)
-        assertTrue(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
+        assertImplementedInternal("offline.html", "text/html", PocketFileHandler.WEB_DOCUMENT)
     }
 
     @Test
     fun pdfUsesImplementedPocketPcViewerWithoutAndroidEscape() {
-        val plan = planPocketFileOpen("manual.pdf", "application/pdf")
-        assertEquals(PocketFileHandler.PDF_VIEWER, plan.association.handler)
-        assertEquals(PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL, plan.association.readiness)
-        assertTrue(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
+        assertImplementedInternal("manual.pdf", "application/pdf", PocketFileHandler.PDF_VIEWER)
     }
 
     @Test
     fun audioUsesImplementedPocketPcPlayerWithoutAndroidEscape() {
-        val plan = planPocketFileOpen("musica.mp3", "audio/mpeg")
-        assertEquals(PocketFileHandler.MEDIA_PLAYER, plan.association.handler)
-        assertEquals(PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL, plan.association.readiness)
-        assertTrue(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
+        assertImplementedInternal("musica.mp3", "audio/mpeg", PocketFileHandler.MEDIA_PLAYER)
     }
 
     @Test
     fun videoUsesImplementedPocketPcPlayerWithoutAndroidEscape() {
-        val plan = planPocketFileOpen("filme.mp4", "video/mp4")
-        assertEquals(PocketFileHandler.MEDIA_PLAYER, plan.association.handler)
-        assertEquals(PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL, plan.association.readiness)
-        assertTrue(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
+        assertImplementedInternal("filme.mp4", "video/mp4", PocketFileHandler.MEDIA_PLAYER)
     }
 
     @Test
     fun zipUsesImplementedPocketPcArchiveManagerWithoutAndroidEscape() {
-        val plan = planPocketFileOpen("projeto.zip", "application/zip")
-        assertEquals(PocketFileHandler.ARCHIVE_MANAGER, plan.association.handler)
-        assertEquals(PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL, plan.association.readiness)
-        assertTrue(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
+        assertImplementedInternal("projeto.zip", "application/zip", PocketFileHandler.ARCHIVE_MANAGER)
+    }
+
+    @Test
+    fun modernOfficeContainersUseInternalTextPreview() {
+        assertImplementedInternal(
+            "trabalho.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            PocketFileHandler.OFFICE_VIEWER,
+        )
+        assertImplementedInternal(
+            "planilha.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            PocketFileHandler.OFFICE_VIEWER,
+        )
+        assertImplementedInternal(
+            "slides.pptx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            PocketFileHandler.OFFICE_VIEWER,
+        )
+        assertImplementedInternal("texto.odt", null, PocketFileHandler.OFFICE_VIEWER)
+        assertImplementedInternal("dados.ods", null, PocketFileHandler.OFFICE_VIEWER)
+        assertImplementedInternal("apresentacao.odp", null, PocketFileHandler.OFFICE_VIEWER)
+    }
+
+    @Test
+    fun legacyBinaryOfficeFormatsRemainInternalButPending() {
+        for (name in listOf("antigo.doc", "antiga.xls", "antigo.ppt")) {
+            val plan = planPocketFileOpen(name)
+            assertEquals(PocketFileHandler.OFFICE_VIEWER, plan.association.handler)
+            assertEquals(PocketFileHandlerReadiness.ROUTE_ONLY, plan.association.readiness)
+            assertFalse(plan.canAttemptNow)
+            assertFalse(plan.leavesPocketPc)
+        }
     }
 
     @Test
@@ -92,14 +93,6 @@ class PocketFileOpenPlanTest {
         val plan = planPocketFileOpen("backup.rar")
         assertEquals(PocketFileHandler.ARCHIVE_MANAGER, plan.association.handler)
         assertEquals(PocketFileHandlerReadiness.ROUTE_ONLY, plan.association.readiness)
-        assertFalse(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
-    }
-
-    @Test
-    fun officeDocumentUsesInternalAssociationWithoutAndroidEscape() {
-        val plan = planPocketFileOpen("trabalho.docx")
-        assertEquals(PocketFileHandler.OFFICE_VIEWER, plan.association.handler)
         assertFalse(plan.canAttemptNow)
         assertFalse(plan.leavesPocketPc)
     }
@@ -117,6 +110,21 @@ class PocketFileOpenPlanTest {
         val plan = planPocketFileOpen("mystery.unknown")
         assertEquals(PocketFileOpenCapability.UNSUPPORTED, plan.capability)
         assertFalse(plan.canAttemptNow)
+        assertFalse(plan.leavesPocketPc)
+    }
+
+    private fun assertImplementedInternal(
+        name: String,
+        mimeType: String?,
+        expectedHandler: PocketFileHandler,
+    ) {
+        val plan = planPocketFileOpen(name, mimeType)
+        assertEquals(expectedHandler, plan.association.handler)
+        assertEquals(
+            PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
+            plan.association.readiness,
+        )
+        assertTrue(plan.canAttemptNow)
         assertFalse(plan.leavesPocketPc)
     }
 }
