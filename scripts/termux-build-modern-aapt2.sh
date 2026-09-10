@@ -69,7 +69,6 @@ REQUIRED_PACKAGES=(
     libexpat
     libpng
     libprotobuf
-    protobuf
     libzopfli
     zlib
     googletest
@@ -82,9 +81,20 @@ candidate_version() {
         awk '/Candidate:/ {candidate=$2} END {if (candidate != "" && candidate != "(none)") print candidate}'
 }
 
+package_installed() {
+    local package="$1"
+    dpkg-query -W -f='${Status}' "$package" 2>/dev/null |
+        grep -q 'install ok installed'
+}
+
+package_available_or_installed() {
+    local package="$1"
+    package_installed "$package" || [ -n "$(candidate_version "$package")" ]
+}
+
 HEADER_PACKAGE=""
 for candidate in linux-headers ndk-sysroot; do
-    if [ -n "$(candidate_version "$candidate")" ]; then
+    if package_available_or_installed "$candidate"; then
         HEADER_PACKAGE="$candidate"
         break
     fi
@@ -97,6 +107,9 @@ if [ -z "$HEADER_PACKAGE" ]; then
 fi
 
 REQUIRED_PACKAGES+=("$HEADER_PACKAGE")
+if ! command -v protoc >/dev/null 2>&1; then
+    REQUIRED_PACKAGES+=(protobuf)
+fi
 echo "header_package=$HEADER_PACKAGE"
 echo "resolved_packages=${REQUIRED_PACKAGES[*]}"
 
@@ -107,7 +120,7 @@ done
 
 UNAVAILABLE_PACKAGES=()
 for package in "${REQUIRED_PACKAGES[@]}"; do
-    if [ -z "$(candidate_version "$package")" ]; then
+    if ! package_available_or_installed "$package"; then
         UNAVAILABLE_PACKAGES+=("$package")
     fi
 done
@@ -120,7 +133,7 @@ fi
 
 MISSING_PACKAGES=()
 for package in "${REQUIRED_PACKAGES[@]}"; do
-    if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed'; then
+    if ! package_installed "$package"; then
         MISSING_PACKAGES+=("$package")
     fi
 done
