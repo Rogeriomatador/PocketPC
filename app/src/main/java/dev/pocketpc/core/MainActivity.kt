@@ -35,13 +35,32 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val updatePrefs =
+            getSharedPreferences(
+                "pocketpc-updater",
+                MODE_PRIVATE,
+            )
+
+        // Automatic install used to default to true without a stored preference.
+        // Migrate that implicit default to an explicit foreground choice. Anyone
+        // who deliberately enabled/disabled the switch keeps their saved value.
+        if (
+            !updatePrefs.contains(
+                "auto-install-verified"
+            )
+        ) {
+            updatePrefs.edit()
+                .putBoolean(
+                    "auto-install-verified",
+                    false,
+                )
+                .apply()
+        }
+
         // The foreground update flow performs a fresh launch check and owns the
         // visible prompt/progress UX. Mark the legacy six-hour checker as recent
         // so the older background-style Toast flow does not race the modal.
-        getSharedPreferences(
-            "pocketpc-updater",
-            MODE_PRIVATE,
-        ).edit()
+        updatePrefs.edit()
             .putLong(
                 "last-auto-check",
                 System.currentTimeMillis(),
