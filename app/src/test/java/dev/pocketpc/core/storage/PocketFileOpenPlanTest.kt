@@ -75,15 +75,15 @@ class PocketFileOpenPlanTest {
     }
 
     @Test
-    fun videoRemainsInternalButPendingUntilVideoSurfaceExists() {
+    fun videoUsesImplementedPocketPcPlayerWithoutAndroidEscape() {
         val plan = planPocketFileOpen("filme.mp4", "video/mp4")
 
         assertEquals(PocketFileHandler.MEDIA_PLAYER, plan.association.handler)
         assertEquals(
-            PocketFileHandlerReadiness.ROUTE_ONLY,
+            PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
             plan.association.readiness,
         )
-        assertFalse(plan.canAttemptNow)
+        assertTrue(plan.canAttemptNow)
         assertFalse(plan.leavesPocketPc)
     }
 
