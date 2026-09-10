@@ -33,7 +33,8 @@ class VulkanExternalImageFdBrokerTest {
         assertEquals(7L, descriptor.generation)
         assertEquals(64, descriptor.width)
         assertEquals(64, descriptor.height)
-        assertEquals(37, descriptor.pixelFormat)
+        assertEquals(VulkanExternalImageFdBroker.FORMAT_R8G8B8A8_UNORM, descriptor.pixelFormat)
+        assertEquals(VulkanExternalImageFdBroker.IMAGE_USAGE_FLAGS, descriptor.usage)
         assertEquals(9L, descriptor.syncSequence)
     }
 
@@ -42,6 +43,15 @@ class VulkanExternalImageFdBrokerTest {
         assertNull(
             VulkanExternalImageFdBroker.parseLease(
                 valid.replace("memory_type_bits=5", "memory_type_bits=1"),
+            ),
+        )
+    }
+
+    @Test
+    fun wrongFormatCannotBecomeLease() {
+        assertNull(
+            VulkanExternalImageFdBroker.parseLease(
+                valid.replace("format=37", "format=44"),
             ),
         )
     }
