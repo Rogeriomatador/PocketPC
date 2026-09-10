@@ -81,6 +81,34 @@ class PocketDriveTest {
             PocketFileClass.PC_INSTALLER,
             classifyPocketFile("game.exe"),
         )
+        assertEquals(
+            PocketFileClass.PC_INSTALLER,
+            classifyPocketFile("install.cmd"),
+        )
+        assertEquals(
+            PocketFileClass.PC_INSTALLER,
+            classifyPocketFile("bootstrap.bat"),
+        )
+        assertEquals(
+            PocketFileClass.PC_INSTALLER,
+            classifyPocketFile("legacy.com"),
+        )
+    }
+
+    @Test
+    fun classifiesArchivesUsedByDesktopSoftware() {
+        assertEquals(
+            PocketFileClass.ARCHIVE,
+            classifyPocketFile("package.rar"),
+        )
+        assertEquals(
+            PocketFileClass.ARCHIVE,
+            classifyPocketFile("package.cab"),
+        )
+        assertEquals(
+            PocketFileClass.ARCHIVE,
+            classifyPocketFile("package.bz2"),
+        )
     }
 
     @Test
