@@ -53,6 +53,8 @@ pocketpcdrv_funcs =
         POCKETPC_WindowPosChanging,
     .pWindowPosChanged =
         POCKETPC_WindowPosChanged,
+    .pVulkanInit =
+        POCKETPC_VulkanInit,
 };
 
 static NTSTATUS pocketpcdrv_unix_init(
