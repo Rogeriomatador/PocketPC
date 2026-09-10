@@ -15,6 +15,7 @@ SOURCES = \
 	pocketpc_fd_transport.c \
 	pocketpc_graphics_handle_binding.c \
 	pocketpc_guest_graphics_receive.c \
+	pocketpc_external_image_fd_protocol.c \
 	pocketpc_surface_writer.c \
 	pocketpc_wine_window_map.c \
 	pocketpc_wine_window_bridge.c
