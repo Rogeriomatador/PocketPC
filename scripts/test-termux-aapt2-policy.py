@@ -17,6 +17,7 @@ compile_sdk = str(lock["android"]["compileSdk"])
 required_helper_fragments = (
     'read_lock android.platformPackage',
     'pkg install -y aapt',
+    'termux-repository-check.sh --require-modern',
     'TERMUX_AAPT2_PLATFORM_INCOMPATIBLE_AFTER_OFFICIAL_UPDATE',
     'Do not lower compileSdk',
 )
