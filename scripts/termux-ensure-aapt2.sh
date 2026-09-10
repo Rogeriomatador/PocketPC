@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOCK="$ROOT/toolchains/android-build-lock.json"
 SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
+LOCAL_AAPT2="$HOME/.local/pocketpc/android-build-tools/16.0.0.4/bin/aapt2"
 
 cd "$ROOT"
 
@@ -65,15 +66,13 @@ refresh_official_aapt2() {
     return 0
 }
 
-if ! command -v aapt2 >/dev/null 2>&1; then
+if ! command -v aapt2 >/dev/null 2>&1 && [ ! -x "$LOCAL_AAPT2" ]; then
     echo "aapt2=missing"
     if ! refresh_official_aapt2; then
         echo "Classification : TERMUX_AAPT2_OFFICIAL_UPDATE_FAILED"
         exit 12
     fi
 fi
-
-need aapt2
 
 read_lock() {
     python - "$LOCK" "$1" <<'PY'
@@ -135,11 +134,36 @@ EOF
     return "$status"
 }
 
-AAPT2="$(command -v aapt2)"
+SYSTEM_AAPT2="$(command -v aapt2 2>/dev/null || true)"
 BEFORE_VERSION="$(package_version)"
+
+if [ -x "$LOCAL_AAPT2" ]; then
+    LOCAL_TOOL_VERSION="$("$LOCAL_AAPT2" version 2>&1 | head -1 || true)"
+    echo "Local candidate"
+    echo "  aapt2=$LOCAL_AAPT2"
+    echo "  tool_version=${LOCAL_TOOL_VERSION:-unknown}"
+    echo "  platform_package=$PLATFORM_PACKAGE"
+    echo "  android_jar=$ANDROID_JAR"
+    echo
+    if probe_aapt2 "$LOCAL_AAPT2"; then
+        echo "aapt2_selected=$LOCAL_AAPT2"
+        echo "Classification : TERMUX_LOCAL_AAPT2_PLATFORM_PASS"
+        exit 0
+    fi
+    echo
+    echo "Local PocketPC AAPT2 candidate is present but incompatible; falling back to system diagnosis."
+    echo
+fi
+
+if [ -z "$SYSTEM_AAPT2" ]; then
+    echo "Classification : TERMUX_AAPT2_MISSING_AFTER_RECOVERY"
+    exit 12
+fi
+
+AAPT2="$SYSTEM_AAPT2"
 BEFORE_TOOL_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
 
-echo "Before"
+echo "System candidate"
 echo "  aapt2=$AAPT2"
 echo "  package_version=${BEFORE_VERSION:-unknown}"
 echo "  tool_version=${BEFORE_TOOL_VERSION:-unknown}"
@@ -148,6 +172,7 @@ echo "  android_jar=$ANDROID_JAR"
 echo
 
 if probe_aapt2 "$AAPT2"; then
+    echo "aapt2_selected=$AAPT2"
     echo "Classification : TERMUX_AAPT2_PLATFORM_PASS"
     exit 0
 fi
@@ -166,6 +191,7 @@ if [ "$TERMUX_VARIANT" = "googleplay" ]; then
     fi
     echo "Classification : TERMUX_GOOGLE_PLAY_AAPT2_PLATFORM_INCOMPATIBLE"
     echo "aapt_candidate_version=${CANDIDATE_VERSION:-unknown}"
+    echo "recovery_command=bash scripts/termux-build-modern-aapt2.sh"
     echo "platform_package=$PLATFORM_PACKAGE"
     echo "android_jar=$ANDROID_JAR"
     echo "Important: Google Play Termux uses its own package repository and package set."
