@@ -20,6 +20,9 @@ import dev.pocketpc.core.storage.PocketFileHandlerReadiness
 import dev.pocketpc.core.storage.PocketFileOpenCapability
 import dev.pocketpc.core.storage.PocketFileOpenCoordinator
 
+private val POCKETPC_VIDEO_EXTENSIONS =
+    setOf("mp4", "mkv", "webm", "avi", "mov")
+
 /**
  * Desktop-owned replacement for Android's generic "Abrir com" chooser.
  *
@@ -35,6 +38,10 @@ fun PocketFileOpenOverlay() {
             .collectAsState()
     val currentRequest = request ?: return
     val current = currentRequest.plan
+    val extension =
+        current.fileName
+            .substringAfterLast('.', "")
+            .lowercase()
 
     val isTextEditor =
         current.association.handler == PocketFileHandler.TEXT_EDITOR &&
@@ -52,10 +59,20 @@ fun PocketFileOpenOverlay() {
         current.association.handler == PocketFileHandler.PDF_VIEWER &&
             current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
             currentRequest.uri != null
+    val isVideoPlayer =
+        current.association.handler == PocketFileHandler.MEDIA_PLAYER &&
+            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
+            currentRequest.uri != null &&
+            (
+                extension in POCKETPC_VIDEO_EXTENSIONS ||
+                    currentRequest.mimeType
+                        ?.startsWith("video/", ignoreCase = true) == true
+            )
     val isAudioPlayer =
         current.association.handler == PocketFileHandler.MEDIA_PLAYER &&
             current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
-            currentRequest.uri != null
+            currentRequest.uri != null &&
+            !isVideoPlayer
 
     AlertDialog(
         onDismissRequest = PocketFileOpenCoordinator::dismiss,
@@ -66,7 +83,7 @@ fun PocketFileOpenOverlay() {
                     isImageViewer -> "Fotos do PocketPC"
                     isZipViewer -> "Compactador do PocketPC"
                     isPdfViewer -> "Leitor de PDF do PocketPC"
-                    isAudioPlayer -> "Mídia do PocketPC"
+                    isVideoPlayer || isAudioPlayer -> "Mídia do PocketPC"
                     else -> current.title
                 }
             )
@@ -92,6 +109,9 @@ fun PocketFileOpenOverlay() {
 
                     isPdfViewer ->
                         PocketPdfViewerPane(request = currentRequest)
+
+                    isVideoPlayer ->
+                        PocketVideoPlayerPane(request = currentRequest)
 
                     isAudioPlayer ->
                         PocketAudioPlayerPane(request = currentRequest)
@@ -168,6 +188,7 @@ fun PocketFileOpenOverlay() {
                         isImageViewer ||
                         isZipViewer ||
                         isPdfViewer ||
+                        isVideoPlayer ||
                         isAudioPlayer
                     ) {
                         "Fechar"
