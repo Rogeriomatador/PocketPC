@@ -91,6 +91,22 @@ CONFIGURE_LINE = (
     "enable_winepocketpc_drv"
 )
 
+WIN32U_VULKAN_INCLUDE_ANCHOR = "#include <unistd.h>"
+WIN32U_VULKAN_EXTRA_INCLUDES = "#include <stdlib.h>\n#include <string.h>"
+WIN32U_PRESENT_ANCHOR = (
+    "    res = device->p_vkQueuePresentKHR( queue->host.queue, present_info );"
+)
+WIN32U_PRESENT_OBSERVER = r'''    {
+        const char *pocketpc_present_context = getenv("POCKETPC_VULKAN_PRESENT_CONTEXT_DIAGNOSTIC");
+        if (pocketpc_present_context && !strcmp(pocketpc_present_context, "1") &&
+            present_info->swapchainCount && present_info->pImageIndices)
+        {
+            TRACE("POCKETPC_VULKAN_PRESENT_CONTEXT diagnostic_only=1 visible_present=0 swapchain_count=%u first_image_index=%u\n",
+                  present_info->swapchainCount, present_info->pImageIndices[0]);
+        }
+    }
+'''
+
 
 def digest(path: Path) -> str:
     h = hashlib.sha256()
@@ -107,13 +123,24 @@ def git_head(source: Path) -> str:
     ).strip()
 
 
-def patch_once(path: Path, anchor: str, line: str) -> bool:
+def patch_after_once(path: Path, anchor: str, insertion: str) -> bool:
     text = path.read_text(encoding="utf-8")
-    if line in text:
+    if insertion in text:
         return False
     if text.count(anchor) != 1:
-        raise RuntimeError(f"PATCH_ANCHOR_INVALID:{path.name}:{text.count(anchor)}")
-    text = text.replace(anchor, anchor + "\n" + line, 1)
+        raise RuntimeError(f"PATCH_ANCHOR_INVALID:{path}:{text.count(anchor)}")
+    text = text.replace(anchor, anchor + "\n" + insertion, 1)
+    path.write_text(text, encoding="utf-8")
+    return True
+
+
+def patch_before_once(path: Path, anchor: str, insertion: str) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if insertion in text:
+        return False
+    if text.count(anchor) != 1:
+        raise RuntimeError(f"PATCH_ANCHOR_INVALID:{path}:{text.count(anchor)}")
+    text = text.replace(anchor, insertion + "\n" + anchor, 1)
     path.write_text(text, encoding="utf-8")
     return True
 
@@ -191,11 +218,25 @@ def main() -> int:
     if not configure.is_file():
         raise SystemExit("WINE_CONFIGURE_MISSING")
 
-    ac_changed = patch_once(configure_ac, CONFIGURE_AC_ANCHOR, CONFIGURE_AC_LINE)
-    configure_changed = patch_once(configure, CONFIGURE_ANCHOR, CONFIGURE_LINE)
+    ac_changed = patch_after_once(configure_ac, CONFIGURE_AC_ANCHOR, CONFIGURE_AC_LINE)
+    configure_changed = patch_after_once(configure, CONFIGURE_ANCHOR, CONFIGURE_LINE)
+
+    win32u_vulkan = source / "dlls/win32u/vulkan.c"
+    if not win32u_vulkan.is_file():
+        raise SystemExit("WINE_WIN32U_VULKAN_SOURCE_MISSING")
+    win32u_include_changed = patch_after_once(
+        win32u_vulkan,
+        WIN32U_VULKAN_INCLUDE_ANCHOR,
+        WIN32U_VULKAN_EXTRA_INCLUDES,
+    )
+    win32u_present_observer_changed = patch_before_once(
+        win32u_vulkan,
+        WIN32U_PRESENT_ANCHOR,
+        WIN32U_PRESENT_OBSERVER,
+    )
 
     evidence = {
-        "schemaVersion": 7,
+        "schemaVersion": 8,
         "status": "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT_NOT_RUNTIME_TESTED",
         "wineVersion": lock["version"],
         "wineCommit": lock["commit"],
@@ -208,6 +249,16 @@ def main() -> int:
         "externalImageFdProtocolVersion": 1,
         "externalTimelineSemaphoreFdProtocol": "PVS1",
         "externalTimelineSemaphoreFdProtocolVersion": 1,
+        "win32uPresentContextObserver": {
+            "implemented": True,
+            "source": "dlls/win32u/vulkan.c",
+            "environmentGate": "POCKETPC_VULKAN_PRESENT_CONTEXT_DIAGNOSTIC=1",
+            "observes": ["swapchainCount", "firstImageIndex"],
+            "copiesImage": False,
+            "visiblePresent": False,
+            "includePatchChanged": win32u_include_changed,
+            "observerPatchChanged": win32u_present_observer_changed,
+        },
         "graphicsSelection": {
             "registryPath": r"HKCU\Software\Wine\Drivers",
             "valueName": "Graphics",
@@ -243,9 +294,11 @@ def main() -> int:
         "externalTimelineSemaphorePvs1ProtocolImplemented": True,
         "hostTimelineSemaphoreExporterImplemented": True,
         "guestVulkanTimelineImportPrimitiveImplemented": True,
+        "guestTimelineCpuSignalWaitPrimitiveImplemented": True,
         "guestGraphicsHandleReceiveIntegrated": False,
         "guestGraphicsImportIntegrated": False,
         "guestGraphicsSynchronizationImplemented": False,
+        "swapchainImageCaptureImplemented": False,
         "openglDriverImplemented": False,
         "configureAcPatched": ac_changed,
         "generatedConfigurePatched": configure_changed,
@@ -277,18 +330,21 @@ def main() -> int:
             "Wine configure",
             "winepocketpc.drv compilation",
             "winepocketpc.so compilation",
+            "patched win32u compilation",
             "pVulkanInit through Wine",
             "headless diagnostic Vulkan surface through Wine",
             "headless Present observer through Wine",
+            "win32u Present context observer through Wine",
             "PVI1 external image receive through Wine",
             "guest Vulkan import primitive through Wine VkDevice",
             "PVS1 timeline semaphore receive through Wine",
             "host timeline semaphore export execution on Android Vulkan device",
             "guest Vulkan timeline semaphore import through Wine VkDevice",
-            "timeline semaphore signal/wait round-trip",
+            "timeline semaphore CPU signal/wait round-trip",
             "authenticated guest graphics receive integration",
             "guest graphics Vulkan import integration",
             "guest graphics GPU synchronization",
+            "swapchain image capture",
             "visible Wine Vulkan surface creation",
             "visible Vulkan presentation support",
             "Wine driver load",
@@ -311,20 +367,19 @@ def main() -> int:
     print("vulkan_abi_entrypoint=true")
     print("vulkan_headless_diagnostic=true")
     print("vulkan_headless_present_observer=true")
+    print("win32u_present_context_observer=true")
+    print("win32u_present_context_image_copy=false")
     print("vulkan_external_fd_extension_mapping=true")
-    print("guest_graphics_descriptor_protocol=true")
-    print("guest_graphics_ownership_protocol=true")
-    print("guest_graphics_ancillary_fd_transport_primitive=true")
-    print("guest_graphics_handle_binding=true")
-    print("guest_graphics_receive_primitive=true")
     print("external_image_fd_protocol=PVI1")
     print("guest_vulkan_import_primitive=true")
     print("external_timeline_semaphore_fd_protocol=PVS1")
     print("host_timeline_semaphore_exporter=true")
     print("guest_vulkan_timeline_import_primitive=true")
+    print("guest_timeline_cpu_signal_wait_primitive=true")
     print("guest_graphics_handle_receive_integrated=false")
     print("guest_graphics_import_integrated=false")
     print("guest_graphics_synchronization=false")
+    print("swapchain_image_capture=false")
     print("visible_vulkan_surface_implemented=false")
     print("runtime_execution_evidence=false")
     return 0
