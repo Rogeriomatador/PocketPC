@@ -8,6 +8,9 @@ on:
       - 'scripts/prepare-wine-source.py'
       - 'scripts/prepare-wine-pocketpc-driver.py'
       - 'scripts/build-wine-pocketpc-driver.py'
+      - 'scripts/pocketpc_pe.py'
+      - 'scripts/audit-wine-pocketpc-driver-pe.py'
+      - 'scripts/test-pocketpc-pe-audit.py'
       - 'scripts/test-wine-pocketpc-build-target-discovery.py'
       - 'scripts/test-wine-pocketpc-driver-policy.py'
       - 'scripts/test-wine-pocketpc-driver-abi-lock.py'
@@ -51,6 +54,7 @@ jobs:
           python3 scripts/test-wine-pocketpc-driver-policy.py
           python3 scripts/test-wine-pocketpc-driver-abi-lock.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
+          python3 scripts/test-pocketpc-pe-audit.py
 
       - name: Fetch exact pinned Wine source
         run: |
@@ -69,6 +73,12 @@ jobs:
             --wine-source "$RUNNER_TEMP/pocketpc-wine-driver-source/source" \
             --work "$RUNNER_TEMP/pocketpc-wine-driver-build"
 
+      - name: Audit winepocketpc PE architecture
+        run: |
+          python3 scripts/audit-wine-pocketpc-driver-pe.py \
+            --driver "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json"
+
       - name: Prove repository stayed unmodified
         if: always()
         run: |
@@ -83,6 +93,7 @@ jobs:
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-build-plan.json
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/configure.log
             ${{ runner.temp }}/pocketpc-wine-driver-build/driver-build.log
             ${{ runner.temp }}/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv
