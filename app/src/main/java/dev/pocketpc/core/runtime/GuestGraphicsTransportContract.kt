@@ -21,6 +21,8 @@ object GuestGraphicsTransportContract {
         true
     const val externalResourceCapabilityProbeImplemented =
         true
+    const val ancillaryFdTransportPrimitiveImplemented =
+        true
 
     /*
      * The pinned Box64 source has not yet provided verified evidence that a
@@ -31,6 +33,12 @@ object GuestGraphicsTransportContract {
     const val box64DirectAhardwareBufferBridgeVerified =
         false
 
+    /*
+     * SCM_RIGHTS support is only a transport primitive. These gates describe
+     * the real runtime path and remain false until Wine/Box64 receives a
+     * resource from the authenticated graphics broker, imports it into the
+     * Vulkan device used by DXVK and proves synchronization/ownership there.
+     */
     const val guestReceiveImplemented =
         false
     const val guestImportImplemented =
