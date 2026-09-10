@@ -16,6 +16,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import dev.pocketpc.core.desktop.DesktopCommand
 import dev.pocketpc.core.desktop.DesktopPointerCommandBridge
+import dev.pocketpc.core.ui.PocketFileOpenOverlay
 import dev.pocketpc.core.ui.PocketPcApp
 import dev.pocketpc.core.ui.PocketPcForegroundUpdateFlow
 import dev.pocketpc.core.update.PocketPcUpdateScheduler
@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PocketPcApp(commandFlow = desktopCommands)
+            PocketFileOpenOverlay()
             PocketPcForegroundUpdateFlow()
         }
     }
