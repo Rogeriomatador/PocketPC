@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 5,
-  "status": "VULKAN_ABI_HEADLESS_DIAGNOSTIC_IMPLEMENTED_VISIBLE_WSI_NOT_IMPLEMENTED",
+  "schemaVersion": 6,
+  "status": "VULKAN_TRANSPORT_PRIMITIVES_IMPLEMENTED_VISIBLE_WSI_NOT_IMPLEMENTED_NOT_EXECUTED",
   "wine": {
     "version": "11.0",
     "commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
@@ -8,38 +8,19 @@
     "driver": "winepocketpc.drv",
     "requiredEntryPoint": "user_driver_funcs.pVulkanInit",
     "abiEntryPointImplemented": true,
-    "abiEntryPointSoftwareTestExecuted": false,
     "externalHandleFdMappingImplemented": true,
-    "externalHandleFdMappingSoftwareTestExecuted": false,
     "headlessDiagnosticSurfaceImplemented": true,
     "headlessDiagnosticPresentationSupportImplemented": true,
     "headlessDiagnosticExtensionMappingImplemented": true,
-    "headlessDiagnosticSoftwareTestExecuted": false,
-    "headlessDiagnosticIntegrationTestExecuted": false,
-    "surfaceCreateImplemented": false,
-    "presentationSupportImplemented": false,
-    "surfaceExtensionMappingImplemented": false,
-    "swapchainPresentationImplemented": false,
-    "requiredCallbacks": [
-      "p_vulkan_surface_create",
-      "p_get_physical_device_presentation_support",
-      "p_map_instance_extensions",
-      "p_map_device_extensions"
-    ],
-    "productionFailClosedBehavior": {
-      "surfaceCreate": "VK_ERROR_INCOMPATIBLE_DRIVER",
-      "presentationSupport": "VK_FALSE",
-      "androidSurfacePromotion": false,
-      "visiblePresent": false
-    },
-    "headlessDiagnostic": {
-      "environmentGate": "POCKETPC_VULKAN_HEADLESS_DIAGNOSTIC=1",
-      "surfaceExtension": "VK_EXT_headless_surface",
-      "win32SurfaceMapping": true,
-      "clientSurface": "Wine client_surface_create",
-      "visiblePresent": false,
-      "classification": "IMPLEMENTED_NOT_EXECUTED"
-    }
+    "headlessPresentObserverImplemented": true,
+    "visibleSurfaceCreateImplemented": false,
+    "visiblePresentationSupportImplemented": false,
+    "visibleSurfaceExtensionMappingImplemented": false,
+    "swapchainCaptureImplemented": false,
+    "hostVisiblePresentImplemented": false,
+    "softwareTestExecuted": false,
+    "integrationTestExecuted": false,
+    "physicalTestExecuted": false
   },
   "box64": {
     "version": "0.4.4",
@@ -47,142 +28,120 @@
     "sourceReviewed": true,
     "vkCreateAndroidSurfaceKHRWrapperPresent": true,
     "directLibandroidAhardwareBufferBridgeVerified": false,
-    "runtimeExecuted": false,
-    "note": "The pinned Box64 Vulkan wrapper structurally represents vkCreateAndroidSurfaceKHR, but a direct libandroid/AHardwareBuffer bridge for arbitrary x86_64 guest code is not verified. No runtime claim is made."
+    "runtimeExecuted": false
   },
-  "androidTransport": {
-    "candidate": "AHardwareBuffer or external-memory FD chosen from measured device capabilities",
-    "minimumApi": 26,
-    "sameProcessProbe": "NativeRuntimeHost.nativeHardwareBufferProbe",
-    "sameProcessProbeSource": "app/src/main/cpp/runtime_host.cpp",
-    "crossProcessProbe": "HardwareBufferCrossProcessProbe",
-    "crossProcessNativeSource": "app/src/main/cpp/hardware_buffer_cross_process.cpp",
-    "crossProcessReceiverProcess": ":gpu_probe",
-    "crossProcessEvidenceProtocol": 1,
-    "resourceBroker": "HostGraphicsResourceBroker",
-    "resourceBrokerNativeSource": "app/src/main/cpp/hardware_buffer_resource_broker.cpp",
-    "canonicalAhbImportProbe": "VulkanAhardwareBufferImportProbe",
-    "canonicalAhbImportNativeSource": "app/src/main/cpp/vulkan_ahardwarebuffer_import_probe.cpp",
-    "canonicalAhbQuery": "vkGetAndroidHardwareBufferPropertiesANDROID",
-    "allocation": "AHardwareBuffer_allocate",
-    "socketSend": "AHardwareBuffer_sendHandleToUnixSocket",
-    "socketReceive": "AHardwareBuffer_recvHandleFromUnixSocket",
-    "vulkanExternalMemoryExtension": "VK_ANDROID_external_memory_android_hardware_buffer",
-    "sameProcessProbeImplemented": true,
-    "crossProcessProbeImplemented": true,
-    "resourceBrokerImplemented": true,
-    "canonicalAhbImportProbeImplemented": true,
-    "strictEvidenceParserImplemented": true,
-    "crossProcessRaceSafeCompletionImplemented": true,
-    "hostProbeSoftwareTestExecuted": false,
-    "hostProbePhysicalTestExecuted": false,
-    "crossProcessPhysicalTestExecuted": false,
-    "canonicalAhbImportProbePhysicalTestExecuted": false,
-    "note": "Host-side AHardwareBuffer capability and transport evidence never proves the guest/Wine import or visible WSI path. AHardwareBuffer is memory/image state, not VkSurfaceKHR."
+  "hostGraphics": {
+    "ahardwareBufferSameProcessProbeImplemented": true,
+    "ahardwareBufferCrossProcessProbeImplemented": true,
+    "ahardwareBufferResourceBrokerImplemented": true,
+    "canonicalAhardwareBufferImportPropertyProbeImplemented": true,
+    "externalResourceCapabilityProbeImplemented": true,
+    "opaqueFdImageBrokerImplemented": true,
+    "dmaBufImageBrokerImplemented": false,
+    "opaqueFdTimelineSemaphoreExporterImplemented": true,
+    "imageAndTimelineShareSameVkDevice": true,
+    "pvi1ImageProtocolImplemented": true,
+    "pvs1TimelineProtocolImplemented": true,
+    "softwareTestExecuted": false,
+    "integrationTestExecuted": false,
+    "physicalTestExecuted": false
   },
-  "guestGraphicsTransport": {
-    "contract": "GuestGraphicsTransportContract",
-    "protocolVersion": 1,
+  "guestGraphics": {
     "descriptorProtocolImplemented": true,
     "ownershipProtocolImplemented": true,
     "ancillaryFdTransportPrimitiveImplemented": true,
     "handleBindingImplemented": true,
-    "guestReceivePrimitiveImplemented": true,
-    "guestReceiveRuntimeIntegrated": false,
-    "guestImportImplemented": false,
-    "synchronizationImplemented": false,
+    "receivePrimitiveImplemented": true,
+    "pvi1ReceiverImplemented": true,
+    "opaqueFdVulkanImageImportPrimitiveImplemented": true,
+    "pvs1ReceiverImplemented": true,
+    "timelineSemaphoreImportPrimitiveImplemented": true,
+    "timelineCounterPrimitiveImplemented": true,
+    "timelineCpuSignalPrimitiveImplemented": true,
+    "timelineCpuWaitPrimitiveImplemented": true,
+    "authenticatedRuntimeReceiveIntegrated": false,
+    "activeWineDeviceImageImportIntegrated": false,
+    "timelineCpuRoundTripExecuted": false,
+    "gpuQueueSynchronizationImplemented": false,
+    "gpuQueueSynchronizationExecuted": false,
     "softwareTestExecuted": false,
     "integrationTestExecuted": false,
-    "physicalTestExecuted": false,
-    "blocker": "VULKAN_WSI_GUEST_GRAPHICS_TRANSPORT_NOT_IMPLEMENTED",
-    "note": "SCM_RIGHTS plus resource/generation/sequence binding and a guest receive helper are implemented as isolated primitives. The authenticated runtime session, Vulkan import into the Wine/DXVK device and GPU synchronization remain separate gates."
+    "physicalTestExecuted": false
   },
-  "capabilityDiscovery": {
-    "wsiProbe": "NativeRuntimeHost.nativeVulkanWsiCapabilityProbe",
-    "wsiNativeSource": "app/src/main/cpp/vulkan_wsi_capability_probe.cpp",
-    "externalResourceProbe": "VulkanExternalResourceProbe",
-    "externalResourceNativeSource": "app/src/main/cpp/vulkan_external_resource_probe.cpp",
-    "canonicalAhbImportProbe": "VulkanAhardwareBufferImportProbe",
-    "canonicalAhbImportNativeSource": "app/src/main/cpp/vulkan_ahardwarebuffer_import_probe.cpp",
-    "evidenceProtocol": 1,
-    "implemented": true,
-    "softwareTestExecuted": false,
-    "physicalTestExecuted": false,
-    "reportedCapabilities": [
-      "VK_KHR_surface",
-      "VK_KHR_android_surface",
-      "VK_EXT_headless_surface",
-      "VK_KHR_swapchain",
-      "VK_KHR_external_memory",
-      "VK_KHR_external_memory_fd",
-      "VK_EXT_external_memory_dma_buf",
-      "VK_ANDROID_external_memory_android_hardware_buffer",
-      "VK_KHR_external_semaphore_fd",
-      "VK_KHR_external_fence_fd",
-      "vkGetAndroidHardwareBufferPropertiesANDROID allocationSize/memoryTypeBits"
-    ],
-    "note": "Capability discovery is diagnostic evidence only. Extensions or import-query success do not prove guest import, swapchain or a host-visible Present."
+  "protocols": {
+    "displayBridge": {
+      "name": "PocketPC Display Bridge",
+      "version": 4
+    },
+    "guestResourceDescriptor": {
+      "name": "PGT1",
+      "version": 1,
+      "identity": ["resourceId", "generation", "sequence"]
+    },
+    "externalImage": {
+      "name": "PVI1",
+      "version": 1,
+      "payloadBytes": 64,
+      "transport": "AF_UNIX/SOCK_SEQPACKET + SCM_RIGHTS",
+      "format": "VK_FORMAT_R8G8B8A8_UNORM",
+      "usageFlags": "0x17",
+      "rawFdSerialized": false
+    },
+    "externalTimelineSemaphore": {
+      "name": "PVS1",
+      "version": 1,
+      "payloadBytes": 40,
+      "transport": "AF_UNIX/SOCK_SEQPACKET + SCM_RIGHTS",
+      "handleType": "VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT",
+      "initialValue": 0,
+      "role": "FRAME_OWNERSHIP",
+      "rawFdSerialized": false
+    }
   },
   "surfaceBackend": {
-    "model": "PocketPcVulkanSurfaceBackendProbe",
-    "modelImplemented": true,
-    "productionRunnable": false,
     "ahardwareBufferIsSurface": false,
-    "candidates": {
-      "ANDROID_NATIVE_SURFACE": {
-        "requires": [
-          "VK_KHR_surface",
-          "VK_KHR_android_surface",
-          "VK_KHR_swapchain",
-          "process-valid ANativeWindow"
-        ],
-        "implemented": false,
-        "blocker": "VULKAN_ANDROID_NATIVE_WINDOW_TRANSPORT_NOT_IMPLEMENTED"
-      },
-      "HEADLESS_DIAGNOSTIC": {
-        "requires": [
-          "VK_EXT_headless_surface",
-          "Wine client_surface",
-          "explicit diagnostic environment gate"
-        ],
-        "implemented": true,
-        "softwareTestExecuted": false,
-        "integrationTestExecuted": false,
-        "visible": false,
-        "blockerForVisibleUse": "VULKAN_HEADLESS_PRESENT_CAPTURE_NOT_IMPLEMENTED"
-      },
-      "HEADLESS_SURFACE_SHIM_VISIBLE": {
-        "requires": [
-          "VK_EXT_headless_surface",
-          "VK_KHR_swapchain",
-          "proven frame capture/presentation bridge"
-        ],
-        "implemented": false,
-        "blocker": "VULKAN_HEADLESS_PRESENT_CAPTURE_NOT_IMPLEMENTED"
-      },
-      "VIRTUAL_WSI": {
-        "requires": [
-          "coherent virtual surface semantics",
-          "swapchain ownership",
-          "Present interception/implementation",
-          "host-visible frame transport"
-        ],
-        "implemented": false,
-        "blocker": "VULKAN_VIRTUAL_WSI_NOT_IMPLEMENTED"
-      }
+    "productionRunnable": false,
+    "headlessDiagnostic": {
+      "environmentGate": "POCKETPC_VULKAN_HEADLESS_DIAGNOSTIC=1",
+      "implemented": true,
+      "presentObserverImplemented": true,
+      "visible": false,
+      "mayPromoteRoblox": false,
+      "execution": "NOT_EXECUTED"
     },
-    "note": "Wine win32u stores the VkSurfaceKHR returned by p_vulkan_surface_create as the host surface handle. The opt-in headless diagnostic can create such a surface without visibility; production still requires a host-visible presentation backend."
+    "androidNativeSurface": {
+      "implemented": false,
+      "blocker": "VULKAN_ANDROID_NATIVE_WINDOW_TRANSPORT_NOT_IMPLEMENTED"
+    },
+    "headlessCaptureVisibleShim": {
+      "implemented": false,
+      "blocker": "VULKAN_HEADLESS_PRESENT_CAPTURE_NOT_IMPLEMENTED"
+    },
+    "virtualWsi": {
+      "implemented": false,
+      "blocker": "VULKAN_VIRTUAL_WSI_NOT_IMPLEMENTED"
+    }
+  },
+  "presentCapture": {
+    "wineObservation": "win32u_vkQueuePresentKHR knows the presented swapchain and image index, invokes the host vkQueuePresentKHR, then client_surface_present",
+    "clientSurfaceHeadlessPresentObserverImplemented": true,
+    "swapchainImageCaptureHookImplemented": false,
+    "copyPresentedImageToPocketPcResourceImplemented": false,
+    "signalPvs1FromGpuQueueImplemented": false,
+    "hostVisibleFrameImplemented": false,
+    "execution": "NOT_EXECUTED"
   },
   "roblox": {
-    "browserDeepLinkBoundaryImplemented": true,
+    "artifactClassificationImplemented": true,
     "installedPlayerDiscoveryImplemented": true,
+    "browserDeepLinkBoundaryImplemented": true,
     "executionFingerprintImplemented": true,
+    "runtimeEvidenceCollectorImplemented": true,
     "graphicsPreflightImplemented": true,
-    "requiresAndroidCrossProcessTransportFoundation": true,
-    "requiresGuestGraphicsTransport": true,
-    "requiresCapabilityDiscovery": true,
+    "requiresAuthenticatedGuestGraphicsTransport": true,
+    "requiresActiveWineDeviceImport": true,
+    "requiresGpuQueueSynchronization": true,
     "requiresRunnableVisibleSurfaceBackend": true,
-    "requiresWineVulkanWsi": true,
     "requiresHostVisiblePresent": true,
     "headlessDiagnosticMayPromoteGameplay": false,
     "controlledAttemptExecuted": false,
@@ -190,87 +149,70 @@
   },
   "rejectedRoutes": [
     {
-      "route": "send ANativeWindow pointer over Display Bridge socket",
-      "reason": "ANativeWindow is process-local opaque state; a pointer value is not a transferable cross-process handle."
+      "route": "serialize ANativeWindow pointer",
+      "reason": "ANativeWindow is process-local opaque state."
     },
     {
       "route": "treat AHardwareBuffer as VkSurfaceKHR",
-      "reason": "AHardwareBuffer is a transferable image/memory primitive. Wine requires p_vulkan_surface_create to return a host VkSurfaceKHR used by later surface and swapchain calls."
+      "reason": "AHardwareBuffer is image/memory state, not a Vulkan surface."
     },
     {
-      "route": "treat GDI window_surface.flush as DXVK Present",
-      "reason": "Wine Vulkan uses the graphics driver's pVulkanInit/WSI contract; GDI framebuffer flush does not establish a Vulkan surface or swapchain."
+      "route": "trust host memoryTypeIndex in the Wine VkDevice",
+      "reason": "The guest importer re-queries vkGetMemoryFdPropertiesKHR and intersects memoryTypeBits on the active Wine device."
     },
     {
-      "route": "reuse wineandroid.drv as the DXVK WSI backend",
-      "reason": "Pinned Wine 11 wineandroid.drv exposes pOpenGLInit but no pVulkanInit."
+      "route": "treat CPU timeline signal/wait as GPU synchronization",
+      "reason": "GPU synchronization requires queue work to signal/wait the shared timeline semaphore."
     },
     {
-      "route": "promote Android-to-Android AHardwareBuffer transport to guest graphics readiness",
-      "reason": "Distinct Android processes prove host handle transfer only. Box64/Wine receive, Vulkan import and synchronization remain separate guest gates."
+      "route": "treat headless Present observer as visible presentation",
+      "reason": "client_surface_present proves control flow only and does not expose the presented VkImage."
     },
     {
-      "route": "enable production VK_KHR_win32_surface from the headless diagnostic",
-      "reason": "The diagnostic surface is explicitly invisible and opt-in. It may prove Vulkan surface/swapchain mechanics but cannot satisfy Android-visible Present."
-    },
-    {
-      "route": "treat external-memory extension mapping as imported PocketPC graphics resource evidence",
-      "reason": "Wine external Win32-to-fd mapping exposes a mechanism; it does not prove a broker FD was received, bound to the correct resource, imported into the active VkDevice or synchronized."
+      "route": "promote transport primitives to Roblox readiness",
+      "reason": "Roblox requires executed Wine/DXVK import, GPU ordering and a host-visible frame."
     }
   ],
   "targetArchitecture": {
-    "phase1": "Android host proves AHardwareBuffer allocation plus same-process AF_UNIX handle round-trip.",
-    "phase2": "A dedicated Android :gpu_probe process receives the transferable AHardwareBuffer handle, validates descriptor and bytes, and returns evidence from a distinct PID.",
-    "phase3": "Probe physical-device WSI and external-resource capabilities and run the canonical AHardwareBuffer import-property query without promoting readiness.",
-    "phase4": "Expose the exact Wine Vulkan v47 ABI, external Win32-handle to fd mappings, and an opt-in headless diagnostic surface while production surface creation stays fail-closed.",
-    "phase5": "Use SCM_RIGHTS plus descriptor/ownership binding to receive one exact graphics resource on the guest side; connect that primitive to the authenticated runtime broker.",
-    "phase6": "Import the received external resource into the same host VkDevice used by Wine/DXVK and prove memory compatibility.",
-    "phase7": "Implement external semaphore/fence ownership and prove guest/host synchronization for the imported resource.",
-    "phase8": "Use headless diagnostic WSI for non-visible DXVK surface/swapchain/Present evidence without promoting production readiness.",
-    "phase9": "Select and implement one host-visible VkSurfaceKHR/presentation architecture for Android.",
-    "phase10": "Implement visible surface creation, presentation support, acquire/render/present ownership and swapchain presentation.",
-    "phase11": "Run D3D11 Present smoke and require a host-visible frame before recording production graphics evidence.",
-    "phase12": "Only then unblock controlled Roblox/DXVK application attempts and record gameplay evidence separately."
+    "phase1": "Prove Android AHardwareBuffer and Vulkan capability foundations without promoting guest readiness.",
+    "phase2": "Transport exact resource identity with descriptor plus SCM_RIGHTS and reject stale generation/sequence.",
+    "phase3": "Export a real OPAQUE_FD VkImage on the Android host and carry its metadata in PVI1.",
+    "phase4": "Receive PVI1 and import the allocation into the exact VkDevice used by Wine/DXVK after querying vkGetMemoryFdPropertiesKHR.",
+    "phase5": "Export/import a timeline semaphore for the same resource/device using PVS1 and prove monotonic CPU signal/wait as an integration precursor.",
+    "phase6": "Wire authenticated graphics broker receive/import into the real Box64/Wine session.",
+    "phase7": "Insert the PVS1 timeline into actual GPU queue submissions and prove image ownership transitions end-to-end.",
+    "phase8": "Use headless WSI to prove DXVK surface/swapchain/Present control flow without claiming visibility.",
+    "phase9": "Capture the exact presented swapchain image at the Wine win32u Present boundary and copy it into the exported PocketPC image resource.",
+    "phase10": "Present the synchronized resource in Android and require a host-visible frame.",
+    "phase11": "Run D3D11 Present end-to-end and only then enable a controlled Roblox attempt.",
+    "phase12": "Record Roblox process/window/Present/network/audio/input/stability separately from generic runtime evidence."
   },
   "gates": {
-    "box64AndroidVulkanWrapperSourceReviewed": true,
-    "ahardwareBufferHostProbeImplemented": true,
-    "ahardwareBufferCrossProcessProbeImplemented": true,
-    "ahardwareBufferEvidenceProtocolImplemented": true,
-    "ahardwareBufferResourceBrokerImplemented": true,
-    "canonicalAhardwareBufferImportProbeImplemented": true,
-    "vulkanCapabilityProbeImplemented": true,
-    "vulkanExternalResourceProbeImplemented": true,
     "wineVulkanAbiEntryPointImplemented": true,
     "wineExternalHandleFdMappingImplemented": true,
-    "wineHeadlessDiagnosticSurfaceImplemented": true,
-    "guestGraphicsTransportContractImplemented": true,
-    "guestGraphicsAncillaryFdTransportPrimitiveImplemented": true,
-    "guestGraphicsHandleBindingImplemented": true,
-    "guestGraphicsReceivePrimitiveImplemented": true,
-    "vulkanSurfaceBackendModelImplemented": true,
-    "ahardwareBufferHostProbeSoftwareTestExecuted": false,
-    "ahardwareBufferHostProbePhysicalTestExecuted": false,
-    "ahardwareBufferCrossProcessPhysicalTestExecuted": false,
-    "canonicalAhardwareBufferImportProbePhysicalTestExecuted": false,
-    "vulkanCapabilityProbeSoftwareTestExecuted": false,
-    "vulkanCapabilityProbePhysicalTestExecuted": false,
-    "wineExternalHandleFdMappingSoftwareTestExecuted": false,
-    "wineHeadlessDiagnosticSoftwareTestExecuted": false,
-    "wineHeadlessDiagnosticIntegrationTestExecuted": false,
-    "guestGraphicsReceiveRuntimeIntegrated": false,
-    "guestGraphicsResourceImportImplemented": false,
-    "guestGraphicsSynchronizationImplemented": false,
-    "guestGraphicsTransportSoftwareTestExecuted": false,
-    "guestGraphicsTransportIntegrationTestExecuted": false,
-    "guestGraphicsTransportPhysicalTestExecuted": false,
-    "vulkanVisibleSurfaceBackendRunnable": false,
+    "wineHeadlessDiagnosticImplemented": true,
+    "wineHeadlessPresentObserverImplemented": true,
+    "hostOpaqueFdImageBrokerImplemented": true,
+    "pvi1ProtocolImplemented": true,
+    "guestVulkanImageImportPrimitiveImplemented": true,
+    "pvs1ProtocolImplemented": true,
+    "hostTimelineSemaphoreExporterImplemented": true,
+    "guestTimelineSemaphoreImportPrimitiveImplemented": true,
+    "guestTimelineCpuSignalWaitPrimitiveImplemented": true,
+    "authenticatedGuestGraphicsReceiveIntegrated": false,
+    "guestVulkanImageImportIntegrated": false,
+    "timelineCpuRoundTripExecuted": false,
+    "guestGraphicsGpuSynchronizationImplemented": false,
+    "guestGraphicsGpuSynchronizationExecuted": false,
+    "swapchainImageCaptureHookImplemented": false,
+    "hostVisiblePresentImplemented": false,
+    "visibleVulkanSurfaceBackendRunnable": false,
     "wineVisibleVulkanWsiImplemented": false,
-    "wineVulkanWsiSoftwareTestExecuted": false,
-    "wineVulkanWsiPhysicalTestExecuted": false,
     "d3d11PresentHostVisibleFrameExecuted": false,
-    "controlledDxvkApplicationAttemptAllowed": false,
     "robloxControlledAttemptExecuted": false,
-    "robloxGameplayValidated": false
+    "robloxGameplayValidated": false,
+    "softwareTestExecutedForCurrentRevision": false,
+    "integrationTestExecutedForCurrentRevision": false,
+    "physicalTestExecutedForCurrentRevision": false
   }
 }
