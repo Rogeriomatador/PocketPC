@@ -27,12 +27,25 @@ if [ ! -f "$LOCK" ]; then
     exit 2
 fi
 
-if ! command -v aapt2 >/dev/null 2>&1; then
-    echo "AAPT2 is missing; invoking the official Termux recovery gate."
+LOCAL_AAPT2="$HOME/.local/pocketpc/android-build-tools/16.0.0.4/bin/aapt2"
+
+if ! command -v aapt2 >/dev/null 2>&1 && [ ! -x "$LOCAL_AAPT2" ]; then
+    echo "AAPT2 is missing; invoking the Termux recovery gate."
     bash scripts/termux-ensure-aapt2.sh
 fi
 
-need aapt2
+select_aapt2() {
+    if [ -x "$LOCAL_AAPT2" ]; then
+        printf '%s\n' "$LOCAL_AAPT2"
+    else
+        command -v aapt2
+    fi
+}
+
+if ! AAPT2="$(select_aapt2 2>/dev/null)"; then
+    echo "AAPT2_MISSING" >&2
+    exit 2
+fi
 
 TERMUX_VARIANT="$(bash scripts/termux-detect-variant.sh --value 2>/dev/null || printf '%s' classic_or_unknown)"
 echo "termux_variant=$TERMUX_VARIANT"
@@ -97,7 +110,7 @@ cat > "$ROOT/local.properties" <<EOF
 sdk.dir=$SDK_ROOT
 EOF
 
-AAPT2="$(command -v aapt2)"
+AAPT2="$(select_aapt2)"
 AAPT2_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
 
 echo "Evidence"
@@ -123,7 +136,7 @@ else
     echo "Validating AAPT2 against the locked Android platform before Kotlin compilation..."
     bash scripts/termux-ensure-aapt2.sh
     hash -r
-    AAPT2="$(command -v aapt2)"
+    AAPT2="$(select_aapt2)"
     AAPT2_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
     echo "  validated_aapt2=$AAPT2"
     echo "  validated_aapt2_version=$AAPT2_VERSION"
@@ -185,7 +198,7 @@ if [ "$TERMUX_VARIANT" = "googleplay" ]; then
         exit "$AAPT2_STATUS"
     fi
     hash -r
-    AAPT2="$(command -v aapt2)"
+    AAPT2="$(select_aapt2)"
 fi
 
 echo "Executing unit-test gate:"
