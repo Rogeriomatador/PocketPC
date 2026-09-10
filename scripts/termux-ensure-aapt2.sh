@@ -189,14 +189,41 @@ if [ "$TERMUX_VARIANT" = "googleplay" ]; then
                 awk '/Candidate:/ {print $2; exit}'
         )"
     fi
-    echo "Classification : TERMUX_GOOGLE_PLAY_AAPT2_PLATFORM_INCOMPATIBLE"
+    echo "Google Play system AAPT2 is incompatible with the locked platform."
     echo "aapt_candidate_version=${CANDIDATE_VERSION:-unknown}"
-    echo "recovery_command=bash scripts/termux-build-modern-aapt2.sh"
-    echo "platform_package=$PLATFORM_PACKAGE"
-    echo "android_jar=$ANDROID_JAR"
-    echo "Important: Google Play Termux uses its own package repository and package set."
-    echo "Important: Do not mix packages.termux.dev into this installation."
-    echo "Important: Kotlin compilation can still be validated separately from Android resource linking."
+    echo "Trying the pinned local AAPT2 source build..."
+    echo
+
+    set +e
+    bash scripts/termux-build-modern-aapt2.sh
+    LOCAL_BUILD_STATUS=$?
+    set -e
+
+    if [ "$LOCAL_BUILD_STATUS" -ne 0 ]; then
+        echo
+        echo "Classification : TERMUX_GOOGLE_PLAY_LOCAL_AAPT2_BUILD_FAIL"
+        echo "local_builder_exit_code=$LOCAL_BUILD_STATUS"
+        echo "platform_package=$PLATFORM_PACKAGE"
+        echo "android_jar=$ANDROID_JAR"
+        echo "Important: system AAPT2 remains incompatible and the pinned local build did not pass."
+        exit 11
+    fi
+
+    if [ ! -x "$LOCAL_AAPT2" ]; then
+        echo "LOCAL_AAPT2_MISSING_AFTER_SUCCESSFUL_BUILD=$LOCAL_AAPT2" >&2
+        echo "Classification : TERMUX_GOOGLE_PLAY_LOCAL_AAPT2_BUILD_OUTPUT_MISSING"
+        exit 11
+    fi
+
+    echo
+    echo "Revalidating the freshly built local AAPT2..."
+    if probe_aapt2 "$LOCAL_AAPT2"; then
+        echo "aapt2_selected=$LOCAL_AAPT2"
+        echo "Classification : TERMUX_LOCAL_AAPT2_PLATFORM_PASS_AFTER_BUILD"
+        exit 0
+    fi
+
+    echo "Classification : TERMUX_GOOGLE_PLAY_LOCAL_AAPT2_REPROBE_FAIL"
     exit 11
 fi
 
