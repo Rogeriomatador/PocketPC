@@ -81,7 +81,11 @@ class GuestToolInstallManager(
                     manifest.files.forEach { item ->
                         val source = File(packageRoot, item.path)
                         val destination = File(transaction, item.path)
-                        require(destination.parentFile.mkdirs() || destination.parentFile.isDirectory) {
+                        val parent =
+                            requireNotNull(destination.parentFile) {
+                                "GUEST_TOOL_PARENT_MISSING:" + item.path
+                            }
+                        require(parent.mkdirs() || parent.isDirectory) {
                             "GUEST_TOOL_PARENT_CREATE_FAILED:" + item.path
                         }
                         Files.copy(
