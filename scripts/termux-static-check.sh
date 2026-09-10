@@ -39,6 +39,27 @@ if ! command -v python >/dev/null 2>&1; then
     exit 2
 fi
 
+if ! command -v bash >/dev/null 2>&1; then
+    echo "bash=MISSING" >&2
+    exit 2
+fi
+
+echo "Shell syntax"
+SHELL_PASS=0
+while IFS= read -r script; do
+    bash -n "$script"
+    SHELL_PASS=$((SHELL_PASS + 1))
+done < <(find scripts -maxdepth 1 -type f -name '*.sh' -print | sort)
+
+if [ -f "PocketPC-Termux-Update-Test.sh" ]; then
+    bash -n "PocketPC-Termux-Update-Test.sh"
+    SHELL_PASS=$((SHELL_PASS + 1))
+fi
+
+echo "SHELL_SYNTAX_OK"
+echo "shell_scripts_checked=$SHELL_PASS"
+echo
+
 CHECKS=(
     "scripts/test-python-script-syntax.py"
     "scripts/verify-android-build-lock.py"
