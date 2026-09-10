@@ -56,7 +56,7 @@ bash scripts/termux-static-check.sh
 echo
 
 echo "Checking Termux package repository before toolchain validation..."
-bash scripts/termux-repository-check.sh --require-modern
+bash scripts/termux-repository-check.sh --require-compatible
 echo
 
 bash scripts/termux-on-device-preflight.sh
