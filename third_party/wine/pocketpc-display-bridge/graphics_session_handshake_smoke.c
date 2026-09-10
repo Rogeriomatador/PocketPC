@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "pocketpc_graphics_transport.h"
 
 #include <errno.h>
