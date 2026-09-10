@@ -11,6 +11,8 @@ data class NativeHostStatus(
         "ahardwarebuffer=not-probed",
     val vulkanWsiCapabilityProbe: String =
         "vulkan-wsi-capabilities=not-probed",
+    val vulkanExternalResourceProbe: String =
+        "vulkan-external-resource=not-probed",
 )
 
 object NativeRuntimeHost {
@@ -99,6 +101,15 @@ object NativeRuntimeHost {
             "vulkan-wsi-capabilities=not-probed;native-host-not-loaded"
         }
 
+        val vulkanExternalResourceProbe = if (loaded) {
+            VulkanExternalResourceProbe
+                .snapshot()
+                ?.raw
+                ?: "vulkan-external-resource=probe-failed-or-invalid"
+        } else {
+            "vulkan-external-resource=not-probed;native-host-not-loaded"
+        }
+
         return NativeHostStatus(
             loaded = loaded,
             probe = probe,
@@ -106,6 +117,7 @@ object NativeRuntimeHost {
             nativeLibraryDir = appInfo.nativeLibraryDir ?: "indisponível",
             hardwareBufferProbe = hardwareBufferProbe,
             vulkanWsiCapabilityProbe = vulkanWsiCapabilityProbe,
+            vulkanExternalResourceProbe = vulkanExternalResourceProbe,
         )
     }
 }
