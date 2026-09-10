@@ -59,6 +59,26 @@ class PocketFileOpenPlanTest {
     }
 
     @Test
+    fun pdfUsesImplementedPocketPcViewerWithoutAndroidEscape() {
+        val plan = planPocketFileOpen("manual.pdf", "application/pdf")
+
+        assertEquals(
+            PocketFileHandler.PDF_VIEWER,
+            plan.association.handler,
+        )
+        assertEquals(
+            PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
+            plan.association.readiness,
+        )
+        assertEquals(
+            PocketFileOpenCapability.INTERNAL_HANDLER_PENDING,
+            plan.capability,
+        )
+        assertTrue(plan.canAttemptNow)
+        assertFalse(plan.leavesPocketPc)
+    }
+
+    @Test
     fun svgRemainsAssociatedButPendingUntilItsRendererExists() {
         val plan = planPocketFileOpen("vetor.svg", "image/svg+xml")
 
