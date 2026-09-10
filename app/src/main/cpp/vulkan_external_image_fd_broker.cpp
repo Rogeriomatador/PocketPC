@@ -20,6 +20,10 @@ constexpr uint32_t kProtocol = 1;
 constexpr uint32_t kExternalImageMagic = 0x31495650u;  // PVI1 little-endian.
 constexpr uint16_t kExternalImageVersion = 1;
 constexpr size_t kExternalImagePayloadBytes = 64;
+constexpr uint32_t kExternalTimelineMagic = 0x31535650u;  // PVS1 little-endian.
+constexpr uint16_t kExternalTimelineVersion = 1;
+constexpr size_t kExternalTimelinePayloadBytes = 40;
+constexpr uint32_t kTimelineRoleFrameOwnership = 1;
 constexpr uint32_t kMaxDimension = 4096;
 constexpr size_t kMaxResources = 16;
 constexpr VkFormat kFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -38,10 +42,12 @@ struct Resource {
     VkDevice device = VK_NULL_HANDLE;
     VkImage image = VK_NULL_HANDLE;
     VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkSemaphore timeline = VK_NULL_HANDLE;
     VkDeviceSize allocation_size = 0;
     uint32_t memory_type_bits = 0;
     uint32_t memory_type_index = 0;
     PFN_vkGetMemoryFdKHR get_memory_fd = nullptr;
+    PFN_vkGetSemaphoreFdKHR get_semaphore_fd = nullptr;
 };
 
 std::mutex g_mutex;
@@ -92,6 +98,21 @@ void EncodeExternalImagePayload(
     PutU32Le(out + 60, resource.memory_type_index);
 }
 
+void EncodeExternalTimelinePayload(
+        uint8_t out[kExternalTimelinePayloadBytes],
+        uint64_t resource_id,
+        const Resource& resource) {
+    std::memset(out, 0, kExternalTimelinePayloadBytes);
+    PutU32Le(out + 0, kExternalTimelineMagic);
+    PutU16Le(out + 4, kExternalTimelineVersion);
+    PutU16Le(out + 6, 0);
+    PutU64Le(out + 8, resource_id);
+    PutU64Le(out + 16, resource.generation);
+    PutU64Le(out + 24, 0u);
+    PutU32Le(out + 32, kTimelineRoleFrameOwnership);
+    PutU32Le(out + 36, 0u);
+}
+
 bool IsSeqpacket(int socket_fd) {
     int socket_type = 0;
     socklen_t length = sizeof(socket_type);
@@ -100,27 +121,18 @@ bool IsSeqpacket(int socket_fd) {
         socket_type == SOCK_SEQPACKET;
 }
 
-int SendExternalImageFd(
+int SendFdPayload(
         int socket_fd,
         int fd,
-        uint64_t resource_id,
-        const Resource& resource,
-        uint64_t sequence) {
-    if (!IsSeqpacket(socket_fd) || fd < 0 || resource_id == 0 ||
-        resource.generation == 0 || sequence == 0 ||
-        resource.width == 0 || resource.height == 0 ||
-        resource.allocation_size == 0 || resource.memory_type_bits == 0 ||
-        resource.memory_type_index >= 32 ||
-        (resource.memory_type_bits & (1u << resource.memory_type_index)) == 0) {
+        const uint8_t* payload,
+        size_t payload_bytes) {
+    if (!IsSeqpacket(socket_fd) || fd < 0 || payload == nullptr || payload_bytes == 0) {
         return -1;
     }
 
-    uint8_t payload[kExternalImagePayloadBytes];
-    EncodeExternalImagePayload(payload, resource_id, resource, sequence);
-
     struct iovec iov {};
-    iov.iov_base = payload;
-    iov.iov_len = sizeof(payload);
+    iov.iov_base = const_cast<uint8_t*>(payload);
+    iov.iov_len = payload_bytes;
 
     char control[CMSG_SPACE(sizeof(int))];
     std::memset(control, 0, sizeof(control));
@@ -144,12 +156,49 @@ int SendExternalImageFd(
         written = sendmsg(socket_fd, &message, MSG_NOSIGNAL);
     } while (written < 0 && errno == EINTR);
 
-    return written == static_cast<ssize_t>(sizeof(payload)) ? 0 : -3;
+    return written == static_cast<ssize_t>(payload_bytes) ? 0 : -3;
+}
+
+int SendExternalImageFd(
+        int socket_fd,
+        int fd,
+        uint64_t resource_id,
+        const Resource& resource,
+        uint64_t sequence) {
+    if (resource_id == 0 || resource.generation == 0 || sequence == 0 ||
+        resource.width == 0 || resource.height == 0 ||
+        resource.allocation_size == 0 || resource.memory_type_bits == 0 ||
+        resource.memory_type_index >= 32 ||
+        (resource.memory_type_bits & (1u << resource.memory_type_index)) == 0) {
+        return -1;
+    }
+
+    uint8_t payload[kExternalImagePayloadBytes];
+    EncodeExternalImagePayload(payload, resource_id, resource, sequence);
+    return SendFdPayload(socket_fd, fd, payload, sizeof(payload));
+}
+
+int SendExternalTimelineFd(
+        int socket_fd,
+        int fd,
+        uint64_t resource_id,
+        const Resource& resource) {
+    if (resource_id == 0 || resource.generation == 0 || resource.timeline == VK_NULL_HANDLE) {
+        return -1;
+    }
+
+    uint8_t payload[kExternalTimelinePayloadBytes];
+    EncodeExternalTimelinePayload(payload, resource_id, resource);
+    return SendFdPayload(socket_fd, fd, payload, sizeof(payload));
 }
 
 void Destroy(Resource* resource) {
     if (resource == nullptr) return;
     if (resource->device != VK_NULL_HANDLE) {
+        if (resource->timeline != VK_NULL_HANDLE) {
+            vkDestroySemaphore(resource->device, resource->timeline, nullptr);
+            resource->timeline = VK_NULL_HANDLE;
+        }
         if (resource->image != VK_NULL_HANDLE) {
             vkDestroyImage(resource->device, resource->image, nullptr);
             resource->image = VK_NULL_HANDLE;
@@ -228,6 +277,31 @@ int FindMemoryType(
     return -2;
 }
 
+bool TimelineSemaphoreSupported(
+        VkPhysicalDevice physical,
+        const VkPhysicalDeviceProperties& properties,
+        bool* needs_extension) {
+    if (needs_extension == nullptr) return false;
+
+    const bool core_12 =
+        VK_VERSION_MAJOR(properties.apiVersion) > 1 ||
+        (VK_VERSION_MAJOR(properties.apiVersion) == 1 &&
+            VK_VERSION_MINOR(properties.apiVersion) >= 2);
+    *needs_extension = !core_12;
+
+    if (*needs_extension && !HasDeviceExtension(physical, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)) {
+        return false;
+    }
+
+    VkPhysicalDeviceTimelineSemaphoreFeatures timeline_features {};
+    timeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+    VkPhysicalDeviceFeatures2 features {};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features.pNext = &timeline_features;
+    vkGetPhysicalDeviceFeatures2(physical, &features);
+    return timeline_features.timelineSemaphore == VK_TRUE;
+}
+
 int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* reason) {
     if (out == nullptr || reason == nullptr) return -1;
 
@@ -263,9 +337,9 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
 
     out->physical = physicals.front();
     for (VkPhysicalDevice candidate : physicals) {
-        VkPhysicalDeviceProperties properties {};
-        vkGetPhysicalDeviceProperties(candidate, &properties);
-        if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_CPU) {
+        VkPhysicalDeviceProperties candidate_properties {};
+        vkGetPhysicalDeviceProperties(candidate, &candidate_properties);
+        if (candidate_properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_CPU) {
             out->physical = candidate;
             break;
         }
@@ -286,11 +360,21 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
         *reason = "external-memory-fd-extension-missing";
         return -6;
     }
+    if (!HasDeviceExtension(out->physical, VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME)) {
+        *reason = "external-semaphore-fd-extension-missing";
+        return -7;
+    }
+
+    bool needs_timeline_extension = false;
+    if (!TimelineSemaphoreSupported(out->physical, selected_properties, &needs_timeline_extension)) {
+        *reason = "timeline-semaphore-not-supported";
+        return -8;
+    }
 
     uint32_t queue_family = 0;
     if (FindGraphicsQueue(out->physical, &queue_family) != 0) {
         *reason = "graphics-queue-missing";
-        return -7;
+        return -9;
     }
 
     const float queue_priority = 1.0f;
@@ -300,26 +384,42 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     queue_info.queueCount = 1;
     queue_info.pQueuePriorities = &queue_priority;
 
-    const char* device_extensions[] = {
+    std::vector<const char*> device_extensions = {
         VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
+        VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
     };
+    if (needs_timeline_extension) {
+        device_extensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+    }
+
+    VkPhysicalDeviceTimelineSemaphoreFeatures timeline_enable {};
+    timeline_enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+    timeline_enable.timelineSemaphore = VK_TRUE;
+
     VkDeviceCreateInfo device_info {};
     device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_info.pNext = &timeline_enable;
     device_info.queueCreateInfoCount = 1;
     device_info.pQueueCreateInfos = &queue_info;
-    device_info.enabledExtensionCount = 1;
-    device_info.ppEnabledExtensionNames = device_extensions;
+    device_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
+    device_info.ppEnabledExtensionNames = device_extensions.data();
     result = vkCreateDevice(out->physical, &device_info, nullptr, &out->device);
     if (result != VK_SUCCESS) {
         *reason = "device-create-failed:" + std::to_string(result);
-        return -8;
+        return -10;
     }
 
     out->get_memory_fd = reinterpret_cast<PFN_vkGetMemoryFdKHR>(
         vkGetDeviceProcAddr(out->device, "vkGetMemoryFdKHR"));
+    out->get_semaphore_fd = reinterpret_cast<PFN_vkGetSemaphoreFdKHR>(
+        vkGetDeviceProcAddr(out->device, "vkGetSemaphoreFdKHR"));
     if (out->get_memory_fd == nullptr) {
         *reason = "vkGetMemoryFdKHR-missing";
-        return -9;
+        return -11;
+    }
+    if (out->get_semaphore_fd == nullptr) {
+        *reason = "vkGetSemaphoreFdKHR-missing";
+        return -12;
     }
 
     VkPhysicalDeviceExternalImageFormatInfo external_format_info {};
@@ -345,7 +445,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
         out->physical, &format_info, &format_properties);
     if (result != VK_SUCCESS) {
         *reason = "external-image-format-unsupported:" + std::to_string(result);
-        return -10;
+        return -13;
     }
     const VkExternalMemoryProperties& external_memory =
         external_properties.externalMemoryProperties;
@@ -355,7 +455,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
         (features & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) == 0 ||
         (features & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) == 0) {
         *reason = "external-image-not-import-export-compatible";
-        return -11;
+        return -14;
     }
 
     VkExternalMemoryImageCreateInfo external_image {};
@@ -378,14 +478,14 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     result = vkCreateImage(out->device, &image_info, nullptr, &out->image);
     if (result != VK_SUCCESS) {
         *reason = "image-create-failed:" + std::to_string(result);
-        return -12;
+        return -15;
     }
 
     VkMemoryRequirements requirements {};
     vkGetImageMemoryRequirements(out->device, out->image, &requirements);
     if (requirements.size == 0 || requirements.memoryTypeBits == 0) {
         *reason = "image-memory-requirements-invalid";
-        return -13;
+        return -16;
     }
     out->memory_type_bits = requirements.memoryTypeBits;
 
@@ -394,7 +494,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
             requirements.memoryTypeBits,
             &out->memory_type_index) != 0) {
         *reason = "compatible-memory-type-missing";
-        return -14;
+        return -17;
     }
 
     VkExportMemoryAllocateInfo export_info {};
@@ -415,14 +515,33 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     result = vkAllocateMemory(out->device, &allocation_info, nullptr, &out->memory);
     if (result != VK_SUCCESS) {
         *reason = "memory-allocate-failed:" + std::to_string(result);
-        return -15;
+        return -18;
     }
     out->allocation_size = requirements.size;
 
     result = vkBindImageMemory(out->device, out->image, out->memory, 0);
     if (result != VK_SUCCESS) {
         *reason = "image-bind-failed:" + std::to_string(result);
-        return -16;
+        return -19;
+    }
+
+    VkExportSemaphoreCreateInfo export_semaphore {};
+    export_semaphore.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO;
+    export_semaphore.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
+
+    VkSemaphoreTypeCreateInfo timeline_info {};
+    timeline_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+    timeline_info.pNext = &export_semaphore;
+    timeline_info.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+    timeline_info.initialValue = 0u;
+
+    VkSemaphoreCreateInfo semaphore_info {};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphore_info.pNext = &timeline_info;
+    result = vkCreateSemaphore(out->device, &semaphore_info, nullptr, &out->timeline);
+    if (result != VK_SUCCESS) {
+        *reason = "timeline-semaphore-create-failed:" + std::to_string(result);
+        return -20;
     }
 
     out->width = width;
@@ -568,6 +687,69 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSend(
         << ";resource_id=" << resource_id
         << ";generation=" << generation
         << ";sequence=" << sequence
+        << ";send_result=" << send_result;
+    return ToJString(env, out.str());
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSendTimeline(
+        JNIEnv* env,
+        jobject /* thiz */,
+        jlong resource_id,
+        jlong generation,
+        jint socket_fd) {
+    if (resource_id <= 0 || generation <= 0 || socket_fd < 0) {
+        return ToJString(
+            env,
+            "vulkan-external-timeline-fd-send=invalid-argument;protocol=1");
+    }
+
+    std::lock_guard<std::mutex> lock(g_mutex);
+    const auto found = g_resources.find(static_cast<uint64_t>(resource_id));
+    if (found == g_resources.end() ||
+        found->second.generation != static_cast<uint64_t>(generation)) {
+        return ToJString(
+            env,
+            "vulkan-external-timeline-fd-send=stale-or-unknown-resource;protocol=1");
+    }
+
+    Resource& resource = found->second;
+    if (resource.timeline == VK_NULL_HANDLE || resource.get_semaphore_fd == nullptr) {
+        return ToJString(
+            env,
+            "vulkan-external-timeline-fd-send=timeline-not-ready;protocol=1");
+    }
+
+    VkSemaphoreGetFdInfoKHR get_fd_info {};
+    get_fd_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR;
+    get_fd_info.semaphore = resource.timeline;
+    get_fd_info.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
+
+    int exported_fd = -1;
+    const VkResult fd_result = resource.get_semaphore_fd(
+        resource.device, &get_fd_info, &exported_fd);
+    if (fd_result != VK_SUCCESS || exported_fd < 0) {
+        std::ostringstream out;
+        out << "vulkan-external-timeline-fd-send=export-failed;protocol=" << kProtocol
+            << ";vk_result=" << static_cast<int>(fd_result);
+        return ToJString(env, out.str());
+    }
+
+    const int send_result = SendExternalTimelineFd(
+        socket_fd,
+        exported_fd,
+        static_cast<uint64_t>(resource_id),
+        resource);
+    close(exported_fd);
+
+    std::ostringstream out;
+    out << "vulkan-external-timeline-fd-send=" << (send_result == 0 ? "ok" : "failed")
+        << ";protocol=" << kProtocol
+        << ";resource_id=" << resource_id
+        << ";generation=" << generation
+        << ";initial_value=0"
+        << ";role=" << kTimelineRoleFrameOwnership
         << ";send_result=" << send_result;
     return ToJString(env, out.str());
 }
