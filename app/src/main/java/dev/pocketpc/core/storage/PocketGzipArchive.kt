@@ -50,7 +50,7 @@ suspend fun extractPocketGzipToDownloads(
             val temporaryName =
                 ".pocketpc-part-${System.nanoTime()}-$finalName"
 
-            target =
+            val outputDocument =
                 checkNotNull(
                     downloads.createFile(
                         pocketGzipMimeType(finalName),
@@ -59,6 +59,7 @@ suspend fun extractPocketGzipToDownloads(
                 ) {
                     "O PocketDrive recusou criar o arquivo temporário."
                 }
+            target = outputDocument
 
             var extractedBytes = 0L
             val rawInput =
@@ -69,7 +70,7 @@ suspend fun extractPocketGzipToDownloads(
             rawInput.buffered(64 * 1024).use { buffered ->
                 GZIPInputStream(buffered, 64 * 1024).use { gzip ->
                     appContext.contentResolver
-                        .openOutputStream(target.uri, "w")
+                        .openOutputStream(outputDocument.uri, "w")
                         ?.buffered(64 * 1024)
                         ?.use { output ->
                             val buffer = ByteArray(64 * 1024)
@@ -90,13 +91,13 @@ suspend fun extractPocketGzipToDownloads(
                 }
             }
 
-            check(target.renameTo(finalName)) {
+            check(outputDocument.renameTo(finalName)) {
                 "O arquivo foi expandido, mas o provedor recusou finalizar o nome."
             }
 
             Result.success(
                 PocketGzipExtractionReport(
-                    fileName = target.name ?: finalName,
+                    fileName = outputDocument.name ?: finalName,
                     extractedBytes = extractedBytes,
                 )
             )
