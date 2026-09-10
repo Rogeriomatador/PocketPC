@@ -18,7 +18,9 @@
     "ahardwareBufferResourceBrokerImplemented": true,
     "resourceDescriptorProtocolImplemented": true,
     "ownershipProtocolImplemented": true,
-    "vulkanExternalResourceCapabilityProbeImplemented": true
+    "vulkanExternalResourceCapabilityProbeImplemented": true,
+    "ancillaryFdTransportPrimitiveImplemented": true,
+    "graphicsHandleBindingImplemented": true
   },
   "guestGates": {
     "directAhardwareBufferBridgeVerified": false,
@@ -38,6 +40,7 @@
     "Extension advertisement is capability evidence, not execution evidence.",
     "AHardwareBuffer is image/memory transport and is never treated as VkSurfaceKHR.",
     "No raw pointer or process-local file descriptor number is serialized as a portable graphics resource identity.",
+    "SCM_RIGHTS transport and resource identity binding are host/guest protocol foundations, not Vulkan import evidence.",
     "Host broker implementation does not promote guest receive/import/synchronization gates.",
     "Roblox and D3D11 Present remain fail-closed until the guest transport and WSI backend are implemented and tested."
   ]
