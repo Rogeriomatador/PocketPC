@@ -6,9 +6,13 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_fd_transport.h"
-SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_fd_transport.c"
-SMOKE = ROOT / "third_party/wine/pocketpc-display-bridge/fd_transport_smoke.c"
+BRIDGE = ROOT / "third_party/wine/pocketpc-display-bridge"
+HEADER = BRIDGE / "pocketpc_fd_transport.h"
+SOURCE = BRIDGE / "pocketpc_fd_transport.c"
+SMOKE = BRIDGE / "fd_transport_smoke.c"
+BINDING_HEADER = BRIDGE / "pocketpc_graphics_handle_binding.h"
+BINDING_SOURCE = BRIDGE / "pocketpc_graphics_handle_binding.c"
+BINDING_SMOKE = BRIDGE / "graphics_handle_binding_smoke.c"
 MAKEFILE = ROOT / "third_party/wine/pocketpc-driver/Makefile.in"
 PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver.py"
 RUNNER = ROOT / "scripts/run-pocketpc-fd-transport-smoke.py"
@@ -33,6 +37,9 @@ def main() -> int:
         HEADER,
         SOURCE,
         SMOKE,
+        BINDING_HEADER,
+        BINDING_SOURCE,
+        BINDING_SMOKE,
         MAKEFILE,
         PREPARER,
         RUNNER,
@@ -52,6 +59,9 @@ def main() -> int:
     header = HEADER.read_text(encoding="utf-8")
     source = SOURCE.read_text(encoding="utf-8")
     smoke = SMOKE.read_text(encoding="utf-8")
+    binding_header = BINDING_HEADER.read_text(encoding="utf-8")
+    binding_source = BINDING_SOURCE.read_text(encoding="utf-8")
+    binding_smoke = BINDING_SMOKE.read_text(encoding="utf-8")
     makefile = MAKEFILE.read_text(encoding="utf-8")
     preparer = PREPARER.read_text(encoding="utf-8")
     runner = RUNNER.read_text(encoding="utf-8")
@@ -95,7 +105,9 @@ def main() -> int:
         ),
     )
     if source.count("pfd_close_received_rights(&message);") < 2:
-        failures.append("rejected ancillary descriptors are not closed on all guarded receive paths")
+        failures.append(
+            "rejected ancillary descriptors are not closed on guarded receive paths"
+        )
 
     for forbidden in (
         "raw_pointer",
@@ -104,7 +116,9 @@ def main() -> int:
         "VkSurfaceKHR *",
     ):
         if forbidden in header:
-            failures.append("fd token header contains forbidden process-local identity: " + forbidden)
+            failures.append(
+                "fd token header contains forbidden process-local identity: " + forbidden
+            )
 
     require(
         failures,
@@ -121,29 +135,75 @@ def main() -> int:
             'puts("vulkan_resource_import_executed=false")',
         ),
     )
+
     require(
         failures,
-        "fd transport runner",
+        "graphics handle binding header",
+        binding_header,
+        (
+            "pocketpc_graphics_handle_binding_validate_offer",
+            "POCKETPC_GRAPHICS_HANDLE_BINDING_RESOURCE_MISMATCH",
+            "POCKETPC_GRAPHICS_HANDLE_BINDING_GENERATION_MISMATCH",
+            "POCKETPC_GRAPHICS_HANDLE_BINDING_SEQUENCE_MISMATCH",
+            "POCKETPC_GRAPHICS_HANDLE_BINDING_WRONG_STATE",
+            "does not import memory into Vulkan",
+        ),
+    )
+    require(
+        failures,
+        "graphics handle binding implementation",
+        binding_source,
+        (
+            "pgt_validate_resource_descriptor(descriptor)",
+            "ownership->state != PGT_STATE_OFFERED_TO_GUEST",
+            "descriptor->resource_id != token->resource_id",
+            "descriptor->generation != token->generation",
+            "descriptor->sync_sequence != token->sequence",
+        ),
+    )
+    require(
+        failures,
+        "graphics handle binding smoke",
+        binding_smoke,
+        (
+            "valid-offer-rejected",
+            "resource-mismatch-not-rejected",
+            "generation-mismatch-not-rejected",
+            "sequence-mismatch-not-rejected",
+            "wrong-state-not-rejected",
+            'puts("GRAPHICS_HANDLE_BINDING_SMOKE_OK")',
+            'puts("vulkan_import_executed=false")',
+        ),
+    )
+
+    require(
+        failures,
+        "graphics foundation runner",
         runner,
         (
             '"-Wall"',
             '"-Wextra"',
             '"-Werror"',
             '"-Wpedantic"',
-            '"FD_TRANSPORT_SOFTWARE_TEST_PASS"',
+            '"GRAPHICS_FD_FOUNDATION_SOFTWARE_TEST_PASS"',
             '"classification": "SOFTWARE_TEST"',
+            '"resourceIdentityGuard": True',
+            '"generationGuard": True',
+            '"sequenceGuard": True',
             '"guestVulkanResourceImportExecuted": False',
             '"guestGpuSynchronizationExecuted": False',
             '"androidPhysicalTestExecuted": False',
             '"robloxExecuted": False',
         ),
     )
+
     require(
         failures,
         "Wine unixlib integration",
         makefile,
         (
             "\tpocketpc_fd_transport.c \\",
+            "\tpocketpc_graphics_handle_binding.c \\",
         ),
     )
     require(
@@ -154,8 +214,11 @@ def main() -> int:
             '"schemaVersion": 4',
             '"pocketpc_fd_transport.h",',
             '"pocketpc_fd_transport.c",',
+            '"pocketpc_graphics_handle_binding.h",',
+            '"pocketpc_graphics_handle_binding.c",',
             '"graphicsFdTransportProtocolVersion": 1',
             '"guestGraphicsAncillaryFdTransportPrimitiveImplemented": True',
+            '"guestGraphicsHandleBindingImplemented": True',
             '"guestGraphicsHandleReceiveImplemented": False',
             '"guestGraphicsImportImplemented": False',
             '"guestGraphicsSynchronizationImplemented": False',
@@ -192,6 +255,7 @@ def main() -> int:
 
     print("GUEST_GRAPHICS_FD_TRANSPORT_POLICY_OK")
     print("ancillary_fd_transport_primitive_implemented=true")
+    print("graphics_handle_binding_implemented=true")
     print("seqpacket_required=true")
     print("rejected_rights_cleanup_guarded=true")
     print("guest_receive_implemented=false")
