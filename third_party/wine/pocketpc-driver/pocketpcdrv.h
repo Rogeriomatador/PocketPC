@@ -21,6 +21,8 @@
 #define POCKETPC_MAX_EVENTS_PER_PUMP 64u
 #define POCKETPC_HOST_EVENT_QUEUE_LIMIT 128u
 
+struct vulkan_driver_funcs;
+
 extern struct pdb_connection pocketpc_connection;
 extern struct pdb_wine_window_bridge pocketpc_windows;
 extern pthread_mutex_t pocketpc_bridge_mutex;
@@ -64,6 +66,11 @@ void POCKETPC_WindowPosChanged(
     UINT swp_flags,
     const struct window_rects *new_rects,
     struct window_surface *surface
+);
+UINT POCKETPC_VulkanInit(
+    UINT version,
+    void *vulkan_handle,
+    const struct vulkan_driver_funcs **driver_funcs
 );
 
 #endif
