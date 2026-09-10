@@ -31,78 +31,140 @@ suspend fun createPocketZipBesideEntry(
             check(parent.canWrite()) {
                 "A pasta atual não permite criar arquivos."
             }
-
             val source =
                 parent.findFile(entry.name)
                     ?: error("O item selecionado não está mais disponível.")
-            val outputName = uniqueCreateZipName(
+
+            createPocketZipInDirectory(
+                context = context,
                 parent = parent,
-                requested = pocketZipOutputName(entry.name),
+                source = source,
+                sourceName = entry.name,
             )
-            val temporaryName =
-                ".pocketpc-part-${System.nanoTime()}-$outputName"
-            var target: DocumentFile? = null
-
-            try {
-                target =
-                    checkNotNull(
-                        parent.createFile(
-                            "application/zip",
-                            temporaryName,
-                        )
-                    ) {
-                        "O PocketDrive recusou criar o ZIP temporário."
-                    }
-
-                val counters = ZipCreateCounters()
-                context.contentResolver
-                    .openOutputStream(target.uri, "w")
-                    ?.buffered()
-                    ?.use { raw ->
-                        ZipOutputStream(raw).use { zip ->
-                            if (source.isDirectory) {
-                                val rootName = safeZipEntrySegment(
-                                    source.name ?: entry.name
-                                )
-                                addDirectoryToZip(
-                                    context = context,
-                                    source = source,
-                                    zip = zip,
-                                    path = "$rootName/",
-                                    depth = 1,
-                                    counters = counters,
-                                )
-                            } else {
-                                addFileToZip(
-                                    context = context,
-                                    source = source,
-                                    zip = zip,
-                                    path = safeZipEntrySegment(
-                                        source.name ?: entry.name
-                                    ),
-                                    counters = counters,
-                                )
-                            }
-                        }
-                    }
-                    ?: error("Não foi possível gravar o ZIP no PocketDrive.")
-
-                check(target.renameTo(outputName)) {
-                    "O ZIP foi criado, mas o provedor recusou finalizar o nome."
-                }
-
-                PocketZipCreationReport(
-                    fileName = target.name ?: outputName,
-                    fileCount = counters.fileCount,
-                    directoryCount = counters.directoryCount,
-                    sourceBytes = counters.totalBytes,
-                )
-            } catch (error: Throwable) {
-                runCatching { target?.delete() }
-                throw error
-            }
         }
     }
+
+suspend fun createPocketZipFileInDownloads(
+    context: Context,
+    sourceUriString: String,
+    sourceName: String,
+): Result<PocketZipCreationReport> =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            val appContext = context.applicationContext
+            val source =
+                DocumentFile.fromSingleUri(
+                    appContext,
+                    Uri.parse(sourceUriString),
+                ) ?: error("Não foi possível acessar o arquivo selecionado.")
+            check(source.exists() && !source.isDirectory) {
+                "A compactação rápida suporta arquivos. Pastas serão compactadas pelo Explorador."
+            }
+
+            val mount =
+                StorageRepository(appContext)
+                    .ensurePocketDrive()
+                    .getOrThrow()
+            val downloadsUri =
+                requireNotNull(
+                    mount.uriFor(PocketDriveDirectory.DOWNLOADS)
+                ) {
+                    "P:\\Downloads não está disponível."
+                }
+            val downloads =
+                resolveCreateZipDirectory(
+                    appContext,
+                    downloadsUri,
+                )
+            check(downloads.canWrite()) {
+                "P:\\Downloads não permite criar arquivos."
+            }
+
+            createPocketZipInDirectory(
+                context = appContext,
+                parent = downloads,
+                source = source,
+                sourceName = sourceName,
+            )
+        }
+    }
+
+private fun createPocketZipInDirectory(
+    context: Context,
+    parent: DocumentFile,
+    source: DocumentFile,
+    sourceName: String,
+): PocketZipCreationReport {
+    val outputName =
+        uniqueCreateZipName(
+            parent = parent,
+            requested = pocketZipOutputName(sourceName),
+        )
+    val temporaryName =
+        ".pocketpc-part-${System.nanoTime()}-$outputName"
+    var target: DocumentFile? = null
+
+    try {
+        target =
+            checkNotNull(
+                parent.createFile(
+                    "application/zip",
+                    temporaryName,
+                )
+            ) {
+                "O PocketDrive recusou criar o ZIP temporário."
+            }
+
+        val counters = ZipCreateCounters()
+        context.contentResolver
+            .openOutputStream(target.uri, "w")
+            ?.buffered()
+            ?.use { raw ->
+                ZipOutputStream(raw).use { zip ->
+                    if (source.isDirectory) {
+                        val rootName =
+                            safeZipEntrySegment(
+                                source.name ?: sourceName
+                            )
+                        addDirectoryToZip(
+                            context = context,
+                            source = source,
+                            zip = zip,
+                            path = "$rootName/",
+                            depth = 1,
+                            counters = counters,
+                        )
+                    } else {
+                        addFileToZip(
+                            context = context,
+                            source = source,
+                            zip = zip,
+                            path =
+                                safeZipEntrySegment(
+                                    source.name ?: sourceName
+                                ),
+                            counters = counters,
+                        )
+                    }
+                }
+            }
+            ?: error("Não foi possível gravar o ZIP no PocketDrive.")
+
+        check(target.renameTo(outputName)) {
+            "O ZIP foi criado, mas o provedor recusou finalizar o nome."
+        }
+
+        return PocketZipCreationReport(
+            fileName = target.name ?: outputName,
+            fileCount = counters.fileCount,
+            directoryCount = counters.directoryCount,
+            sourceBytes = counters.totalBytes,
+        )
+    } catch (error: Throwable) {
+        runCatching { target?.delete() }
+        throw error
+    }
+}
 
 internal fun pocketZipOutputName(sourceName: String): String {
     val safe = sanitizePocketImportedFileName(sourceName)
@@ -139,9 +201,10 @@ private fun addDirectoryToZip(
     counters.directoryCount++
 
     source.listFiles().forEach { child ->
-        val childName = safeZipEntrySegment(
-            child.name ?: "item"
-        )
+        val childName =
+            safeZipEntrySegment(
+                child.name ?: "item"
+            )
         if (child.isDirectory) {
             addDirectoryToZip(
                 context = context,
