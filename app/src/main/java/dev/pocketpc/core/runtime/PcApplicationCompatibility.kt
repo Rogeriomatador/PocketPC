@@ -29,14 +29,16 @@ object PcApplicationCompatibilityProbe {
         val cleanName =
             fileName.trim()
                 .ifBlank { "programa.exe" }
+        val robloxArtifact =
+            RobloxWindowsArtifactClassifier
+                .classify(cleanName)
+        val isSupportedRobloxPlayerArtifact =
+            robloxArtifact.recognized &&
+                robloxArtifact.channel !=
+                    RobloxWindowsChannel.STUDIO
 
         val kind =
-            if (
-                cleanName.contains(
-                    "roblox",
-                    ignoreCase = true,
-                )
-            ) {
+            if (isSupportedRobloxPlayerArtifact) {
                 PcApplicationKind.ROBLOX_DESKTOP
             } else {
                 PcApplicationKind.WINDOWS_INSTALLER
@@ -49,10 +51,14 @@ object PcApplicationCompatibilityProbe {
                 }
                 .map { it.label }
 
-        val runtimeReady =
+        val baseRuntimeReady =
             readiness.controlledAttemptReady
+        val artifactRuntimeReady =
+            baseRuntimeReady &&
+                robloxArtifact.kind !=
+                    RobloxWindowsArtifactKind.STORE_PACKAGE
         val state =
-            if (runtimeReady) {
+            if (artifactRuntimeReady) {
                 PcApplicationCompatibilityState
                     .RUNTIME_READY_APP_UNVALIDATED
             } else {
@@ -70,23 +76,40 @@ object PcApplicationCompatibilityProbe {
 
         val detail =
             when {
-                !runtimeReady &&
-                    kind == PcApplicationKind.ROBLOX_DESKTOP ->
-                    "O instalador do Roblox foi reconhecido, mas o " +
-                        "runtime Windows x64 ainda não está pronto. " +
-                        "O PocketPC não tentará iniciar o jogo nem " +
-                        "contornar proteções enquanto tradução x86_64, " +
-                        "Win32, gráficos, áudio/input e processos não " +
-                        "estiverem implementados e validados."
+                robloxArtifact.kind ==
+                    RobloxWindowsArtifactKind.STORE_PACKAGE ->
+                    "O pacote Roblox da Microsoft Store foi reconhecido, " +
+                        "mas MSIX/AppX ainda não possui instalador implementado " +
+                        "no PocketPC. O arquivo permanece bloqueado."
 
-                !runtimeReady ->
+                robloxArtifact.kind ==
+                    RobloxWindowsArtifactKind.STUDIO_EXECUTABLE ->
+                    "Roblox Studio foi identificado separadamente. " +
+                        "Este fluxo é do Player e não promove Studio como cliente de jogo."
+
+                robloxArtifact.kind ==
+                    RobloxWindowsArtifactKind.UNKNOWN_ROBLOX ->
+                    "O nome menciona Roblox, mas não corresponde ao Player, " +
+                        "bootstrapper ou pacote Store reconhecido. A execução " +
+                        "não será promovida apenas pelo nome do arquivo."
+
+                !artifactRuntimeReady &&
+                    kind == PcApplicationKind.ROBLOX_DESKTOP ->
+                    "Um artefato conhecido do Roblox Player foi reconhecido, " +
+                        "mas o runtime Windows x64 ainda não está pronto. " +
+                        "O PocketPC não tentará iniciar o jogo nem contornar " +
+                        "proteções enquanto tradução x86_64, Win32, gráficos, " +
+                        "áudio/input e processos não estiverem validados."
+
+                !artifactRuntimeReady ->
                     "O arquivo foi reconhecido como software de PC, " +
                         "mas a execução continua bloqueada até todos " +
                         "os estágios do runtime Windows passarem."
 
                 kind == PcApplicationKind.ROBLOX_DESKTOP ->
-                    "O runtime base está pronto, mas Roblox ainda " +
-                        "precisa de um teste de integração específico. " +
+                    "O runtime base está pronto para tentativa controlada, " +
+                        "mas Roblox ainda precisa de evidência específica de " +
+                        "processo, janela, Direct3D/Present, rede, áudio e input. " +
                         "Nenhuma compatibilidade final é presumida."
 
                 else ->
@@ -100,7 +123,7 @@ object PcApplicationCompatibilityProbe {
             kind = kind,
             displayName = displayName,
             state = state,
-            runtimeReady = runtimeReady,
+            runtimeReady = artifactRuntimeReady,
             applicationValidated = false,
             missingRuntimeStages = missingStages,
             detail = detail,
