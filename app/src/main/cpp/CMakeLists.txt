@@ -12,6 +12,7 @@ add_library(
     vulkan_external_sync_probe.cpp
     vulkan_ahardwarebuffer_import_probe.cpp
     vulkan_external_image_fd_broker.cpp
+    graphics_seqpacket_session.cpp
 )
 
 find_library(vulkan_lib vulkan)
