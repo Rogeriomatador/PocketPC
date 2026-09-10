@@ -32,8 +32,8 @@ refresh_official_aapt2() {
         return 1
     fi
 
-    echo "Installing/updating official Termux aapt/aapt2 packages..."
-    if ! pkg install -y aapt aapt2; then
+    echo "Installing/updating official Termux aapt package (provides aapt2)..."
+    if ! pkg install -y aapt; then
         echo "TERMUX_AAPT2_OFFICIAL_INSTALL_FAILED" >&2
         return 1
     fi
@@ -76,7 +76,7 @@ fi
 
 package_version() {
     if command -v dpkg-query >/dev/null 2>&1; then
-        dpkg-query -W -f='${Version}' aapt2 2>/dev/null || true
+        dpkg-query -W -f='${Version}' aapt 2>/dev/null || true
     fi
 }
 
