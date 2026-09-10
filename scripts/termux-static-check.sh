@@ -15,6 +15,12 @@ else
     SOURCE_TREE_STATE="DIRTY_OR_UNKNOWN"
 fi
 
+if ! command -v python >/dev/null 2>&1; then
+    echo "python=MISSING" >&2
+    echo "Install Python in Termux before running this check." >&2
+    exit 2
+fi
+
 VERSION_INFO="$(
     python - <<'PY'
 import json
@@ -32,12 +38,6 @@ echo "source_tree=$SOURCE_TREE_STATE"
 echo "version_name=$VERSION_NAME"
 echo "version_code=$VERSION_CODE"
 echo
-
-if ! command -v python >/dev/null 2>&1; then
-    echo "python=MISSING" >&2
-    echo "Install Python in Termux before running this check." >&2
-    exit 2
-fi
 
 if ! command -v bash >/dev/null 2>&1; then
     echo "bash=MISSING" >&2
