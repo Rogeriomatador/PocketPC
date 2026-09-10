@@ -21,6 +21,11 @@ need() {
 need python
 
 refresh_official_aapt2() {
+    if ! bash scripts/termux-repository-check.sh --require-modern; then
+        echo "TERMUX_AAPT2_REPOSITORY_BLOCKED" >&2
+        return 1
+    fi
+
     if ! command -v pkg >/dev/null 2>&1; then
         echo "TERMUX_PACKAGE_MANAGER_MISSING=pkg" >&2
         return 1
