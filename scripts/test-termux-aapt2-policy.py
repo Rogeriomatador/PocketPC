@@ -134,11 +134,13 @@ for dependency in (
     "libc++",
     "libzopfli",
     "zlib",
-    "protobuf-dev",
     "protobuf_generate_PROTOC_EXE",
     "linux-headers",
     "ndk-sysroot",
     "HEADER_PACKAGE",
+    "candidate_version",
+    "PROTOBUF_HEADER",
+    "pkg-config --exists protobuf",
     "TERMUX_AAPT2_BUILD_DEPENDENCIES_UNAVAILABLE",
 ):
     if dependency not in local_builder:
