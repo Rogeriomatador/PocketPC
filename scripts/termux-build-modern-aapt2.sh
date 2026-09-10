@@ -65,6 +65,7 @@ REQUIRED_PACKAGES=(
     clang
     pkg-config
     fmt
+    libc++
     libexpat
     libpng
     libprotobuf
@@ -92,6 +93,7 @@ fi
 
 REQUIRED_PACKAGES+=("$HEADER_PACKAGE")
 echo "header_package=$HEADER_PACKAGE"
+echo "resolved_packages=${REQUIRED_PACKAGES[*]}"
 
 UNAVAILABLE_PACKAGES=()
 for package in "${REQUIRED_PACKAGES[@]}"; do
