@@ -99,3 +99,33 @@ fun planPocketFileOpen(
         }
     }
 }
+
+/**
+ * Explicit user override for unknown textual/project formats.
+ *
+ * This does not alter the global association table and does not infer that the
+ * bytes are text. The editor's own size/read-only safeguards still apply.
+ */
+fun planPocketFileOpenAsText(
+    name: String,
+): PocketFileOpenPlan {
+    val association =
+        PocketFileAssociation(
+            handler = PocketFileHandler.TEXT_EDITOR,
+            displayName = "Editor de Texto do PocketPC",
+            route = PocketFileRoute.POCKET_INTERNAL_APP,
+            readiness = PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
+        )
+
+    return PocketFileOpenPlan(
+        fileName = name,
+        association = association,
+        capability = PocketFileOpenCapability.INTERNAL_HANDLER_PENDING,
+        title = "Abrir como texto",
+        description =
+            "Abertura manual solicitada dentro do PocketPC. " +
+                "O tipo original do arquivo não foi alterado.",
+        canAttemptNow = true,
+        leavesPocketPc = false,
+    )
+}
