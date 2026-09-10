@@ -37,6 +37,11 @@ for forbidden in (
 
 if 'bash scripts/termux-ensure-aapt2.sh' not in gate:
     errors.append("Kotlin/unit-test gate does not invoke the AAPT2 compatibility gate")
+else:
+    ensure_index = gate.index('bash scripts/termux-ensure-aapt2.sh')
+    compile_index = gate.index(':app:compileDebugKotlin')
+    if ensure_index > compile_index:
+        errors.append("AAPT2 compatibility gate must run before Kotlin compile gate")
 
 if platform_package != f"platforms;android-{compile_sdk}.0":
     errors.append(
