@@ -195,7 +195,7 @@ private fun association(
     PocketFileAssociation(handler, displayName, route, readiness)
 
 private val IMPLEMENTED_ARCHIVE_EXTENSIONS =
-    setOf("zip", "gz", "tgz")
+    setOf("zip", "tar", "gz", "tgz")
 
 private val TEXT_EXTENSIONS =
     setOf("txt", "md", "log", "json", "xml", "csv", "ini", "cfg", "conf")
