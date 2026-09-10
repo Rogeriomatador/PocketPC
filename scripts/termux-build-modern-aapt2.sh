@@ -69,6 +69,7 @@ REQUIRED_PACKAGES=(
     libpng
     libprotobuf
     protobuf
+    protobuf-dev
     libzopfli
     zlib
     googletest
@@ -171,6 +172,7 @@ cmake \
     -B "$BUILD_DIR" \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH="${PREFIX:-/data/data/com.termux/files/usr}" \
     -DANDROID_BUILD_TOOLS_DEV_MODE=ON \
     -Dprotobuf_generate_PROTOC_EXE="$PROTOC" \
     2>&1 | tee "$LOG_FILE"
