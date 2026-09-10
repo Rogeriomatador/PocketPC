@@ -11,6 +11,7 @@ on:
       - 'app/src/main/cpp/hardware_buffer_resource_broker.cpp'
       - 'app/src/main/cpp/vulkan_external_resource_probe.cpp'
       - 'app/src/main/cpp/vulkan_ahardwarebuffer_import_probe.cpp'
+      - 'app/src/main/cpp/vulkan_external_image_fd_broker.cpp'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsResourceDescriptor.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsOwnershipProtocol.kt'
@@ -18,9 +19,12 @@ on:
       - 'app/src/main/java/dev/pocketpc/core/runtime/HostGraphicsResourceBroker.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/VulkanExternalResourceProbe.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/VulkanAhardwareBufferImportProbe.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/VulkanExternalImageFdBroker.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanSurfaceBackend.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiContract.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiFoundation.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/HeadlessDxvkDiagnosticPlan.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxGraphicsPreflight.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxPlayerDeepLink.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxBrowserLaunchCoordinator.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxLaunchReadiness.kt'
@@ -49,6 +53,7 @@ on:
       - 'scripts/test-guest-graphics-host-broker-policy.py'
       - 'scripts/test-guest-graphics-fd-transport-policy.py'
       - 'scripts/test-guest-graphics-receive-policy.py'
+      - 'scripts/test-vulkan-external-image-fd-broker-policy.py'
       - 'scripts/test-roblox-browser-launch-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - 'scripts/test-display-multipeer-policy.py'
@@ -96,6 +101,7 @@ jobs:
           python3 scripts/test-guest-graphics-host-broker-policy.py
           python3 scripts/test-guest-graphics-fd-transport-policy.py
           python3 scripts/test-guest-graphics-receive-policy.py
+          python3 scripts/test-vulkan-external-image-fd-broker-policy.py
           python3 scripts/test-roblox-browser-launch-policy.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
           python3 scripts/test-pocketpc-pe-audit.py
