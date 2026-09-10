@@ -47,12 +47,16 @@ data class RobloxLaunchReadiness(
 )
 
 object RobloxLaunchReadinessProbe {
+    const val BLOCKER_VULKAN_TRANSPORT_FOUNDATION =
+        "ROBLOX_VULKAN_TRANSPORT_FOUNDATION_NOT_PROVEN"
+
     fun assess(
         runtimeReadiness: PcRuntimeReadiness,
         probeEvidence: RuntimeProbeEvidenceState,
         installation: RobloxInstallationDiscovery,
         robloxEvidence: RobloxRuntimeEvidence =
             RobloxRuntimeEvidence(),
+        wsiFoundation: PocketPcVulkanWsiFoundationStatus? = null,
     ): RobloxLaunchReadiness {
         val blockers = mutableListOf<String>()
         val selected = installation.selected
@@ -82,6 +86,14 @@ object RobloxLaunchReadinessProbe {
         }
         if (!probeEvidence.d3d11SmokePassed) {
             blockers += "ROBLOX_D3D11_NOT_PROVEN"
+        }
+        if (wsiFoundation?.readyForWsiImplementation != true) {
+            blockers += BLOCKER_VULKAN_TRANSPORT_FOUNDATION
+            blockers +=
+                wsiFoundation
+                    ?.blockers
+                    .orEmpty()
+                    .map { "ROBLOX_$it" }
         }
         if (!PocketPcVulkanWsiContract.implemented) {
             blockers += PocketPcVulkanWsiContract.blocker
@@ -127,7 +139,7 @@ object RobloxLaunchReadinessProbe {
                     "Nenhum RobloxPlayerBeta.exe clássico válido foi encontrado no prefixo Wine selecionado."
 
                 RobloxLaunchReadinessState.RUNTIME_BLOCKED ->
-                    "O Player foi localizado, mas um ou mais gates do runtime Windows ainda não possuem evidência suficiente."
+                    "O Player foi localizado, mas um ou mais gates do runtime Windows/WSI ainda não possuem evidência suficiente."
 
                 RobloxLaunchReadinessState.READY_FOR_CONTROLLED_ATTEMPT ->
                     "O runtime atingiu os pré-requisitos para uma tentativa controlada do Player. Isso não afirma que Roblox funciona."
