@@ -49,6 +49,8 @@ data class RobloxLaunchReadiness(
 object RobloxLaunchReadinessProbe {
     const val BLOCKER_VULKAN_TRANSPORT_FOUNDATION =
         "ROBLOX_VULKAN_TRANSPORT_FOUNDATION_NOT_PROVEN"
+    const val BLOCKER_GUEST_GRAPHICS_TRANSPORT =
+        "ROBLOX_GUEST_GRAPHICS_TRANSPORT_NOT_READY"
 
     fun assess(
         runtimeReadiness: PcRuntimeReadiness,
@@ -94,6 +96,9 @@ object RobloxLaunchReadinessProbe {
                     ?.blockers
                     .orEmpty()
                     .map { "ROBLOX_$it" }
+        }
+        if (wsiFoundation?.guestGraphicsTransportReady != true) {
+            blockers += BLOCKER_GUEST_GRAPHICS_TRANSPORT
         }
         if (!PocketPcVulkanWsiContract.implemented) {
             blockers += PocketPcVulkanWsiContract.blocker
