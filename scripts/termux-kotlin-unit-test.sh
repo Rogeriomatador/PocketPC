@@ -18,9 +18,16 @@ need() {
     }
 }
 
-for tool in git python java gradle aapt2; do
+for tool in git python java gradle; do
     need "$tool"
 done
+
+if ! command -v aapt2 >/dev/null 2>&1; then
+    echo "AAPT2 is missing; invoking the official Termux recovery gate."
+    bash scripts/termux-ensure-aapt2.sh
+fi
+
+need aapt2
 
 if [ ! -f "$LOCK" ]; then
     echo "LOCK_MISSING=$LOCK" >&2
