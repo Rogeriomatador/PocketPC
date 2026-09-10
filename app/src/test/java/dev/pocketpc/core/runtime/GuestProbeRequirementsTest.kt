@@ -69,6 +69,7 @@ class GuestProbeRequirementsTest {
             ),
         )
     }
+
     @Test
     fun d3d11SmokeRequiresDxvkDeployment() {
         val missing =
@@ -83,7 +84,7 @@ class GuestProbeRequirementsTest {
             )
         assertEquals(
             listOf(
-                "WINDOWS_LAYER_REQUIRED_MISSING:dxvk"
+                "WINDOWS_LAYER_REQUIRED_MISSING:dxvk",
             ),
             missing,
         )
@@ -98,7 +99,9 @@ class GuestProbeRequirementsTest {
                 installedWindowsLayerIds =
                     setOf("dxvk"),
             )
-      
+        assertTrue(ready.isEmpty())
+    }
+
     @Test
     fun d3d11PresentFailsClosedUntilVulkanWsiExists() {
         val blockers =
@@ -129,7 +132,4 @@ class GuestProbeRequirementsTest {
                 .WINE_VULKAN_DRIVER_VERSION,
         )
     }
-  assertTrue(ready.isEmpty())
-    }
-
 }
