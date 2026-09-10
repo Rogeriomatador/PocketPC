@@ -100,6 +100,11 @@ REQUIRED_PACKAGES+=("$HEADER_PACKAGE")
 echo "header_package=$HEADER_PACKAGE"
 echo "resolved_packages=${REQUIRED_PACKAGES[*]}"
 
+for package in "${REQUIRED_PACKAGES[@]}"; do
+    version="$(candidate_version "$package")"
+    echo "candidate_package=$package version=${version:-none}"
+done
+
 UNAVAILABLE_PACKAGES=()
 for package in "${REQUIRED_PACKAGES[@]}"; do
     if [ -z "$(candidate_version "$package")" ]; then
