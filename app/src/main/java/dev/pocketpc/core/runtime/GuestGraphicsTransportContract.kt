@@ -19,6 +19,10 @@ object GuestGraphicsTransportContract {
         true
     const val hostAhardwareBufferBrokerImplemented =
         true
+    const val hostOpaqueFdImageBrokerImplemented =
+        true
+    const val hostDmaBufImageBrokerImplemented =
+        false
     const val externalResourceCapabilityProbeImplemented =
         true
     const val canonicalAhardwareBufferImportProbeImplemented =
