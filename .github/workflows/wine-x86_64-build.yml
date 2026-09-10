@@ -6,9 +6,14 @@ on:
     paths:
       - 'third_party/wine/**'
       - 'scripts/build-wine-x86_64.py'
+      - 'scripts/pocketpc_pe.py'
+      - 'scripts/verify-wine-x86_64-driver-package.py'
+      - 'scripts/test-wine-x86_64-driver-package.py'
       - 'scripts/test-pc-runtime-source-locks.py'
+      - 'scripts/test-pocketpc-pe-audit.py'
       - 'scripts/test-wine-pocketpc-driver-policy.py'
       - 'scripts/test-wine-pocketpc-driver-abi-lock.py'
+      - 'scripts/test-wine-pocketpc-driver-load-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - '.github/workflows/wine-x86_64-build.yml'
 
@@ -36,10 +41,15 @@ jobs:
         run: python3 scripts/test-pc-runtime-source-locks.py
 
       - name: Validate PocketPC Wine driver policy
-        run: python3 scripts/test-wine-pocketpc-driver-policy.py
+        run: |
+          python3 scripts/test-wine-pocketpc-driver-policy.py
+          python3 scripts/test-wine-pocketpc-driver-load-policy.py
 
-      - name: Validate PocketPC Wine driver ABI
-        run: python3 scripts/test-wine-pocketpc-driver-abi-lock.py
+      - name: Validate PocketPC Wine driver ABI and package verifier
+        run: |
+          python3 scripts/test-wine-pocketpc-driver-abi-lock.py
+          python3 scripts/test-pocketpc-pe-audit.py
+          python3 scripts/test-wine-x86_64-driver-package.py
 
       - name: Validate display bridge protocol
         run: python3 scripts/test-display-bridge-protocol-lock.py
@@ -48,6 +58,13 @@ jobs:
         run: |
           python3 scripts/build-wine-x86_64.py \
             --work "$RUNNER_TEMP/pocketpc-wine-build"
+
+      - name: Verify installed PocketPC driver pair
+        run: |
+          python3 scripts/verify-wine-x86_64-driver-package.py \
+            --build-evidence "$RUNNER_TEMP/pocketpc-wine-build/wine-build-evidence.json" \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-build/destdir/opt/pocketpc/wine" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-build/wine-x86_64-driver-package-evidence.json"
 
       - name: Retain review package and evidence
         uses: actions/upload-artifact@v4
@@ -58,6 +75,7 @@ jobs:
             ${{ runner.temp }}/pocketpc-wine-build/guest-package/guest-tool-manifest.json
             ${{ runner.temp }}/pocketpc-wine-build/wine-build-evidence.json
             ${{ runner.temp }}/pocketpc-wine-build/wine-pocketpc-driver-overlay-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-build/wine-x86_64-driver-package-evidence.json
             ${{ runner.temp }}/pocketpc-wine-build/*.log
           if-no-files-found: error
 
