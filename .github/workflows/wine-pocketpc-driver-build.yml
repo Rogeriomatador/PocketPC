@@ -12,10 +12,12 @@ on:
       - 'app/src/main/cpp/vulkan_external_resource_probe.cpp'
       - 'app/src/main/cpp/vulkan_ahardwarebuffer_import_probe.cpp'
       - 'app/src/main/cpp/vulkan_external_image_fd_broker.cpp'
+      - 'app/src/main/cpp/graphics_seqpacket_session.cpp'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsResourceDescriptor.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsOwnershipProtocol.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportPlanner.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/GraphicsSeqpacketSessionHost.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/HostGraphicsResourceBroker.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/VulkanExternalResourceProbe.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/VulkanAhardwareBufferImportProbe.kt'
@@ -36,6 +38,8 @@ on:
       - 'scripts/run-pocketpc-guest-graphics-receive-smoke.py'
       - 'scripts/run-pocketpc-external-image-fd-protocol-smoke.py'
       - 'scripts/run-pocketpc-external-timeline-semaphore-fd-protocol-smoke.py'
+      - 'scripts/run-pocketpc-graphics-session-handshake-smoke.py'
+      - 'scripts/test-graphics-session-auth-policy.py'
       - 'scripts/pocketpc_pe.py'
       - 'scripts/audit-wine-pocketpc-driver-pe.py'
       - 'scripts/verify-wine-pocketpc-driver-artifact-set.py'
@@ -108,6 +112,7 @@ jobs:
           python3 scripts/test-vulkan-external-image-fd-broker-policy.py
           python3 scripts/test-guest-vulkan-import-policy.py
           python3 scripts/test-guest-vulkan-timeline-policy.py
+          python3 scripts/test-graphics-session-auth-policy.py
           python3 scripts/test-roblox-browser-launch-policy.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
           python3 scripts/test-pocketpc-pe-audit.py
@@ -115,6 +120,11 @@ jobs:
           python3 scripts/test-wine-pocketpc-artifact-set-verifier.py
           python3 scripts/test-wine-pocketpc-driver-load-evidence.py
           python3 scripts/test-wine-pocketpc-driver-load-policy.py
+
+      - name: Compile and execute authenticated graphics session handshake smoke
+        run: |
+          python3 scripts/run-pocketpc-graphics-session-handshake-smoke.py \
+            --work "$RUNNER_TEMP/pocketpc-graphics-session-handshake-smoke"
 
       - name: Compile and execute ancillary FD transport smoke
         run: |
@@ -183,6 +193,7 @@ jobs:
         with:
           name: PocketPC-Wine11-driver-build-evidence
           path: |
+            ${{ runner.temp }}/pocketpc-graphics-session-handshake-smoke/graphics-session-handshake-evidence.json
             ${{ runner.temp }}/pocketpc-fd-transport-smoke/fd-transport-evidence.json
             ${{ runner.temp }}/pocketpc-guest-graphics-receive-smoke/guest-graphics-receive-evidence.json
             ${{ runner.temp }}/pocketpc-pvi1-smoke/pvi1-evidence.json
