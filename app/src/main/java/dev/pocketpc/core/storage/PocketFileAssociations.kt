@@ -24,13 +24,8 @@ enum class PocketFileHandler {
 }
 
 enum class PocketFileHandlerReadiness {
-    /** Handler ownership exists, but its app/runtime still needs implementation or validation. */
     ROUTE_ONLY,
-
-    /** A PocketPC-owned handler exists in code. This is not physical-test evidence. */
     IMPLEMENTED_INTERNAL,
-
-    /** The handler deliberately delegates to an Android system component. */
     ANDROID_SYSTEM_REQUIRED,
 }
 
@@ -71,7 +66,7 @@ fun resolvePocketFileAssociation(
                 displayName = "Compactador do PocketPC",
                 route = route.route,
                 readiness =
-                    if (extension == "zip") {
+                    if (extension in IMPLEMENTED_ARCHIVE_EXTENSIONS) {
                         PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL
                     } else {
                         PocketFileHandlerReadiness.ROUTE_ONLY
@@ -87,8 +82,7 @@ fun resolvePocketFileAssociation(
 
         PocketFileRoute.POCKET_INTERNAL_APP ->
             when {
-                extension == "pdf" ||
-                    normalizedMime == "application/pdf" ->
+                extension == "pdf" || normalizedMime == "application/pdf" ->
                     association(
                         handler = PocketFileHandler.PDF_VIEWER,
                         displayName = "Leitor de PDF do PocketPC",
@@ -96,8 +90,7 @@ fun resolvePocketFileAssociation(
                         readiness = PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
                     )
 
-                extension in IMAGE_EXTENSIONS ||
-                    normalizedMime.startsWith("image/") ->
+                extension in IMAGE_EXTENSIONS || normalizedMime.startsWith("image/") ->
                     association(
                         handler = PocketFileHandler.IMAGE_VIEWER,
                         displayName = "Fotos do PocketPC",
@@ -110,8 +103,7 @@ fun resolvePocketFileAssociation(
                             },
                     )
 
-                extension in AUDIO_EXTENSIONS ||
-                    normalizedMime.startsWith("audio/") ->
+                extension in AUDIO_EXTENSIONS || normalizedMime.startsWith("audio/") ->
                     association(
                         handler = PocketFileHandler.MEDIA_PLAYER,
                         displayName = "Mídia do PocketPC",
@@ -124,8 +116,7 @@ fun resolvePocketFileAssociation(
                             },
                     )
 
-                extension in VIDEO_EXTENSIONS ||
-                    normalizedMime.startsWith("video/") ->
+                extension in VIDEO_EXTENSIONS || normalizedMime.startsWith("video/") ->
                     association(
                         handler = PocketFileHandler.MEDIA_PLAYER,
                         displayName = "Mídia do PocketPC",
@@ -166,8 +157,7 @@ fun resolvePocketFileAssociation(
                             },
                     )
 
-                extension in TEXT_EXTENSIONS ||
-                    normalizedMime.startsWith("text/") ->
+                extension in TEXT_EXTENSIONS || normalizedMime.startsWith("text/") ->
                     association(
                         handler = PocketFileHandler.TEXT_EDITOR,
                         displayName = "Editor de Texto do PocketPC",
@@ -194,9 +184,7 @@ fun resolvePocketFileAssociation(
 }
 
 fun pocketFileExtension(name: String): String =
-    name.trim()
-        .substringAfterLast('.', "")
-        .lowercase()
+    name.trim().substringAfterLast('.', "").lowercase()
 
 private fun association(
     handler: PocketFileHandler,
@@ -204,12 +192,10 @@ private fun association(
     route: PocketFileRoute,
     readiness: PocketFileHandlerReadiness = PocketFileHandlerReadiness.ROUTE_ONLY,
 ): PocketFileAssociation =
-    PocketFileAssociation(
-        handler = handler,
-        displayName = displayName,
-        route = route,
-        readiness = readiness,
-    )
+    PocketFileAssociation(handler, displayName, route, readiness)
+
+private val IMPLEMENTED_ARCHIVE_EXTENSIONS =
+    setOf("zip", "gz", "tgz")
 
 private val TEXT_EXTENSIONS =
     setOf("txt", "md", "log", "json", "xml", "csv", "ini", "cfg", "conf")
@@ -223,14 +209,12 @@ private val IMPLEMENTED_IMAGE_EXTENSIONS =
 private val AUDIO_EXTENSIONS =
     setOf("mp3", "wav", "ogg", "flac", "m4a")
 
-private val IMPLEMENTED_AUDIO_EXTENSIONS =
-    AUDIO_EXTENSIONS
+private val IMPLEMENTED_AUDIO_EXTENSIONS = AUDIO_EXTENSIONS
 
 private val VIDEO_EXTENSIONS =
     setOf("mp4", "mkv", "webm", "avi", "mov")
 
-private val IMPLEMENTED_VIDEO_EXTENSIONS =
-    VIDEO_EXTENSIONS
+private val IMPLEMENTED_VIDEO_EXTENSIONS = VIDEO_EXTENSIONS
 
 private val OFFICE_EXTENSIONS =
     setOf("doc", "docx", "odt", "xls", "xlsx", "ods", "ppt", "pptx", "odp")
