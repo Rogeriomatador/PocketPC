@@ -9,6 +9,8 @@ data class NativeHostStatus(
     val nativeLibraryDir: String,
     val hardwareBufferProbe: String =
         "ahardwarebuffer=not-probed",
+    val vulkanWsiCapabilityProbe: String =
+        "vulkan-wsi-capabilities=not-probed",
 )
 
 object NativeRuntimeHost {
@@ -19,6 +21,7 @@ object NativeRuntimeHost {
     private external fun nativeProbe(): String
     private external fun nativeGraphicsProbe(): String
     private external fun nativeHardwareBufferProbe(): String
+    private external fun nativeVulkanWsiCapabilityProbe(): String
     private external fun nativeSendHardwareBufferCrossProcessProbe(
         socketFd: Int,
     ): String
@@ -86,12 +89,23 @@ object NativeRuntimeHost {
             "ahardwarebuffer=not-probed;native-host-not-loaded"
         }
 
+        val vulkanWsiCapabilityProbe = if (loaded) {
+            runCatching {
+                nativeVulkanWsiCapabilityProbe()
+            }.getOrElse {
+                "vulkan-wsi-capabilities=probe-failed;error=${it.javaClass.simpleName}"
+            }
+        } else {
+            "vulkan-wsi-capabilities=not-probed;native-host-not-loaded"
+        }
+
         return NativeHostStatus(
             loaded = loaded,
             probe = probe,
             graphicsProbe = graphicsProbe,
             nativeLibraryDir = appInfo.nativeLibraryDir ?: "indisponível",
             hardwareBufferProbe = hardwareBufferProbe,
+            vulkanWsiCapabilityProbe = vulkanWsiCapabilityProbe,
         )
     }
 }
