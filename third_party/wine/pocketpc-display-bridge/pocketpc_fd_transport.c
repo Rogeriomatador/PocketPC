@@ -161,6 +161,66 @@ static int pfd_set_cloexec(
     return fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == 0;
 }
 
+static int pfd_socket_type(
+    int socket_fd
+) {
+    int socket_type = 0;
+    socklen_t length = sizeof(socket_type);
+
+    if (
+        getsockopt(
+            socket_fd,
+            SOL_SOCKET,
+            SO_TYPE,
+            &socket_type,
+            &length
+        ) != 0 ||
+        length != sizeof(socket_type)
+    ) {
+        return -1;
+    }
+    return socket_type;
+}
+
+static void pfd_close_received_rights(
+    struct msghdr *message
+) {
+    struct cmsghdr *control_header;
+
+    if (message == NULL) {
+        return;
+    }
+
+    for (
+        control_header = CMSG_FIRSTHDR(message);
+        control_header != NULL;
+        control_header = CMSG_NXTHDR(message, control_header)
+    ) {
+        size_t payload_bytes;
+        size_t descriptor_count;
+        size_t index;
+        int *descriptors;
+
+        if (
+            control_header->cmsg_level != SOL_SOCKET ||
+            control_header->cmsg_type != SCM_RIGHTS ||
+            control_header->cmsg_len < CMSG_LEN(0)
+        ) {
+            continue;
+        }
+
+        payload_bytes =
+            (size_t)control_header->cmsg_len - CMSG_LEN(0);
+        descriptor_count = payload_bytes / sizeof(int);
+        descriptors = (int *)CMSG_DATA(control_header);
+        for (index = 0; index < descriptor_count; ++index) {
+            if (descriptors[index] >= 0) {
+                close(descriptors[index]);
+            }
+        }
+    }
+}
+
 int pocketpc_fd_transport_send(
     int socket_fd,
     int fd_to_send,
@@ -172,6 +232,7 @@ int pocketpc_fd_transport_send(
     struct msghdr message;
     struct cmsghdr *control_header;
     ssize_t written;
+    int socket_type;
 
     if (
         socket_fd < 0 ||
@@ -179,6 +240,14 @@ int pocketpc_fd_transport_send(
         !pfd_token_valid(token)
     ) {
         return POCKETPC_FD_TRANSPORT_INVALID_ARGUMENT;
+    }
+
+    socket_type = pfd_socket_type(socket_fd);
+    if (socket_type < 0) {
+        return POCKETPC_FD_TRANSPORT_IO_FAILED;
+    }
+    if (socket_type != SOCK_SEQPACKET) {
+        return POCKETPC_FD_TRANSPORT_WRONG_SOCKET_TYPE;
     }
 
     pfd_encode_token(payload, token);
@@ -229,6 +298,8 @@ int pocketpc_fd_transport_receive(
     int candidate_fd = -1;
     unsigned int rights_count = 0u;
     int receive_flags = 0;
+    int socket_type;
+    int invalid_control = 0;
 
     if (received_fd != NULL) {
         *received_fd = -1;
@@ -239,6 +310,14 @@ int pocketpc_fd_transport_receive(
         token == NULL
     ) {
         return POCKETPC_FD_TRANSPORT_INVALID_ARGUMENT;
+    }
+
+    socket_type = pfd_socket_type(socket_fd);
+    if (socket_type < 0) {
+        return POCKETPC_FD_TRANSPORT_IO_FAILED;
+    }
+    if (socket_type != SOCK_SEQPACKET) {
+        return POCKETPC_FD_TRANSPORT_WRONG_SOCKET_TYPE;
     }
 
     memset(payload, 0, sizeof(payload));
@@ -267,6 +346,7 @@ int pocketpc_fd_transport_receive(
         (size_t)received != sizeof(payload) ||
         (message.msg_flags & (MSG_TRUNC | MSG_CTRUNC)) != 0
     ) {
+        pfd_close_received_rights(&message);
         return POCKETPC_FD_TRANSPORT_TRUNCATED;
     }
 
@@ -280,18 +360,14 @@ int pocketpc_fd_transport_receive(
             control_header->cmsg_type != SCM_RIGHTS ||
             control_header->cmsg_len != CMSG_LEN(sizeof(int))
         ) {
-            if (candidate_fd >= 0) {
-                close(candidate_fd);
-            }
-            return POCKETPC_FD_TRANSPORT_BAD_CONTROL;
+            invalid_control = 1;
+            continue;
         }
 
         ++rights_count;
         if (rights_count != 1u) {
-            if (candidate_fd >= 0) {
-                close(candidate_fd);
-            }
-            return POCKETPC_FD_TRANSPORT_BAD_CONTROL;
+            invalid_control = 1;
+            continue;
         }
         memcpy(
             &candidate_fd,
@@ -300,10 +376,12 @@ int pocketpc_fd_transport_receive(
         );
     }
 
-    if (rights_count != 1u || candidate_fd < 0) {
-        if (candidate_fd >= 0) {
-            close(candidate_fd);
-        }
+    if (
+        invalid_control ||
+        rights_count != 1u ||
+        candidate_fd < 0
+    ) {
+        pfd_close_received_rights(&message);
         return POCKETPC_FD_TRANSPORT_BAD_CONTROL;
     }
 
