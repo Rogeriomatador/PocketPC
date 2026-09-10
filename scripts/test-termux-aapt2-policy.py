@@ -12,6 +12,7 @@ repo_check = (ROOT / "scripts/termux-repository-check.sh").read_text(encoding="u
 repo_repair = (ROOT / "scripts/termux-repair-repository.sh").read_text(encoding="utf-8")
 keyring_repair = (ROOT / "scripts/termux-repair-keyring.sh").read_text(encoding="utf-8")
 variant_detect = (ROOT / "scripts/termux-detect-variant.sh").read_text(encoding="utf-8")
+local_builder = (ROOT / "scripts/termux-build-modern-aapt2.sh").read_text(encoding="utf-8")
 lock = json.loads((ROOT / "toolchains/android-build-lock.json").read_text(encoding="utf-8"))
 
 errors: list[str] = []
@@ -101,13 +102,31 @@ for sentinel in (
 if "TERMUX_KEYRING_REPAIR_BLOCKED_GOOGLE_PLAY" not in keyring_repair:
     errors.append("classic Termux keyring repair is not blocked on Google Play variant")
 
+for sentinel in (
+    'SOURCE_REPO="https://github.com/termux/android-build-tools.git"',
+    'SOURCE_TAG="16.0.0.4"',
+    'SOURCE_SHA="c4edf8539a34a8600538e6642c1ecb170452a79e"',
+    'android-build-tools/16.0.0.4',
+    'TERMUX_LOCAL_AAPT2_BUILD_PASS',
+    'termux-repository-check.sh --require-compatible',
+    'sha256sum',
+):
+    if sentinel not in local_builder:
+        errors.append(f"local AAPT2 builder missing pinned sentinel: {sentinel}")
+
+if "termux-build-modern-aapt2.sh" not in helper:
+    errors.append("AAPT2 helper does not surface the pinned local builder")
+
+if "android-build-tools/16.0.0.4/bin/aapt2" not in gate:
+    errors.append("Kotlin gate does not select the pinned local AAPT2 path")
+
 for insecure in (
     "trusted=yes",
     "--allow-unauthenticated",
     "--allow-insecure-repositories",
     "Acquire::AllowInsecureRepositories",
 ):
-    if insecure in helper or insecure in repo_repair or insecure in keyring_repair:
+    if insecure in helper or insecure in repo_repair or insecure in keyring_repair or insecure in local_builder:
         errors.append(f"insecure Termux recovery option is forbidden: {insecure}")
 
 if platform_package != f"platforms;android-{compile_sdk}.0":
@@ -123,5 +142,5 @@ if errors:
 print("TERMUX_AAPT2_POLICY_OK")
 print(f"compile_sdk={compile_sdk}")
 print(f"platform_package={platform_package}")
-print("fallback=official_termux_packages_only")
+print("fallback=variant_aware_official_package_or_pinned_local_build")
 print("sdk_downgrade=forbidden")
