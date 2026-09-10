@@ -16,6 +16,7 @@ import re
 import socket
 import struct
 import subprocess
+import sys
 import threading
 import time
 
@@ -138,6 +139,84 @@ def helper(wine_root:Path,name:str,wine:Path)->list[str]:
         return [str(direct)]
     return [str(wine),name+".exe"]
 
+def relocated_wine_env(
+    wine_root: Path,
+    wine: Path,
+    package: dict[str, object],
+) -> tuple[dict[str,str], dict[str,object]]:
+    artifacts=package.get("artifacts")
+    if not isinstance(artifacts,dict):
+        raise RuntimeError("full Wine package artifact map is missing")
+    pe_info=artifacts.get("winepocketpc.drv")
+    unix_info=artifacts.get("winepocketpc.so")
+    if not isinstance(pe_info,dict) or not isinstance(unix_info,dict):
+        raise RuntimeError("full Wine package driver paths are missing")
+    pe_rel=pe_info.get("path")
+    unix_rel=unix_info.get("path")
+    if not isinstance(pe_rel,str) or not isinstance(unix_rel,str):
+        raise RuntimeError("full Wine package driver paths are invalid")
+
+    pe_dir=(wine_root/pe_rel).resolve().parent
+    unix_dir=(wine_root/unix_rel).resolve().parent
+    for candidate in (pe_dir,unix_dir):
+        try:
+            candidate.relative_to(wine_root)
+        except ValueError as error:
+            raise RuntimeError("Wine DLL search path escapes verified Wine root") from error
+
+    dll_dirs=[]
+    for candidate in (
+        unix_dir,
+        pe_dir,
+        wine_root/"lib/wine",
+    ):
+        candidate=candidate.resolve()
+        if candidate.is_dir() and candidate not in dll_dirs:
+            dll_dirs.append(candidate)
+    if not dll_dirs:
+        raise RuntimeError("no relocatable Wine DLL directories found")
+
+    native_dirs=[]
+    for candidate in (
+        wine_root/"lib",
+        wine_root/"lib64",
+        unix_dir.parent.parent,
+    ):
+        candidate=candidate.resolve()
+        if candidate.is_dir() and candidate not in native_dirs:
+            native_dirs.append(candidate)
+
+    env=os.environ.copy()
+    old_path=env.get("PATH","")
+    env["PATH"]=str(wine_root/"bin")+(os.pathsep+old_path if old_path else "")
+    env["WINELOADER"]=str(wine)
+    wineserver=wine_root/"bin/wineserver"
+    if wineserver.is_file():
+        env["WINESERVER"]=str(wineserver)
+    old_dll=env.get("WINEDLLPATH","")
+    env["WINEDLLPATH"]=os.pathsep.join(str(item) for item in dll_dirs)+(os.pathsep+old_dll if old_dll else "")
+    if native_dirs:
+        old_ld=env.get("LD_LIBRARY_PATH","")
+        env["LD_LIBRARY_PATH"]=os.pathsep.join(str(item) for item in native_dirs)+(os.pathsep+old_ld if old_ld else "")
+
+    details={
+        "wineRoot":str(wine_root),
+        "wineLoader":str(wine),
+        "wineServer":env.get("WINESERVER"),
+        "wineDllPath":[str(item) for item in dll_dirs],
+        "nativeLibraryPath":[str(item) for item in native_dirs],
+        "verifiedPeDirectory":str(pe_dir),
+        "verifiedUnixDirectory":str(unix_dir),
+    }
+    return env,details
+
+def stop_wineserver(wine_root:Path,wine:Path,env:dict[str,str],work:Path,label:str)->None:
+    command=helper(wine_root,"wineserver",wine)
+    try:
+        run_logged(command+["-k"],work,env,work/f"wineserver-{label}.log",timeout=15)
+    except Exception:
+        pass
+
 def main()->int:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wine-root",type=Path,required=True)
@@ -156,7 +235,7 @@ def main()->int:
     load_evidence=work/"wine-driver-load-marker-evidence.json"
 
     base={
-        "schema":1,
+        "schema":2,
         "status":"NOT_EXECUTED",
         "scope":"host_x86_64_wine_driver_registration",
         "claims":{
@@ -173,6 +252,9 @@ def main()->int:
             "physical_validation":False,
         },
     }
+    runtime_env: dict[str,str]|None=None
+    wine_root: Path|None=None
+    wine: Path|None=None
 
     try:
         package=load_json(args.package_evidence)
@@ -190,14 +272,16 @@ def main()->int:
         if not smoke_exe.is_file():
             raise RuntimeError(f"Win64 smoke executable missing: {smoke_exe}")
 
+        runtime_env,relocation=relocated_wine_env(wine_root,wine,package)
+        base["relocation"]=relocation
+
         prefix=work/"prefix"
-        env=os.environ.copy()
-        env.update({"WINEPREFIX":str(prefix),"WINEARCH":"win64","WINEDEBUG":"-all"})
-        env.pop("DISPLAY",None)
-        env.pop("WAYLAND_DISPLAY",None)
+        runtime_env.update({"WINEPREFIX":str(prefix),"WINEARCH":"win64","WINEDEBUG":"-all"})
+        runtime_env.pop("DISPLAY",None)
+        runtime_env.pop("WAYLAND_DISPLAY",None)
 
         wineboot=helper(wine_root,"wineboot",wine)
-        boot_rc=run_logged(wineboot+["-u"],work,env,work/"wineboot.log",timeout=90)
+        boot_rc=run_logged(wineboot+["-u"],work,runtime_env,work/"wineboot.log",timeout=90)
         if boot_rc!=0:
             raise RuntimeError(f"wineboot failed rc={boot_rc}")
         base["claims"]["prefix_created"]=True
@@ -205,14 +289,14 @@ def main()->int:
         reg=helper(wine_root,"reg",wine)
         add_rc=run_logged(
             reg+["add",r"HKCU\Software\Wine\Drivers","/v","Graphics","/t","REG_SZ","/d","pocketpc","/f"],
-            work,env,work/"registry-add.log",timeout=30)
+            work,runtime_env,work/"registry-add.log",timeout=30)
         if add_rc!=0:
             raise RuntimeError(f"Wine registry add failed rc={add_rc}")
 
         query_log=work/"registry-query.log"
         query_rc=run_logged(
             reg+["query",r"HKCU\Software\Wine\Drivers","/v","Graphics"],
-            work,env,query_log,timeout=30)
+            work,runtime_env,query_log,timeout=30)
         if query_rc!=0:
             raise RuntimeError(f"Wine registry query failed rc={query_rc}")
         query=query_log.read_text(encoding="utf-8",errors="replace")
@@ -220,12 +304,14 @@ def main()->int:
             raise RuntimeError("Wine Graphics registry query did not prove pocketpc")
         base["claims"]["graphics_registry_configured_pocketpc"]=True
 
+        stop_wineserver(wine_root,wine,runtime_env,work,"before-smoke")
+
         token=os.urandom(32)
         identity=sha256(wine).encode("ascii")
         broker=RegistrationBroker(token,identity)
         broker.start()
 
-        run_env=env.copy()
+        run_env=runtime_env.copy()
         run_env.update({
             "WINEDEBUG":"+pocketpcdrv",
             "POCKETPC_DISPLAY_PROTOCOL":"4",
@@ -267,7 +353,7 @@ def main()->int:
 
         verifier=Path(__file__).resolve().parent/"verify-wine-pocketpc-driver-load-evidence.py"
         verify=subprocess.run(
-            [os.environ.get("PYTHON", "python3"),str(verifier),"--log",str(log_path),
+            [sys.executable,str(verifier),"--log",str(log_path),
              "--package-evidence",str(args.package_evidence),"--evidence",str(load_evidence),"--expect","registered"],
             cwd=Path(__file__).resolve().parents[1],
             stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,check=False)
@@ -288,6 +374,9 @@ def main()->int:
         print("WINE_POCKETPC_DRIVER_LOAD_SMOKE_FAILED="+str(base["failure"]))
         print(f"evidence={evidence_path}")
         return 1
+    finally:
+        if runtime_env is not None and wine_root is not None and wine is not None:
+            stop_wineserver(wine_root,wine,runtime_env,work,"final")
 
     print("WINE_POCKETPC_DRIVER_LOAD_SMOKE_OK")
     print("wine_user_driver_registered=true")
