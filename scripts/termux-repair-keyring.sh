@@ -13,6 +13,16 @@ echo "PocketPC Termux keyring recovery"
 echo "Classification : TERMUX_KEYRING_RECOVERY_DIAGNOSTIC"
 echo
 
+TERMUX_VARIANT="$(bash "$ROOT/scripts/termux-detect-variant.sh" --value 2>/dev/null || printf '%s' classic_or_unknown)"
+echo "termux_variant=$TERMUX_VARIANT"
+
+if [ "$TERMUX_VARIANT" = "googleplay" ]; then
+    echo "Classification : TERMUX_KEYRING_REPAIR_BLOCKED_GOOGLE_PLAY"
+    echo "Important: Google Play Termux uses a separate repository/package set."
+    echo "Important: Do not install the classic packages.termux.dev keyring into this variant."
+    exit 20
+fi
+
 if [ "$MODE" != "--apply" ]; then
     echo "apply_required=true"
     echo "command=bash scripts/termux-repair-keyring.sh --apply"
