@@ -25,6 +25,11 @@ data class GuestGraphicsTransportPlan(
 }
 
 object GuestGraphicsTransportPlanner {
+    const val BLOCKER_HOST_OPAQUE_FD_BROKER =
+        "HOST_OPAQUE_FD_IMAGE_BROKER_NOT_IMPLEMENTED"
+    const val BLOCKER_HOST_DMA_BUF_BROKER =
+        "HOST_DMA_BUF_IMAGE_BROKER_NOT_IMPLEMENTED"
+
     fun plan(
         snapshot: VulkanExternalResourceSnapshot?,
         ahbImportSnapshot: VulkanAhardwareBufferImportSnapshot? = null,
@@ -77,6 +82,18 @@ object GuestGraphicsTransportPlanner {
             GuestGraphicsTransportCandidate.NONE ->
                 blockers += "NO_VULKAN_EXTERNAL_RESOURCE_ROUTE_ADVERTISED"
 
+            GuestGraphicsTransportCandidate.OPAQUE_FD -> {
+                if (!GuestGraphicsTransportContract.hostOpaqueFdImageBrokerImplemented) {
+                    blockers += BLOCKER_HOST_OPAQUE_FD_BROKER
+                }
+            }
+
+            GuestGraphicsTransportCandidate.DMA_BUF_FD -> {
+                if (!GuestGraphicsTransportContract.hostDmaBufImageBrokerImplemented) {
+                    blockers += BLOCKER_HOST_DMA_BUF_BROKER
+                }
+            }
+
             GuestGraphicsTransportCandidate.AHB_HOST_BROKER_ONLY -> {
                 if (!canonicalAhbReady) {
                     blockers += "AHB_CANONICAL_IMPORT_QUERY_NOT_VERIFIED"
@@ -88,10 +105,6 @@ object GuestGraphicsTransportPlanner {
                     blockers += "BOX64_AHARDWAREBUFFER_BRIDGE_NOT_VERIFIED"
                 }
             }
-
-            GuestGraphicsTransportCandidate.OPAQUE_FD,
-            GuestGraphicsTransportCandidate.DMA_BUF_FD,
-            -> Unit
         }
 
         if (!GuestGraphicsTransportContract.guestReceiveImplemented) {
@@ -136,14 +149,23 @@ object GuestGraphicsTransportPlanner {
         candidate: GuestGraphicsTransportCandidate,
     ): Boolean =
         when (candidate) {
-            GuestGraphicsTransportCandidate.OPAQUE_FD,
-            GuestGraphicsTransportCandidate.DMA_BUF_FD,
-            ->
+            GuestGraphicsTransportCandidate.OPAQUE_FD ->
                 baseFoundationReady() &&
                     GuestGraphicsTransportContract
                         .ancillaryFdTransportPrimitiveImplemented &&
                     GuestGraphicsTransportContract
-                        .handleBindingImplemented
+                        .handleBindingImplemented &&
+                    GuestGraphicsTransportContract
+                        .hostOpaqueFdImageBrokerImplemented
+
+            GuestGraphicsTransportCandidate.DMA_BUF_FD ->
+                baseFoundationReady() &&
+                    GuestGraphicsTransportContract
+                        .ancillaryFdTransportPrimitiveImplemented &&
+                    GuestGraphicsTransportContract
+                        .handleBindingImplemented &&
+                    GuestGraphicsTransportContract
+                        .hostDmaBufImageBrokerImplemented
 
             GuestGraphicsTransportCandidate.AHB_HOST_BROKER_ONLY ->
                 baseFoundationReady() &&
