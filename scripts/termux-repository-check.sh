@@ -38,10 +38,14 @@ printf '%s\n' "$SOURCES" | sed 's/^/  source=/'
 if printf '%s\n' "$SOURCES" | grep -Eq 'https?://([^/]*[.])?termux[.]net([/[:space:]]|$)'; then
     echo "repository_state=LEGACY_TERMUX_NET"
     echo "recommended_main_repo=deb https://packages.termux.dev/apt/termux-main stable main"
+    echo "action_required=CHANGE_TERMUX_MAIN_REPOSITORY"
+    echo "note=pkg_update_does_not_change_repository"
     if command -v termux-change-repo >/dev/null 2>&1; then
         echo "recovery_command=termux-change-repo"
+        echo "recovery_hint=Select Main repository, then choose the packages.termux.dev primary mirror."
     else
         echo "recovery_command=apt edit-sources"
+        echo "recovery_hint=Replace the legacy main source with the recommended_main_repo line above."
     fi
     echo "Classification : TERMUX_REPOSITORY_LEGACY"
     [ "$MODE" = "--require-modern" ] && exit 13
