@@ -23,6 +23,8 @@ object GuestGraphicsTransportContract {
         true
     const val ancillaryFdTransportPrimitiveImplemented =
         true
+    const val handleBindingImplemented =
+        true
 
     /*
      * The pinned Box64 source has not yet provided verified evidence that a
@@ -34,10 +36,11 @@ object GuestGraphicsTransportContract {
         false
 
     /*
-     * SCM_RIGHTS support is only a transport primitive. These gates describe
-     * the real runtime path and remain false until Wine/Box64 receives a
-     * resource from the authenticated graphics broker, imports it into the
-     * Vulkan device used by DXVK and proves synchronization/ownership there.
+     * SCM_RIGHTS support and handle binding are only transport foundations.
+     * These gates describe the real runtime path and remain false until
+     * Wine/Box64 receives a resource from the authenticated graphics broker,
+     * imports it into the Vulkan device used by DXVK and proves
+     * synchronization/ownership there.
      */
     const val guestReceiveImplemented =
         false
