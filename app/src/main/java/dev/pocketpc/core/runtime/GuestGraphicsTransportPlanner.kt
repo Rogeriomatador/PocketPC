@@ -29,6 +29,10 @@ object GuestGraphicsTransportPlanner {
         "HOST_OPAQUE_FD_IMAGE_BROKER_NOT_IMPLEMENTED"
     const val BLOCKER_HOST_DMA_BUF_BROKER =
         "HOST_DMA_BUF_IMAGE_BROKER_NOT_IMPLEMENTED"
+    const val BLOCKER_PVI1_PROTOCOL =
+        "PVI1_EXTERNAL_IMAGE_PROTOCOL_NOT_IMPLEMENTED"
+    const val BLOCKER_GUEST_VULKAN_IMPORT_PRIMITIVE =
+        "GUEST_VULKAN_IMPORT_PRIMITIVE_NOT_IMPLEMENTED"
 
     fun plan(
         snapshot: VulkanExternalResourceSnapshot?,
@@ -86,6 +90,12 @@ object GuestGraphicsTransportPlanner {
                 if (!GuestGraphicsTransportContract.hostOpaqueFdImageBrokerImplemented) {
                     blockers += BLOCKER_HOST_OPAQUE_FD_BROKER
                 }
+                if (!GuestGraphicsTransportContract.externalImagePvi1ProtocolImplemented) {
+                    blockers += BLOCKER_PVI1_PROTOCOL
+                }
+                if (!GuestGraphicsTransportContract.guestVulkanImportPrimitiveImplemented) {
+                    blockers += BLOCKER_GUEST_VULKAN_IMPORT_PRIMITIVE
+                }
             }
 
             GuestGraphicsTransportCandidate.DMA_BUF_FD -> {
@@ -118,12 +128,9 @@ object GuestGraphicsTransportPlanner {
         }
 
         val guestReady =
-            GuestGraphicsTransportContract
-                .guestReceiveImplemented &&
-                GuestGraphicsTransportContract
-                    .guestImportImplemented &&
-                GuestGraphicsTransportContract
-                    .synchronizationImplemented
+            GuestGraphicsTransportContract.guestReceiveImplemented &&
+                GuestGraphicsTransportContract.guestImportImplemented &&
+                GuestGraphicsTransportContract.synchronizationImplemented
 
         return GuestGraphicsTransportPlan(
             candidate = candidate,
@@ -136,14 +143,10 @@ object GuestGraphicsTransportPlanner {
     }
 
     private fun baseFoundationReady(): Boolean =
-        GuestGraphicsTransportContract
-            .descriptorProtocolImplemented &&
-            GuestGraphicsTransportContract
-                .ownershipProtocolImplemented &&
-            GuestGraphicsTransportContract
-                .externalResourceCapabilityProbeImplemented &&
-            GuestGraphicsTransportContract
-                .guestReceivePrimitiveImplemented
+        GuestGraphicsTransportContract.descriptorProtocolImplemented &&
+            GuestGraphicsTransportContract.ownershipProtocolImplemented &&
+            GuestGraphicsTransportContract.externalResourceCapabilityProbeImplemented &&
+            GuestGraphicsTransportContract.guestReceivePrimitiveImplemented
 
     private fun candidateFoundationReady(
         candidate: GuestGraphicsTransportCandidate,
@@ -151,30 +154,23 @@ object GuestGraphicsTransportPlanner {
         when (candidate) {
             GuestGraphicsTransportCandidate.OPAQUE_FD ->
                 baseFoundationReady() &&
-                    GuestGraphicsTransportContract
-                        .ancillaryFdTransportPrimitiveImplemented &&
-                    GuestGraphicsTransportContract
-                        .handleBindingImplemented &&
-                    GuestGraphicsTransportContract
-                        .hostOpaqueFdImageBrokerImplemented
+                    GuestGraphicsTransportContract.ancillaryFdTransportPrimitiveImplemented &&
+                    GuestGraphicsTransportContract.handleBindingImplemented &&
+                    GuestGraphicsTransportContract.hostOpaqueFdImageBrokerImplemented &&
+                    GuestGraphicsTransportContract.externalImagePvi1ProtocolImplemented &&
+                    GuestGraphicsTransportContract.guestVulkanImportPrimitiveImplemented
 
             GuestGraphicsTransportCandidate.DMA_BUF_FD ->
                 baseFoundationReady() &&
-                    GuestGraphicsTransportContract
-                        .ancillaryFdTransportPrimitiveImplemented &&
-                    GuestGraphicsTransportContract
-                        .handleBindingImplemented &&
-                    GuestGraphicsTransportContract
-                        .hostDmaBufImageBrokerImplemented
+                    GuestGraphicsTransportContract.ancillaryFdTransportPrimitiveImplemented &&
+                    GuestGraphicsTransportContract.handleBindingImplemented &&
+                    GuestGraphicsTransportContract.hostDmaBufImageBrokerImplemented
 
             GuestGraphicsTransportCandidate.AHB_HOST_BROKER_ONLY ->
                 baseFoundationReady() &&
-                    GuestGraphicsTransportContract
-                        .hostAhardwareBufferBrokerImplemented &&
-                    GuestGraphicsTransportContract
-                        .canonicalAhardwareBufferImportProbeImplemented &&
-                    GuestGraphicsTransportContract
-                        .handleBindingImplemented
+                    GuestGraphicsTransportContract.hostAhardwareBufferBrokerImplemented &&
+                    GuestGraphicsTransportContract.canonicalAhardwareBufferImportProbeImplemented &&
+                    GuestGraphicsTransportContract.handleBindingImplemented
 
             GuestGraphicsTransportCandidate.NONE ->
                 baseFoundationReady()
