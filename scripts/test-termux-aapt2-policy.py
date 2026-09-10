@@ -13,6 +13,8 @@ repo_repair = (ROOT / "scripts/termux-repair-repository.sh").read_text(encoding=
 keyring_repair = (ROOT / "scripts/termux-repair-keyring.sh").read_text(encoding="utf-8")
 variant_detect = (ROOT / "scripts/termux-detect-variant.sh").read_text(encoding="utf-8")
 local_builder = (ROOT / "scripts/termux-build-modern-aapt2.sh").read_text(encoding="utf-8")
+local_builder_alias = (ROOT / "scripts/termux-build-aapt2-from-source.sh").read_text(encoding="utf-8")
+preflight = (ROOT / "scripts/termux-on-device-preflight.sh").read_text(encoding="utf-8")
 lock = json.loads((ROOT / "toolchains/android-build-lock.json").read_text(encoding="utf-8"))
 
 errors: list[str] = []
@@ -119,6 +121,13 @@ if "termux-build-modern-aapt2.sh" not in helper:
 
 if "android-build-tools/16.0.0.4/bin/aapt2" not in gate:
     errors.append("Kotlin gate does not select the pinned local AAPT2 path")
+if "android-build-tools/16.0.0.4/bin/aapt2" not in preflight:
+    errors.append("Termux preflight does not inspect the pinned local AAPT2 path")
+if 'exec bash "$ROOT/scripts/termux-build-modern-aapt2.sh" "$@"' not in local_builder_alias:
+    errors.append("legacy AAPT2 builder entrypoint does not delegate to canonical builder")
+for dependency in ("libzopfli", "zlib", "protobuf_generate_PROTOC_EXE"):
+    if dependency not in local_builder:
+        errors.append(f"local AAPT2 builder missing official dependency/config sentinel: {dependency}")
 
 for insecure in (
     "trusted=yes",
