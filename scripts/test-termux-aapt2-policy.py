@@ -131,6 +131,9 @@ if "android-build-tools/16.0.0.4/bin/aapt2" not in preflight:
 if 'exec bash "$ROOT/scripts/termux-build-modern-aapt2.sh" "$@"' not in local_builder_alias:
     errors.append("legacy AAPT2 builder entrypoint does not delegate to canonical builder")
 for dependency in (
+    "package_installed",
+    "package_available_or_installed",
+    "REQUIRED_PACKAGES+=(protobuf)",
     "libc++",
     "libzopfli",
     "zlib",
