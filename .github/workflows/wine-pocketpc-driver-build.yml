@@ -20,6 +20,7 @@ on:
       - 'scripts/test-wine-pocketpc-build-target-discovery.py'
       - 'scripts/test-wine-pocketpc-driver-policy.py'
       - 'scripts/test-wine-pocketpc-driver-abi-lock.py'
+      - 'scripts/test-wine-pocketpc-vulkan-abi-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - 'scripts/test-display-multipeer-policy.py'
       - '.github/workflows/wine-pocketpc-driver-build.yml'
@@ -59,6 +60,7 @@ jobs:
           python3 scripts/test-display-multipeer-policy.py
           python3 scripts/test-wine-pocketpc-driver-policy.py
           python3 scripts/test-wine-pocketpc-driver-abi-lock.py
+          python3 scripts/test-wine-pocketpc-vulkan-abi-policy.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
           python3 scripts/test-pocketpc-pe-audit.py
           python3 scripts/test-wine-pocketpc-pe-policy.py
