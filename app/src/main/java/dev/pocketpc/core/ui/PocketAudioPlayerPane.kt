@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.storage.PocketFileOpenRequest
 import kotlinx.coroutines.delay
 
@@ -103,7 +104,7 @@ fun PocketAudioPlayerPane(
     }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(androidx.compose.ui.unit.dp(10f)),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         errorMessage?.let { message ->
             Text(
@@ -114,7 +115,7 @@ fun PocketAudioPlayerPane(
 
         if (!prepared && errorMessage == null) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(androidx.compose.ui.unit.dp(10f)),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 CircularProgressIndicator()
                 Text("Preparando áudio dentro do PocketPC...")
@@ -130,7 +131,7 @@ fun PocketAudioPlayerPane(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(androidx.compose.ui.unit.dp(8f)),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
                     onClick = {
@@ -197,7 +198,7 @@ fun PocketAudioPlayerPane(
 }
 
 private fun formatAudioTime(milliseconds: Int): String {
-    val totalSeconds = (milliseconds.coerceAtLeast(0) / 1000)
+    val totalSeconds = milliseconds.coerceAtLeast(0) / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%d:%02d".format(minutes, seconds)
