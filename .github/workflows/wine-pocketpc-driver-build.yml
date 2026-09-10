@@ -5,6 +5,14 @@ on:
   pull_request:
     paths:
       - 'third_party/wine/**'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsResourceDescriptor.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiContract.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiFoundation.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxPlayerDeepLink.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxBrowserLaunchCoordinator.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxLaunchReadiness.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxInstalledLaunchPlan.kt'
       - 'scripts/prepare-wine-source.py'
       - 'scripts/prepare-wine-pocketpc-driver.py'
       - 'scripts/build-wine-pocketpc-driver.py'
@@ -21,6 +29,9 @@ on:
       - 'scripts/test-wine-pocketpc-driver-policy.py'
       - 'scripts/test-wine-pocketpc-driver-abi-lock.py'
       - 'scripts/test-wine-pocketpc-vulkan-abi-policy.py'
+      - 'scripts/test-vulkan-wsi-policy.py'
+      - 'scripts/test-ahardwarebuffer-vulkan-transport-policy.py'
+      - 'scripts/test-roblox-browser-launch-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - 'scripts/test-display-multipeer-policy.py'
       - '.github/workflows/wine-pocketpc-driver-build.yml'
@@ -61,6 +72,9 @@ jobs:
           python3 scripts/test-wine-pocketpc-driver-policy.py
           python3 scripts/test-wine-pocketpc-driver-abi-lock.py
           python3 scripts/test-wine-pocketpc-vulkan-abi-policy.py
+          python3 scripts/test-vulkan-wsi-policy.py
+          python3 scripts/test-ahardwarebuffer-vulkan-transport-policy.py
+          python3 scripts/test-roblox-browser-launch-policy.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
           python3 scripts/test-pocketpc-pe-audit.py
           python3 scripts/test-wine-pocketpc-pe-policy.py
