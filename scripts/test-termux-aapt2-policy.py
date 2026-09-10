@@ -83,7 +83,7 @@ if "TERMUX_KOTLIN_COMPILE_PASS_UNIT_TEST_BLOCKED_AAPT2" not in gate:
 
 
 for sentinel in (
-    "*.sources",
+    'path.suffix == ".sources"',
     "TERMUX_VARIANT",
     "googleplay",
     "MIXED_GOOGLE_PLAY_AND_CLASSIC",
@@ -126,7 +126,15 @@ if "android-build-tools/16.0.0.4/bin/aapt2" not in preflight:
     errors.append("Termux preflight does not inspect the pinned local AAPT2 path")
 if 'exec bash "$ROOT/scripts/termux-build-modern-aapt2.sh" "$@"' not in local_builder_alias:
     errors.append("legacy AAPT2 builder entrypoint does not delegate to canonical builder")
-for dependency in ("libzopfli", "zlib", "protobuf_generate_PROTOC_EXE"):
+for dependency in (
+    "libzopfli",
+    "zlib",
+    "protobuf_generate_PROTOC_EXE",
+    "linux-headers",
+    "ndk-sysroot",
+    "HEADER_PACKAGE",
+    "TERMUX_AAPT2_BUILD_DEPENDENCIES_UNAVAILABLE",
+):
     if dependency not in local_builder:
         errors.append(f"local AAPT2 builder missing official dependency/config sentinel: {dependency}")
 
