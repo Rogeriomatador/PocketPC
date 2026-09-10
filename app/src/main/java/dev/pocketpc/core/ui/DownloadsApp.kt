@@ -43,12 +43,15 @@ import dev.pocketpc.core.storage.PocketDownloadImporter
 import dev.pocketpc.core.storage.PocketDownloadRegistry
 import dev.pocketpc.core.storage.PocketDriveDirectory
 import dev.pocketpc.core.storage.PocketFileClass
+import dev.pocketpc.core.storage.PocketFileRoute
+import dev.pocketpc.core.storage.PocketFileRoutingDecision
 import dev.pocketpc.core.storage.PocketPcPackageRecord
 import dev.pocketpc.core.storage.PocketPcPackageRegistry
 import dev.pocketpc.core.storage.PocketPcPackageState
 import dev.pocketpc.core.storage.StorageEntry
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.storage.classifyPocketFile
+import dev.pocketpc.core.storage.routePocketFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -62,38 +65,28 @@ private data class PocketDownload(
     val mimeType: String?,
 )
 
-private enum class PocketOpenRoute {
-    WINDOWS_RUNTIME,
-    INTERNAL_ARCHIVE,
-    INTERNAL_DISK_IMAGE,
-    INTERNAL_ANDROID_PACKAGE,
-    INTERNAL_FILE,
-}
-
-private fun classifyOpenRoute(fileName: String): PocketOpenRoute =
-    when (classifyPocketFile(fileName)) {
-        PocketFileClass.PC_INSTALLER -> PocketOpenRoute.WINDOWS_RUNTIME
-        PocketFileClass.ARCHIVE -> PocketOpenRoute.INTERNAL_ARCHIVE
-        PocketFileClass.DISK_IMAGE -> PocketOpenRoute.INTERNAL_DISK_IMAGE
-        PocketFileClass.ANDROID_PACKAGE -> PocketOpenRoute.INTERNAL_ANDROID_PACKAGE
-        PocketFileClass.GENERIC -> PocketOpenRoute.INTERNAL_FILE
-    }
-
 private fun internalRouteMessage(
     name: String,
-    route: PocketOpenRoute,
+    decision: PocketFileRoutingDecision,
 ): String =
-    when (route) {
-        PocketOpenRoute.WINDOWS_RUNTIME ->
+    when (decision.route) {
+        PocketFileRoute.PC_RUNTIME ->
             "Abrindo $name no runtime de PC do PocketPC."
-        PocketOpenRoute.INTERNAL_ARCHIVE ->
-            "$name é um arquivo compactado. O PocketPC manteve o arquivo dentro do desktop; o gerenciador interno de compactados será usado quando estiver disponível."
-        PocketOpenRoute.INTERNAL_DISK_IMAGE ->
-            "$name é uma imagem de disco. Ela foi mantida no PocketPC e não será enviada ao ‘Abrir com’ do Android."
-        PocketOpenRoute.INTERNAL_ANDROID_PACKAGE ->
-            "$name é um pacote Android. Instalação Android é uma ação explícita e separada; o PocketPC não abrirá o seletor de apps automaticamente."
-        PocketOpenRoute.INTERNAL_FILE ->
-            "$name não possui um aplicativo PocketPC associado ainda. O arquivo permaneceu dentro do PocketPC."
+
+        PocketFileRoute.ANDROID_PACKAGE_INSTALLER ->
+            "$name é um pacote Android. O PocketPC só entregará esse arquivo ao instalador do Android quando você o abrir explicitamente pelo PocketDrive."
+
+        PocketFileRoute.POCKET_ARCHIVE ->
+            "$name é um arquivo compactado. Ele permaneceu no PocketPC; o compactador interno assumirá essa rota quando estiver disponível."
+
+        PocketFileRoute.POCKET_DISK_IMAGE ->
+            "$name é uma imagem de disco. Ela permaneceu no PocketPC; o montador interno assumirá essa rota quando estiver disponível."
+
+        PocketFileRoute.POCKET_INTERNAL_APP ->
+            "$name pertence a um aplicativo interno do PocketPC. A associação ainda não possui um visualizador implementado."
+
+        PocketFileRoute.POCKET_UNSUPPORTED ->
+            decision.reason
     }
 
 @Composable
@@ -158,7 +151,8 @@ fun DownloadsApp(
     val regularPocketFiles =
         pocketFiles.filterNot { entry ->
             !entry.directory &&
-                classifyPocketFile(entry.name) == PocketFileClass.PC_INSTALLER
+                routePocketFile(entry.name, entry.mimeType).route ==
+                    PocketFileRoute.PC_RUNTIME
         }
 
     LazyColumn(
@@ -193,7 +187,7 @@ fun DownloadsApp(
                     OutlinedButton(
                         onClick = {
                             statusMessage =
-                                "A fila de downloads agora é controlada pelo PocketPC. O seletor/fila visual do Android não é aberto daqui."
+                                "A fila de downloads é apresentada dentro do PocketPC. Nenhum seletor genérico do Android é aberto daqui."
                         },
                     ) {
                         Text("Fila PocketPC")
@@ -241,13 +235,14 @@ fun DownloadsApp(
                             if (item.status != DownloadManager.STATUS_SUCCESSFUL) {
                                 statusMessage = "O arquivo ainda está sendo baixado."
                             } else {
-                                val route = classifyOpenRoute(item.title)
-                                if (route == PocketOpenRoute.WINDOWS_RUNTIME) {
+                                val decision = routePocketFile(item.title, item.mimeType)
+                                if (decision.route == PocketFileRoute.PC_RUNTIME) {
                                     val uri = manager.getUriForDownloadedFile(item.id)
                                     if (uri == null) {
-                                        statusMessage = "O download terminou, mas o arquivo ainda não está disponível para o runtime."
+                                        statusMessage =
+                                            "O download terminou, mas o arquivo ainda não está disponível para o runtime."
                                     } else {
-                                        statusMessage = internalRouteMessage(item.title, route)
+                                        statusMessage = internalRouteMessage(item.title, decision)
                                         onOpenRuntime(
                                             PcApplicationTarget(
                                                 uri = uri.toString(),
@@ -257,7 +252,7 @@ fun DownloadsApp(
                                         )
                                     }
                                 } else {
-                                    statusMessage = internalRouteMessage(item.title, route)
+                                    statusMessage = internalRouteMessage(item.title, decision)
                                 }
                             }
                         },
@@ -309,17 +304,28 @@ fun DownloadsApp(
                         entry = entry,
                         onOpen = {
                             if (!entry.directory) {
-                                val route = classifyOpenRoute(entry.name)
-                                if (route == PocketOpenRoute.WINDOWS_RUNTIME) {
-                                    onOpenRuntime(
-                                        PcApplicationTarget(
-                                            uri = entry.uri,
-                                            fileName = entry.name,
-                                            sizeBytes = entry.size,
+                                val decision = routePocketFile(entry.name, entry.mimeType)
+                                when (decision.route) {
+                                    PocketFileRoute.PC_RUNTIME ->
+                                        onOpenRuntime(
+                                            PcApplicationTarget(
+                                                uri = entry.uri,
+                                                fileName = entry.name,
+                                                sizeBytes = entry.size,
+                                            )
                                         )
-                                    )
-                                } else {
-                                    statusMessage = internalRouteMessage(entry.name, route)
+
+                                    PocketFileRoute.ANDROID_PACKAGE_INSTALLER ->
+                                        repository.openFile(entry)
+                                            .onFailure { error ->
+                                                statusMessage =
+                                                    error.message
+                                                        ?: "Não foi possível iniciar o instalador Android."
+                                            }
+
+                                    else ->
+                                        statusMessage =
+                                            internalRouteMessage(entry.name, decision)
                                 }
                             }
                         },
