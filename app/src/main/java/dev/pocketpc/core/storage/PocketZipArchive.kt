@@ -6,7 +6,6 @@ import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
-import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
 private const val MAX_ZIP_ENTRY_COUNT = 5_000
@@ -38,11 +37,11 @@ data class PocketZipExtractionReport(
 )
 
 /**
- * Reads ZIP metadata directly from a PocketPC content URI.
+ * Reads and validates ZIP entries directly from a PocketPC content URI.
  *
- * No generic Android file viewer is involved. Paths are validated while the
- * central directory/entry stream is traversed so malformed traversal paths are
- * rejected before the archive is presented as extractable.
+ * ZipInputStream has to consume an entry before it can safely advance to the
+ * next one. The preview therefore counts the real expanded bytes while
+ * traversing the archive and applies the same anti-bomb limits as extraction.
  */
 fun inspectPocketZip(
     context: Context,
@@ -52,36 +51,48 @@ fun inspectPocketZip(
         val entries = mutableListOf<PocketZipEntryInfo>()
         var fileCount = 0
         var directoryCount = 0
-        var knownBytes = 0L
+        var inspectedBytes = 0L
 
         openZipInput(context, uriString).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
-                val segments = validatePocketZipEntryPath(entry.name)
-                val directory = entry.isDirectory || entry.name.endsWith('/')
-                val path = segments.joinToString("/") + if (directory) "/" else ""
-
                 if (entries.size >= MAX_ZIP_ENTRY_COUNT) {
                     error(
                         "O ZIP ultrapassa o limite de $MAX_ZIP_ENTRY_COUNT entradas do PocketPC."
                     )
                 }
 
-                if (directory) {
-                    directoryCount++
-                } else {
-                    fileCount++
-                    if (entry.size > 0L) {
-                        knownBytes = Math.addExact(knownBytes, entry.size)
+                val segments = validatePocketZipEntryPath(entry.name)
+                val directory = entry.isDirectory || entry.name.endsWith('/')
+                val path = segments.joinToString("/") + if (directory) "/" else ""
+                val actualSize =
+                    if (directory) {
+                        directoryCount++
+                        0L
+                    } else {
+                        if (entry.size > MAX_ZIP_FILE_BYTES) {
+                            error(
+                                "A entrada ${entry.name} ultrapassa o limite de 512 MiB."
+                            )
+                        }
+
+                        val consumed =
+                            consumeZipEntryForInspection(
+                                zip = zip,
+                                entryName = entry.name,
+                                totalBefore = inspectedBytes,
+                            )
+                        inspectedBytes = Math.addExact(inspectedBytes, consumed)
+                        fileCount++
+                        consumed
                     }
-                }
 
                 entries +=
                     PocketZipEntryInfo(
                         path = path,
                         directory = directory,
                         compressedSize = entry.compressedSize,
-                        uncompressedSize = entry.size,
+                        uncompressedSize = actualSize,
                     )
                 zip.closeEntry()
             }
@@ -91,7 +102,7 @@ fun inspectPocketZip(
             entries = entries,
             fileCount = fileCount,
             directoryCount = directoryCount,
-            knownUncompressedBytes = knownBytes,
+            knownUncompressedBytes = inspectedBytes,
         )
     }
 
@@ -130,10 +141,11 @@ suspend fun extractPocketZipToDownloads(
                     .substringBeforeLast('.', archiveFileName)
                     .let(::sanitizePocketImportedFileName)
                     .ifBlank { "Arquivo extraído" }
-            val destinationName = uniqueZipChildName(
-                parent = downloads,
-                requested = requestedFolder,
-            )
+            val destinationName =
+                uniqueZipChildName(
+                    parent = downloads,
+                    requested = requestedFolder,
+                )
             extractionRoot =
                 checkNotNull(downloads.createDirectory(destinationName)) {
                     "Não foi possível criar P:\\Downloads\\$destinationName."
@@ -164,6 +176,21 @@ suspend fun extractPocketZipToDownloads(
                         )
                         directoryCount++
                     } else {
+                        if (entry.size > MAX_ZIP_FILE_BYTES) {
+                            error(
+                                "A entrada ${entry.name} ultrapassa o limite de 512 MiB."
+                            )
+                        }
+                        if (
+                            entry.size > 0L &&
+                            totalExtracted >
+                                MAX_ZIP_TOTAL_EXTRACTED_BYTES - entry.size
+                        ) {
+                            error(
+                                "A extração ultrapassa o limite total de 1 GiB do PocketPC."
+                            )
+                        }
+
                         val parent =
                             ensureZipDirectories(
                                 root = extractionRoot,
@@ -287,10 +314,49 @@ internal fun validatePocketZipEntryPath(raw: String): List<String> {
         require(segment.none { it in WINDOWS_FORBIDDEN_ZIP_NAME_CHARS }) {
             "O ZIP contém caracteres incompatíveis com o PocketDrive."
         }
+        require(segment == segment.trimEnd('.', ' ')) {
+            "O ZIP contém nome terminado em ponto ou espaço, incompatível com Windows."
+        }
+
+        val windowsBaseName =
+            segment
+                .substringBefore('.')
+                .uppercase()
+        require(windowsBaseName !in WINDOWS_RESERVED_ZIP_NAMES) {
+            "O ZIP contém nome reservado do Windows: $segment."
+        }
         validateStorageName(segment)
     }
 
     return segments
+}
+
+private fun consumeZipEntryForInspection(
+    zip: ZipInputStream,
+    entryName: String,
+    totalBefore: Long,
+): Long {
+    val buffer = ByteArray(64 * 1024)
+    var entryBytes = 0L
+
+    while (true) {
+        val count = zip.read(buffer)
+        if (count < 0) break
+        if (count == 0) continue
+
+        entryBytes += count.toLong()
+        check(entryBytes <= MAX_ZIP_FILE_BYTES) {
+            "A entrada $entryName ultrapassa o limite de 512 MiB."
+        }
+        check(
+            totalBefore <=
+                MAX_ZIP_TOTAL_EXTRACTED_BYTES - entryBytes
+        ) {
+            "O ZIP ultrapassa o limite total expandido de 1 GiB do PocketPC."
+        }
+    }
+
+    return entryBytes
 }
 
 private fun openZipInput(
@@ -385,3 +451,12 @@ private fun pocketZipMimeType(name: String): String =
 
 private val WINDOWS_FORBIDDEN_ZIP_NAME_CHARS =
     setOf('<', '>', ':', '"', '|', '?', '*')
+
+private val WINDOWS_RESERVED_ZIP_NAMES =
+    buildSet {
+        addAll(setOf("CON", "PRN", "AUX", "NUL"))
+        (1..9).forEach { index ->
+            add("COM$index")
+            add("LPT$index")
+        }
+    }
