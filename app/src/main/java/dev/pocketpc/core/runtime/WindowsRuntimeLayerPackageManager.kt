@@ -309,9 +309,15 @@ class WindowsRuntimeLayerPackageManager(
                             "WINDOWS_LAYER_ZIP_DIRECTORY_FAILED"
                         }
                     } else {
+                        val parent =
+                            requireNotNull(
+                                target.parentFile,
+                            ) {
+                                "WINDOWS_LAYER_ZIP_PARENT_MISSING"
+                            }
                         require(
-                            target.parentFile.mkdirs() ||
-                                target.parentFile.isDirectory,
+                            parent.mkdirs() ||
+                                parent.isDirectory,
                         ) {
                             "WINDOWS_LAYER_ZIP_PARENT_FAILED"
                         }
