@@ -19,6 +19,45 @@ object NativeRuntimeHost {
     private external fun nativeProbe(): String
     private external fun nativeGraphicsProbe(): String
     private external fun nativeHardwareBufferProbe(): String
+    private external fun nativeSendHardwareBufferCrossProcessProbe(
+        socketFd: Int,
+    ): String
+    private external fun nativeReceiveHardwareBufferCrossProcessProbe(
+        socketFd: Int,
+    ): String
+
+    val loaded: Boolean
+        get() = loadResult.isSuccess
+
+    fun sendHardwareBufferCrossProcessProbe(
+        socketFd: Int,
+    ): String =
+        if (loaded) {
+            runCatching {
+                nativeSendHardwareBufferCrossProcessProbe(
+                    socketFd,
+                )
+            }.getOrElse {
+                "ahb-xproc-send=jni-failed;error=${it.javaClass.simpleName}"
+            }
+        } else {
+            "ahb-xproc-send=native-host-not-loaded"
+        }
+
+    fun receiveHardwareBufferCrossProcessProbe(
+        socketFd: Int,
+    ): String =
+        if (loaded) {
+            runCatching {
+                nativeReceiveHardwareBufferCrossProcessProbe(
+                    socketFd,
+                )
+            }.getOrElse {
+                "ahb-xproc-recv=jni-failed;error=${it.javaClass.simpleName}"
+            }
+        } else {
+            "ahb-xproc-recv=native-host-not-loaded"
+        }
 
     fun status(context: Context): NativeHostStatus {
         val appInfo = context.applicationInfo
