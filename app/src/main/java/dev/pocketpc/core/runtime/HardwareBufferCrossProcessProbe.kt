@@ -32,63 +32,135 @@ object HardwareBufferCrossProcessProbe {
         val mainPid = Process.myPid()
         val completed = AtomicBoolean(false)
         val handler = Handler(Looper.getMainLooper())
-        var senderResult = "ahb-xproc-send=not-executed"
+        val stateLock = Any()
 
-        fun finish(
-            receiverPid: Int,
-            receiverResult: String,
-            error: String? = null,
+        var senderResult: String? = null
+        var receiverPid: Int? = null
+        var receiverResult: String? = null
+        var pendingError: String? = null
+        var timeout: Runnable? = null
+
+        fun complete(
+            forcedError: String? = null,
+            forcedReceiverPid: Int? = null,
+            forcedReceiverResult: String? = null,
         ) {
             if (!completed.compareAndSet(false, true)) {
                 return
             }
+            timeout?.let(handler::removeCallbacks)
+
+            val snapshot =
+                synchronized(stateLock) {
+                    ProbeSnapshot(
+                        senderResult =
+                            senderResult
+                                ?: "ahb-xproc-send=not-executed",
+                        receiverPid =
+                            forcedReceiverPid
+                                ?: receiverPid
+                                ?: -1,
+                        receiverResult =
+                            forcedReceiverResult
+                                ?: receiverResult
+                                ?: "ahb-xproc-recv=not-executed",
+                        error = forcedError ?: pendingError,
+                    )
+                }
+
             val distinct =
-                receiverPid > 0 &&
-                    receiverPid != mainPid
+                snapshot.receiverPid > 0 &&
+                    snapshot.receiverPid != mainPid
             val sendOk =
-                senderResult.startsWith(
+                snapshot.senderResult.startsWith(
                     "ahb-xproc-send=ok;",
                 )
             val receiveOk =
-                receiverResult.startsWith(
+                snapshot.receiverResult.startsWith(
                     "ahb-xproc-recv=ok;",
                 ) &&
-                    receiverResult.contains(
+                    snapshot.receiverResult.contains(
                         ";descriptor_match=yes",
                     ) &&
-                    receiverResult.contains(
+                    snapshot.receiverResult.contains(
                         ";pattern_match=yes",
                     )
+
             onComplete(
                 HardwareBufferCrossProcessEvidence(
                     senderPid = mainPid,
-                    receiverPid = receiverPid,
-                    senderResult = senderResult,
-                    receiverResult = receiverResult,
+                    receiverPid = snapshot.receiverPid,
+                    senderResult = snapshot.senderResult,
+                    receiverResult = snapshot.receiverResult,
                     distinctProcesses = distinct,
                     handleTransportVerified =
                         distinct &&
                             sendOk &&
                             receiveOk &&
-                            error == null,
+                            snapshot.error == null,
                     vulkanWsiValidated = false,
-                    error = error,
+                    error = snapshot.error,
                 ),
             )
         }
 
-        val timeout =
+        fun tryCompleteWhenBothSidesRecorded() {
+            val ready =
+                synchronized(stateLock) {
+                    senderResult != null &&
+                        receiverResult != null
+                }
+            if (ready) {
+                complete()
+            }
+        }
+
+        fun recordSender(
+            result: String,
+            error: String? = null,
+        ) {
+            synchronized(stateLock) {
+                if (senderResult == null) {
+                    senderResult = result
+                }
+                if (pendingError == null && error != null) {
+                    pendingError = error
+                }
+            }
+            tryCompleteWhenBothSidesRecorded()
+        }
+
+        fun recordReceiver(
+            pid: Int,
+            result: String,
+            error: String? = null,
+        ) {
+            synchronized(stateLock) {
+                if (receiverResult == null) {
+                    receiverPid = pid
+                    receiverResult = result
+                }
+                if (pendingError == null && error != null) {
+                    pendingError = error
+                }
+            }
+            tryCompleteWhenBothSidesRecorded()
+        }
+
+        timeout =
             Runnable {
-                finish(
-                    receiverPid = -1,
-                    receiverResult =
-                        "ahb-xproc-recv=timeout",
-                    error =
+                complete(
+                    forcedError =
                         "AHARDWAREBUFFER_CROSS_PROCESS_TIMEOUT",
+                    forcedReceiverResult =
+                        synchronized(stateLock) {
+                            receiverResult
+                                ?: "ahb-xproc-recv=timeout"
+                        },
                 )
             }
         handler.postDelayed(
-            timeout,
+            requireNotNull(timeout),
             TIMEOUT_MILLIS,
         )
 
@@ -103,16 +175,17 @@ object HardwareBufferCrossProcessProbe {
                             HardwareBufferCrossProcessProbeService
                                 .RESULT_RECEIVED
                     ) {
-                        finish(
-                            receiverPid = -1,
-                            receiverResult =
+                        recordReceiver(
+                            pid = -1,
+                            result =
                                 "ahb-xproc-recv=invalid-result-code",
                             error =
                                 "AHARDWAREBUFFER_CROSS_PROCESS_RESULT_INVALID",
                         )
                         return
                     }
-                    val receiverPid =
+
+                    val remotePid =
                         resultData?.getInt(
                             HardwareBufferCrossProcessProbeService
                                 .KEY_RECEIVER_PID,
@@ -124,24 +197,21 @@ object HardwareBufferCrossProcessProbe {
                                 .KEY_SENDER_PID,
                             -1,
                         ) ?: -1
-                    val receiveResult =
+                    val result =
                         resultData?.getString(
                             HardwareBufferCrossProcessProbeService
                                 .KEY_RECEIVE_RESULT,
                         ) ?: "ahb-xproc-recv=missing-result"
 
-                    if (echoedSenderPid != mainPid) {
-                        finish(
-                            receiverPid = receiverPid,
-                            receiverResult = receiveResult,
-                            error =
-                                "AHARDWAREBUFFER_SENDER_PID_MISMATCH",
-                        )
-                        return
-                    }
-                    finish(
-                        receiverPid = receiverPid,
-                        receiverResult = receiveResult,
+                    recordReceiver(
+                        pid = remotePid,
+                        result = result,
+                        error =
+                            if (echoedSenderPid != mainPid) {
+                                "AHARDWAREBUFFER_SENDER_PID_MISMATCH"
+                            } else {
+                                null
+                            },
                     )
                 }
             }
@@ -151,12 +221,12 @@ object HardwareBufferCrossProcessProbe {
                 ParcelFileDescriptor
                     .createReliableSocketPair()
             }.getOrElse { error ->
-                finish(
-                    receiverPid = -1,
-                    receiverResult =
-                        "ahb-xproc-recv=socketpair-failed",
-                    error =
+                complete(
+                    forcedError =
                         "AHARDWAREBUFFER_SOCKETPAIR_FAILED:${error.javaClass.simpleName}",
+                    forcedReceiverPid = -1,
+                    forcedReceiverResult =
+                        "ahb-xproc-recv=socketpair-failed",
                 )
                 return
             }
@@ -191,12 +261,12 @@ object HardwareBufferCrossProcessProbe {
                     appContext.startService(intent)
                 }.getOrNull()
             if (started == null) {
-                finish(
-                    receiverPid = -1,
-                    receiverResult =
-                        "ahb-xproc-recv=service-start-failed",
-                    error =
+                complete(
+                    forcedError =
                         "AHARDWAREBUFFER_PROBE_SERVICE_START_FAILED",
+                    forcedReceiverPid = -1,
+                    forcedReceiverResult =
+                        "ahb-xproc-recv=service-start-failed",
                 )
                 return
             }
@@ -204,29 +274,30 @@ object HardwareBufferCrossProcessProbe {
             runCatching {
                 receiverSocket.close()
             }
-            senderResult =
+
+            val result =
                 NativeRuntimeHost
                     .sendHardwareBufferCrossProcessProbe(
                         senderSocket.fd,
                     )
-            if (
-                !senderResult.startsWith(
-                    "ahb-xproc-send=ok;",
-                )
-            ) {
-                finish(
-                    receiverPid = -1,
-                    receiverResult =
-                        "ahb-xproc-recv=sender-failed",
-                    error =
-                        "AHARDWAREBUFFER_CROSS_PROCESS_SEND_FAILED",
-                )
-            }
+            recordSender(
+                result = result,
+                error =
+                    if (
+                        result.startsWith(
+                            "ahb-xproc-send=ok;",
+                        )
+                    ) {
+                        null
+                    } else {
+                        "AHARDWAREBUFFER_CROSS_PROCESS_SEND_FAILED"
+                    },
+            )
         } catch (error: Throwable) {
-            finish(
-                receiverPid = -1,
-                receiverResult =
-                    "ahb-xproc-recv=probe-failed",
+            recordSender(
+                result =
+                    "ahb-xproc-send=probe-failed;" +
+                        "error=${error.javaClass.simpleName}",
                 error =
                     "AHARDWAREBUFFER_CROSS_PROCESS_FAILED:${error.javaClass.simpleName}",
             )
@@ -239,4 +310,11 @@ object HardwareBufferCrossProcessProbe {
             }
         }
     }
+
+    private data class ProbeSnapshot(
+        val senderResult: String,
+        val receiverPid: Int,
+        val receiverResult: String,
+        val error: String?,
+    )
 }
