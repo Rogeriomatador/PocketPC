@@ -8,6 +8,7 @@ add_library(
     hardware_buffer_cross_process.cpp
     hardware_buffer_resource_broker.cpp
     vulkan_wsi_capability_probe.cpp
+    vulkan_external_resource_probe.cpp
 )
 
 find_library(vulkan_lib vulkan)
