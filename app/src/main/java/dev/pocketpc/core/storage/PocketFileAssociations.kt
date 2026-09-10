@@ -78,6 +78,12 @@ fun resolvePocketFileAssociation(
                 handler = PocketFileHandler.DISK_IMAGE_MANAGER,
                 displayName = "Gerenciador de imagens de disco",
                 route = route.route,
+                readiness =
+                    if (extension == "iso") {
+                        PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL
+                    } else {
+                        PocketFileHandlerReadiness.ROUTE_ONLY
+                    },
             )
 
         PocketFileRoute.POCKET_INTERNAL_APP ->
