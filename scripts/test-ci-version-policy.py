@@ -116,10 +116,18 @@ def main() -> int:
         "scripts/verify-android-build-lock.py",
         "scripts/test-kotlin-source-regressions.py",
         "scripts/test-termux-aapt2-policy.py",
+        '"git", "rev-list", "--count", "HEAD"',
+        "0.1.0-alpha22.home.",
     )
     for sentinel in required_home_ota:
         if sentinel not in home_ota_text:
             failures.append(f"home-ota missing sentinel: {sentinel}")
+
+    if "GITHUB_RUN_NUMBER" in home_ota_text:
+        failures.append(
+            "home-ota must not derive Android versionCode from workflow run number; "
+            "use git commit count so local and GitHub OTA builds share one monotonic sequence"
+        )
 
     hardcoded_toolchain_patterns = (
         r'platforms;android-[0-9]+(?:[.][0-9]+)?',
