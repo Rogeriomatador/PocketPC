@@ -32,6 +32,8 @@ data class HardwareBufferProbeRecord(
                 width == EXPECTED_WIDTH &&
                 height == EXPECTED_HEIGHT &&
                 layers == EXPECTED_LAYERS &&
+                format != null &&
+                format > 0 &&
                 stride != null &&
                 stride >= EXPECTED_WIDTH &&
                 lockResult == 0 &&
@@ -60,6 +62,9 @@ object HardwareBufferProbeProtocol {
         if (raw.isBlank() || raw.length > MAX_RECORD_LENGTH) {
             return null
         }
+        if (raw.any { it == '\u0000' || it == '\r' || it == '\n' }) {
+            return null
+        }
 
         val fields = LinkedHashMap<String, String>()
         for (token in raw.split(';')) {
@@ -79,7 +84,21 @@ object HardwareBufferProbeProtocol {
             return null
         }
 
+        val oppositeSide =
+            when (expectedSide) {
+                HardwareBufferProbeSide.SEND ->
+                    HardwareBufferProbeSide.RECEIVE
+                HardwareBufferProbeSide.RECEIVE ->
+                    HardwareBufferProbeSide.SEND
+            }
+        if (oppositeSide.prefix in fields) {
+            return null
+        }
+
         val status = fields[expectedSide.prefix] ?: return null
+        if (!STATUS.matches(status)) {
+            return null
+        }
         val protocol = fields["protocol"]?.toIntOrNull() ?: return null
         val pid = fields["pid"]?.toIntOrNull() ?: return null
 
@@ -121,6 +140,7 @@ object HardwareBufferProbeProtocol {
 
     private const val MAX_RECORD_LENGTH = 2_048
     private val FIELD_NAME = Regex("^[a-z0-9_-]{1,64}$")
+    private val STATUS = Regex("^[a-z0-9-]{1,64}$")
     private val ALLOWED_FIELDS =
         setOf(
             "ahb-xproc-send",
