@@ -43,6 +43,8 @@ BRIDGE_FILES = (
     "pocketpc_graphics_handle_binding.c",
     "pocketpc_guest_graphics_receive.h",
     "pocketpc_guest_graphics_receive.c",
+    "pocketpc_external_image_fd_protocol.h",
+    "pocketpc_external_image_fd_protocol.c",
     "pocketpc_surface_writer.h",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.h",
@@ -57,6 +59,7 @@ UNIX_ONLY_C_FILES = {
     "pocketpc_fd_transport.c",
     "pocketpc_graphics_handle_binding.c",
     "pocketpc_guest_graphics_receive.c",
+    "pocketpc_external_image_fd_protocol.c",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.c",
     "pocketpc_wine_window_bridge.c",
@@ -173,10 +176,7 @@ def main() -> int:
             "WINE_LICENSE_EVIDENCE_MISMATCH"
         )
 
-    destination = (
-        source /
-        "dlls/winepocketpc.drv"
-    )
+    destination = source / "dlls/winepocketpc.drv"
     if destination.exists():
         raise SystemExit(
             "WINE_POCKETPC_DRIVER_DESTINATION_ALREADY_EXISTS"
@@ -194,16 +194,13 @@ def main() -> int:
         dst = destination / name
         shutil.copyfile(src, dst)
         if name in UNIX_ONLY_C_FILES:
-            original = dst.read_text(
-                encoding="utf-8",
-            )
+            original = dst.read_text(encoding="utf-8")
             if "#pragma makedep unix" in original:
                 raise SystemExit(
                     f"BRIDGE_SOURCE_ALREADY_HAS_WINE_MAKEDEP:{name}"
                 )
             dst.write_text(
-                UNIX_MAKEDEP_PREAMBLE +
-                original,
+                UNIX_MAKEDEP_PREAMBLE + original,
                 encoding="utf-8",
             )
         copied.append(
@@ -224,16 +221,13 @@ def main() -> int:
         dst = destination / name
         shutil.copyfile(src, dst)
         if name in UNIX_ONLY_C_FILES:
-            original = dst.read_text(
-                encoding="utf-8",
-            )
+            original = dst.read_text(encoding="utf-8")
             if "#pragma makedep unix" in original:
                 raise SystemExit(
                     f"BRIDGE_SOURCE_ALREADY_HAS_WINE_MAKEDEP:{name}"
                 )
             dst.write_text(
-                UNIX_MAKEDEP_PREAMBLE +
-                original,
+                UNIX_MAKEDEP_PREAMBLE + original,
                 encoding="utf-8",
             )
         copied.append(
@@ -248,13 +242,9 @@ def main() -> int:
     configure_ac = source / "configure.ac"
     configure = source / "configure"
     if not configure_ac.is_file():
-        raise SystemExit(
-            "WINE_CONFIGURE_AC_MISSING"
-        )
+        raise SystemExit("WINE_CONFIGURE_AC_MISSING")
     if not configure.is_file():
-        raise SystemExit(
-            "WINE_CONFIGURE_MISSING"
-        )
+        raise SystemExit("WINE_CONFIGURE_MISSING")
 
     ac_changed = patch_once(
         configure_ac,
@@ -268,7 +258,7 @@ def main() -> int:
     )
 
     evidence = {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "status": "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT_NOT_RUNTIME_TESTED",
         "wineVersion": lock["version"],
         "wineCommit": lock["commit"],
@@ -277,6 +267,8 @@ def main() -> int:
         "protocolVersion": 4,
         "guestGraphicsProtocolVersion": 1,
         "graphicsFdTransportProtocolVersion": 1,
+        "externalImageFdProtocol": "PVI1",
+        "externalImageFdProtocolVersion": 1,
         "graphicsSelection": {
             "registryPath": r"HKCU\Software\Wine\Drivers",
             "valueName": "Graphics",
@@ -290,21 +282,24 @@ def main() -> int:
             "pCreateWindowSurface",
             "pWindowPosChanging",
             "pWindowPosChanged",
-            "pVulkanInit_fail_closed_v47",
+            "pVulkanInit_v47_fail_closed_visible_headless_diagnostic",
         ],
         "surfaceCallbackImplemented": True,
         "inputInjectionImplemented": True,
         "vulkanAbiEntryPointImplemented": True,
         "vulkanAbiDriverVersion": 47,
-        "vulkanSurfaceCreateImplemented": False,
-        "vulkanPresentationSupportImplemented": False,
-        "vulkanDriverImplemented": False,
+        "vulkanHeadlessDiagnosticImplemented": True,
+        "vulkanExternalFdExtensionMappingImplemented": True,
+        "vulkanVisibleSurfaceCreateImplemented": False,
+        "vulkanVisiblePresentationSupportImplemented": False,
+        "vulkanDriverProductionImplemented": False,
         "guestGraphicsDescriptorProtocolImplemented": True,
         "guestGraphicsOwnershipProtocolImplemented": True,
         "guestGraphicsAncillaryFdTransportPrimitiveImplemented": True,
         "guestGraphicsHandleBindingImplemented": True,
         "guestGraphicsReceivePrimitiveImplemented": True,
-        "guestGraphicsHandleReceiveImplemented": False,
+        "externalImagePvi1ProtocolImplemented": True,
+        "guestGraphicsHandleReceiveIntegrated": False,
         "guestGraphicsImportImplemented": False,
         "guestGraphicsSynchronizationImplemented": False,
         "openglDriverImplemented": False,
@@ -312,9 +307,7 @@ def main() -> int:
         "generatedConfigurePatched": configure_changed,
         "files": copied,
         "wineBuildClassification": {
-            "peModuleSources": [
-                "dllmain.c"
-            ],
+            "peModuleSources": ["dllmain.c"],
             "unixLibrarySources": [
                 "pocketpcdrv_main.c",
                 "input.c",
@@ -326,22 +319,25 @@ def main() -> int:
                 "pocketpc_fd_transport.c",
                 "pocketpc_graphics_handle_binding.c",
                 "pocketpc_guest_graphics_receive.c",
+                "pocketpc_external_image_fd_protocol.c",
                 "pocketpc_surface_writer.c",
                 "pocketpc_wine_window_map.c",
-                "pocketpc_wine_window_bridge.c"
+                "pocketpc_wine_window_bridge.c",
             ],
-            "bridgeSourcesMarkedUnixOnly": True
+            "bridgeSourcesMarkedUnixOnly": True,
         },
         "notExecuted": [
             "Wine configure",
             "winepocketpc.drv compilation",
             "winepocketpc.so compilation",
             "pVulkanInit through Wine",
+            "headless diagnostic Vulkan surface through Wine",
+            "PVI1 external image receive through Wine",
             "authenticated guest graphics receive integration",
             "guest graphics Vulkan import",
             "guest graphics GPU synchronization",
-            "Wine Vulkan surface creation",
-            "Vulkan presentation support",
+            "visible Wine Vulkan surface creation",
+            "visible Vulkan presentation support",
             "Wine driver load",
             "HWND lifecycle through Wine",
             "surface presentation through Wine",
@@ -353,54 +349,27 @@ def main() -> int:
         ],
     }
 
-    evidence_path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    evidence_path.parent.mkdir(parents=True, exist_ok=True)
     evidence_path.write_text(
-        json.dumps(
-            evidence,
-            indent=2,
-        ) + "\n",
+        json.dumps(evidence, indent=2) + "\n",
         encoding="utf-8",
     )
 
-    print(
-        "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT"
-    )
-    print(
-        f"wine_commit={lock['commit']}"
-    )
-    print(
-        "graphics_driver=winepocketpc.drv"
-    )
-    print(
-        "vulkan_abi_entrypoint=true"
-    )
-    print(
-        "guest_graphics_descriptor_protocol=true"
-    )
-    print(
-        "guest_graphics_ownership_protocol=true"
-    )
-    print(
-        "guest_graphics_ancillary_fd_transport_primitive=true"
-    )
-    print(
-        "guest_graphics_handle_binding=true"
-    )
-    print(
-        "guest_graphics_receive_primitive=true"
-    )
-    print(
-        "guest_graphics_handle_receive=false"
-    )
-    print(
-        "vulkan_surface_implemented=false"
-    )
-    print(
-        "runtime_execution_evidence=false"
-    )
+    print("WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT")
+    print(f"wine_commit={lock['commit']}")
+    print("graphics_driver=winepocketpc.drv")
+    print("vulkan_abi_entrypoint=true")
+    print("vulkan_headless_diagnostic=true")
+    print("vulkan_external_fd_extension_mapping=true")
+    print("guest_graphics_descriptor_protocol=true")
+    print("guest_graphics_ownership_protocol=true")
+    print("guest_graphics_ancillary_fd_transport_primitive=true")
+    print("guest_graphics_handle_binding=true")
+    print("guest_graphics_receive_primitive=true")
+    print("external_image_fd_protocol=PVI1")
+    print("guest_graphics_handle_receive_integrated=false")
+    print("visible_vulkan_surface_implemented=false")
+    print("runtime_execution_evidence=false")
     return 0
 
 
