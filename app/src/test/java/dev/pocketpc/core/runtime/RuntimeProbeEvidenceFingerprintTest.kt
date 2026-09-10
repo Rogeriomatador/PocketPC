@@ -67,6 +67,24 @@ class RuntimeProbeEvidenceFingerprintTest {
                             bytes = 1,
                             executable = true,
                         ),
+                        GuestToolFile(
+                            path = "lib/wine/x86_64-windows/winepocketpc.drv",
+                            sha256 = "d".repeat(64),
+                            bytes = 1,
+                            executable = false,
+                        ),
+                        GuestToolFile(
+                            path = "lib/wine/x86_64-unix/winepocketpc.so",
+                            sha256 = "e".repeat(64),
+                            bytes = 1,
+                            executable = false,
+                        ),
+                        GuestToolFile(
+                            path = "share/tests/pocketpc-win64-smoke.exe",
+                            sha256 = "f".repeat(64),
+                            bytes = 1,
+                            executable = false,
+                        ),
                     ),
                 executionMode = "box64-x86_64",
             )
@@ -82,6 +100,7 @@ class RuntimeProbeEvidenceFingerprintTest {
                 .isEmpty(),
         )
     }
+
     @Test
     fun graphicsLayerFingerprintChangesWhenDllHashChanges() {
         val base =
@@ -142,5 +161,4 @@ class RuntimeProbeEvidenceFingerprintTest {
                 .of(changed),
         )
     }
-
 }
