@@ -13,6 +13,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.storage.PocketFileHandler
@@ -42,6 +45,13 @@ fun PocketFileOpenOverlay() {
         current.fileName
             .substringAfterLast('.', "")
             .lowercase()
+
+    var editorDirty by remember(currentRequest.uri) {
+        mutableStateOf(false)
+    }
+    var discardRequested by remember(currentRequest.uri) {
+        mutableStateOf(false)
+    }
 
     val implemented =
         current.association.readiness ==
@@ -79,12 +89,25 @@ fun PocketFileOpenOverlay() {
             implemented &&
             !isVideoPlayer
 
+    fun requestClose() {
+        if (isTextEditor && editorDirty) {
+            discardRequested = true
+        } else {
+            PocketFileOpenCoordinator.dismiss()
+        }
+    }
+
     AlertDialog(
-        onDismissRequest = PocketFileOpenCoordinator::dismiss,
+        onDismissRequest = ::requestClose,
         title = {
             Text(
                 when {
-                    isTextEditor -> "Editor de Texto do PocketPC"
+                    isTextEditor ->
+                        if (editorDirty) {
+                            "Editor de Texto do PocketPC • Modificado"
+                        } else {
+                            "Editor de Texto do PocketPC"
+                        }
                     isSvgViewer || isImageViewer -> "Fotos do PocketPC"
                     isZipViewer -> "Compactador do PocketPC"
                     isPdfViewer -> "Leitor de PDF do PocketPC"
@@ -106,7 +129,15 @@ fun PocketFileOpenOverlay() {
 
                 when {
                     isTextEditor ->
-                        PocketTextEditorPane(request = currentRequest)
+                        PocketTextEditorPane(
+                            request = currentRequest,
+                            onDirtyChange = { dirty ->
+                                editorDirty = dirty
+                                if (!dirty) {
+                                    discardRequested = false
+                                }
+                            },
+                        )
 
                     isSvgViewer ->
                         PocketWebDocumentPane(
@@ -191,13 +222,21 @@ fun PocketFileOpenOverlay() {
                     }
                 }
 
-                PocketFileQuickActions(
-                    request = currentRequest,
-                )
+                if (!editorDirty) {
+                    PocketFileQuickActions(
+                        request = currentRequest,
+                    )
+                } else {
+                    Text(
+                        "Salve ou reverta as alterações antes de executar outras ações neste arquivo.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = PocketFileOpenCoordinator::dismiss) {
+            TextButton(onClick = ::requestClose) {
                 Text(
                     if (
                         isTextEditor ||
@@ -219,4 +258,41 @@ fun PocketFileOpenOverlay() {
         },
         modifier = Modifier.padding(8.dp),
     )
+
+    if (discardRequested) {
+        AlertDialog(
+            onDismissRequest = {
+                discardRequested = false
+            },
+            title = {
+                Text("Descartar alterações?")
+            },
+            text = {
+                Text(
+                    "${current.fileName} possui alterações não salvas. " +
+                        "Fechar agora descarta apenas essas alterações em memória."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        editorDirty = false
+                        discardRequested = false
+                        PocketFileOpenCoordinator.dismiss()
+                    },
+                ) {
+                    Text("Descartar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        discardRequested = false
+                    },
+                ) {
+                    Text("Continuar editando")
+                }
+            },
+        )
+    }
 }
