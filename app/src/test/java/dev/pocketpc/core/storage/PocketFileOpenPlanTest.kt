@@ -51,8 +51,23 @@ class PocketFileOpenPlanTest {
     }
 
     @Test
-    fun zipUsesImplementedPocketPcArchiveManagerWithoutAndroidEscape() {
+    fun supportedArchivesUsePocketPcArchiveManagerWithoutAndroidEscape() {
         assertImplementedInternal("projeto.zip", "application/zip", PocketFileHandler.ARCHIVE_MANAGER)
+        assertImplementedInternal("backup.tar", "application/x-tar", PocketFileHandler.ARCHIVE_MANAGER)
+        assertImplementedInternal("dados.gz", "application/gzip", PocketFileHandler.ARCHIVE_MANAGER)
+        assertImplementedInternal("linux.tgz", "application/gzip", PocketFileHandler.ARCHIVE_MANAGER)
+        assertImplementedInternal("fontes.tar.gz", "application/gzip", PocketFileHandler.ARCHIVE_MANAGER)
+    }
+
+    @Test
+    fun unsupportedArchiveFormatsStayInternalButDoNotPretendHandlerIsReady() {
+        for (name in listOf("backup.rar", "pacote.7z", "dados.bz2", "dados.xz", "driver.cab")) {
+            val plan = planPocketFileOpen(name)
+            assertEquals(PocketFileHandler.ARCHIVE_MANAGER, plan.association.handler)
+            assertEquals(PocketFileHandlerReadiness.ROUTE_ONLY, plan.association.readiness)
+            assertFalse(plan.canAttemptNow)
+            assertFalse(plan.leavesPocketPc)
+        }
     }
 
     @Test
@@ -86,15 +101,6 @@ class PocketFileOpenPlanTest {
             assertFalse(plan.canAttemptNow)
             assertFalse(plan.leavesPocketPc)
         }
-    }
-
-    @Test
-    fun rarHasPocketPcAssociationButDoesNotPretendHandlerIsReady() {
-        val plan = planPocketFileOpen("backup.rar")
-        assertEquals(PocketFileHandler.ARCHIVE_MANAGER, plan.association.handler)
-        assertEquals(PocketFileHandlerReadiness.ROUTE_ONLY, plan.association.readiness)
-        assertFalse(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
     }
 
     @Test
