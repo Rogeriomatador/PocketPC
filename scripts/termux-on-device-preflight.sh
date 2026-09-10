@@ -137,6 +137,10 @@ if [ ! -f "$ANDROID_JAR" ]; then
 fi
 
 echo
+echo "Termux repository"
+bash "$ROOT/scripts/termux-repository-check.sh" diagnostic || true
+
+echo
 echo "Android SDK"
 echo "  root=$ANDROID_HOME_CANDIDATE"
 if [ -n "$ANDROID_JAR" ]; then
@@ -158,7 +162,7 @@ fi
 if has aapt2; then
   echo "  aapt2_version=$(aapt2 version 2>&1 | head -1)"
   if command -v dpkg-query >/dev/null 2>&1; then
-    AAPT2_PACKAGE_VERSION="$(dpkg-query -W -f='${Version}' aapt2 2>/dev/null || true)"
+    AAPT2_PACKAGE_VERSION="$(dpkg-query -W -f='${Version}' aapt 2>/dev/null || true)"
     echo "  aapt2_package_version=${AAPT2_PACKAGE_VERSION:-unknown}"
   fi
 
