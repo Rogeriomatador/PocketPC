@@ -88,6 +88,38 @@ if "O PocketPC bloqueou a saída automática para o Android." not in browser:
 associations = read("app/src/main/java/dev/pocketpc/core/storage/PocketFileAssociations.kt")
 if "PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL" not in associations:
     errors.append("PocketFileAssociations lost implemented-internal readiness tracking")
+if 'if (extension == "zip")' not in associations:
+    errors.append("ZIP must be the only archive promoted to implemented-internal readiness")
+
+zip_engine = read("app/src/main/java/dev/pocketpc/core/storage/PocketZipArchive.kt")
+for required in (
+    "validatePocketZipEntryPath(entry.name)",
+    "MAX_ZIP_ENTRY_COUNT",
+    "MAX_ZIP_PATH_DEPTH",
+    "MAX_ZIP_FILE_BYTES",
+    "MAX_ZIP_TOTAL_EXTRACTED_BYTES",
+    'require(!normalized.startsWith(\'/\'))',
+    'Regex("^[A-Za-z]:")',
+    'segment != "." && segment != ".."',
+    "runCatching { extractionRoot?.delete() }",
+):
+    if required not in zip_engine:
+        errors.append(f"PocketZipArchive lost security invariant: {required}")
+if "Intent.ACTION_VIEW" in zip_engine:
+    errors.append("PocketZipArchive must never delegate extraction to Android ACTION_VIEW")
+
+zip_pane = read("app/src/main/java/dev/pocketpc/core/ui/PocketZipArchivePane.kt")
+for required in (
+    "inspectPocketZip(context, uri)",
+    "extractPocketZipToDownloads(",
+    '"Extrair em P:\\\\Downloads"',
+):
+    if required not in zip_pane:
+        errors.append(f"PocketZipArchivePane missing internal ZIP flow: {required}")
+
+open_overlay = read("app/src/main/java/dev/pocketpc/core/ui/PocketFileOpenOverlay.kt")
+if open_overlay.count("PocketZipArchivePane(request = currentRequest)") != 1:
+    errors.append("Global file-open overlay must mount exactly one PocketZipArchivePane")
 
 if errors:
     for error in errors:
@@ -102,3 +134,4 @@ print("task_manager_formatter=isolated")
 print("pocket_file_open_boundary=guarded")
 print("pocket_file_overlay=global")
 print("browser_external_escape=explicit_only")
+print("pocket_zip_security=guarded")
