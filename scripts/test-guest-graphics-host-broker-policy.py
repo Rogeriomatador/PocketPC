@@ -62,16 +62,28 @@ def main() -> int:
         failures.append("Box64 graphics audit does not match source lock")
 
     source_evidence = box64_graphics.get("sourceEvidence") or {}
-    if source_evidence.get("wrappedAndroidShmemPresent") is not True:
-        failures.append("wrappedandroidshmem source evidence missing")
-    if source_evidence.get("wrappedAndroidSupportPresent") is not True:
-        failures.append("wrappedandroidsupport source evidence missing")
+    expected_source_evidence = {
+        "wrappedAndroidShmemPresent": True,
+        "wrappedAndroidSupportPresent": True,
+        "directLibandroidWrapperFileVerified": False,
+        "directAhardwareBufferWrapperVerified": False,
+    }
+    for key, expected in expected_source_evidence.items():
+        if source_evidence.get(key) is not expected:
+            failures.append(f"Box64 source evidence mismatch: {key}")
+
+    host_foundation = box64_graphics.get("pocketPcHostFoundation") or {}
     for key in (
-        "directLibandroidWrapperFileVerified",
-        "directAhardwareBufferWrapperVerified",
+        "ahardwareBufferCrossProcessProbeImplemented",
+        "ahardwareBufferResourceBrokerImplemented",
+        "resourceDescriptorProtocolImplemented",
+        "ownershipProtocolImplemented",
+        "vulkanExternalResourceCapabilityProbeImplemented",
+        "ancillaryFdTransportPrimitiveImplemented",
+        "graphicsHandleBindingImplemented",
     ):
-        if source_evidence.get(key) is not False:
-            failures.append(f"unverified Box64 direct bridge promoted: {key}")
+        if host_foundation.get(key) is not True:
+            failures.append(f"host graphics foundation missing: {key}")
 
     guest_gates = box64_graphics.get("guestGates") or {}
     for key in (
@@ -100,6 +112,8 @@ def main() -> int:
         (
             "const val hostAhardwareBufferBrokerImplemented =\n        true",
             "const val externalResourceCapabilityProbeImplemented =\n        true",
+            "const val ancillaryFdTransportPrimitiveImplemented =\n        true",
+            "const val handleBindingImplemented =\n        true",
             "const val box64DirectAhardwareBufferBridgeVerified =\n        false",
             "const val guestReceiveImplemented =\n        false",
             "const val guestImportImplemented =\n        false",
@@ -153,7 +167,10 @@ def main() -> int:
         "Vulkan external resource native probe",
         external_probe_native,
         (
+            "VK_KHR_get_physical_device_properties2",
             "VK_KHR_external_memory_capabilities",
+            "enabled_instance_extensions.push_back",
+            "create_info.enabledExtensionCount",
             "VK_KHR_external_memory_fd",
             "VK_EXT_external_memory_dma_buf",
             "VK_ANDROID_external_memory_android_hardware_buffer",
@@ -169,12 +186,12 @@ def main() -> int:
         "Vulkan external resource Kotlin probe",
         external_probe_kt,
         (
+            "const val PROTOCOL_VERSION = 1",
             "opaqueFdMemoryRouteAdvertised",
             "dmaBufMemoryRouteAdvertised",
             "ahardwareBufferMemoryRouteAdvertised",
             "fdSynchronizationRouteAdvertised",
             "potentialGuestFdTransportRoute",
-            "GuestGraphicsTransportContract" if False else "PROTOCOL_VERSION = 1",
         ),
     )
 
@@ -186,6 +203,9 @@ def main() -> int:
             "GuestGraphicsTransportCandidate.OPAQUE_FD",
             "GuestGraphicsTransportCandidate.DMA_BUF_FD",
             "GuestGraphicsTransportCandidate.AHB_HOST_BROKER_ONLY",
+            "candidateFoundationReady(candidate)",
+            ".ancillaryFdTransportPrimitiveImplemented",
+            ".handleBindingImplemented",
             "BOX64_AHARDWAREBUFFER_BRIDGE_NOT_VERIFIED",
             "GUEST_GRAPHICS_HANDLE_RECEIVE_NOT_IMPLEMENTED",
             "GUEST_GRAPHICS_RESOURCE_IMPORT_NOT_IMPLEMENTED",
@@ -209,6 +229,7 @@ def main() -> int:
     for marker in (
         "VkSurfaceKHR",
         "raw pointer",
+        "SCM_RIGHTS",
         "Host broker implementation does not promote",
         "Roblox",
     ):
@@ -224,6 +245,8 @@ def main() -> int:
     print("GUEST_GRAPHICS_HOST_BROKER_POLICY_OK")
     print("host_ahardwarebuffer_broker_implemented=true")
     print("external_resource_capability_probe_implemented=true")
+    print("ancillary_fd_transport_primitive_implemented=true")
+    print("graphics_handle_binding_implemented=true")
     print("box64_direct_ahardwarebuffer_bridge_verified=false")
     print("guest_receive_implemented=false")
     print("guest_import_implemented=false")
