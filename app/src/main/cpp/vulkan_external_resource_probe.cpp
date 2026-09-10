@@ -11,6 +11,10 @@ namespace {
 
 constexpr uint32_t kProbeProtocol = 1;
 constexpr uint32_t kMaximumEnumeratedExtensions = 4096;
+constexpr const char* kGetPhysicalDeviceProperties2Extension =
+    "VK_KHR_get_physical_device_properties2";
+constexpr const char* kExternalMemoryCapabilitiesExtension =
+    "VK_KHR_external_memory_capabilities";
 
 jstring JString(JNIEnv* env, const std::string& value) {
     return env->NewStringUTF(value.c_str());
@@ -117,6 +121,26 @@ Java_dev_pocketpc_core_runtime_VulkanExternalResourceProbe_nativeProbe(
         instance_extensions.resize(count);
     }
 
+    const bool has_get_physical_device_properties2 =
+        HasExtension(
+            instance_extensions,
+            kGetPhysicalDeviceProperties2Extension);
+    const bool has_external_memory_capabilities =
+        HasExtension(
+            instance_extensions,
+            kExternalMemoryCapabilitiesExtension);
+
+    std::vector<const char*> enabled_instance_extensions;
+    if (
+        has_get_physical_device_properties2 &&
+        has_external_memory_capabilities
+    ) {
+        enabled_instance_extensions.push_back(
+            kGetPhysicalDeviceProperties2Extension);
+        enabled_instance_extensions.push_back(
+            kExternalMemoryCapabilitiesExtension);
+    }
+
     VkApplicationInfo application_info {};
     application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     application_info.pApplicationName = "PocketPC External Resource Probe";
@@ -128,6 +152,12 @@ Java_dev_pocketpc_core_runtime_VulkanExternalResourceProbe_nativeProbe(
     VkInstanceCreateInfo create_info {};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &application_info;
+    create_info.enabledExtensionCount =
+        static_cast<uint32_t>(enabled_instance_extensions.size());
+    create_info.ppEnabledExtensionNames =
+        enabled_instance_extensions.empty()
+            ? nullptr
+            : enabled_instance_extensions.data();
 
     VkInstance instance = VK_NULL_HANDLE;
     const VkResult create_result =
@@ -228,11 +258,18 @@ Java_dev_pocketpc_core_runtime_VulkanExternalResourceProbe_nativeProbe(
         device_extensions.resize(count);
     }
 
-    auto query_external_buffer_properties =
-        reinterpret_cast<PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHR>(
-            vkGetInstanceProcAddr(
-                instance,
-                "vkGetPhysicalDeviceExternalBufferPropertiesKHR"));
+    PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHR
+        query_external_buffer_properties = nullptr;
+    if (
+        enabled_instance_extensions.size() == 2u
+    ) {
+        query_external_buffer_properties =
+            reinterpret_cast<
+                PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHR>(
+                vkGetInstanceProcAddr(
+                    instance,
+                    "vkGetPhysicalDeviceExternalBufferPropertiesKHR"));
+    }
 
     ExternalBufferSupport opaque_fd {};
     ExternalBufferSupport ahb {};
@@ -272,9 +309,7 @@ Java_dev_pocketpc_core_runtime_VulkanExternalResourceProbe_nativeProbe(
     AppendFlag(
         output,
         "khr_external_memory_capabilities",
-        HasExtension(
-            instance_extensions,
-            "VK_KHR_external_memory_capabilities"));
+        has_external_memory_capabilities);
     AppendFlag(
         output,
         "khr_external_memory",
