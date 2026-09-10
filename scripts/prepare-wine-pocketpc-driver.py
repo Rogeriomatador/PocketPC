@@ -35,6 +35,8 @@ DRIVER_FILES = (
 BRIDGE_FILES = (
     "pocketpc_display_bridge.h",
     "pocketpc_display_bridge.c",
+    "pocketpc_graphics_transport.h",
+    "pocketpc_graphics_transport.c",
     "pocketpc_surface_writer.h",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.h",
@@ -45,6 +47,7 @@ BRIDGE_FILES = (
 
 UNIX_ONLY_C_FILES = {
     "pocketpc_display_bridge.c",
+    "pocketpc_graphics_transport.c",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.c",
     "pocketpc_wine_window_bridge.c",
@@ -229,7 +232,7 @@ def main() -> int:
                 "path": f"dlls/winepocketpc.drv/{name}",
                 "sha256": digest(dst),
                 "bytes": dst.stat().st_size,
-                "source": "PocketPC display bridge",
+                "source": "PocketPC display/graphics bridge",
             }
         )
 
@@ -256,13 +259,14 @@ def main() -> int:
     )
 
     evidence = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "status": "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT_NOT_RUNTIME_TESTED",
         "wineVersion": lock["version"],
         "wineCommit": lock["commit"],
         "driverName": "winepocketpc.drv",
         "unixLibrary": "winepocketpc.so",
         "protocolVersion": 4,
+        "guestGraphicsProtocolVersion": 1,
         "graphicsSelection": {
             "registryPath": r"HKCU\Software\Wine\Drivers",
             "valueName": "Graphics",
@@ -285,6 +289,11 @@ def main() -> int:
         "vulkanSurfaceCreateImplemented": False,
         "vulkanPresentationSupportImplemented": False,
         "vulkanDriverImplemented": False,
+        "guestGraphicsDescriptorProtocolImplemented": True,
+        "guestGraphicsOwnershipProtocolImplemented": True,
+        "guestGraphicsHandleReceiveImplemented": False,
+        "guestGraphicsImportImplemented": False,
+        "guestGraphicsSynchronizationImplemented": False,
         "openglDriverImplemented": False,
         "configureAcPatched": ac_changed,
         "generatedConfigurePatched": configure_changed,
@@ -300,6 +309,7 @@ def main() -> int:
                 "vulkan.c",
                 "window.c",
                 "pocketpc_display_bridge.c",
+                "pocketpc_graphics_transport.c",
                 "pocketpc_surface_writer.c",
                 "pocketpc_wine_window_map.c",
                 "pocketpc_wine_window_bridge.c"
@@ -311,6 +321,9 @@ def main() -> int:
             "winepocketpc.drv compilation",
             "winepocketpc.so compilation",
             "pVulkanInit through Wine",
+            "guest graphics handle receive",
+            "guest graphics Vulkan import",
+            "guest graphics GPU synchronization",
             "Wine Vulkan surface creation",
             "Vulkan presentation support",
             "Wine driver load",
@@ -347,6 +360,15 @@ def main() -> int:
     )
     print(
         "vulkan_abi_entrypoint=true"
+    )
+    print(
+        "guest_graphics_descriptor_protocol=true"
+    )
+    print(
+        "guest_graphics_ownership_protocol=true"
+    )
+    print(
+        "guest_graphics_handle_receive=false"
     )
     print(
         "vulkan_surface_implemented=false"
