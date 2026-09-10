@@ -13,6 +13,7 @@ data class GuestGraphicsTransportPlan(
     val hostFoundationReady: Boolean,
     val guestTransportReady: Boolean,
     val blockers: List<String>,
+    val canonicalAhbCapabilityReady: Boolean = false,
 ) {
     val implementationAttemptEligible: Boolean
         get() =
@@ -26,6 +27,7 @@ data class GuestGraphicsTransportPlan(
 object GuestGraphicsTransportPlanner {
     fun plan(
         snapshot: VulkanExternalResourceSnapshot?,
+        ahbImportSnapshot: VulkanAhardwareBufferImportSnapshot? = null,
     ): GuestGraphicsTransportPlan {
         if (snapshot?.probeSucceeded != true) {
             return GuestGraphicsTransportPlan(
@@ -36,8 +38,13 @@ object GuestGraphicsTransportPlanner {
                 blockers = listOf(
                     "HOST_VULKAN_EXTERNAL_RESOURCE_PROBE_NOT_READY",
                 ),
+                canonicalAhbCapabilityReady =
+                    ahbImportSnapshot?.canonicalImportQuerySupported == true,
             )
         }
+
+        val canonicalAhbReady =
+            ahbImportSnapshot?.canonicalImportQuerySupported == true
 
         val candidate =
             when {
@@ -71,6 +78,9 @@ object GuestGraphicsTransportPlanner {
                 blockers += "NO_VULKAN_EXTERNAL_RESOURCE_ROUTE_ADVERTISED"
 
             GuestGraphicsTransportCandidate.AHB_HOST_BROKER_ONLY -> {
+                if (!canonicalAhbReady) {
+                    blockers += "AHB_CANONICAL_IMPORT_QUERY_NOT_VERIFIED"
+                }
                 if (
                     !GuestGraphicsTransportContract
                         .box64DirectAhardwareBufferBridgeVerified
@@ -108,6 +118,7 @@ object GuestGraphicsTransportPlanner {
             hostFoundationReady = hostFoundationReady,
             guestTransportReady = guestReady,
             blockers = blockers.distinct(),
+            canonicalAhbCapabilityReady = canonicalAhbReady,
         )
     }
 
@@ -117,7 +128,9 @@ object GuestGraphicsTransportPlanner {
             GuestGraphicsTransportContract
                 .ownershipProtocolImplemented &&
             GuestGraphicsTransportContract
-                .externalResourceCapabilityProbeImplemented
+                .externalResourceCapabilityProbeImplemented &&
+            GuestGraphicsTransportContract
+                .guestReceivePrimitiveImplemented
 
     private fun candidateFoundationReady(
         candidate: GuestGraphicsTransportCandidate,
@@ -136,6 +149,8 @@ object GuestGraphicsTransportPlanner {
                 baseFoundationReady() &&
                     GuestGraphicsTransportContract
                         .hostAhardwareBufferBrokerImplemented &&
+                    GuestGraphicsTransportContract
+                        .canonicalAhardwareBufferImportProbeImplemented &&
                     GuestGraphicsTransportContract
                         .handleBindingImplemented
 
