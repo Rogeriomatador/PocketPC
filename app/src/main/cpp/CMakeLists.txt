@@ -6,6 +6,7 @@ add_library(
     SHARED
     runtime_host.cpp
     hardware_buffer_cross_process.cpp
+    vulkan_wsi_capability_probe.cpp
 )
 
 find_library(vulkan_lib vulkan)
