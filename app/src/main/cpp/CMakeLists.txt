@@ -10,6 +10,7 @@ add_library(
     vulkan_wsi_capability_probe.cpp
     vulkan_external_resource_probe.cpp
     vulkan_ahardwarebuffer_import_probe.cpp
+    vulkan_external_image_fd_broker.cpp
 )
 
 find_library(vulkan_lib vulkan)
