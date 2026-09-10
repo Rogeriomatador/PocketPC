@@ -75,8 +75,12 @@ for sentinel in (
 if "termux[.]net" not in repo_check and "termux.net" not in repo_check:
     errors.append("repository check does not recognize termux.net")
 
-if "TERMUX_GOOGLE_PLAY_AAPT2_PLATFORM_INCOMPATIBLE" not in helper:
-    errors.append("AAPT2 helper does not classify the Google Play toolchain limitation")
+if "TERMUX_GOOGLE_PLAY_LOCAL_AAPT2_BUILD_FAIL" not in helper:
+    errors.append("AAPT2 helper does not classify failed pinned local recovery on Google Play")
+if "TERMUX_LOCAL_AAPT2_PLATFORM_PASS_AFTER_BUILD" not in helper:
+    errors.append("AAPT2 helper does not accept the freshly built pinned local AAPT2")
+if "bash scripts/termux-build-modern-aapt2.sh" not in helper:
+    errors.append("AAPT2 helper does not automatically invoke the pinned local builder on Google Play")
 
 if "TERMUX_KOTLIN_COMPILE_PASS_UNIT_TEST_BLOCKED_AAPT2" not in gate:
     errors.append("Kotlin gate does not preserve compile PASS when Google Play AAPT2 blocks unit tests")
@@ -129,6 +133,7 @@ if 'exec bash "$ROOT/scripts/termux-build-modern-aapt2.sh" "$@"' not in local_bu
 for dependency in (
     "libzopfli",
     "zlib",
+    "protobuf-dev",
     "protobuf_generate_PROTOC_EXE",
     "linux-headers",
     "ndk-sysroot",
