@@ -10,6 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 LOCK = ROOT / "toolchains" / "android-build-lock.json"
 ANDROID_CI = ROOT / ".github" / "workflows" / "android-ci.yml"
 WINDOWS_CI = ROOT / ".github" / "workflows" / "windows-local-build-harness.yml"
+HOME_OTA = ROOT / ".github" / "workflows" / "publish-home-test-update.yml"
 
 STALE_VERSION_PATTERNS = (
     r"0[.]1[.]0-alpha(?:1[0-9]|20)\b",
@@ -32,6 +33,7 @@ def main() -> int:
     files = {
         "android-ci": ANDROID_CI,
         "windows-ci": WINDOWS_CI,
+        "home-ota": HOME_OTA,
     }
 
     for label, path in files.items():
@@ -56,6 +58,11 @@ def main() -> int:
         if WINDOWS_CI.is_file()
         else ""
     )
+    home_ota_text = (
+        HOME_OTA.read_text(encoding="utf-8")
+        if HOME_OTA.is_file()
+        else ""
+    )
 
     required_android = (
         "toolchains/android-build-lock.json",
@@ -64,6 +71,14 @@ def main() -> int:
         "scripts/test-desktop-mode-policy.py",
         "scripts/test-update-feed-policy.py",
         "scripts/test-pocketdrive-research-policy.py",
+        "scripts/test-kotlin-source-regressions.py",
+        "scripts/test-termux-aapt2-policy.py",
+        "steps.build_lock.outputs.jdk",
+        "steps.build_lock.outputs.gradle",
+        "steps.build_lock.outputs.platform",
+        "steps.build_lock.outputs.build_tools",
+        "steps.build_lock.outputs.ndk",
+        "steps.build_lock.outputs.cmake",
         "scripts/test-powershell51-compat.py",
         "scripts/test-device-evidence-bundle-verifier.py",
         ':app:testDebugUnitTest :app:lintDebug :app:assembleDebug',
@@ -80,11 +95,49 @@ def main() -> int:
         "scripts/test-device-evidence-bundle-verifier.py",
         "scripts/test-physical-validation-record-verifier.py",
         "scripts/test-first-physical-test-record-verifier.py",
+        "scripts/test-kotlin-source-regressions.py",
+        "scripts/test-termux-aapt2-policy.py",
         "scripts/build-local-windows.ps1",
+        "steps.build_lock.outputs.jdk",
     )
     for sentinel in required_windows:
         if sentinel not in windows_text:
             failures.append(f"windows-ci missing sentinel: {sentinel}")
+
+    required_home_ota = (
+        "toolchains/android-build-lock.json",
+        "id: android_lock",
+        "steps.android_lock.outputs.jdk",
+        "steps.android_lock.outputs.gradle",
+        "steps.android_lock.outputs.platform",
+        "steps.android_lock.outputs.build_tools",
+        "steps.android_lock.outputs.ndk",
+        "steps.android_lock.outputs.cmake",
+        "scripts/verify-android-build-lock.py",
+        "scripts/test-kotlin-source-regressions.py",
+        "scripts/test-termux-aapt2-policy.py",
+    )
+    for sentinel in required_home_ota:
+        if sentinel not in home_ota_text:
+            failures.append(f"home-ota missing sentinel: {sentinel}")
+
+    hardcoded_toolchain_patterns = (
+        r'platforms;android-[0-9]+(?:[.][0-9]+)?',
+        r'build-tools;[0-9]+[.][0-9]+[.][0-9]+',
+        r'ndk;[0-9]+[.][0-9]+[.][0-9]+',
+        r'cmake;[0-9]+[.][0-9]+[.][0-9]+',
+        r"gradle-version:\s*['\"]?[0-9]+[.][0-9]+[.][0-9]+",
+        r"java-version:\s*['\"]?[0-9]+",
+    )
+    for label, text in (
+        ("android-ci", android_text),
+        ("home-ota", home_ota_text),
+    ):
+        for pattern in hardcoded_toolchain_patterns:
+            if re.search(pattern, text):
+                failures.append(
+                    f"{label} hardcodes build toolchain instead of reading the lock: {pattern}"
+                )
 
     if f'versionName={version_name}' in android_text:
         failures.append(
@@ -104,7 +157,7 @@ def main() -> int:
     print("CI_VERSION_POLICY_OK")
     print(f"locked_version={version_name}")
     print(f"locked_version_code={version_code}")
-    print("workflows_checked=2")
+    print("workflows_checked=3")
     return 0
 
 
