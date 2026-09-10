@@ -23,28 +23,52 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Read pinned build toolchain
+        id: build_lock
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          lock = json.loads(Path("toolchains/android-build-lock.json").read_text(encoding="utf-8"))
+          android = lock["android"]
+          values = {
+              "jdk": str(lock["jdk"]["major"]),
+              "gradle": str(lock["gradle"]["version"]),
+              "platform": str(android["platformPackage"]),
+              "build_tools": str(android["buildTools"]),
+              "ndk": str(android["ndk"]),
+              "cmake": str(android["cmake"]),
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              for key, value in values.items():
+                  out.write(f"{key}={value}\n")
+          print("ANDROID_CI_BUILD_LOCK_OK " + " ".join(f"{k}={v}" for k, v in values.items()))
+          PY
+
+      - name: Set up pinned Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.build_lock.outputs.jdk }}
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK + NDK
+      - name: Install Android SDK + NDK from lock
         run: |
           sdkmanager \
             "platform-tools" \
-            "platforms;android-37.0" \
-            "build-tools;36.0.0" \
-            "ndk;29.0.14206865" \
-            "cmake;3.22.1"
+            "${{ steps.build_lock.outputs.platform }}" \
+            "build-tools;${{ steps.build_lock.outputs.build_tools }}" \
+            "ndk;${{ steps.build_lock.outputs.ndk }}" \
+            "cmake;${{ steps.build_lock.outputs.cmake }}"
 
-      - name: Set up Gradle 9.6.0
+      - name: Set up pinned Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.6.0'
+          gradle-version: ${{ steps.build_lock.outputs.gradle }}
 
       - name: Toolchain versions
         run: |
@@ -182,6 +206,12 @@ jobs:
 
       - name: PocketDrive and research policy
         run: python3 scripts/test-pocketdrive-research-policy.py
+
+      - name: Kotlin source regression guards
+        run: python3 scripts/test-kotlin-source-regressions.py
+
+      - name: Termux AAPT2 source policy
+        run: python3 scripts/test-termux-aapt2-policy.py
 
       - name: Parse Windows PowerShell harnesses
         shell: pwsh
