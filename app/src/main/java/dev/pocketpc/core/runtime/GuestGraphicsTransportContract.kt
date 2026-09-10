@@ -23,6 +23,9 @@ object GuestGraphicsTransportContract {
     const val guestReceivePrimitiveImplemented = true
     const val externalImagePvi1ProtocolImplemented = true
     const val guestVulkanImportPrimitiveImplemented = true
+    const val externalTimelineSemaphorePvs1ProtocolImplemented = true
+    const val hostTimelineSemaphoreExporterImplemented = true
+    const val guestVulkanTimelineImportPrimitiveImplemented = true
 
     /*
      * The pinned Box64 source has not provided verified evidence that a direct
@@ -34,9 +37,9 @@ object GuestGraphicsTransportContract {
     /*
      * These three gates describe the real session, not the existence of helper
      * functions. They remain false until the authenticated graphics broker is
-     * connected to Wine/Box64, a PVI1 resource is imported into the Vulkan
-     * device actually used by Wine/DXVK, and ownership/synchronization is
-     * exercised end-to-end.
+     * connected to Wine/Box64, a PVI1 resource plus PVS1 semaphore are imported
+     * into the Vulkan device actually used by Wine/DXVK, and monotonic GPU
+     * signal/wait ownership is exercised end-to-end.
      */
     const val guestReceiveImplemented = false
     const val guestImportImplemented = false
@@ -53,6 +56,7 @@ object GuestGraphicsTransportContract {
         descriptorProtocolImplemented &&
             ownershipProtocolImplemented &&
             externalImagePvi1ProtocolImplemented &&
+            externalTimelineSemaphorePvs1ProtocolImplemented &&
             guestReceiveImplemented &&
             guestImportImplemented &&
             synchronizationImplemented
