@@ -71,20 +71,34 @@ jobs:
 
       - name: Derive monotonic development version
         id: version
+        working-directory: source
         run: |
           python3 - <<'PY'
           import os
-          run_number = int(os.environ["GITHUB_RUN_NUMBER"])
-          code = 220000 + run_number
+          import subprocess
+
+          commit_count = int(
+              subprocess.check_output(
+                  ["git", "rev-list", "--count", "HEAD"],
+                  text=True,
+              ).strip()
+          )
+          code = 220000 + commit_count
           if code >= 230000:
               raise SystemExit("HOME_TEST_OTA_ALPHA22_VERSION_RANGE_EXHAUSTED")
-          name = f"0.1.0-alpha22.dev.{run_number}"
-          tag = f"home-alpha22-{run_number}"
+          source_sha = os.environ["SOURCE_SHA"].strip().lower()
+          if len(source_sha) != 40:
+              raise SystemExit("HOME_TEST_OTA_SOURCE_SHA_INVALID")
+          name = f"0.1.0-alpha22.home.{commit_count}"
+          tag = f"home-alpha22-{commit_count}-{source_sha[:12]}"
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
               out.write(f"code={code}\n")
               out.write(f"name={name}\n")
               out.write(f"tag={tag}\n")
-          print(f"HOME_TEST_OTA_VERSION code={code} name={name}")
+          print(
+              "HOME_TEST_OTA_VERSION "
+              f"commit_count={commit_count} code={code} name={name}"
+          )
           PY
 
       - name: Read pinned Android toolchain
