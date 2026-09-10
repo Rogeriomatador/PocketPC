@@ -21,6 +21,8 @@ object GuestGraphicsTransportContract {
     const val ancillaryFdTransportPrimitiveImplemented = true
     const val handleBindingImplemented = true
     const val guestReceivePrimitiveImplemented = true
+    const val authenticatedSessionHandshakePrimitiveImplemented = true
+    const val androidSeqpacketSessionHostImplemented = true
     const val externalImagePvi1ProtocolImplemented = true
     const val guestVulkanImportPrimitiveImplemented = true
     const val externalTimelineSemaphorePvs1ProtocolImplemented = true
@@ -37,9 +39,9 @@ object GuestGraphicsTransportContract {
     /*
      * These three gates describe the real session, not the existence of helper
      * functions. They remain false until the authenticated graphics broker is
-     * connected to Wine/Box64, a PVI1 resource plus PVS1 semaphore are imported
-     * into the Vulkan device actually used by Wine/DXVK, and monotonic GPU
-     * signal/wait ownership is exercised end-to-end.
+     * injected into a launched Wine/Box64 process, a PVI1 resource plus PVS1
+     * semaphore are imported into the Vulkan device actually used by Wine/DXVK,
+     * and monotonic GPU signal/wait ownership is exercised end-to-end.
      */
     const val guestReceiveImplemented = false
     const val guestImportImplemented = false
@@ -55,6 +57,8 @@ object GuestGraphicsTransportContract {
     fun readyForWsiImplementation(): Boolean =
         descriptorProtocolImplemented &&
             ownershipProtocolImplemented &&
+            authenticatedSessionHandshakePrimitiveImplemented &&
+            androidSeqpacketSessionHostImplemented &&
             externalImagePvi1ProtocolImplemented &&
             externalTimelineSemaphorePvs1ProtocolImplemented &&
             guestReceiveImplemented &&
