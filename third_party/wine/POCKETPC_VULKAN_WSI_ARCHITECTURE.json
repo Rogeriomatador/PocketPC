@@ -1,18 +1,31 @@
 {
-  "schemaVersion": 2,
-  "status": "AHARDWAREBUFFER_CROSS_PROCESS_PROBE_IMPLEMENTED_NOT_EXECUTED_WSI_NOT_IMPLEMENTED",
+  "schemaVersion": 3,
+  "status": "VULKAN_ABI_FAIL_CLOSED_IMPLEMENTED_NOT_EXECUTED_WSI_NOT_IMPLEMENTED",
   "wine": {
     "version": "11.0",
     "commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
     "vulkanDriverVersion": 47,
     "driver": "winepocketpc.drv",
     "requiredEntryPoint": "user_driver_funcs.pVulkanInit",
+    "abiEntryPointImplemented": true,
+    "abiEntryPointSoftwareTestExecuted": false,
+    "surfaceCreateImplemented": false,
+    "presentationSupportImplemented": false,
+    "extensionMappingImplemented": false,
+    "swapchainPresentationImplemented": false,
     "requiredCallbacks": [
       "p_vulkan_surface_create",
       "p_get_physical_device_presentation_support",
       "p_map_instance_extensions",
       "p_map_device_extensions"
-    ]
+    ],
+    "failClosedBehavior": {
+      "surfaceCreate": "VK_ERROR_INCOMPATIBLE_DRIVER",
+      "presentationSupport": "VK_FALSE",
+      "instanceExtensionPromotion": false,
+      "deviceExtensionPromotion": false,
+      "sentinel": "POCKETPC_VULKAN_WSI stage=abi_initialized version=47 surface_backend=blocked"
+    }
   },
   "box64": {
     "version": "0.4.4",
@@ -44,9 +57,30 @@
     "crossProcessPhysicalTestExecuted": false,
     "note": "The cross-process probe requires native sender/receiver records, matching descriptors and distinct Android PIDs. It intentionally does not set vulkanWsiValidated."
   },
+  "capabilityDiscovery": {
+    "probe": "NativeRuntimeHost.nativeVulkanWsiCapabilityProbe",
+    "nativeSource": "app/src/main/cpp/vulkan_wsi_capability_probe.cpp",
+    "evidenceProtocol": 1,
+    "implemented": true,
+    "softwareTestExecuted": false,
+    "physicalTestExecuted": false,
+    "reportedCapabilities": [
+      "VK_KHR_surface",
+      "VK_KHR_android_surface",
+      "VK_EXT_headless_surface",
+      "VK_KHR_swapchain",
+      "VK_ANDROID_external_memory_android_hardware_buffer",
+      "VK_KHR_external_memory",
+      "VK_KHR_external_memory_fd",
+      "VK_KHR_timeline_semaphore",
+      "VK_KHR_synchronization2"
+    ],
+    "note": "Extension discovery is diagnostic only and never proves that PocketPC can create a surface, swapchain or visible Present path."
+  },
   "roblox": {
     "graphicsPreflightImplemented": true,
     "requiresCrossProcessTransportFoundation": true,
+    "requiresCapabilityDiscovery": true,
     "requiresWineVulkanWsi": true,
     "requiresHostVisiblePresent": true,
     "controlledAttemptExecuted": false,
@@ -68,25 +102,35 @@
     {
       "route": "promote AHardwareBuffer cross-process transport directly to Roblox graphics readiness",
       "reason": "Transport proves only handle ownership transfer. Vulkan surface creation, acquire/render/present synchronization and a host-visible frame remain separate gates."
+    },
+    {
+      "route": "advertise VK_KHR_win32_surface before a real PocketPC surface backend exists",
+      "reason": "Extension promotion without a process-valid surface implementation would make DXVK progress into a guaranteed invalid presentation path."
     }
   ],
   "targetArchitecture": {
     "phase1": "Android host proves AHardwareBuffer allocation plus same-process AF_UNIX handle round-trip.",
     "phase2": "A dedicated Android :gpu_probe process receives the real transferable AHardwareBuffer handle, validates descriptor and bytes, and returns evidence from a distinct PID.",
-    "phase3": "Guest-side transport receives a real transferable graphics-buffer identity without trusting raw pointers.",
-    "phase4": "Implement Wine Vulkan driver v47 callbacks and map Win32 surface semantics onto the transferable-buffer backend.",
-    "phase5": "Implement synchronization and image ownership for acquire/render/present.",
-    "phase6": "Run D3D11 Present smoke and require a host-visible frame before recording evidence.",
-    "phase7": "Only then unblock controlled Roblox/DXVK application attempts."
+    "phase3": "Probe the physical Android Vulkan driver and record surface, swapchain, AHardwareBuffer external-memory and synchronization capabilities without promoting readiness.",
+    "phase4": "Expose the exact Wine Vulkan driver v47 ABI through pVulkanInit while surface creation remains explicitly fail-closed.",
+    "phase5": "Guest-side transport receives a real transferable graphics-buffer identity without trusting raw pointers.",
+    "phase6": "Implement Wine Vulkan surface creation, presentation support and extension mapping on the chosen transferable-buffer backend.",
+    "phase7": "Implement synchronization and image ownership for acquire/render/present.",
+    "phase8": "Run D3D11 Present smoke and require a host-visible frame before recording evidence.",
+    "phase9": "Only then unblock controlled Roblox/DXVK application attempts."
   },
   "gates": {
     "box64AndroidVulkanWrapperSourceReviewed": true,
     "ahardwareBufferHostProbeImplemented": true,
     "ahardwareBufferCrossProcessProbeImplemented": true,
     "ahardwareBufferEvidenceProtocolImplemented": true,
+    "vulkanCapabilityProbeImplemented": true,
+    "wineVulkanAbiEntryPointImplemented": true,
     "ahardwareBufferHostProbeSoftwareTestExecuted": false,
     "ahardwareBufferHostProbePhysicalTestExecuted": false,
     "ahardwareBufferCrossProcessPhysicalTestExecuted": false,
+    "vulkanCapabilityProbeSoftwareTestExecuted": false,
+    "vulkanCapabilityProbePhysicalTestExecuted": false,
     "guestHardwareBufferReceiveImplemented": false,
     "wineVulkanWsiImplemented": false,
     "wineVulkanWsiSoftwareTestExecuted": false,
