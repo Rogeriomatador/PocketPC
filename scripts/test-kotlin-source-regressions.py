@@ -73,6 +73,7 @@ for rel in (
     "app/src/main/java/dev/pocketpc/core/ui/PocketFileQuickActions.kt",
     "app/src/main/java/dev/pocketpc/core/ui/PocketGzipArchivePane.kt",
     "app/src/main/java/dev/pocketpc/core/ui/PocketTarArchivePane.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketIsoInspectorPane.kt",
 ):
     source = read(rel)
     if "Intent.ACTION_VIEW" in source:
@@ -103,6 +104,7 @@ for required in (
     "PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL",
     "IMPLEMENTED_ARCHIVE_EXTENSIONS",
     'setOf("zip", "tar", "gz", "tgz")',
+    'if (extension == "iso")',
     "PocketFileHandler.PDF_VIEWER",
     "IMPLEMENTED_IMAGE_EXTENSIONS",
     "IMPLEMENTED_AUDIO_EXTENSIONS",
@@ -188,6 +190,17 @@ for required in (
 ):
     if required not in tar_pane:
         errors.append(f"PocketTarArchivePane missing internal TAR flow: {required}")
+
+iso = read("app/src/main/java/dev/pocketpc/core/ui/PocketIsoInspectorPane.kt")
+for required in (
+    "ISO_DESCRIPTOR_START_SECTOR",
+    'signature == "CD001"',
+    "ByteOrder.LITTLE_ENDIAN",
+    "openFileDescriptor(Uri.parse(uriString), \"r\")",
+    "Primary Volume Descriptor ISO9660 não encontrado",
+):
+    if required not in iso:
+        errors.append(f"PocketIsoInspectorPane lost ISO9660 invariant: {required}")
 
 zip_creator = read("app/src/main/java/dev/pocketpc/core/storage/PocketZipCreator.kt")
 for required in (
@@ -312,6 +325,7 @@ for required in (
     "PocketZipArchivePane(request = currentRequest)",
     "PocketGzipArchivePane(request = currentRequest)",
     "PocketTarArchivePane(request = currentRequest)",
+    "PocketIsoInspectorPane(request = currentRequest)",
     "PocketPdfViewerPane(request = currentRequest)",
     "PocketOfficePreviewPane(request = currentRequest)",
     "PocketWebDocumentPane(request = currentRequest)",
@@ -326,6 +340,8 @@ if 'extension == "tar"' not in open_overlay:
     errors.append("Global overlay lost TAR dispatch")
 if 'extension == "gz" || extension == "tgz"' not in open_overlay:
     errors.append("Global overlay lost GZIP/TGZ dispatch")
+if 'extension == "iso"' not in open_overlay:
+    errors.append("Global overlay lost ISO dispatch")
 
 if errors:
     for error in errors:
@@ -343,6 +359,7 @@ print("browser_external_escape=explicit_only")
 print("pocket_zip_security=guarded")
 print("pocket_gzip_security=guarded")
 print("pocket_tar_security=guarded")
+print("pocket_iso_inspector=guarded")
 print("pocket_zip_creation=guarded")
 print("pocket_text_editor=guarded")
 print("pocket_image_viewer=guarded")
