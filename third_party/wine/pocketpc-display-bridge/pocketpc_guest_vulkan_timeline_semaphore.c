@@ -10,6 +10,16 @@ static void pocketpc_guest_vulkan_timeline_reset(
     timeline->semaphore = VK_NULL_HANDLE;
 }
 
+static int pocketpc_guest_vulkan_timeline_runtime_ready(
+    const struct vulkan_device *device,
+    const struct pocketpc_guest_vulkan_timeline *timeline
+) {
+    return
+        device &&
+        timeline &&
+        timeline->semaphore != VK_NULL_HANDLE;
+}
+
 int pocketpc_guest_vulkan_timeline_import(
     struct vulkan_device *device,
     struct pocketpc_external_timeline_semaphore_fd_received *received,
@@ -80,6 +90,108 @@ int pocketpc_guest_vulkan_timeline_import(
     timeline->resource_id = received->metadata.resource_id;
     timeline->generation = received->metadata.generation;
     timeline->last_known_value = received->metadata.initial_value;
+    return POCKETPC_GUEST_VULKAN_TIMELINE_OK;
+}
+
+int pocketpc_guest_vulkan_timeline_get_counter(
+    struct vulkan_device *device,
+    struct pocketpc_guest_vulkan_timeline *timeline,
+    uint64_t *value
+) {
+    VkResult result;
+    uint64_t current = 0u;
+
+    if (!pocketpc_guest_vulkan_timeline_runtime_ready(device, timeline) || !value)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_INVALID_ARGUMENT;
+    if (!device->p_vkGetSemaphoreCounterValue)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_FUNCTION_NOT_READY;
+
+    result = device->p_vkGetSemaphoreCounterValue(
+        device->host.device,
+        timeline->semaphore,
+        &current
+    );
+    if (result != VK_SUCCESS)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_COUNTER_FAILED;
+
+    timeline->last_known_value = current;
+    *value = current;
+    return POCKETPC_GUEST_VULKAN_TIMELINE_OK;
+}
+
+int pocketpc_guest_vulkan_timeline_signal_cpu(
+    struct vulkan_device *device,
+    struct pocketpc_guest_vulkan_timeline *timeline,
+    uint64_t value
+) {
+    VkSemaphoreSignalInfo signal_info;
+    VkResult result;
+    uint64_t current = 0u;
+    int counter_result;
+
+    if (!pocketpc_guest_vulkan_timeline_runtime_ready(device, timeline) || value == 0u)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_INVALID_ARGUMENT;
+    if (!device->p_vkSignalSemaphore)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_FUNCTION_NOT_READY;
+
+    counter_result = pocketpc_guest_vulkan_timeline_get_counter(
+        device,
+        timeline,
+        &current
+    );
+    if (counter_result != POCKETPC_GUEST_VULKAN_TIMELINE_OK)
+        return counter_result;
+    if (value <= current)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_NON_MONOTONIC;
+
+    memset(&signal_info, 0, sizeof(signal_info));
+    signal_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
+    signal_info.semaphore = timeline->semaphore;
+    signal_info.value = value;
+
+    result = device->p_vkSignalSemaphore(
+        device->host.device,
+        &signal_info
+    );
+    if (result != VK_SUCCESS)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_SIGNAL_FAILED;
+
+    timeline->last_known_value = value;
+    return POCKETPC_GUEST_VULKAN_TIMELINE_OK;
+}
+
+int pocketpc_guest_vulkan_timeline_wait_cpu(
+    struct vulkan_device *device,
+    struct pocketpc_guest_vulkan_timeline *timeline,
+    uint64_t value,
+    uint64_t timeout_ns
+) {
+    VkSemaphoreWaitInfo wait_info;
+    VkResult result;
+    VkSemaphore semaphore;
+
+    if (!pocketpc_guest_vulkan_timeline_runtime_ready(device, timeline) || value == 0u)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_INVALID_ARGUMENT;
+    if (!device->p_vkWaitSemaphores)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_FUNCTION_NOT_READY;
+
+    semaphore = timeline->semaphore;
+    memset(&wait_info, 0, sizeof(wait_info));
+    wait_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+    wait_info.semaphoreCount = 1u;
+    wait_info.pSemaphores = &semaphore;
+    wait_info.pValues = &value;
+
+    result = device->p_vkWaitSemaphores(
+        device->host.device,
+        &wait_info,
+        timeout_ns
+    );
+    if (result != VK_SUCCESS)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_WAIT_FAILED;
+
+    if (value > timeline->last_known_value)
+        timeline->last_known_value = value;
     return POCKETPC_GUEST_VULKAN_TIMELINE_OK;
 }
 
