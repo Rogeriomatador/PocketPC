@@ -11,6 +11,10 @@ TEST = ROOT / "app/src/test/java/dev/pocketpc/core/runtime/VulkanExternalImageFd
 CMAKE = ROOT / "app/src/main/cpp/CMakeLists.txt"
 CONTRACT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt"
 PLANNER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportPlanner.kt"
+PVI_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_external_image_fd_protocol.h"
+PVI_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_external_image_fd_protocol.c"
+MAKEFILE = ROOT / "third_party/wine/pocketpc-driver/Makefile.in"
+PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver.py"
 
 
 def require(failures: list[str], label: str, text: str, markers: tuple[str, ...]) -> None:
@@ -21,7 +25,11 @@ def require(failures: list[str], label: str, text: str, markers: tuple[str, ...]
 
 def main() -> int:
     failures: list[str] = []
-    for path in (NATIVE, KOTLIN, TEST, CMAKE, CONTRACT, PLANNER):
+    paths = (
+        NATIVE, KOTLIN, TEST, CMAKE, CONTRACT, PLANNER,
+        PVI_HEADER, PVI_SOURCE, MAKEFILE, PREPARER,
+    )
+    for path in paths:
         if not path.is_file():
             failures.append(f"missing: {path.relative_to(ROOT)}")
     if failures:
@@ -36,6 +44,10 @@ def main() -> int:
     cmake = CMAKE.read_text(encoding="utf-8")
     contract = CONTRACT.read_text(encoding="utf-8")
     planner = PLANNER.read_text(encoding="utf-8")
+    pvi_header = PVI_HEADER.read_text(encoding="utf-8")
+    pvi_source = PVI_SOURCE.read_text(encoding="utf-8")
+    makefile = MAKEFILE.read_text(encoding="utf-8")
+    preparer = PREPARER.read_text(encoding="utf-8")
 
     require(
         failures,
@@ -56,22 +68,13 @@ def main() -> int:
             "vkAllocateMemory",
             "vkBindImageMemory",
             "vkGetMemoryFdKHR",
+            "kExternalImageMagic = 0x31495650u",
+            "kExternalImageVersion = 1",
+            "kExternalImagePayloadBytes = 64",
             "SCM_RIGHTS",
             "SOCK_SEQPACKET",
             "close(exported_fd);",
             "stale-or-unknown-resource",
-        ),
-    )
-    require(
-        failures,
-        "native identity token",
-        native,
-        (
-            "kFdTokenMagic = 0x31444650u",
-            "kFdTokenVersion = 1",
-            "PutU64Le(out + 8, resource_id)",
-            "PutU64Le(out + 16, generation)",
-            "PutU64Le(out + 24, sequence)",
         ),
     )
 
@@ -86,7 +89,9 @@ def main() -> int:
             "val allocationSize: Long",
             "val memoryTypeBits: Long",
             "val memoryTypeIndex: Int",
-            "fun toGuestDescriptor(",
+            "const val FORMAT_R8G8B8A8_UNORM = 37",
+            "const val IMAGE_USAGE_FLAGS = 0x17L",
+            "usage = VulkanExternalImageFdBroker.IMAGE_USAGE_FLAGS",
             "private external fun nativeSend(",
             "internal fun parseLease(",
         ),
@@ -105,16 +110,71 @@ def main() -> int:
         test,
         (
             "memoryTypeIndexMustBeIncludedInMemoryTypeBits",
+            "wrongFormatCannotBecomeLease",
             "duplicateUnknownOrMissingFieldsAreRejected",
             "leaseContainsNoProcessLocalFileDescriptor",
+            "VulkanExternalImageFdBroker.IMAGE_USAGE_FLAGS",
         ),
     )
+
+    require(
+        failures,
+        "PVI1 header",
+        pvi_header,
+        (
+            "POCKETPC_EXTERNAL_IMAGE_FD_MAGIC 0x31495650u",
+            "POCKETPC_EXTERNAL_IMAGE_FD_VERSION 1u",
+            "POCKETPC_EXTERNAL_IMAGE_FD_PAYLOAD_BYTES 64u",
+            "POCKETPC_EXTERNAL_IMAGE_FORMAT_R8G8B8A8_UNORM 37u",
+            "POCKETPC_EXTERNAL_IMAGE_USAGE_FLAGS 0x17u",
+            "struct pocketpc_external_image_fd_metadata",
+            "struct pocketpc_external_image_fd_received",
+            "pocketpc_external_image_fd_receive(",
+            "pocketpc_external_image_fd_received_release(",
+        ),
+    )
+    require(
+        failures,
+        "PVI1 receiver",
+        pvi_source,
+        (
+            "recvmsg(",
+            "SCM_RIGHTS",
+            "SOCK_SEQPACKET",
+            "MSG_CTRUNC",
+            "MSG_TRUNC",
+            "pvi_set_cloexec",
+            "pocketpc_graphics_handle_binding_validate_offer",
+            "metadata->allocation_size == 0u",
+            "metadata->memory_type_bits == 0u",
+            "descriptor->usage == (uint64_t)metadata->usage",
+        ),
+    )
+
     require(
         failures,
         "native CMake integration",
         cmake,
         ("vulkan_external_image_fd_broker.cpp",),
     )
+    require(
+        failures,
+        "Wine build integration",
+        makefile,
+        ("\tpocketpc_external_image_fd_protocol.c \\",),
+    )
+    require(
+        failures,
+        "Wine overlay integration",
+        preparer,
+        (
+            '"pocketpc_external_image_fd_protocol.h",',
+            '"pocketpc_external_image_fd_protocol.c",',
+            '"externalImageFdProtocol": "PVI1"',
+            '"externalImagePvi1ProtocolImplemented": True',
+        ),
+    )
+
     require(
         failures,
         "runtime contract",
@@ -146,6 +206,7 @@ def main() -> int:
         return 1
 
     print("VULKAN_EXTERNAL_IMAGE_FD_BROKER_POLICY_OK")
+    print("external_image_fd_protocol=PVI1")
     print("host_opaque_fd_image_broker_implemented=true")
     print("host_dma_buf_image_broker_implemented=false")
     print("guest_receive_runtime_integrated=false")
