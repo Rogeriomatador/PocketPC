@@ -9,6 +9,10 @@ on:
       - 'scripts/pocketpc_pe.py'
       - 'scripts/verify-wine-x86_64-driver-package.py'
       - 'scripts/test-wine-x86_64-driver-package.py'
+      - 'scripts/run-wine-pocketpc-driver-load-smoke.py'
+      - 'scripts/verify-wine-pocketpc-driver-load-evidence.py'
+      - 'scripts/test-wine-pocketpc-driver-load-evidence.py'
+      - 'scripts/test-wine-pocketpc-driver-load-broker.py'
       - 'scripts/test-pc-runtime-source-locks.py'
       - 'scripts/test-pocketpc-pe-audit.py'
       - 'scripts/test-wine-pocketpc-driver-policy.py'
@@ -50,6 +54,8 @@ jobs:
           python3 scripts/test-wine-pocketpc-driver-abi-lock.py
           python3 scripts/test-pocketpc-pe-audit.py
           python3 scripts/test-wine-x86_64-driver-package.py
+          python3 scripts/test-wine-pocketpc-driver-load-evidence.py
+          python3 scripts/test-wine-pocketpc-driver-load-broker.py
 
       - name: Validate display bridge protocol
         run: python3 scripts/test-display-bridge-protocol-lock.py
@@ -66,7 +72,16 @@ jobs:
             --wine-root "$RUNNER_TEMP/pocketpc-wine-build/destdir/opt/pocketpc/wine" \
             --evidence "$RUNNER_TEMP/pocketpc-wine-build/wine-x86_64-driver-package-evidence.json"
 
+      - name: Prove host Wine loads and registers winepocketpc.drv
+        run: |
+          python3 scripts/run-wine-pocketpc-driver-load-smoke.py \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-build/destdir/opt/pocketpc/wine" \
+            --smoke-exe "$RUNNER_TEMP/pocketpc-wine-build/pocketpc-window-smoke.exe" \
+            --package-evidence "$RUNNER_TEMP/pocketpc-wine-build/wine-x86_64-driver-package-evidence.json" \
+            --work "$RUNNER_TEMP/pocketpc-wine-driver-load-smoke"
+
       - name: Retain review package and evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: PocketPC-Wine11-x86_64-pocketpc-driver-review
@@ -77,9 +92,12 @@ jobs:
             ${{ runner.temp }}/pocketpc-wine-build/wine-pocketpc-driver-overlay-evidence.json
             ${{ runner.temp }}/pocketpc-wine-build/wine-x86_64-driver-package-evidence.json
             ${{ runner.temp }}/pocketpc-wine-build/*.log
-          if-no-files-found: error
+            ${{ runner.temp }}/pocketpc-wine-driver-load-smoke/*.json
+            ${{ runner.temp }}/pocketpc-wine-driver-load-smoke/*.log
+          if-no-files-found: warn
 
       - name: Prove build did not enter app tree
+        if: always()
         run: |
           test -z "$(find app -type f \( -name 'wine' -o -name 'wineboot' -o -name '*.exe' \) -print)"
-          git diff --exit-code -- app third_party
+          git diff --exit-code -- app third_party scripts
