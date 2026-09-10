@@ -5,6 +5,7 @@ add_library(
     pocketpc_runtime
     SHARED
     runtime_host.cpp
+    hardware_buffer_cross_process.cpp
 )
 
 find_library(vulkan_lib vulkan)
