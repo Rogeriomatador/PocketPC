@@ -1,12 +1,23 @@
 package dev.pocketpc.core.runtime
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RobloxGraphicsPreflightTest {
+    private val validVulkanCapabilities =
+        "vulkan-wsi-capabilities=ok;protocol=1;vendor_id=1234;device_id=5678;" +
+            "instance_extensions=12;device_extensions=34;" +
+            "khr_surface=yes;khr_android_surface=yes;ext_headless_surface=no;" +
+            "khr_external_memory_capabilities=yes;khr_swapchain=yes;" +
+            "android_external_memory_ahb=yes;khr_external_memory=yes;" +
+            "khr_external_memory_fd=yes;khr_timeline_semaphore=yes;" +
+            "khr_synchronization2=yes"
+
     private fun nativeHost(
         loaded: Boolean = true,
+        vulkanCapabilities: String = validVulkanCapabilities,
     ) =
         NativeHostStatus(
             loaded = loaded,
@@ -26,6 +37,7 @@ class RobloxGraphicsPreflightTest {
                 } else {
                     "ahardwarebuffer=not-probed"
                 },
+            vulkanWsiCapabilityProbe = vulkanCapabilities,
         )
 
     private fun verifiedCrossProcessEvidence() =
@@ -62,6 +74,30 @@ class RobloxGraphicsPreflightTest {
     }
 
     @Test
+    fun advertisedAndroidSurfaceStillDoesNotCreateExecutableBackend() {
+        val result =
+            RobloxGraphicsPreflightCoordinator.buildResult(
+                nativeHost = nativeHost(),
+                crossProcessEvidence = verifiedCrossProcessEvidence(),
+            )
+
+        assertTrue(result.capabilityProbeSucceeded)
+        assertTrue(result.androidSurfaceRouteAdvertised)
+        assertFalse(result.surfaceBackendRunnable)
+        assertEquals(
+            PocketPcVulkanSurfaceBackendKind.NONE,
+            result.surfaceBackend.selected.kind,
+        )
+        assertTrue(
+            result.blockers.contains(
+                RobloxGraphicsPreflightCoordinator.BLOCKER_SURFACE_BACKEND,
+            ),
+        )
+        assertFalse(result.readyForWsiIntegrationTest)
+        assertFalse(result.readyForRobloxGraphics)
+    }
+
+    @Test
     fun missingCrossProcessEvidenceFailsClosed() {
         val result =
             RobloxGraphicsPreflightCoordinator.buildResult(
@@ -71,6 +107,23 @@ class RobloxGraphicsPreflightTest {
 
         assertFalse(result.wsiFoundation.readyForWsiImplementation)
         assertFalse(result.readyForWsiIntegrationTest)
+        assertFalse(result.readyForRobloxGraphics)
+    }
+
+    @Test
+    fun malformedVulkanCapabilityEvidenceCannotCreateSurfaceBackend() {
+        val result =
+            RobloxGraphicsPreflightCoordinator.buildResult(
+                nativeHost =
+                    nativeHost(
+                        vulkanCapabilities =
+                            "vulkan-wsi-capabilities=ok;protocol=1;khr_surface=yes",
+                    ),
+                crossProcessEvidence = verifiedCrossProcessEvidence(),
+            )
+
+        assertFalse(result.capabilityProbeSucceeded)
+        assertFalse(result.surfaceBackendRunnable)
         assertFalse(result.readyForRobloxGraphics)
     }
 
