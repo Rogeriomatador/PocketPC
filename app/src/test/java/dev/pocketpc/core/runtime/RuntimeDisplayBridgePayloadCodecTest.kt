@@ -66,10 +66,17 @@ class RuntimeDisplayBridgePayloadCodecTest {
     }
 
     @Test fun encodingIsDeterministic() {
-        val value = RuntimeBridgeKeyEvent(1, 0, 13, 28, 0, 0)
+        val value =
+            RuntimeBridgeKeyEvent(
+                1,
+                RuntimeDisplayBridgePayloadCodec.KEY_ACTION_DOWN,
+                13,
+                28,
+                0,
+                0,
+            )
         assertArrayEquals(RuntimeDisplayBridgePayloadCodec.encodeKeyEvent(value), RuntimeDisplayBridgePayloadCodec.encodeKeyEvent(value))
     }
-
 
     @Test
     fun windowCommandRoundTrip() {
@@ -424,5 +431,4 @@ class RuntimeDisplayBridgePayloadCodecTest {
 
         assertTrue(result.isFailure)
     }
-
 }
