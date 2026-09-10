@@ -20,8 +20,12 @@ need() {
 
 need python
 
+TERMUX_VARIANT="$(bash scripts/termux-detect-variant.sh --value 2>/dev/null || printf '%s' classic_or_unknown)"
+echo "termux_variant=$TERMUX_VARIANT"
+echo
+
 refresh_official_aapt2() {
-    if ! bash scripts/termux-repository-check.sh --require-modern; then
+    if ! bash scripts/termux-repository-check.sh --require-compatible; then
         echo "TERMUX_AAPT2_REPOSITORY_BLOCKED" >&2
         return 1
     fi
@@ -136,7 +140,27 @@ fi
 
 echo
 echo "Current AAPT2 cannot link the locked Android platform."
-echo "Trying the current package from the official Termux repository."
+echo
+
+if [ "$TERMUX_VARIANT" = "googleplay" ]; then
+    CANDIDATE_VERSION=""
+    if command -v apt-cache >/dev/null 2>&1; then
+        CANDIDATE_VERSION="$(
+            apt-cache policy aapt 2>/dev/null |
+                awk '/Candidate:/ {print $2; exit}'
+        )"
+    fi
+    echo "Classification : TERMUX_GOOGLE_PLAY_AAPT2_PLATFORM_INCOMPATIBLE"
+    echo "aapt_candidate_version=${CANDIDATE_VERSION:-unknown}"
+    echo "platform_package=$PLATFORM_PACKAGE"
+    echo "android_jar=$ANDROID_JAR"
+    echo "Important: Google Play Termux uses its own package repository and package set."
+    echo "Important: Do not mix packages.termux.dev into this installation."
+    echo "Important: Kotlin compilation can still be validated separately from Android resource linking."
+    exit 11
+fi
+
+echo "Trying the current package from the classic Termux repository."
 echo
 
 if ! refresh_official_aapt2; then
