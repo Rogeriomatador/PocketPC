@@ -16,6 +16,8 @@ class PocketPcVulkanSurfaceBackendTest {
             protocol = VulkanWsiCapabilitySnapshot.CURRENT_PROTOCOL,
             vendorId = 1L,
             deviceId = 2L,
+            instanceExtensionCount = 12,
+            deviceExtensionCount = 24,
             khrSurface = true,
             khrAndroidSurface = androidSurface,
             extHeadlessSurface = headlessSurface,
