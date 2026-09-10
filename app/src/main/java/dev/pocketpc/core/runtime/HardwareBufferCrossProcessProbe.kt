@@ -68,23 +68,58 @@ object HardwareBufferCrossProcessProbe {
                     )
                 }
 
+            val sendRecord =
+                HardwareBufferProbeProtocol.parse(
+                    raw = snapshot.senderResult,
+                    expectedSide = HardwareBufferProbeSide.SEND,
+                )
+            val receiveRecord =
+                HardwareBufferProbeProtocol.parse(
+                    raw = snapshot.receiverResult,
+                    expectedSide = HardwareBufferProbeSide.RECEIVE,
+                )
+
             val distinct =
                 snapshot.receiverPid > 0 &&
                     snapshot.receiverPid != mainPid
-            val sendOk =
-                snapshot.senderResult.startsWith(
-                    "ahb-xproc-send=ok;",
-                )
-            val receiveOk =
-                snapshot.receiverResult.startsWith(
-                    "ahb-xproc-recv=ok;",
-                ) &&
-                    snapshot.receiverResult.contains(
-                        ";descriptor_match=yes",
-                    ) &&
-                    snapshot.receiverResult.contains(
-                        ";pattern_match=yes",
-                    )
+            val recordPidsMatch =
+                sendRecord?.pid == mainPid &&
+                    receiveRecord?.pid == snapshot.receiverPid
+            val descriptorRoundTripMatches =
+                sendRecord != null &&
+                    receiveRecord != null &&
+                    sendRecord.width == receiveRecord.width &&
+                    sendRecord.height == receiveRecord.height &&
+                    sendRecord.layers == receiveRecord.layers &&
+                    sendRecord.format == receiveRecord.format &&
+                    sendRecord.stride == receiveRecord.stride
+
+            val validationError =
+                snapshot.error
+                    ?: when {
+                        sendRecord == null ->
+                            "AHARDWAREBUFFER_SEND_EVIDENCE_PARSE_FAILED"
+
+                        receiveRecord == null ->
+                            "AHARDWAREBUFFER_RECEIVE_EVIDENCE_PARSE_FAILED"
+
+                        !sendRecord.successful ->
+                            "AHARDWAREBUFFER_SEND_EVIDENCE_NOT_SUCCESSFUL"
+
+                        !receiveRecord.successful ->
+                            "AHARDWAREBUFFER_RECEIVE_EVIDENCE_NOT_SUCCESSFUL"
+
+                        !recordPidsMatch ->
+                            "AHARDWAREBUFFER_NATIVE_PID_MISMATCH"
+
+                        !distinct ->
+                            "AHARDWAREBUFFER_DISTINCT_PROCESS_NOT_PROVEN"
+
+                        !descriptorRoundTripMatches ->
+                            "AHARDWAREBUFFER_DESCRIPTOR_ROUNDTRIP_MISMATCH"
+
+                        else -> null
+                    }
 
             onComplete(
                 HardwareBufferCrossProcessEvidence(
@@ -94,12 +129,9 @@ object HardwareBufferCrossProcessProbe {
                     receiverResult = snapshot.receiverResult,
                     distinctProcesses = distinct,
                     handleTransportVerified =
-                        distinct &&
-                            sendOk &&
-                            receiveOk &&
-                            snapshot.error == null,
+                        validationError == null,
                     vulkanWsiValidated = false,
-                    error = snapshot.error,
+                    error = validationError,
                 ),
             )
         }
@@ -282,16 +314,6 @@ object HardwareBufferCrossProcessProbe {
                     )
             recordSender(
                 result = result,
-                error =
-                    if (
-                        result.startsWith(
-                            "ahb-xproc-send=ok;",
-                        )
-                    ) {
-                        null
-                    } else {
-                        "AHARDWAREBUFFER_CROSS_PROCESS_SEND_FAILED"
-                    },
             )
         } catch (error: Throwable) {
             recordSender(
