@@ -20,15 +20,9 @@ MAIN_ACTIVITY = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "c
 AUTO_TEST = ROOT / "app" / "src" / "test" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdaterPolicyTest.kt"
 PREPARE = ROOT / "scripts" / "prepare-update-feed.py"
 PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-update.yml"
-HOME_PUBLISH_WORKFLOW = (
-    ROOT / ".github" / "workflows" / "publish-home-test-update.yml"
-)
-HOME_BOOTSTRAP_WINDOWS = (
-    ROOT / "scripts" / "bootstrap-home-test-ota-windows.ps1"
-)
-HOME_BOOTSTRAP_AUTO = (
-    ROOT / "scripts" / "bootstrap-home-test-ota-windows-auto.ps1"
-)
+HOME_PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-home-test-update.yml"
+HOME_BOOTSTRAP_WINDOWS = ROOT / "scripts" / "bootstrap-home-test-ota-windows.ps1"
+HOME_BOOTSTRAP_AUTO = ROOT / "scripts" / "bootstrap-home-test-ota-windows-auto.ps1"
 BOOTSTRAP_SIGNER = ROOT / "updates" / "bootstrap-signer.json"
 VERIFY_BOOTSTRAP_SIGNER = ROOT / "scripts" / "verify-bootstrap-signer.py"
 TEST_BOOTSTRAP_SIGNER = ROOT / "scripts" / "test-bootstrap-signer-verifier.py"
@@ -73,18 +67,12 @@ def main() -> int:
     published = bool(feed.get("published"))
 
     if feed_code > expected_code:
-        failures.append(
-            "stable feed versionCode must not be ahead of the source lock"
-        )
+        failures.append("stable feed versionCode must not be ahead of the source lock")
     elif feed_code == expected_code:
         if feed_version != expected_version:
-            failures.append(
-                "stable feed versionName must match build lock at equal versionCode"
-            )
+            failures.append("stable feed versionName must match build lock at equal versionCode")
     elif not published:
-        failures.append(
-            "an unpublished bootstrap feed must match the current source version"
-        )
+        failures.append("an unpublished bootstrap feed must match the current source version")
 
     min_api = int(feed.get("minApi") or -1)
     if min_api < 26:
@@ -103,9 +91,7 @@ def main() -> int:
             failures.append("published update must pin a 40-hex sourceRevision")
     else:
         if apk_url or apk_sha:
-            failures.append(
-                "unpublished bootstrap feed must not expose APK URL/hash"
-            )
+            failures.append("unpublished bootstrap feed must not expose APK URL/hash")
 
     try:
         bootstrap_signer = json.loads(load_text(BOOTSTRAP_SIGNER))
@@ -118,17 +104,13 @@ def main() -> int:
     if bootstrap_signer.get("packageName") != expected_package:
         failures.append("bootstrap signer packageName must match build lock")
 
-    allowed_signers = bootstrap_signer.get(
-        "allowedSigningCertificateSha256"
-    )
+    allowed_signers = bootstrap_signer.get("allowedSigningCertificateSha256")
     if not isinstance(allowed_signers, list) or not allowed_signers:
         failures.append("bootstrap signer allow-list must be non-empty")
     else:
         for signer in allowed_signers:
             if not SHA256_RE.fullmatch(str(signer)):
-                failures.append(
-                    "bootstrap signer allow-list contains invalid SHA-256"
-                )
+                failures.append("bootstrap signer allow-list contains invalid SHA-256")
 
     required = {
         MANIFEST: (
@@ -211,9 +193,9 @@ def main() -> int:
             "6,",
             "TimeUnit.HOURS",
             "PocketPcUpdateScheduler",
-            "shouldAutoInstallUpdate",
             "verifyPendingDownload",
             "beginDownload",
+            "foreground PocketPC UI owns",
         ),
         AUTO_TEST: (
             "firstAutomaticCheckRunsImmediately",
@@ -367,9 +349,7 @@ def main() -> int:
 
         for sentinel in sentinels:
             if sentinel not in text:
-                failures.append(
-                    f"{path.relative_to(ROOT)} missing sentinel: {sentinel}"
-                )
+                failures.append(f"{path.relative_to(ROOT)} missing sentinel: {sentinel}")
 
     if failures:
         print("UPDATE_FEED_POLICY_FAILED", file=sys.stderr)
