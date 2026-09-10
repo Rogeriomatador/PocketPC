@@ -111,14 +111,14 @@ sdk.dir=$SDK_ROOT
 EOF
 
 AAPT2="$(select_aapt2)"
-AAPT2_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
+AAPT2_VERSION="$("$AAPT2" version 2>&1 | awk 'NR == 1 {line=$0} END {print line}')"
 
 echo "Evidence"
 echo "  source_revision=$SOURCE_REVISION"
 echo "  source_tree=$SOURCE_TREE_STATE"
 echo "  version=$VERSION_NAME"
 echo "  version_code=$VERSION_CODE"
-echo "  java=$(java -version 2>&1 | head -1)"
+echo "  java=$(java -version 2>&1 | awk 'NR == 1 {line=$0} END {print line}')"
 echo "  gradle=$GRADLE_ACTUAL"
 echo "  platform_package=$PLATFORM_PACKAGE"
 echo "  platform_dir=$PLATFORM_DIR"
@@ -137,7 +137,7 @@ else
     bash scripts/termux-ensure-aapt2.sh
     hash -r
     AAPT2="$(select_aapt2)"
-    AAPT2_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
+    AAPT2_VERSION="$("$AAPT2" version 2>&1 | awk 'NR == 1 {line=$0} END {print line}')"
     echo "  validated_aapt2=$AAPT2"
     echo "  validated_aapt2_version=$AAPT2_VERSION"
     echo
