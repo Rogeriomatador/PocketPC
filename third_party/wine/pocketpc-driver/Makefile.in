@@ -8,6 +8,7 @@ SOURCES = \
 	input.c \
 	pocketpcdrv_main.c \
 	surface.c \
+	vulkan.c \
 	window.c \
 	pocketpc_display_bridge.c \
 	pocketpc_surface_writer.c \
