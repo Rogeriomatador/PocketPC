@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 import sys
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BOX64_LOCK = ROOT / "third_party/box64/LOCK.json"
 BOX64_GRAPHICS = ROOT / "third_party/box64/ANDROID_GRAPHICS_BRIDGE.json"
@@ -15,6 +14,9 @@ BROKER_KT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/HostGraphicsReso
 BROKER_NATIVE = ROOT / "app/src/main/cpp/hardware_buffer_resource_broker.cpp"
 EXTERNAL_PROBE_KT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/VulkanExternalResourceProbe.kt"
 EXTERNAL_PROBE_NATIVE = ROOT / "app/src/main/cpp/vulkan_external_resource_probe.cpp"
+AHB_IMPORT_KT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/VulkanAhardwareBufferImportProbe.kt"
+AHB_IMPORT_NATIVE = ROOT / "app/src/main/cpp/vulkan_ahardwarebuffer_import_probe.cpp"
+GUEST_RECEIVE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_graphics_receive.c"
 CMAKE = ROOT / "app/src/main/cpp/CMakeLists.txt"
 
 
@@ -49,9 +51,7 @@ def main() -> int:
 
     if box64_graphics.get("schemaVersion") != 1:
         failures.append("Box64 graphics audit schema changed")
-    if box64_graphics.get("status") != (
-        "STATICALLY_INSPECTED_PARTIAL_NOT_RUNTIME_TESTED"
-    ):
+    if box64_graphics.get("status") != "STATICALLY_INSPECTED_PARTIAL_NOT_RUNTIME_TESTED":
         failures.append("Box64 graphics audit status must remain non-runtime-tested")
 
     box64 = box64_graphics.get("box64") or {}
@@ -76,19 +76,21 @@ def main() -> int:
     for key in (
         "ahardwareBufferCrossProcessProbeImplemented",
         "ahardwareBufferResourceBrokerImplemented",
+        "canonicalAhardwareBufferImportProbeImplemented",
         "resourceDescriptorProtocolImplemented",
         "ownershipProtocolImplemented",
         "vulkanExternalResourceCapabilityProbeImplemented",
         "ancillaryFdTransportPrimitiveImplemented",
         "graphicsHandleBindingImplemented",
+        "guestReceivePrimitiveImplemented",
     ):
         if host_foundation.get(key) is not True:
-            failures.append(f"host graphics foundation missing: {key}")
+            failures.append(f"host/guest graphics foundation missing: {key}")
 
     guest_gates = box64_graphics.get("guestGates") or {}
     for key in (
         "directAhardwareBufferBridgeVerified",
-        "handleReceiveImplemented",
+        "handleReceiveRuntimeIntegrated",
         "vulkanResourceImportImplemented",
         "synchronizationImplemented",
         "runtimeTestExecuted",
@@ -103,6 +105,9 @@ def main() -> int:
     broker_native = BROKER_NATIVE.read_text(encoding="utf-8")
     external_probe_kt = EXTERNAL_PROBE_KT.read_text(encoding="utf-8")
     external_probe_native = EXTERNAL_PROBE_NATIVE.read_text(encoding="utf-8")
+    ahb_import_kt = AHB_IMPORT_KT.read_text(encoding="utf-8")
+    ahb_import_native = AHB_IMPORT_NATIVE.read_text(encoding="utf-8")
+    guest_receive = GUEST_RECEIVE.read_text(encoding="utf-8")
     cmake = CMAKE.read_text(encoding="utf-8")
 
     require(
@@ -112,8 +117,10 @@ def main() -> int:
         (
             "const val hostAhardwareBufferBrokerImplemented =\n        true",
             "const val externalResourceCapabilityProbeImplemented =\n        true",
+            "const val canonicalAhardwareBufferImportProbeImplemented =\n        true",
             "const val ancillaryFdTransportPrimitiveImplemented =\n        true",
             "const val handleBindingImplemented =\n        true",
+            "const val guestReceivePrimitiveImplemented =\n        true",
             "const val box64DirectAhardwareBufferBridgeVerified =\n        false",
             "const val guestReceiveImplemented =\n        false",
             "const val guestImportImplemented =\n        false",
@@ -197,15 +204,55 @@ def main() -> int:
 
     require(
         failures,
+        "canonical AHardwareBuffer native probe",
+        ahb_import_native,
+        (
+            "vkGetAndroidHardwareBufferPropertiesANDROID",
+            "VK_ANDROID_external_memory_android_hardware_buffer",
+            "VK_EXT_queue_family_foreign",
+            "allocationSize",
+            "memoryTypeBits",
+            "canonical_import_query_supported",
+        ),
+    )
+    require(
+        failures,
+        "canonical AHardwareBuffer Kotlin probe",
+        ahb_import_kt,
+        (
+            "canonicalImportQuerySupported",
+            "allocationSizeNonzero",
+            "memoryTypeBitsNonzero",
+            "nativeCanonicalImportClaim",
+        ),
+    )
+
+    require(
+        failures,
+        "guest receive primitive",
+        guest_receive,
+        (
+            "pocketpc_fd_transport_receive(",
+            "pocketpc_graphics_handle_binding_validate_offer(",
+            "close(resource_fd);",
+            "received->resource_fd = resource_fd;",
+        ),
+    )
+
+    require(
+        failures,
         "guest graphics route planner",
         planner,
         (
             "GuestGraphicsTransportCandidate.OPAQUE_FD",
             "GuestGraphicsTransportCandidate.DMA_BUF_FD",
             "GuestGraphicsTransportCandidate.AHB_HOST_BROKER_ONLY",
+            "canonicalAhbCapabilityReady",
+            "AHB_CANONICAL_IMPORT_QUERY_NOT_VERIFIED",
             "candidateFoundationReady(candidate)",
             ".ancillaryFdTransportPrimitiveImplemented",
             ".handleBindingImplemented",
+            ".guestReceivePrimitiveImplemented",
             "BOX64_AHARDWAREBUFFER_BRIDGE_NOT_VERIFIED",
             "GUEST_GRAPHICS_HANDLE_RECEIVE_NOT_IMPLEMENTED",
             "GUEST_GRAPHICS_RESOURCE_IMPORT_NOT_IMPLEMENTED",
@@ -220,6 +267,7 @@ def main() -> int:
         (
             "hardware_buffer_resource_broker.cpp",
             "vulkan_external_resource_probe.cpp",
+            "vulkan_ahardwarebuffer_import_probe.cpp",
             "find_library(vulkan_lib vulkan)",
             "find_library(android_lib android)",
         ),
@@ -230,7 +278,9 @@ def main() -> int:
         "VkSurfaceKHR",
         "raw pointer",
         "SCM_RIGHTS",
-        "Host broker implementation does not promote",
+        "canonical vkGetAndroidHardwareBufferPropertiesANDROID",
+        "authenticated PocketPC runtime session",
+        "Headless diagnostic surface creation",
         "Roblox",
     ):
         if marker not in rules_text:
@@ -244,11 +294,13 @@ def main() -> int:
 
     print("GUEST_GRAPHICS_HOST_BROKER_POLICY_OK")
     print("host_ahardwarebuffer_broker_implemented=true")
+    print("canonical_ahb_import_probe_implemented=true")
     print("external_resource_capability_probe_implemented=true")
     print("ancillary_fd_transport_primitive_implemented=true")
     print("graphics_handle_binding_implemented=true")
+    print("guest_receive_primitive_implemented=true")
     print("box64_direct_ahardwarebuffer_bridge_verified=false")
-    print("guest_receive_implemented=false")
+    print("guest_receive_runtime_integrated=false")
     print("guest_import_implemented=false")
     print("guest_synchronization_implemented=false")
     print("runtime_test_executed=false")
