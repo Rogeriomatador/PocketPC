@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,9 +15,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.storage.PocketFileHandler
+import dev.pocketpc.core.storage.PocketFileOpenCoordinator
 import dev.pocketpc.core.storage.PocketFileOpenRequest
 import dev.pocketpc.core.storage.PocketZipCreationReport
 import dev.pocketpc.core.storage.createPocketZipFileInDownloads
+import dev.pocketpc.core.storage.planPocketFileOpenAsText
 import kotlinx.coroutines.launch
 
 private sealed interface PocketQuickCompressState {
@@ -31,10 +34,8 @@ fun PocketFileQuickActions(
     request: PocketFileOpenRequest,
 ) {
     val uri = request.uri ?: return
-    if (
-        request.plan.association.handler == PocketFileHandler.ARCHIVE_MANAGER ||
-        request.plan.association.handler == PocketFileHandler.ANDROID_PACKAGE_INSTALLER
-    ) {
+    val handler = request.plan.association.handler
+    if (handler == PocketFileHandler.ANDROID_PACKAGE_INSTALLER) {
         return
     }
 
@@ -47,55 +48,80 @@ fun PocketFileQuickActions(
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Button(
-            enabled = state !is PocketQuickCompressState.Compressing,
-            onClick = {
-                state = PocketQuickCompressState.Compressing
-                scope.launch {
-                    createPocketZipFileInDownloads(
-                        context = context,
-                        sourceUriString = uri,
-                        sourceName = request.plan.fileName,
-                    ).onSuccess { report ->
-                        state = PocketQuickCompressState.Done(report)
-                    }.onFailure { error ->
-                        state = PocketQuickCompressState.Failed(
-                            "Falha ao compactar: " +
-                                (error.message ?: error.javaClass.simpleName)
-                        )
-                    }
-                }
-            },
-        ) {
+        if (handler == PocketFileHandler.NONE) {
+            OutlinedButton(
+                onClick = {
+                    PocketFileOpenCoordinator.present(
+                        plan = planPocketFileOpenAsText(
+                            request.plan.fileName
+                        ),
+                        uri = uri,
+                        mimeType = request.mimeType,
+                        sizeBytes = request.sizeBytes,
+                    )
+                },
+            ) {
+                Text("Abrir como texto no PocketPC")
+            }
+
             Text(
-                if (state is PocketQuickCompressState.Compressing) {
-                    "Compactando..."
-                } else {
-                    "Compactar em P:\\Downloads"
-                }
+                "Use somente quando você souber que o arquivo contém texto. O PocketPC não altera a extensão automaticamente.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        when (val current = state) {
-            PocketQuickCompressState.Idle -> Unit
-            PocketQuickCompressState.Compressing ->
+        if (handler != PocketFileHandler.ARCHIVE_MANAGER) {
+            Button(
+                enabled = state !is PocketQuickCompressState.Compressing,
+                onClick = {
+                    state = PocketQuickCompressState.Compressing
+                    scope.launch {
+                        createPocketZipFileInDownloads(
+                            context = context,
+                            sourceUriString = uri,
+                            sourceName = request.plan.fileName,
+                        ).onSuccess { report ->
+                            state = PocketQuickCompressState.Done(report)
+                        }.onFailure { error ->
+                            state = PocketQuickCompressState.Failed(
+                                "Falha ao compactar: " +
+                                    (error.message ?: error.javaClass.simpleName)
+                            )
+                        }
+                    }
+                },
+            ) {
                 Text(
-                    "Criando ZIP dentro do PocketDrive...",
-                    style = MaterialTheme.typography.bodySmall,
+                    if (state is PocketQuickCompressState.Compressing) {
+                        "Compactando..."
+                    } else {
+                        "Compactar em P:\\Downloads"
+                    }
                 )
-            is PocketQuickCompressState.Done ->
-                Text(
-                    "${current.report.fileName} criado em P:\\Downloads • " +
-                        "${current.report.fileCount} arquivo(s).",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            is PocketQuickCompressState.Failed ->
-                Text(
-                    current.message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            }
+
+            when (val current = state) {
+                PocketQuickCompressState.Idle -> Unit
+                PocketQuickCompressState.Compressing ->
+                    Text(
+                        "Criando ZIP dentro do PocketDrive...",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                is PocketQuickCompressState.Done ->
+                    Text(
+                        "${current.report.fileName} criado em P:\\Downloads • " +
+                            "${current.report.fileCount} arquivo(s).",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                is PocketQuickCompressState.Failed ->
+                    Text(
+                        current.message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+            }
         }
     }
 }
