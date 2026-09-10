@@ -5,9 +5,17 @@ on:
   pull_request:
     paths:
       - 'third_party/wine/**'
+      - 'third_party/box64/LOCK.json'
+      - 'third_party/box64/ANDROID_GRAPHICS_BRIDGE.json'
+      - 'app/src/main/cpp/CMakeLists.txt'
+      - 'app/src/main/cpp/hardware_buffer_resource_broker.cpp'
+      - 'app/src/main/cpp/vulkan_external_resource_probe.cpp'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsResourceDescriptor.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsOwnershipProtocol.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportPlanner.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/HostGraphicsResourceBroker.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/VulkanExternalResourceProbe.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanSurfaceBackend.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiContract.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiFoundation.kt'
@@ -34,6 +42,7 @@ on:
       - 'scripts/test-vulkan-wsi-policy.py'
       - 'scripts/test-ahardwarebuffer-vulkan-transport-policy.py'
       - 'scripts/test-guest-graphics-protocol-policy.py'
+      - 'scripts/test-guest-graphics-host-broker-policy.py'
       - 'scripts/test-roblox-browser-launch-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - 'scripts/test-display-multipeer-policy.py'
@@ -78,6 +87,7 @@ jobs:
           python3 scripts/test-vulkan-wsi-policy.py
           python3 scripts/test-ahardwarebuffer-vulkan-transport-policy.py
           python3 scripts/test-guest-graphics-protocol-policy.py
+          python3 scripts/test-guest-graphics-host-broker-policy.py
           python3 scripts/test-roblox-browser-launch-policy.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
           python3 scripts/test-pocketpc-pe-audit.py
@@ -116,7 +126,7 @@ jobs:
             --pe-evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json" \
             --driver "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv" \
             --unixlib "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.so" \
-            --evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-artifact-set.json"
+            --evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/winepocketpc-driver-artifact-set.json"
 
       - name: Prove repository stayed unmodified
         if: always()
@@ -133,7 +143,7 @@ jobs:
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-pe-audit.json
-            ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-artifact-set.json
+            ${{ runner.temp }}/pocketpc-wine-driver-build/winepocketpc-driver-artifact-set.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/configure.log
             ${{ runner.temp }}/pocketpc-wine-driver-build/driver-build.log
             ${{ runner.temp }}/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv
