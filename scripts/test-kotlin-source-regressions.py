@@ -60,6 +60,8 @@ for rel in (
     "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt",
     "app/src/main/java/dev/pocketpc/core/storage/PocketZipArchive.kt",
     "app/src/main/java/dev/pocketpc/core/storage/PocketZipCreator.kt",
+    "app/src/main/java/dev/pocketpc/core/storage/PocketGzipArchive.kt",
+    "app/src/main/java/dev/pocketpc/core/storage/PocketTarArchive.kt",
     "app/src/main/java/dev/pocketpc/core/storage/PocketTextFileStore.kt",
     "app/src/main/java/dev/pocketpc/core/ui/PocketTextEditorPane.kt",
     "app/src/main/java/dev/pocketpc/core/ui/PocketImageViewerPane.kt",
@@ -69,6 +71,8 @@ for rel in (
     "app/src/main/java/dev/pocketpc/core/ui/PocketWebDocumentPane.kt",
     "app/src/main/java/dev/pocketpc/core/ui/PocketOfficePreviewPane.kt",
     "app/src/main/java/dev/pocketpc/core/ui/PocketFileQuickActions.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketGzipArchivePane.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketTarArchivePane.kt",
 ):
     source = read(rel)
     if "Intent.ACTION_VIEW" in source:
@@ -97,7 +101,8 @@ if "O PocketPC bloqueou a saída automática para o Android." not in browser:
 associations = read("app/src/main/java/dev/pocketpc/core/storage/PocketFileAssociations.kt")
 for required in (
     "PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL",
-    'if (extension == "zip")',
+    "IMPLEMENTED_ARCHIVE_EXTENSIONS",
+    'setOf("zip", "tar", "gz", "tgz")',
     "PocketFileHandler.PDF_VIEWER",
     "IMPLEMENTED_IMAGE_EXTENSIONS",
     "IMPLEMENTED_AUDIO_EXTENSIONS",
@@ -109,6 +114,10 @@ for required in (
 for modern_office in ("docx", "odt", "xlsx", "ods", "pptx", "odp"):
     if f'"{modern_office}"' not in associations:
         errors.append(f"PocketFileAssociations lost modern Office type: {modern_office}")
+
+router = read("app/src/main/java/dev/pocketpc/core/storage/PocketFileRouter.kt")
+if '"tgz"' not in router:
+    errors.append("PocketFileRouter lost TGZ archive routing")
 
 zip_engine = read("app/src/main/java/dev/pocketpc/core/storage/PocketZipArchive.kt")
 for required in (
@@ -136,6 +145,50 @@ for required in (
     if required not in zip_pane:
         errors.append(f"PocketZipArchivePane missing internal ZIP flow: {required}")
 
+gzip_engine = read("app/src/main/java/dev/pocketpc/core/storage/PocketGzipArchive.kt")
+for required in (
+    "GZIPInputStream(",
+    "MAX_GZIP_EXTRACTED_BYTES",
+    '".pocketpc-part-${System.nanoTime()}-$finalName"',
+    "runCatching { target?.delete() }",
+    "pocketGzipOutputName(",
+):
+    if required not in gzip_engine:
+        errors.append(f"PocketGzipArchive lost safety invariant: {required}")
+
+gzip_pane = read("app/src/main/java/dev/pocketpc/core/ui/PocketGzipArchivePane.kt")
+for required in (
+    "extractPocketGzipToDownloads(",
+    '"Extrair em P:\\\\Downloads"',
+):
+    if required not in gzip_pane:
+        errors.append(f"PocketGzipArchivePane missing internal GZIP flow: {required}")
+
+tar_engine = read("app/src/main/java/dev/pocketpc/core/storage/PocketTarArchive.kt")
+for required in (
+    "validateTarChecksum(block)",
+    "validatePocketTarEntryPath(header.path)",
+    "MAX_TAR_ENTRY_COUNT",
+    "MAX_TAR_PATH_DEPTH",
+    "MAX_TAR_FILE_BYTES",
+    "MAX_TAR_TOTAL_BYTES",
+    'Regex("^[A-Za-z]:")',
+    'segment != "." && segment != ".."',
+    "WINDOWS_RESERVED_TAR_NAMES",
+    "runCatching { extractionRoot?.delete() }",
+):
+    if required not in tar_engine:
+        errors.append(f"PocketTarArchive lost safety invariant: {required}")
+
+tar_pane = read("app/src/main/java/dev/pocketpc/core/ui/PocketTarArchivePane.kt")
+for required in (
+    "inspectPocketTar(context, uri)",
+    "extractPocketTarToDownloads(",
+    '"Extrair em P:\\\\Downloads"',
+):
+    if required not in tar_pane:
+        errors.append(f"PocketTarArchivePane missing internal TAR flow: {required}")
+
 zip_creator = read("app/src/main/java/dev/pocketpc/core/storage/PocketZipCreator.kt")
 for required in (
     "MAX_CREATE_ZIP_ENTRY_COUNT",
@@ -155,9 +208,11 @@ quick_actions = read("app/src/main/java/dev/pocketpc/core/ui/PocketFileQuickActi
 for required in (
     "createPocketZipFileInDownloads(",
     '"Compactar em P:\\\\Downloads"',
+    "planPocketFileOpenAsText(",
+    '"Abrir como texto no PocketPC"',
 ):
     if required not in quick_actions:
-        errors.append(f"PocketFileQuickActions lost internal compression action: {required}")
+        errors.append(f"PocketFileQuickActions lost internal action: {required}")
 
 text_store = read("app/src/main/java/dev/pocketpc/core/storage/PocketTextFileStore.kt")
 for required in (
@@ -174,6 +229,7 @@ for required in (
     "readOnly = !document.editable",
     "savePocketTextDocument(",
     'Text("Salvar")',
+    'Text("Reverter")',
 ):
     if required not in text_editor:
         errors.append(f"PocketTextEditorPane missing editable-text behavior: {required}")
@@ -251,18 +307,25 @@ for required in (
 
 open_overlay = read("app/src/main/java/dev/pocketpc/core/ui/PocketFileOpenOverlay.kt")
 for required in (
-    "PocketTextEditorPane(request = currentRequest)",
+    "PocketTextEditorPane(",
     "PocketImageViewerPane(request = currentRequest)",
     "PocketZipArchivePane(request = currentRequest)",
+    "PocketGzipArchivePane(request = currentRequest)",
+    "PocketTarArchivePane(request = currentRequest)",
     "PocketPdfViewerPane(request = currentRequest)",
     "PocketOfficePreviewPane(request = currentRequest)",
     "PocketWebDocumentPane(request = currentRequest)",
     "PocketVideoPlayerPane(request = currentRequest)",
     "PocketAudioPlayerPane(request = currentRequest)",
-    "PocketFileQuickActions(",
+    "PocketFileQuickActions(request = currentRequest)",
 ):
     if open_overlay.count(required) != 1:
         errors.append(f"Global file-open overlay must mount exactly one: {required}")
+
+if 'extension == "tar"' not in open_overlay:
+    errors.append("Global overlay lost TAR dispatch")
+if 'extension == "gz" || extension == "tgz"' not in open_overlay:
+    errors.append("Global overlay lost GZIP/TGZ dispatch")
 
 if errors:
     for error in errors:
@@ -278,6 +341,8 @@ print("pocket_file_open_boundary=guarded")
 print("pocket_file_overlay=global")
 print("browser_external_escape=explicit_only")
 print("pocket_zip_security=guarded")
+print("pocket_gzip_security=guarded")
+print("pocket_tar_security=guarded")
 print("pocket_zip_creation=guarded")
 print("pocket_text_editor=guarded")
 print("pocket_image_viewer=guarded")
