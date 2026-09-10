@@ -11,8 +11,12 @@ on:
       - 'scripts/pocketpc_pe.py'
       - 'scripts/audit-wine-pocketpc-driver-pe.py'
       - 'scripts/verify-wine-pocketpc-driver-artifact-set.py'
+      - 'scripts/verify-wine-pocketpc-driver-load-evidence.py'
       - 'scripts/test-pocketpc-pe-audit.py'
       - 'scripts/test-wine-pocketpc-pe-policy.py'
+      - 'scripts/test-wine-pocketpc-artifact-set-verifier.py'
+      - 'scripts/test-wine-pocketpc-driver-load-evidence.py'
+      - 'scripts/test-wine-pocketpc-driver-load-policy.py'
       - 'scripts/test-wine-pocketpc-build-target-discovery.py'
       - 'scripts/test-wine-pocketpc-driver-policy.py'
       - 'scripts/test-wine-pocketpc-driver-abi-lock.py'
@@ -58,6 +62,9 @@ jobs:
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
           python3 scripts/test-pocketpc-pe-audit.py
           python3 scripts/test-wine-pocketpc-pe-policy.py
+          python3 scripts/test-wine-pocketpc-artifact-set-verifier.py
+          python3 scripts/test-wine-pocketpc-driver-load-evidence.py
+          python3 scripts/test-wine-pocketpc-driver-load-policy.py
 
       - name: Fetch exact pinned Wine source
         run: |
