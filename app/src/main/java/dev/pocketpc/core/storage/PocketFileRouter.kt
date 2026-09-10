@@ -92,7 +92,7 @@ private val PC_EXECUTABLE_EXTENSIONS =
     )
 
 private val ARCHIVE_EXTENSIONS =
-    setOf("zip", "rar", "7z", "tar", "gz", "bz2", "xz", "cab")
+    setOf("zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz", "cab")
 
 private val DISK_IMAGE_EXTENSIONS =
     setOf("iso", "img", "vhd", "vhdx")
