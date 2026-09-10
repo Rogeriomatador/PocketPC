@@ -16,6 +16,22 @@ object PocketPcVulkanWsiContract {
     const val PINNED_WINE_COMMIT =
         "db11d0fe6a169c457e23d007e20404643d067aa8"
 
+    // The v47 pVulkanInit ABI is now represented by the driver, but all WSI
+    // behavior below intentionally remains blocked until the real transport
+    // and presentation path exists.
+    const val abiEntryPointImplemented =
+        true
+    const val abiEntryPointSoftwareTestExecuted =
+        false
+    const val surfaceCreateImplemented =
+        false
+    const val presentationSupportImplemented =
+        false
+    const val extensionMappingImplemented =
+        false
+    const val swapchainPresentationImplemented =
+        false
+
     const val implemented =
         false
     const val softwareTestExecuted =
@@ -48,5 +64,9 @@ object PocketPcVulkanWsiContract {
         foundation: PocketPcVulkanWsiFoundationStatus,
     ): Boolean =
         implemented &&
+            surfaceCreateImplemented &&
+            presentationSupportImplemented &&
+            extensionMappingImplemented &&
+            swapchainPresentationImplemented &&
             foundation.readyForWsiImplementation
 }
