@@ -55,7 +55,7 @@
     "hostProbeSoftwareTestExecuted": false,
     "hostProbePhysicalTestExecuted": false,
     "crossProcessPhysicalTestExecuted": false,
-    "note": "This proves only Android-process transport. It cannot satisfy the guest/Wine transport gate."
+    "note": "This proves only Android-process transport. It cannot satisfy the guest/Wine transport gate and AHardwareBuffer is not a VkSurfaceKHR."
   },
   "guestGraphicsTransport": {
     "contract": "GuestGraphicsTransportContract",
@@ -90,11 +90,51 @@
     ],
     "note": "Extension discovery is diagnostic only and never proves that PocketPC can create a surface, swapchain or visible Present path."
   },
+  "surfaceBackend": {
+    "model": "PocketPcVulkanSurfaceBackendProbe",
+    "modelImplemented": true,
+    "runnable": false,
+    "ahardwareBufferIsSurface": false,
+    "candidates": {
+      "ANDROID_NATIVE_SURFACE": {
+        "requires": [
+          "VK_KHR_surface",
+          "VK_KHR_android_surface",
+          "VK_KHR_swapchain",
+          "process-valid ANativeWindow"
+        ],
+        "implemented": false,
+        "blocker": "VULKAN_ANDROID_NATIVE_WINDOW_TRANSPORT_NOT_IMPLEMENTED"
+      },
+      "HEADLESS_SURFACE_SHIM": {
+        "requires": [
+          "VK_KHR_surface",
+          "VK_EXT_headless_surface",
+          "VK_KHR_swapchain",
+          "proven frame capture/presentation bridge"
+        ],
+        "implemented": false,
+        "blocker": "VULKAN_HEADLESS_PRESENT_CAPTURE_NOT_IMPLEMENTED"
+      },
+      "VIRTUAL_WSI": {
+        "requires": [
+          "coherent virtual surface semantics",
+          "swapchain ownership",
+          "Present interception/implementation",
+          "host-visible frame transport"
+        ],
+        "implemented": false,
+        "blocker": "VULKAN_VIRTUAL_WSI_NOT_IMPLEMENTED"
+      }
+    },
+    "note": "Wine win32u stores the VkSurfaceKHR returned by p_vulkan_surface_create as the host surface handle. AHardwareBuffer can back image transport/import but cannot be substituted for VkSurfaceKHR."
+  },
   "roblox": {
     "graphicsPreflightImplemented": true,
     "requiresAndroidCrossProcessTransportFoundation": true,
     "requiresGuestGraphicsTransport": true,
     "requiresCapabilityDiscovery": true,
+    "requiresRunnableSurfaceBackend": true,
     "requiresWineVulkanWsi": true,
     "requiresHostVisiblePresent": true,
     "controlledAttemptExecuted": false,
@@ -104,6 +144,10 @@
     {
       "route": "send ANativeWindow pointer over Display Bridge socket",
       "reason": "ANativeWindow is process-local opaque state; a pointer value is not a transferable cross-process handle."
+    },
+    {
+      "route": "treat AHardwareBuffer as VkSurfaceKHR",
+      "reason": "AHardwareBuffer is a transferable image/memory primitive. Wine requires p_vulkan_surface_create to return a host VkSurfaceKHR used by later surface and swapchain calls."
     },
     {
       "route": "treat GDI window_surface.flush as DXVK Present",
@@ -120,6 +164,10 @@
     {
       "route": "advertise VK_KHR_win32_surface before a real PocketPC surface backend exists",
       "reason": "Extension promotion without a process-valid surface implementation would make DXVK progress into a guaranteed invalid presentation path."
+    },
+    {
+      "route": "treat VK_EXT_headless_surface advertisement as visible presentation proof",
+      "reason": "A headless surface can satisfy surface semantics only if a separate, validated frame capture/presentation path exists. Advertising the extension alone does not produce a host-visible frame."
     }
   ],
   "targetArchitecture": {
@@ -129,10 +177,11 @@
     "phase4": "Expose the exact Wine Vulkan driver v47 ABI through pVulkanInit while surface creation remains explicitly fail-closed.",
     "phase5": "Guest-side transport receives a real transferable graphics-buffer identity and imports it without trusting raw pointers.",
     "phase6": "Prove guest/host synchronization ownership for the imported graphics resource.",
-    "phase7": "Implement Wine Vulkan surface creation, presentation support and extension mapping on the proven transport backend.",
-    "phase8": "Implement acquire/render/present ownership and swapchain presentation.",
-    "phase9": "Run D3D11 Present smoke and require a host-visible frame before recording evidence.",
-    "phase10": "Only then unblock controlled Roblox/DXVK application attempts."
+    "phase7": "Select and implement one real VkSurfaceKHR backend: process-valid Android native surface, validated headless+capture shim, or coherent virtual WSI.",
+    "phase8": "Implement Wine Vulkan surface creation, presentation support and extension mapping on the proven backend.",
+    "phase9": "Implement acquire/render/present ownership and swapchain presentation.",
+    "phase10": "Run D3D11 Present smoke and require a host-visible frame before recording evidence.",
+    "phase11": "Only then unblock controlled Roblox/DXVK application attempts."
   },
   "gates": {
     "box64AndroidVulkanWrapperSourceReviewed": true,
@@ -142,6 +191,7 @@
     "vulkanCapabilityProbeImplemented": true,
     "wineVulkanAbiEntryPointImplemented": true,
     "guestGraphicsTransportContractImplemented": true,
+    "vulkanSurfaceBackendModelImplemented": true,
     "ahardwareBufferHostProbeSoftwareTestExecuted": false,
     "ahardwareBufferHostProbePhysicalTestExecuted": false,
     "ahardwareBufferCrossProcessPhysicalTestExecuted": false,
@@ -153,6 +203,7 @@
     "guestGraphicsTransportSoftwareTestExecuted": false,
     "guestGraphicsTransportIntegrationTestExecuted": false,
     "guestGraphicsTransportPhysicalTestExecuted": false,
+    "vulkanSurfaceBackendRunnable": false,
     "wineVulkanWsiImplemented": false,
     "wineVulkanWsiSoftwareTestExecuted": false,
     "wineVulkanWsiPhysicalTestExecuted": false,
