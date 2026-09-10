@@ -447,69 +447,59 @@ class StorageRepository(private val context: Context) {
             }
         }
 
+    /**
+     * Executes only Android-specific file actions.
+     *
+     * Generic files intentionally fail closed here. UI surfaces must inspect
+     * [routePocketFile] and dispatch PC/runtime/internal routes themselves.
+     * This prevents Android's ACTION_VIEW chooser from leaking through the
+     * PocketPC desktop when the internal handler is not implemented yet.
+     */
     fun openFile(entry: StorageEntry): Result<Unit> =
         runCatching {
             require(!entry.directory) {
                 "Diretórios devem ser navegados dentro do PocketPC."
             }
 
-            val lowerName =
-                entry.name.lowercase()
-            val fileClass =
-                classifyPocketFile(entry.name)
+            val decision =
+                routePocketFile(
+                    name = entry.name,
+                    mimeType = entry.mimeType,
+                )
             val uri = Uri.parse(entry.uri)
 
-            when {
-                lowerName.endsWith(".apk") -> {
+            when (decision.route) {
+                PocketFileRoute.ANDROID_PACKAGE_INSTALLER ->
                     requestAndroidPackageInstall(uri)
-                }
 
-                lowerName.endsWith(".apks") ||
-                    lowerName.endsWith(".xapk") -> {
+                PocketFileRoute.PC_RUNTIME ->
                     error(
-                        "Pacote Android em bundle detectado. " +
-                            "APKS/XAPK ainda precisa de um instalador " +
-                            "de bundles compatível."
+                        "${entry.name} é um aplicativo de PC. " +
+                            "Abra-o pelo runtime Windows do PocketPC."
                     )
-                }
 
-                fileClass ==
-                    PocketFileClass.PC_INSTALLER -> {
+                PocketFileRoute.POCKET_ARCHIVE ->
                     error(
-                        "Pacote de PC detectado: ${entry.name}. " +
-                            "Ele está armazenado no PocketDrive, mas " +
-                            "a execução aguarda um runtime Windows " +
-                            "compatível realmente validado."
+                        "${entry.name} é um arquivo compactado. " +
+                            "Ele permanecerá no PocketPC; o compactador interno " +
+                            "ainda precisa assumir esta rota."
                     )
-                }
 
-                else -> {
-                    val intent =
-                        Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(
-                                uri,
-                                entry.mimeType ?: "*/*",
-                            )
-                            addFlags(
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION
-                            )
-                            addFlags(
-                                Intent.FLAG_ACTIVITY_NEW_TASK
-                            )
-                        }
-                    try {
-                        context.startActivity(intent)
-                    } catch (
-                        error:
-                        ActivityNotFoundException
-                    ) {
-                        throw IllegalStateException(
-                            "Nenhum app instalado consegue " +
-                                "abrir este tipo de arquivo.",
-                            error,
-                        )
-                    }
-                }
+                PocketFileRoute.POCKET_DISK_IMAGE ->
+                    error(
+                        "${entry.name} é uma imagem de disco. " +
+                            "Ela permanecerá no PocketPC; o montador interno " +
+                            "ainda precisa assumir esta rota."
+                    )
+
+                PocketFileRoute.POCKET_INTERNAL_APP ->
+                    error(
+                        "${entry.name} pertence a um aplicativo interno do PocketPC. " +
+                            "Nenhum app interno compatível está associado ainda."
+                    )
+
+                PocketFileRoute.POCKET_UNSUPPORTED ->
+                    error(decision.reason)
             }
         }
 
