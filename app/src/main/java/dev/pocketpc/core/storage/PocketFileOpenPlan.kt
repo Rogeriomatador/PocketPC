@@ -74,18 +74,28 @@ fun planPocketFileOpen(
                 leavesPocketPc = false,
             )
 
-        else ->
+        else -> {
+            val implemented =
+                association.readiness ==
+                    PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL
+
             PocketFileOpenPlan(
                 fileName = name,
                 association = association,
                 capability = PocketFileOpenCapability.INTERNAL_HANDLER_PENDING,
                 title = "Abrir com ${association.displayName}",
                 description =
-                    "O PocketPC possui uma associação interna para este tipo, mas o " +
-                        "handler ainda precisa de implementação/validação antes de ser " +
-                        "marcado como funcional.",
-                canAttemptNow = false,
+                    if (implemented) {
+                        "Este tipo possui um handler interno implementado no PocketPC. " +
+                            "A abertura permanece dentro do desktop."
+                    } else {
+                        "O PocketPC possui uma associação interna para este tipo, mas o " +
+                            "handler ainda precisa de implementação/validação antes de ser " +
+                            "marcado como funcional."
+                    },
+                canAttemptNow = implemented,
                 leavesPocketPc = false,
             )
+        }
     }
 }
