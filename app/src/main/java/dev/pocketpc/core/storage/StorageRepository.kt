@@ -448,12 +448,8 @@ class StorageRepository(private val context: Context) {
         }
 
     /**
-     * Executes only Android-specific file actions.
-     *
-     * Generic files intentionally fail closed here. UI surfaces must inspect
-     * [routePocketFile] and dispatch PC/runtime/internal routes themselves.
-     * This prevents Android's ACTION_VIEW chooser from leaking through the
-     * PocketPC desktop when the internal handler is not implemented yet.
+     * Opens only explicit Android package actions outside the PocketPC desktop.
+     * Every other file route is handed to the PocketPC-owned open coordinator.
      */
     fun openFile(entry: StorageEntry): Result<Unit> =
         runCatching {
@@ -461,45 +457,21 @@ class StorageRepository(private val context: Context) {
                 "Diretórios devem ser navegados dentro do PocketPC."
             }
 
-            val decision =
-                routePocketFile(
+            val plan =
+                planPocketFileOpen(
                     name = entry.name,
                     mimeType = entry.mimeType,
                 )
-            val uri = Uri.parse(entry.uri)
 
-            when (decision.route) {
-                PocketFileRoute.ANDROID_PACKAGE_INSTALLER ->
-                    requestAndroidPackageInstall(uri)
-
-                PocketFileRoute.PC_RUNTIME ->
-                    error(
-                        "${entry.name} é um aplicativo de PC. " +
-                            "Abra-o pelo runtime Windows do PocketPC."
-                    )
-
-                PocketFileRoute.POCKET_ARCHIVE ->
-                    error(
-                        "${entry.name} é um arquivo compactado. " +
-                            "Ele permanecerá no PocketPC; o compactador interno " +
-                            "ainda precisa assumir esta rota."
-                    )
-
-                PocketFileRoute.POCKET_DISK_IMAGE ->
-                    error(
-                        "${entry.name} é uma imagem de disco. " +
-                            "Ela permanecerá no PocketPC; o montador interno " +
-                            "ainda precisa assumir esta rota."
-                    )
-
-                PocketFileRoute.POCKET_INTERNAL_APP ->
-                    error(
-                        "${entry.name} pertence a um aplicativo interno do PocketPC. " +
-                            "Nenhum app interno compatível está associado ainda."
-                    )
-
-                PocketFileRoute.POCKET_UNSUPPORTED ->
-                    error(decision.reason)
+            if (
+                plan.capability ==
+                PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED
+            ) {
+                requestAndroidPackageInstall(
+                    Uri.parse(entry.uri)
+                )
+            } else {
+                PocketFileOpenCoordinator.present(plan)
             }
         }
 
