@@ -13,6 +13,7 @@ namespace {
 
 constexpr uint32_t kWidth = 64;
 constexpr uint32_t kHeight = 64;
+constexpr int kProbeProtocol = 1;
 constexpr std::array<uint8_t, 16> kProbePattern = {
     0x50, 0x43, 0x50, 0x43,
     0x2d, 0x41, 0x48, 0x42,
@@ -22,6 +23,10 @@ constexpr std::array<uint8_t, 16> kProbePattern = {
 
 jstring JString(JNIEnv* env, const std::string& value) {
     return env->NewStringUTF(value.c_str());
+}
+
+void AppendProtocol(std::ostringstream& output) {
+    output << ";protocol=" << kProbeProtocol;
 }
 
 }  // namespace
@@ -36,7 +41,9 @@ Java_dev_pocketpc_core_runtime_NativeRuntimeHost_nativeSendHardwareBufferCrossPr
     output << "ahb-xproc-send=";
 
     if (socket_fd < 0) {
-        output << "invalid-fd;pid=" << getpid();
+        output << "invalid-fd";
+        AppendProtocol(output);
+        output << ";pid=" << getpid();
         return JString(env, output.str());
     }
 
@@ -55,8 +62,9 @@ Java_dev_pocketpc_core_runtime_NativeRuntimeHost_nativeSendHardwareBufferCrossPr
     const int allocate_result =
         AHardwareBuffer_allocate(&requested, &buffer);
     if (allocate_result != 0 || buffer == nullptr) {
-        output << "allocation-failed"
-               << ";pid=" << getpid()
+        output << "allocation-failed";
+        AppendProtocol(output);
+        output << ";pid=" << getpid()
                << ";allocate=" << allocate_result;
         return JString(env, output.str());
     }
@@ -92,8 +100,9 @@ Java_dev_pocketpc_core_runtime_NativeRuntimeHost_nativeSendHardwareBufferCrossPr
     output << (
         send_result == 0
             ? "ok"
-            : "failed")
-           << ";pid=" << getpid()
+            : "failed");
+    AppendProtocol(output);
+    output << ";pid=" << getpid()
            << ";width=" << desc.width
            << ";height=" << desc.height
            << ";layers=" << desc.layers
@@ -117,7 +126,9 @@ Java_dev_pocketpc_core_runtime_NativeRuntimeHost_nativeReceiveHardwareBufferCros
     output << "ahb-xproc-recv=";
 
     if (socket_fd < 0) {
-        output << "invalid-fd;pid=" << getpid();
+        output << "invalid-fd";
+        AppendProtocol(output);
+        output << ";pid=" << getpid();
         return JString(env, output.str());
     }
 
@@ -127,8 +138,9 @@ Java_dev_pocketpc_core_runtime_NativeRuntimeHost_nativeReceiveHardwareBufferCros
             socket_fd,
             &buffer);
     if (receive_result != 0 || buffer == nullptr) {
-        output << "failed"
-               << ";pid=" << getpid()
+        output << "failed";
+        AppendProtocol(output);
+        output << ";pid=" << getpid()
                << ";recv=" << receive_result;
         if (buffer != nullptr) {
             AHardwareBuffer_release(buffer);
@@ -174,8 +186,9 @@ Java_dev_pocketpc_core_runtime_NativeRuntimeHost_nativeReceiveHardwareBufferCros
         lock_result == 0 &&
         unlock_result == 0;
 
-    output << (ok ? "ok" : "validation-failed")
-           << ";pid=" << getpid()
+    output << (ok ? "ok" : "validation-failed");
+    AppendProtocol(output);
+    output << ";pid=" << getpid()
            << ";width=" << desc.width
            << ";height=" << desc.height
            << ";layers=" << desc.layers
