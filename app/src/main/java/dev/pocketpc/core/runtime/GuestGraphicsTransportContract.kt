@@ -4,65 +4,47 @@ package dev.pocketpc.core.runtime
  * Fail-closed contract for graphics-handle transport from the Android host
  * into the actual guest/Wine execution side.
  *
- * Android-to-Android AHardwareBuffer transfer is useful host evidence, but it
- * does not prove that Box64/Wine can receive, identify, import or synchronize
- * the same graphics resource. Metadata and ownership protocols can be
- * implemented before the actual handle/import/synchronization transport and
- * must never promote readiness by themselves.
+ * Foundations may be implemented before they are wired into a real runtime
+ * session. These flags deliberately distinguish reusable primitives from an
+ * authenticated, executed Box64/Wine/DXVK path.
  */
 object GuestGraphicsTransportContract {
     const val PROTOCOL_VERSION = 1
 
-    const val descriptorProtocolImplemented =
-        true
-    const val ownershipProtocolImplemented =
-        true
-    const val hostAhardwareBufferBrokerImplemented =
-        true
-    const val hostOpaqueFdImageBrokerImplemented =
-        true
-    const val hostDmaBufImageBrokerImplemented =
-        false
-    const val externalResourceCapabilityProbeImplemented =
-        true
-    const val canonicalAhardwareBufferImportProbeImplemented =
-        true
-    const val ancillaryFdTransportPrimitiveImplemented =
-        true
-    const val handleBindingImplemented =
-        true
-    const val guestReceivePrimitiveImplemented =
-        true
+    const val descriptorProtocolImplemented = true
+    const val ownershipProtocolImplemented = true
+    const val hostAhardwareBufferBrokerImplemented = true
+    const val hostOpaqueFdImageBrokerImplemented = true
+    const val hostDmaBufImageBrokerImplemented = false
+    const val externalResourceCapabilityProbeImplemented = true
+    const val canonicalAhardwareBufferImportProbeImplemented = true
+    const val ancillaryFdTransportPrimitiveImplemented = true
+    const val handleBindingImplemented = true
+    const val guestReceivePrimitiveImplemented = true
+    const val externalImagePvi1ProtocolImplemented = true
+    const val guestVulkanImportPrimitiveImplemented = true
 
     /*
-     * The pinned Box64 source has not yet provided verified evidence that a
-     * direct libandroid/AHardwareBuffer bridge is available to the x86_64
-     * guest. Keep this false until that exact path is source-verified and
-     * exercised; the host broker does not change it.
+     * The pinned Box64 source has not provided verified evidence that a direct
+     * libandroid/AHardwareBuffer bridge is available to the x86_64 guest.
+     * OPAQUE_FD remains the preferred independent transport candidate.
      */
-    const val box64DirectAhardwareBufferBridgeVerified =
-        false
+    const val box64DirectAhardwareBufferBridgeVerified = false
 
     /*
-     * SCM_RIGHTS, handle binding and the isolated guest receive function are
-     * only transport foundations. These gates describe the real runtime path
-     * and remain false until the authenticated PocketPC graphics session feeds
-     * Wine/Box64, the resource is imported into the Vulkan device used by
-     * Wine/DXVK, and synchronization/ownership is exercised there.
+     * These three gates describe the real session, not the existence of helper
+     * functions. They remain false until the authenticated graphics broker is
+     * connected to Wine/Box64, a PVI1 resource is imported into the Vulkan
+     * device actually used by Wine/DXVK, and ownership/synchronization is
+     * exercised end-to-end.
      */
-    const val guestReceiveImplemented =
-        false
-    const val guestImportImplemented =
-        false
-    const val synchronizationImplemented =
-        false
+    const val guestReceiveImplemented = false
+    const val guestImportImplemented = false
+    const val synchronizationImplemented = false
 
-    const val softwareTestExecuted =
-        false
-    const val integrationTestExecuted =
-        false
-    const val physicalTestExecuted =
-        false
+    const val softwareTestExecuted = false
+    const val integrationTestExecuted = false
+    const val physicalTestExecuted = false
 
     const val blocker =
         "VULKAN_WSI_GUEST_GRAPHICS_TRANSPORT_NOT_IMPLEMENTED"
@@ -70,6 +52,7 @@ object GuestGraphicsTransportContract {
     fun readyForWsiImplementation(): Boolean =
         descriptorProtocolImplemented &&
             ownershipProtocolImplemented &&
+            externalImagePvi1ProtocolImplemented &&
             guestReceiveImplemented &&
             guestImportImplemented &&
             synchronizationImplemented
