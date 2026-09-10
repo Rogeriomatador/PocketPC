@@ -40,6 +40,7 @@ PY
 }
 
 COMPILE_SDK="$(read_lock android.compileSdk)"
+PLATFORM_PACKAGE="$(read_lock android.platformPackage)"
 BUILD_TOOLS="$(read_lock android.buildTools)"
 GRADLE_REQUIRED="$(read_lock gradle.version)"
 VERSION_NAME="$(read_lock app.versionName)"
@@ -53,7 +54,9 @@ else
     SOURCE_TREE_STATE="DIRTY"
 fi
 
-ANDROID_JAR="$SDK_ROOT/platforms/android-$COMPILE_SDK/android.jar"
+PLATFORM_DIR_NAME="${PLATFORM_PACKAGE#platforms;}"
+PLATFORM_DIR="$SDK_ROOT/platforms/$PLATFORM_DIR_NAME"
+ANDROID_JAR="$PLATFORM_DIR/android.jar"
 BUILD_TOOLS_DIR="$SDK_ROOT/build-tools/$BUILD_TOOLS"
 
 if [ ! -f "$ANDROID_JAR" ]; then
@@ -92,6 +95,8 @@ echo "  version=$VERSION_NAME"
 echo "  version_code=$VERSION_CODE"
 echo "  java=$(java -version 2>&1 | head -1)"
 echo "  gradle=$GRADLE_ACTUAL"
+echo "  platform_package=$PLATFORM_PACKAGE"
+echo "  platform_dir=$PLATFORM_DIR"
 echo "  android_jar=$ANDROID_JAR"
 echo "  build_tools=$BUILD_TOOLS_DIR"
 echo "  aapt2=$AAPT2"
