@@ -10,6 +10,7 @@ DRIVER = ROOT / "third_party/wine/pocketpc-driver/pocketpcdrv_main.c"
 VERIFIER = ROOT / "scripts/verify-wine-pocketpc-driver-load-evidence.py"
 TEST = ROOT / "scripts/test-wine-pocketpc-driver-load-evidence.py"
 BROKER_TEST = ROOT / "scripts/test-wine-pocketpc-driver-load-broker.py"
+SETUP_TEST = ROOT / "scripts/test-wine-pocketpc-driver-load-smoke.py"
 SMOKE = ROOT / "scripts/run-wine-pocketpc-driver-load-smoke.py"
 WORKFLOW = ROOT / ".github/workflows/wine-pocketpc-driver-build.yml"
 FULL_WORKFLOW = ROOT / ".github/workflows/wine-x86_64-build.yml"
@@ -28,6 +29,7 @@ def main() -> int:
         VERIFIER,
         TEST,
         BROKER_TEST,
+        SETUP_TEST,
         SMOKE,
         WORKFLOW,
         FULL_WORKFLOW,
@@ -45,6 +47,7 @@ def main() -> int:
     verifier = VERIFIER.read_text(encoding="utf-8")
     test = TEST.read_text(encoding="utf-8")
     broker_test = BROKER_TEST.read_text(encoding="utf-8")
+    setup_test = SETUP_TEST.read_text(encoding="utf-8")
     smoke = SMOKE.read_text(encoding="utf-8")
     workflow = WORKFLOW.read_text(encoding="utf-8")
     full_workflow = FULL_WORKFLOW.read_text(encoding="utf-8")
@@ -101,6 +104,12 @@ def main() -> int:
             '"Graphics","/t","REG_SZ","/d","pocketpc","/f"',
             "REGISTRY_RE",
             "RegistrationBroker",
+            "relocated_wine_env",
+            'env["WINELOADER"]',
+            'env["WINESERVER"]',
+            'env["WINEDLLPATH"]',
+            'env["LD_LIBRARY_PATH"]',
+            "Wine DLL search path escapes verified Wine root",
             "POCKETPC_DISPLAY_PROTOCOL",
             "POCKETPC_DISPLAY_RUNTIME_SHA256",
             "POCKETPC_DISPLAY_HOST_CAPS",
@@ -127,6 +136,19 @@ def main() -> int:
     )
     require(
         failures,
+        "relocation setup test",
+        setup_test,
+        (
+            "relocated_winedllpath=guarded",
+            "wine_loader_and_server=guarded",
+            "driver_path_escape=rejected",
+            "graphics_registry_match=guarded",
+            "wine_execution=false",
+            "physical_validation=false",
+        ),
+    )
+    require(
+        failures,
         "isolated driver workflow",
         workflow,
         (
@@ -142,6 +164,7 @@ def main() -> int:
             "scripts/run-wine-pocketpc-driver-load-smoke.py",
             "scripts/test-wine-pocketpc-driver-load-evidence.py",
             "scripts/test-wine-pocketpc-driver-load-broker.py",
+            "scripts/test-wine-pocketpc-driver-load-smoke.py",
             "scripts/test-wine-pocketpc-driver-load-policy.py",
             "Prove host Wine loads and registers winepocketpc.drv",
             "--package-evidence",
@@ -162,6 +185,7 @@ def main() -> int:
     print("stable_load_markers=guarded")
     print("false_positive_log_text=rejected_by_test")
     print("host_wine_registration_smoke=guarded")
+    print("relocated_wine_environment=guarded")
     print("graphics_registry_configuration=guarded")
     print("failure_logs=preserved")
     print("android_execution=false")
