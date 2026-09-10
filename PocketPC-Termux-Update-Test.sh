@@ -22,7 +22,23 @@ if ! git diff --quiet --ignore-submodules -- ||
     exit 3
 fi
 
-git fetch origin "$BRANCH"
+FETCH_OK=false
+for attempt in 1 2 3; do
+    if git fetch origin "$BRANCH"; then
+        FETCH_OK=true
+        break
+    fi
+    echo "git_fetch_attempt=$attempt failed"
+    if [ "$attempt" -lt 3 ]; then
+        sleep $((attempt * 2))
+    fi
+done
+
+if [ "$FETCH_OK" != "true" ]; then
+    echo "Classification : TERMUX_UPDATE_NETWORK_FAILED" >&2
+    echo "Unable to fetch $BRANCH after retries; refusing to validate stale source." >&2
+    exit 4
+fi
 
 if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
     git switch "$BRANCH"
