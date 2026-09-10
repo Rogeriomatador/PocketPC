@@ -131,12 +131,19 @@ def main() -> int:
     forbid(storage, "Intent(Intent.ACTION_VIEW)", "StorageRepository.kt")
     forbid(storage, "Intent.ACTION_VIEW).apply", "StorageRepository.kt")
 
-    require(downloads, "routePocketFile(", "DownloadsApp.kt")
-    require(downloads, "PocketFileRoute.PC_RUNTIME", "DownloadsApp.kt")
-    require(downloads, 'Text("Fila PocketPC")', "DownloadsApp.kt")
+    for sentinel in (
+        "planPocketFileOpen(",
+        "PocketFileOpenCapability.WINDOWS_RUNTIME_REQUIRED",
+        "PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED",
+        "PocketFileOpenCoordinator.present(plan)",
+        'Text("Fila PocketPC")',
+        "PcApplicationTarget",
+    ):
+        require(downloads, sentinel, "DownloadsApp.kt")
     forbid(downloads, "Intent.ACTION_VIEW", "DownloadsApp.kt")
     forbid(downloads, "DownloadManager.ACTION_VIEW_DOWNLOADS", "DownloadsApp.kt")
     forbid(downloads, "PocketOpenRoute", "DownloadsApp.kt")
+    forbid(downloads, "PocketFileRoutingDecision", "DownloadsApp.kt")
 
     require(browser, "DownloadManager.Request.VISIBILITY_HIDDEN", "BrowserApp.kt")
     require(browser, '"Abrir fora do PocketPC (Android)"', "BrowserApp.kt")
@@ -177,6 +184,7 @@ def main() -> int:
     print("file_associations=centralized")
     print("file_open_plan=centralized")
     print("file_open_overlay=mounted")
+    print("downloads_use_open_overlay=true")
     print("desktop_document_ownership=PocketPC")
     return 0
 
