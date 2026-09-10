@@ -7,6 +7,7 @@ data class PocketPcVulkanWsiFoundationStatus(
     val distinctProcessesObserved: Boolean,
     val readyForWsiImplementation: Boolean,
     val blockers: List<String>,
+    val guestGraphicsTransportReady: Boolean = false,
 )
 
 object PocketPcVulkanWsiFoundationProbe {
@@ -18,10 +19,14 @@ object PocketPcVulkanWsiFoundationProbe {
         "VULKAN_WSI_AHARDWAREBUFFER_CROSS_PROCESS_NOT_PROVEN"
     const val BLOCKER_DISTINCT_PROCESS =
         "VULKAN_WSI_DISTINCT_PROCESS_NOT_PROVEN"
+    const val BLOCKER_GUEST_GRAPHICS_TRANSPORT =
+        "VULKAN_WSI_GUEST_GRAPHICS_TRANSPORT_NOT_READY"
 
     fun assess(
         nativeHost: NativeHostStatus,
         crossProcessEvidence: HardwareBufferCrossProcessEvidence?,
+        guestGraphicsTransportReady: Boolean =
+            GuestGraphicsTransportContract.readyForWsiImplementation(),
     ): PocketPcVulkanWsiFoundationStatus {
         val sameProcessReady =
             nativeHost.hardwareBufferProbe.contains(
@@ -62,6 +67,9 @@ object PocketPcVulkanWsiFoundationProbe {
         if (!distinctProcesses) {
             blockers += BLOCKER_DISTINCT_PROCESS
         }
+        if (!guestGraphicsTransportReady) {
+            blockers += BLOCKER_GUEST_GRAPHICS_TRANSPORT
+        }
 
         return PocketPcVulkanWsiFoundationStatus(
             nativeHostLoaded = nativeHost.loaded,
@@ -70,6 +78,7 @@ object PocketPcVulkanWsiFoundationProbe {
             distinctProcessesObserved = distinctProcesses,
             readyForWsiImplementation = blockers.isEmpty(),
             blockers = blockers.distinct(),
+            guestGraphicsTransportReady = guestGraphicsTransportReady,
         )
     }
 }
