@@ -53,27 +53,72 @@ if [ "$JOBS" -lt 1 ] || [ "$JOBS" -gt 4 ]; then
 fi
 
 echo
-echo "Installing build dependencies from the active compatible Termux repository..."
+echo "Resolving build dependencies from the active compatible Termux repository..."
 pkg update
-pkg install -y \
-    bison \
-    flex \
-    cmake \
-    ninja \
-    git \
-    clang \
-    pkg-config \
-    linux-headers \
-    fmt \
-    libexpat \
-    libpng \
-    libprotobuf \
-    protobuf \
-    libzopfli \
-    zlib \
-    googletest \
-    ndk-sysroot \
+
+REQUIRED_PACKAGES=(
+    bison
+    flex
+    cmake
+    ninja
+    git
+    clang
+    pkg-config
+    fmt
+    libexpat
+    libpng
+    libprotobuf
+    protobuf
+    libzopfli
+    zlib
+    googletest
     patch
+)
+
+HEADER_PACKAGE=""
+for candidate in linux-headers ndk-sysroot; do
+    if apt-cache show "$candidate" >/dev/null 2>&1; then
+        HEADER_PACKAGE="$candidate"
+        break
+    fi
+done
+
+if [ -z "$HEADER_PACKAGE" ]; then
+    echo "TERMUX_AAPT2_HEADER_PACKAGE_UNAVAILABLE" >&2
+    echo "checked=linux-headers,ndk-sysroot" >&2
+    exit 9
+fi
+
+REQUIRED_PACKAGES+=("$HEADER_PACKAGE")
+echo "header_package=$HEADER_PACKAGE"
+
+UNAVAILABLE_PACKAGES=()
+for package in "${REQUIRED_PACKAGES[@]}"; do
+    if ! apt-cache show "$package" >/dev/null 2>&1; then
+        UNAVAILABLE_PACKAGES+=("$package")
+    fi
+done
+
+if [ "${#UNAVAILABLE_PACKAGES[@]}" -gt 0 ]; then
+    echo "TERMUX_AAPT2_BUILD_DEPENDENCIES_UNAVAILABLE" >&2
+    printf '  missing_package=%s\n' "${UNAVAILABLE_PACKAGES[@]}" >&2
+    exit 10
+fi
+
+MISSING_PACKAGES=()
+for package in "${REQUIRED_PACKAGES[@]}"; do
+    if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed'; then
+        MISSING_PACKAGES+=("$package")
+    fi
+done
+
+if [ "${#MISSING_PACKAGES[@]}" -gt 0 ]; then
+    echo "Installing missing build dependencies:"
+    printf '  %s\n' "${MISSING_PACKAGES[@]}"
+    pkg install -y "${MISSING_PACKAGES[@]}"
+else
+    echo "build_dependencies=already_installed"
+fi
 
 mkdir -p "$WORK_ROOT" "$INSTALL_ROOT/bin" "$EVIDENCE_DIR"
 
