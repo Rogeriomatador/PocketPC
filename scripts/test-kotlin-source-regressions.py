@@ -53,6 +53,42 @@ if "private fun formatBytes(" in task_manager:
 if task_manager.count("private fun formatTaskManagerBytes(") != 1:
     errors.append("TaskManagerApp formatTaskManagerBytes helper count is not exactly one")
 
+# Opening files from PocketPC-owned surfaces must fail closed inside PocketPC.
+# BrowserApp has one explicit opt-in Android escape hatch for web pages; it is
+# deliberately excluded from the generic-file prohibition below.
+for rel in (
+    "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/DownloadsApp.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt",
+):
+    source = read(rel)
+    if "Intent.ACTION_VIEW" in source:
+        errors.append(f"{Path(rel).name} reintroduced generic Android ACTION_VIEW")
+
+storage = read("app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt")
+for required in (
+    "PocketFileOpenCoordinator.present(",
+    "uri = entry.uri",
+    "mimeType = entry.mimeType",
+    "sizeBytes = entry.size",
+):
+    if required not in storage:
+        errors.append(f"StorageRepository missing PocketPC file-open request field: {required}")
+
+main_activity = read("app/src/main/java/dev/pocketpc/core/MainActivity.kt")
+if main_activity.count("PocketFileOpenOverlay()") != 1:
+    errors.append("MainActivity must mount exactly one global PocketFileOpenOverlay")
+
+browser = read("app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt")
+if "Abrir fora do PocketPC (Android)" not in browser:
+    errors.append("Browser explicit Android escape-hatch label is missing")
+if "O PocketPC bloqueou a saída automática para o Android." not in browser:
+    errors.append("Browser no longer fail-closes non-web URL schemes")
+
+associations = read("app/src/main/java/dev/pocketpc/core/storage/PocketFileAssociations.kt")
+if "PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL" not in associations:
+    errors.append("PocketFileAssociations lost implemented-internal readiness tracking")
+
 if errors:
     for error in errors:
         print(f"KOTLIN_SOURCE_REGRESSION_GUARD_FAIL: {error}", file=sys.stderr)
@@ -63,3 +99,6 @@ print(f"guest_runtime_probe_lines={guest_lines}")
 print("display_shell_variables=escaped")
 print("labeled_return_regressions=absent")
 print("task_manager_formatter=isolated")
+print("pocket_file_open_boundary=guarded")
+print("pocket_file_overlay=global")
+print("browser_external_escape=explicit_only")
