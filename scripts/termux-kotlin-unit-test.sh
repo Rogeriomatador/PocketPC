@@ -34,6 +34,10 @@ fi
 
 need aapt2
 
+TERMUX_VARIANT="$(bash scripts/termux-detect-variant.sh --value 2>/dev/null || printf '%s' classic_or_unknown)"
+echo "termux_variant=$TERMUX_VARIANT"
+echo
+
 read_lock() {
     python - "$LOCK" "$1" <<'PY'
 import json, sys
@@ -111,14 +115,20 @@ echo "  aapt2=$AAPT2"
 echo "  aapt2_version=$AAPT2_VERSION"
 echo
 
-echo "Validating AAPT2 against the locked Android platform before Kotlin compilation..."
-bash scripts/termux-ensure-aapt2.sh
-hash -r
-AAPT2="$(command -v aapt2)"
-AAPT2_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
-echo "  validated_aapt2=$AAPT2"
-echo "  validated_aapt2_version=$AAPT2_VERSION"
-echo
+if [ "$TERMUX_VARIANT" = "googleplay" ]; then
+    echo "Google Play Termux detected: AAPT2 compatibility check is deferred until after Kotlin compile."
+    echo "This preserves a real Kotlin compiler result even when Android resource linking is unsupported."
+    echo
+else
+    echo "Validating AAPT2 against the locked Android platform before Kotlin compilation..."
+    bash scripts/termux-ensure-aapt2.sh
+    hash -r
+    AAPT2="$(command -v aapt2)"
+    AAPT2_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
+    echo "  validated_aapt2=$AAPT2"
+    echo "  validated_aapt2_version=$AAPT2_VERSION"
+    echo
+fi
 
 LOG_DIR="$ROOT/build/termux"
 mkdir -p "$LOG_DIR"
@@ -154,6 +164,30 @@ fi
 
 echo "Classification : TERMUX_KOTLIN_COMPILE_PASS"
 echo
+
+if [ "$TERMUX_VARIANT" = "googleplay" ]; then
+    echo "Checking Google Play Termux AAPT2 compatibility after Kotlin compile..."
+    set +e
+    bash scripts/termux-ensure-aapt2.sh
+    AAPT2_STATUS=$?
+    set -e
+    echo
+    if [ "$AAPT2_STATUS" -ne 0 ]; then
+        if [ "$AAPT2_STATUS" -eq 11 ]; then
+            echo "Classification : TERMUX_KOTLIN_COMPILE_PASS_UNIT_TEST_BLOCKED_AAPT2"
+            echo "tested_revision=$SOURCE_REVISION"
+            echo "compile_log=$COMPILE_LOG"
+            echo "Important: Kotlin compilation passed. Android resource linking/unit tests were not executed."
+            exit 11
+        fi
+        echo "Classification : TERMUX_AAPT2_VALIDATION_FAILED_AFTER_KOTLIN_COMPILE"
+        echo "aapt2_exit_code=$AAPT2_STATUS"
+        exit "$AAPT2_STATUS"
+    fi
+    hash -r
+    AAPT2="$(command -v aapt2)"
+fi
+
 echo "Executing unit-test gate:"
 echo "  :app:testDebugUnitTest"
 echo
