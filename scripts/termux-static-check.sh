@@ -81,6 +81,7 @@ CHECKS=(
     "scripts/test-update-feed-policy.py"
     "scripts/test-pocketdrive-research-policy.py"
     "scripts/test-kotlin-source-regressions.py"
+    "scripts/test-termux-aapt2-policy.py"
 )
 
 echo "Python syntax"
