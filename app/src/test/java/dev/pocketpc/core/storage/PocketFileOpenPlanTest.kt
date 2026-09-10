@@ -75,7 +75,27 @@ class PocketFileOpenPlanTest {
     }
 
     @Test
-    fun archiveHasPocketPcAssociationButDoesNotPretendHandlerIsReady() {
+    fun zipUsesImplementedPocketPcArchiveManagerWithoutAndroidEscape() {
+        val plan = planPocketFileOpen("projeto.zip", "application/zip")
+
+        assertEquals(
+            PocketFileHandler.ARCHIVE_MANAGER,
+            plan.association.handler,
+        )
+        assertEquals(
+            PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
+            plan.association.readiness,
+        )
+        assertEquals(
+            PocketFileOpenCapability.INTERNAL_HANDLER_PENDING,
+            plan.capability,
+        )
+        assertTrue(plan.canAttemptNow)
+        assertFalse(plan.leavesPocketPc)
+    }
+
+    @Test
+    fun rarHasPocketPcAssociationButDoesNotPretendHandlerIsReady() {
         val plan = planPocketFileOpen("backup.rar")
 
         assertEquals(
