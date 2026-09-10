@@ -36,10 +36,24 @@ refresh_official_aapt2() {
     fi
 
     echo "Refreshing official Termux package metadata..."
-    if ! pkg update -y; then
-        echo "TERMUX_PACKAGE_METADATA_REFRESH_FAILED" >&2
+    local update_log
+    update_log="$(mktemp)"
+    set +e
+    pkg update -y 2>&1 | tee "$update_log"
+    local update_status=${PIPESTATUS[0]}
+    set -e
+    if [ "$update_status" -ne 0 ]; then
+        if grep -Eq 'NO_PUBKEY|repository .* is not signed|signature verification failed' "$update_log"; then
+            echo "TERMUX_KEYRING_OUTDATED_OR_INVALID" >&2
+            echo "recovery_command=bash scripts/termux-repair-keyring.sh --apply" >&2
+            echo "Classification : TERMUX_AAPT2_BLOCKED_KEYRING" >&2
+        else
+            echo "TERMUX_PACKAGE_METADATA_REFRESH_FAILED" >&2
+        fi
+        rm -f "$update_log"
         return 1
     fi
+    rm -f "$update_log"
 
     echo "Installing/updating official Termux aapt package (provides aapt2)..."
     if ! pkg install -y aapt; then
