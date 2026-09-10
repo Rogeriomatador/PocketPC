@@ -49,8 +49,7 @@ fun PocketFileOpenOverlay() {
             currentRequest.uri != null
 
     val isTextEditor =
-        current.association.handler == PocketFileHandler.TEXT_EDITOR &&
-            implemented
+        current.association.handler == PocketFileHandler.TEXT_EDITOR && implemented
     val isSvgViewer =
         current.association.handler == PocketFileHandler.IMAGE_VIEWER &&
             implemented &&
@@ -60,14 +59,13 @@ fun PocketFileOpenOverlay() {
             implemented &&
             !isSvgViewer
     val isZipViewer =
-        current.association.handler == PocketFileHandler.ARCHIVE_MANAGER &&
-            implemented
+        current.association.handler == PocketFileHandler.ARCHIVE_MANAGER && implemented
     val isPdfViewer =
-        current.association.handler == PocketFileHandler.PDF_VIEWER &&
-            implemented
+        current.association.handler == PocketFileHandler.PDF_VIEWER && implemented
+    val isOfficePreview =
+        current.association.handler == PocketFileHandler.OFFICE_VIEWER && implemented
     val isWebDocument =
-        current.association.handler == PocketFileHandler.WEB_DOCUMENT &&
-            implemented
+        current.association.handler == PocketFileHandler.WEB_DOCUMENT && implemented
     val isVideoPlayer =
         current.association.handler == PocketFileHandler.MEDIA_PLAYER &&
             implemented &&
@@ -90,6 +88,7 @@ fun PocketFileOpenOverlay() {
                     isSvgViewer || isImageViewer -> "Fotos do PocketPC"
                     isZipViewer -> "Compactador do PocketPC"
                     isPdfViewer -> "Leitor de PDF do PocketPC"
+                    isOfficePreview -> "Documentos do PocketPC"
                     isWebDocument -> "Documento Web do PocketPC"
                     isVideoPlayer || isAudioPlayer -> "Mídia do PocketPC"
                     else -> current.title
@@ -123,6 +122,9 @@ fun PocketFileOpenOverlay() {
 
                     isPdfViewer ->
                         PocketPdfViewerPane(request = currentRequest)
+
+                    isOfficePreview ->
+                        PocketOfficePreviewPane(request = currentRequest)
 
                     isWebDocument ->
                         PocketWebDocumentPane(request = currentRequest)
@@ -203,6 +205,7 @@ fun PocketFileOpenOverlay() {
                         isImageViewer ||
                         isZipViewer ||
                         isPdfViewer ||
+                        isOfficePreview ||
                         isWebDocument ||
                         isVideoPlayer ||
                         isAudioPlayer
