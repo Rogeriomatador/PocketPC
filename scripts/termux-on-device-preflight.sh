@@ -127,6 +127,7 @@ if has gradle; then
 fi
 
 AAPT2_OK=false
+TERMUX_VARIANT="$(bash "$ROOT/scripts/termux-detect-variant.sh" --value 2>/dev/null || printf '%s' classic_or_unknown)"
 LOCAL_AAPT2="$HOME/.local/pocketpc/android-build-tools/16.0.0.4/bin/aapt2"
 if [ -x "$LOCAL_AAPT2" ]; then
   AAPT2_CANDIDATE="$LOCAL_AAPT2"
@@ -199,6 +200,11 @@ EOF
       echo "  aapt2_platform_compatible=false"
       AAPT2_PROBE_ERROR="$(head -1 "$AAPT2_PROBE_DIR/link.log" 2>/dev/null || true)"
       echo "  aapt2_platform_probe_error=${AAPT2_PROBE_ERROR:-unknown}"
+      if [ "$TERMUX_VARIANT" = "googleplay" ] &&
+         [ "$AAPT2_SOURCE" = "termux_system" ]; then
+        echo "  aapt2_blocker=GOOGLE_PLAY_SYSTEM_AAPT2_API37"
+        echo "  aapt2_recovery=bash scripts/termux-build-modern-aapt2.sh"
+      fi
     fi
     rm -rf "$AAPT2_PROBE_DIR"
   else
