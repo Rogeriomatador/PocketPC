@@ -186,7 +186,7 @@ if [ "$TERMUX_VARIANT" = "googleplay" ]; then
     if command -v apt-cache >/dev/null 2>&1; then
         CANDIDATE_VERSION="$(
             apt-cache policy aapt 2>/dev/null |
-                awk '/Candidate:/ {print $2; exit}'
+                awk '/Candidate:/ {candidate=$2} END {if (candidate != "") print candidate}'
         )"
     fi
     echo "Google Play system AAPT2 is incompatible with the locked platform."
