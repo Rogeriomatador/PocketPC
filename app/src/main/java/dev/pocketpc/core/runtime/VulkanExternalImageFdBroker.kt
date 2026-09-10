@@ -54,6 +54,9 @@ object VulkanExternalImageFdBroker {
     const val MAX_DIMENSION = 4_096
     const val FORMAT_R8G8B8A8_UNORM = 37
     const val IMAGE_USAGE_FLAGS = 0x17L
+    const val TIMELINE_PROTOCOL = "PVS1"
+    const val TIMELINE_INITIAL_VALUE = 0L
+    const val TIMELINE_ROLE_FRAME_OWNERSHIP = 1
 
     private external fun nativeCreate(
         width: Int,
@@ -65,6 +68,12 @@ object VulkanExternalImageFdBroker {
         generation: Long,
         socketFd: Int,
         sequence: Long,
+    ): String
+
+    private external fun nativeSendTimeline(
+        resourceId: Long,
+        generation: Long,
+        socketFd: Int,
     ): String
 
     private external fun nativeRelease(
@@ -132,6 +141,42 @@ object VulkanExternalImageFdBroker {
                     fields["send_result"] == "0"
             ) {
                 "VULKAN_EXTERNAL_IMAGE_SEND_FAILED:" + safeStatus(raw)
+            }
+        }
+
+    fun sendTimeline(
+        lease: VulkanExternalImageFdLease,
+        socketFd: Int,
+    ): Result<Unit> =
+        runCatching {
+            require(NativeRuntimeHost.loaded) {
+                "NATIVE_RUNTIME_HOST_NOT_LOADED"
+            }
+            require(lease.structurallyValid) {
+                "VULKAN_EXTERNAL_IMAGE_LEASE_INVALID"
+            }
+            require(socketFd >= 0) {
+                "VULKAN_EXTERNAL_TIMELINE_SOCKET_INVALID"
+            }
+
+            val raw =
+                nativeSendTimeline(
+                    lease.resourceId,
+                    lease.generation,
+                    socketFd,
+                )
+            val fields = parseFields(raw)
+                ?: error("VULKAN_EXTERNAL_TIMELINE_SEND_RESPONSE_INVALID")
+            require(
+                fields["vulkan-external-timeline-fd-send"] == "ok" &&
+                    fields["protocol"] == PROTOCOL_VERSION.toString() &&
+                    fields["resource_id"]?.toLongOrNull() == lease.resourceId &&
+                    fields["generation"]?.toLongOrNull() == lease.generation &&
+                    fields["initial_value"]?.toLongOrNull() == TIMELINE_INITIAL_VALUE &&
+                    fields["role"]?.toIntOrNull() == TIMELINE_ROLE_FRAME_OWNERSHIP &&
+                    fields["send_result"] == "0"
+            ) {
+                "VULKAN_EXTERNAL_TIMELINE_SEND_FAILED:" + safeStatus(raw)
             }
         }
 
