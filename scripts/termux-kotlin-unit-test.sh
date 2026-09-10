@@ -110,6 +110,16 @@ echo "  build_tools=$BUILD_TOOLS_DIR"
 echo "  aapt2=$AAPT2"
 echo "  aapt2_version=$AAPT2_VERSION"
 echo
+
+echo "Validating AAPT2 against the locked Android platform before Kotlin compilation..."
+bash scripts/termux-ensure-aapt2.sh
+hash -r
+AAPT2="$(command -v aapt2)"
+AAPT2_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
+echo "  validated_aapt2=$AAPT2"
+echo "  validated_aapt2_version=$AAPT2_VERSION"
+echo
+
 LOG_DIR="$ROOT/build/termux"
 mkdir -p "$LOG_DIR"
 COMPILE_LOG="$LOG_DIR/compileDebugKotlin.log"
@@ -143,13 +153,6 @@ if [ "$COMPILE_STATUS" -ne 0 ]; then
 fi
 
 echo "Classification : TERMUX_KOTLIN_COMPILE_PASS"
-echo
-
-echo "Validating AAPT2 against the locked Android platform..."
-bash scripts/termux-ensure-aapt2.sh
-hash -r
-AAPT2="$(command -v aapt2)"
-AAPT2_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
 echo
 echo "Executing unit-test gate:"
 echo "  :app:testDebugUnitTest"
