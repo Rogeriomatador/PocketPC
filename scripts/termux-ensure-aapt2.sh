@@ -18,9 +18,39 @@ need() {
     }
 }
 
-for tool in python aapt2; do
-    need "$tool"
-done
+need python
+
+refresh_official_aapt2() {
+    if ! command -v pkg >/dev/null 2>&1; then
+        echo "TERMUX_PACKAGE_MANAGER_MISSING=pkg" >&2
+        return 1
+    fi
+
+    echo "Refreshing official Termux package metadata..."
+    if ! pkg update -y; then
+        echo "TERMUX_PACKAGE_METADATA_REFRESH_FAILED" >&2
+        return 1
+    fi
+
+    echo "Installing/updating official Termux aapt/aapt2 packages..."
+    if ! pkg install -y aapt aapt2; then
+        echo "TERMUX_AAPT2_OFFICIAL_INSTALL_FAILED" >&2
+        return 1
+    fi
+
+    hash -r
+    return 0
+}
+
+if ! command -v aapt2 >/dev/null 2>&1; then
+    echo "aapt2=missing"
+    if ! refresh_official_aapt2; then
+        echo "Classification : TERMUX_AAPT2_OFFICIAL_UPDATE_FAILED"
+        exit 12
+    fi
+fi
+
+need aapt2
 
 read_lock() {
     python - "$LOCK" "$1" <<'PY'
@@ -104,16 +134,11 @@ echo "Current AAPT2 cannot link the locked Android platform."
 echo "Trying the current package from the official Termux repository."
 echo
 
-if ! command -v pkg >/dev/null 2>&1; then
-    echo "TERMUX_PACKAGE_MANAGER_MISSING=pkg" >&2
-    echo "Classification : TERMUX_AAPT2_PLATFORM_INCOMPATIBLE"
-    exit 11
+if ! refresh_official_aapt2; then
+    echo "Classification : TERMUX_AAPT2_OFFICIAL_UPDATE_FAILED"
+    exit 12
 fi
 
-pkg update -y
-pkg install -y aapt aapt2
-
-hash -r
 AAPT2="$(command -v aapt2)"
 AFTER_VERSION="$(package_version)"
 AFTER_TOOL_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
