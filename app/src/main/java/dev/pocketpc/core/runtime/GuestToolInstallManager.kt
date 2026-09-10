@@ -82,9 +82,10 @@ class GuestToolInstallManager(
                         val source = File(packageRoot, item.path)
                         val destination = File(transaction, item.path)
                         val parent =
-                            requireNotNull(destination.parentFile) {
-                                "GUEST_TOOL_PARENT_MISSING:" + item.path
-                            }
+                            destination.parentFile
+                                ?: error(
+                                    "GUEST_TOOL_PARENT_MISSING:" + item.path,
+                                )
                         require(parent.mkdirs() || parent.isDirectory) {
                             "GUEST_TOOL_PARENT_CREATE_FAILED:" + item.path
                         }
