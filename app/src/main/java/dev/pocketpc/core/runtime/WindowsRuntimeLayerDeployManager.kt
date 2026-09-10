@@ -146,8 +146,14 @@ class WindowsRuntimeLayerDeployManager(
                                     item.destinationName,
                                 )
 
+                            val destinationParent =
+                                requireNotNull(
+                                    destination.parentFile,
+                                ) {
+                                    "WINDOWS_LAYER_DESTINATION_PARENT_MISSING"
+                                }
                             require(
-                                destination.parentFile
+                                destinationParent
                                     .canonicalFile ==
                                     system32,
                             ) {
@@ -299,11 +305,15 @@ class WindowsRuntimeLayerDeployManager(
                         system32,
                     )
 
+                    val layerStateParent =
+                        requireNotNull(
+                            layerState.parentFile,
+                        ) {
+                            "WINDOWS_LAYER_STATE_PARENT_MISSING"
+                        }
                     require(
-                        layerState.parentFile
-                            .mkdirs() ||
-                            layerState.parentFile
-                                .isDirectory,
+                        layerStateParent.mkdirs() ||
+                            layerStateParent.isDirectory,
                     )
                     require(
                         transaction.renameTo(
