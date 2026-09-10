@@ -43,26 +43,34 @@ fun PocketFileOpenOverlay() {
             .substringAfterLast('.', "")
             .lowercase()
 
+    val implemented =
+        current.association.readiness ==
+            PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
+            currentRequest.uri != null
+
     val isTextEditor =
         current.association.handler == PocketFileHandler.TEXT_EDITOR &&
-            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
-            currentRequest.uri != null
+            implemented
+    val isSvgViewer =
+        current.association.handler == PocketFileHandler.IMAGE_VIEWER &&
+            implemented &&
+            extension == "svg"
     val isImageViewer =
         current.association.handler == PocketFileHandler.IMAGE_VIEWER &&
-            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
-            currentRequest.uri != null
+            implemented &&
+            !isSvgViewer
     val isZipViewer =
         current.association.handler == PocketFileHandler.ARCHIVE_MANAGER &&
-            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
-            currentRequest.uri != null
+            implemented
     val isPdfViewer =
         current.association.handler == PocketFileHandler.PDF_VIEWER &&
-            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
-            currentRequest.uri != null
+            implemented
+    val isWebDocument =
+        current.association.handler == PocketFileHandler.WEB_DOCUMENT &&
+            implemented
     val isVideoPlayer =
         current.association.handler == PocketFileHandler.MEDIA_PLAYER &&
-            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
-            currentRequest.uri != null &&
+            implemented &&
             (
                 extension in POCKETPC_VIDEO_EXTENSIONS ||
                     currentRequest.mimeType
@@ -70,8 +78,7 @@ fun PocketFileOpenOverlay() {
             )
     val isAudioPlayer =
         current.association.handler == PocketFileHandler.MEDIA_PLAYER &&
-            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
-            currentRequest.uri != null &&
+            implemented &&
             !isVideoPlayer
 
     AlertDialog(
@@ -80,9 +87,10 @@ fun PocketFileOpenOverlay() {
             Text(
                 when {
                     isTextEditor -> "Editor de Texto do PocketPC"
-                    isImageViewer -> "Fotos do PocketPC"
+                    isSvgViewer || isImageViewer -> "Fotos do PocketPC"
                     isZipViewer -> "Compactador do PocketPC"
                     isPdfViewer -> "Leitor de PDF do PocketPC"
+                    isWebDocument -> "Documento Web do PocketPC"
                     isVideoPlayer || isAudioPlayer -> "Mídia do PocketPC"
                     else -> current.title
                 }
@@ -101,6 +109,12 @@ fun PocketFileOpenOverlay() {
                     isTextEditor ->
                         PocketTextEditorPane(request = currentRequest)
 
+                    isSvgViewer ->
+                        PocketWebDocumentPane(
+                            request = currentRequest,
+                            forceSvg = true,
+                        )
+
                     isImageViewer ->
                         PocketImageViewerPane(request = currentRequest)
 
@@ -109,6 +123,9 @@ fun PocketFileOpenOverlay() {
 
                     isPdfViewer ->
                         PocketPdfViewerPane(request = currentRequest)
+
+                    isWebDocument ->
+                        PocketWebDocumentPane(request = currentRequest)
 
                     isVideoPlayer ->
                         PocketVideoPlayerPane(request = currentRequest)
@@ -137,10 +154,7 @@ fun PocketFileOpenOverlay() {
                                             PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED ->
                                                 "Android necessário"
                                             PocketFileOpenCapability.INTERNAL_HANDLER_PENDING ->
-                                                if (
-                                                    current.association.readiness ==
-                                                        PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL
-                                                ) {
+                                                if (implemented) {
                                                     "Disponível no PocketPC"
                                                 } else {
                                                     "Em preparação"
@@ -185,9 +199,11 @@ fun PocketFileOpenOverlay() {
                 Text(
                     if (
                         isTextEditor ||
+                        isSvgViewer ||
                         isImageViewer ||
                         isZipViewer ||
                         isPdfViewer ||
+                        isWebDocument ||
                         isVideoPlayer ||
                         isAudioPlayer
                     ) {
