@@ -56,24 +56,18 @@ def main() -> int:
     package_install = scan_occurrences(ANDROID_PACKAGE_INSTALL)
     unknown_sources = scan_occurrences(UNKNOWN_SOURCE_SETTINGS)
 
-    # Generic Android app dispatch is deliberately restricted to one explicit
-    # browser menu command labelled as an Android exit. Files and web links may
-    # never invoke it automatically.
     require_exact(
         action_view,
         {BROWSER: 1},
         "generic ACTION_VIEW",
     )
 
-    # Android package installation is an explicit OS boundary owned by storage.
     require_exact(
         package_install,
         {STORAGE: 1},
         "Android package installer",
     )
 
-    # Unknown-source settings are legitimate only where APK/update installation
-    # is implemented. Any new caller must be reviewed and added intentionally.
     allowed_unknown_sources = {
         STORAGE,
         UPDATER,
@@ -100,13 +94,20 @@ def main() -> int:
         fail("Browser non-http automatic exit blocker is missing")
 
     storage_text = (SOURCE_ROOT / STORAGE).read_text(encoding="utf-8")
-    if "PocketFileRoute.ANDROID_PACKAGE_INSTALLER" not in storage_text:
-        fail("Storage APK boundary is not routed through PocketFileRouter")
+    for sentinel in (
+        "planPocketFileOpen(",
+        "PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED",
+        "PocketFileOpenCoordinator.present(plan)",
+        "requestAndroidPackageInstall(",
+    ):
+        if sentinel not in storage_text:
+            fail(f"Storage open-plan boundary missing: {sentinel}")
 
     print("ANDROID_EXIT_BOUNDARY_POLICY_OK")
     print(f"kotlin_files_scanned={len(kotlin_files)}")
     print("generic_action_view=browser_explicit_only")
     print("generic_file_dispatch_to_android=false")
+    print("file_open_dispatch=PocketPC_coordinator")
     print("android_package_install=storage_explicit_only")
     print("unknown_source_settings=install_paths_only")
     return 0
