@@ -35,6 +35,7 @@ on:
       - 'scripts/run-pocketpc-fd-transport-smoke.py'
       - 'scripts/run-pocketpc-guest-graphics-receive-smoke.py'
       - 'scripts/run-pocketpc-external-image-fd-protocol-smoke.py'
+      - 'scripts/run-pocketpc-external-timeline-semaphore-fd-protocol-smoke.py'
       - 'scripts/pocketpc_pe.py'
       - 'scripts/audit-wine-pocketpc-driver-pe.py'
       - 'scripts/verify-wine-pocketpc-driver-artifact-set.py'
@@ -56,6 +57,7 @@ on:
       - 'scripts/test-guest-graphics-receive-policy.py'
       - 'scripts/test-vulkan-external-image-fd-broker-policy.py'
       - 'scripts/test-guest-vulkan-import-policy.py'
+      - 'scripts/test-guest-vulkan-timeline-policy.py'
       - 'scripts/test-roblox-browser-launch-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - 'scripts/test-display-multipeer-policy.py'
@@ -105,6 +107,7 @@ jobs:
           python3 scripts/test-guest-graphics-receive-policy.py
           python3 scripts/test-vulkan-external-image-fd-broker-policy.py
           python3 scripts/test-guest-vulkan-import-policy.py
+          python3 scripts/test-guest-vulkan-timeline-policy.py
           python3 scripts/test-roblox-browser-launch-policy.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
           python3 scripts/test-pocketpc-pe-audit.py
@@ -130,6 +133,12 @@ jobs:
           python3 scripts/run-pocketpc-external-image-fd-protocol-smoke.py \
             --work "$RUNNER_TEMP/pocketpc-pvi1-smoke" \
             --evidence "$RUNNER_TEMP/pocketpc-pvi1-smoke/pvi1-evidence.json"
+
+      - name: Compile and execute PVS1 timeline semaphore FD smoke
+        run: |
+          python3 scripts/run-pocketpc-external-timeline-semaphore-fd-protocol-smoke.py \
+            --work "$RUNNER_TEMP/pocketpc-pvs1-smoke" \
+            --evidence "$RUNNER_TEMP/pocketpc-pvs1-smoke/pvs1-evidence.json"
 
       - name: Fetch exact pinned Wine source
         run: |
@@ -157,7 +166,7 @@ jobs:
       - name: Verify coherent driver artifact set
         run: |
           python3 scripts/verify-wine-pocketpc-driver-artifact-set.py \
-            --build-evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json" \
+            --build-evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/winepocketpc-driver-build-evidence.json" \
             --pe-evidence "$RUNNER_TEMP/pocketpc-wine-driver-build/winepocketpc-driver-pe-audit.json" \
             --driver "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv" \
             --unixlib "$RUNNER_TEMP/pocketpc-wine-driver-build/build/dlls/winepocketpc.drv/winepocketpc.so" \
@@ -177,6 +186,7 @@ jobs:
             ${{ runner.temp }}/pocketpc-fd-transport-smoke/fd-transport-evidence.json
             ${{ runner.temp }}/pocketpc-guest-graphics-receive-smoke/guest-graphics-receive-evidence.json
             ${{ runner.temp }}/pocketpc-pvi1-smoke/pvi1-evidence.json
+            ${{ runner.temp }}/pocketpc-pvs1-smoke/pvs1-evidence.json
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-build-plan.json
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/wine-pocketpc-driver-build-evidence.json
