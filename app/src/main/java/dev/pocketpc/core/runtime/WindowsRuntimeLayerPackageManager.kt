@@ -310,11 +310,10 @@ class WindowsRuntimeLayerPackageManager(
                         }
                     } else {
                         val parent =
-                            requireNotNull(
-                                target.parentFile,
-                            ) {
-                                "WINDOWS_LAYER_ZIP_PARENT_MISSING"
-                            }
+                            target.parentFile
+                                ?: error(
+                                    "WINDOWS_LAYER_ZIP_PARENT_MISSING",
+                                )
                         require(
                             parent.mkdirs() ||
                                 parent.isDirectory,
