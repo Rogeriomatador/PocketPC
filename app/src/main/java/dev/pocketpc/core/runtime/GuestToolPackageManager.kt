@@ -278,7 +278,12 @@ class GuestToolPackageManager(
                         }
                     } else {
                         val parent =
-                            target.parentFile
+                            requireNotNull(
+                                target.parentFile,
+                            ) {
+                                "GUEST_TOOL_ZIP_PARENT_MISSING:" +
+                                    normalized
+                            }
                         require(
                             parent.mkdirs() ||
                                 parent.isDirectory,
