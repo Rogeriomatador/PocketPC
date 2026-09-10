@@ -12,6 +12,7 @@ LOCK = ROOT / "third_party/wine/LOCK.json"
 PINNED_WINE_COMMIT = (
     "db11d0fe6a169c457e23d007e20404643d067aa8"
 )
+PINNED_WINE_VULKAN_DRIVER_VERSION = 47
 
 FILES = {
     "makefile": DRIVER / "Makefile.in",
@@ -19,6 +20,7 @@ FILES = {
     "main": DRIVER / "pocketpcdrv_main.c",
     "input": DRIVER / "input.c",
     "surface": DRIVER / "surface.c",
+    "vulkan": DRIVER / "vulkan.c",
     "window": DRIVER / "window.c",
     "driver_header": DRIVER / "pocketpcdrv.h",
 }
@@ -83,16 +85,12 @@ def main() -> int:
             "UNIXLIB = winepocketpc.so",
             "UNIX_LIBS = -lwin32u $(PTHREAD_LIBS)",
             "IMPORTS = user32 win32u",
+            "vulkan.c",
         ),
     )
 
-    # Wine 11.0 pinned user_driver_funcs ABI:
-    # BOOL pCreateWindow(HWND)
-    # void pDestroyWindow(HWND)
-    # BOOL pProcessEvents(DWORD)
-    # BOOL pCreateWindowSurface(HWND,BOOL,const RECT*,struct window_surface**)
-    # BOOL pWindowPosChanging(HWND,UINT,BOOL,const struct window_rects*)
-    # void pWindowPosChanged(HWND,HWND,HWND,UINT,const struct window_rects*,struct window_surface*)
+    # Wine 11.0 pinned user_driver_funcs ABI includes pVulkanInit in addition
+    # to the USER/GDI callbacks used by PocketPC.
     require(
         failures,
         "user driver registration",
@@ -110,6 +108,8 @@ def main() -> int:
             "POCKETPC_WindowPosChanging",
             ".pWindowPosChanged =",
             "POCKETPC_WindowPosChanged",
+            ".pVulkanInit =",
+            "POCKETPC_VulkanInit",
             "__wine_set_user_driver(",
             "WINE_GDI_DRIVER_VERSION",
         ),
@@ -125,6 +125,37 @@ def main() -> int:
             "BOOL POCKETPC_CreateWindowSurface(",
             "BOOL POCKETPC_WindowPosChanging(",
             "void POCKETPC_WindowPosChanged(",
+            "UINT POCKETPC_VulkanInit(",
+            "const struct vulkan_driver_funcs **driver_funcs",
+        ),
+    )
+
+    # Wine 11.0 pinned vulkan_driver_funcs ABI v47.
+    require(
+        failures,
+        "Vulkan driver ABI",
+        texts.get("vulkan", ""),
+        (
+            "#include \"wine/vulkan_driver.h\"",
+            "WINE_VULKAN_DRIVER_VERSION",
+            "pocketpc_vulkan_surface_create(",
+            "HWND hwnd,",
+            "const struct vulkan_instance *instance,",
+            "VkSurfaceKHR *handle,",
+            "struct client_surface **client_surface",
+            "pocketpc_get_physical_device_presentation_support(",
+            "struct vulkan_physical_device *physical_device,",
+            "uint32_t queue_family",
+            "pocketpc_map_instance_extensions(",
+            "struct vulkan_instance_extensions *extensions",
+            "pocketpc_map_device_extensions(",
+            "struct vulkan_device_extensions *extensions",
+            ".p_vulkan_surface_create =",
+            ".p_get_physical_device_presentation_support =",
+            ".p_map_instance_extensions =",
+            ".p_map_device_extensions =",
+            "UINT POCKETPC_VulkanInit(",
+            "version != WINE_VULKAN_DRIVER_VERSION",
         ),
     )
 
@@ -172,8 +203,8 @@ def main() -> int:
         ),
     )
 
-    # The PE shim must remain PE-only; the implementation files are
-    # unixlib sources selected by Wine's '#pragma makedep unix'.
+    # The PE shim must remain PE-only; implementation files use Wine's
+    # '#pragma makedep unix'.
     if "#pragma makedep unix" in texts.get(
         "dllmain",
         "",
@@ -186,6 +217,7 @@ def main() -> int:
         "main",
         "input",
         "surface",
+        "vulkan",
         "window",
     ):
         require(
@@ -197,6 +229,13 @@ def main() -> int:
                 "#pragma makedep unix",
                 "#endif",
             ),
+        )
+
+    # The source lock is deliberately exact: changing the Wine pin requires a
+    # fresh ABI review before this policy is updated.
+    if PINNED_WINE_VULKAN_DRIVER_VERSION != 47:
+        failures.append(
+            "pinned Wine Vulkan driver ABI version changed"
         )
 
     if failures:
@@ -216,6 +255,10 @@ def main() -> int:
     print(
         "wine_commit=" +
         PINNED_WINE_COMMIT
+    )
+    print(
+        "wine_vulkan_driver_version=" +
+        str(PINNED_WINE_VULKAN_DRIVER_VERSION)
     )
     print("abi_source=pinned-wine11-static-review")
     print("compiler_execution_evidence=false")
