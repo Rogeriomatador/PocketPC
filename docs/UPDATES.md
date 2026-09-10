@@ -185,6 +185,28 @@ source changes
 
 No ADB or PowerShell command is intended for routine future updates.
 
+## Alpha 22 Home Test OTA smoke
+
+The Home Test path uses the public `PocketPC-Updates/latest.json` development feed and
+an immutable signed release asset. A successful bootstrap publication/install is only
+the first half of the end-to-end test: the installed phone build and the feed initially
+have the same `versionCode`, so no update should be offered yet.
+
+To prove the steady-state updater, publish a later source revision with a strictly higher
+Alpha 22 monotonic versionCode, then open PocketPC on the phone and validate, in order:
+
+1. the app detects the newer development feed;
+2. the update is surfaced in the UI;
+3. the APK downloads through DownloadManager;
+4. SHA-256, package, version, source revision and signer checks all pass;
+5. PackageInstaller accepts the in-place update;
+6. Android either completes automatically or presents only the platform-required
+   confirmation;
+7. application data remains present after the update.
+
+Only after those device observations are captured may the Home Test OTA path be marked
+PHYSICAL PASS. Publication/build evidence alone is not enough.
+
 ## Local publisher fallback
 
 GitHub Actions is the preferred steady-state publisher, but PocketPC also includes a
