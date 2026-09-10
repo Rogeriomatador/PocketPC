@@ -47,7 +47,7 @@ class PocketPcVulkanSurfaceBackendTest {
     }
 
     @Test
-    fun advertisedHeadlessSurfaceStillNeedsPresentCaptureBackend() {
+    fun advertisedHeadlessSurfaceEnablesOnlyDiagnosticBackend() {
         val selection =
             PocketPcVulkanSurfaceBackendProbe.assess(
                 capabilities(
@@ -56,15 +56,41 @@ class PocketPcVulkanSurfaceBackendTest {
                 ),
             )
 
-        val headless = selection.candidates.first {
+        val diagnostic = selection.candidates.first {
+            it.kind == PocketPcVulkanSurfaceBackendKind.HEADLESS_DIAGNOSTIC
+        }
+        val visibleShim = selection.candidates.first {
             it.kind == PocketPcVulkanSurfaceBackendKind.HEADLESS_SURFACE_SHIM
         }
-        assertTrue(headless.capabilityAdvertised)
-        assertFalse(headless.implemented)
+
+        assertTrue(diagnostic.capabilityAdvertised)
+        assertTrue(diagnostic.implemented)
+        assertTrue(diagnostic.runnable)
+        assertFalse(diagnostic.productionRunnable)
+        assertTrue(selection.diagnosticRunnable)
+
+        assertTrue(visibleShim.capabilityAdvertised)
+        assertFalse(visibleShim.implemented)
+        assertFalse(visibleShim.runnable)
         assertEquals(
             PocketPcVulkanSurfaceBackendProbe.BLOCKER_HEADLESS_PRESENT_CAPTURE,
-            headless.blocker,
+            visibleShim.blocker,
         )
+        assertEquals(PocketPcVulkanSurfaceBackendKind.NONE, selection.selected.kind)
+        assertFalse(selection.runnable)
+    }
+
+    @Test
+    fun diagnosticIsUnavailableWithoutHeadlessExtension() {
+        val selection =
+            PocketPcVulkanSurfaceBackendProbe.assess(
+                capabilities(
+                    androidSurface = false,
+                    headlessSurface = false,
+                ),
+            )
+
+        assertFalse(selection.diagnosticRunnable)
         assertFalse(selection.runnable)
     }
 
@@ -88,6 +114,7 @@ class PocketPcVulkanSurfaceBackendTest {
 
         assertEquals(PocketPcVulkanSurfaceBackendKind.NONE, selection.selected.kind)
         assertFalse(selection.runnable)
+        assertFalse(selection.diagnosticRunnable)
         assertTrue(selection.candidates.none { it.capabilityAdvertised })
     }
 }
