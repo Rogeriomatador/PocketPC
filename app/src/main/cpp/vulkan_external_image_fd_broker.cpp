@@ -5,12 +5,14 @@
 #include <unistd.h>
 
 #include <atomic>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -33,6 +35,7 @@ struct Resource {
     VkImage image = VK_NULL_HANDLE;
     VkDeviceMemory memory = VK_NULL_HANDLE;
     VkDeviceSize allocation_size = 0;
+    uint32_t memory_type_bits = 0;
     uint32_t memory_type_index = 0;
     PFN_vkGetMemoryFdKHR get_memory_fd = nullptr;
 };
@@ -153,17 +156,20 @@ void Destroy(Resource* resource) {
 
 bool HasDeviceExtension(VkPhysicalDevice physical, const char* name) {
     uint32_t count = 0;
-    if (vkEnumerateDeviceExtensionProperties(physical, nullptr, &count, nullptr) != VK_SUCCESS) {
+    if (vkEnumerateDeviceExtensionProperties(physical, nullptr, &count, nullptr) != VK_SUCCESS ||
+        count > 4096) {
         return false;
     }
     std::vector<VkExtensionProperties> extensions(count);
-    if (count != 0 &&
-        vkEnumerateDeviceExtensionProperties(
-            physical, nullptr, &count, extensions.data()) != VK_SUCCESS) {
-        return false;
+    if (count != 0) {
+        uint32_t read_count = count;
+        const VkResult result = vkEnumerateDeviceExtensionProperties(
+            physical, nullptr, &read_count, extensions.data());
+        if (result != VK_SUCCESS) return false;
+        extensions.resize(read_count);
     }
-    for (uint32_t i = 0; i < count; ++i) {
-        if (std::strcmp(extensions[i].extensionName, name) == 0) return true;
+    for (const auto& extension : extensions) {
+        if (std::strcmp(extension.extensionName, name) == 0) return true;
     }
     return false;
 }
@@ -241,6 +247,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
         *reason = "physical-device-read-failed:" + std::to_string(result);
         return -4;
     }
+
     out->physical = physicals.front();
     for (VkPhysicalDevice candidate : physicals) {
         VkPhysicalDeviceProperties properties {};
@@ -251,15 +258,26 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
         }
     }
 
+    VkPhysicalDeviceProperties selected_properties {};
+    vkGetPhysicalDeviceProperties(out->physical, &selected_properties);
+    if (
+        VK_VERSION_MAJOR(selected_properties.apiVersion) < 1 ||
+        (VK_VERSION_MAJOR(selected_properties.apiVersion) == 1 &&
+            VK_VERSION_MINOR(selected_properties.apiVersion) < 1)
+    ) {
+        *reason = "vulkan-1.1-required";
+        return -5;
+    }
+
     if (!HasDeviceExtension(out->physical, VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)) {
         *reason = "external-memory-fd-extension-missing";
-        return -5;
+        return -6;
     }
 
     uint32_t queue_family = 0;
     if (FindGraphicsQueue(out->physical, &queue_family) != 0) {
         *reason = "graphics-queue-missing";
-        return -6;
+        return -7;
     }
 
     const float queue_priority = 1.0f;
@@ -281,14 +299,14 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     result = vkCreateDevice(out->physical, &device_info, nullptr, &out->device);
     if (result != VK_SUCCESS) {
         *reason = "device-create-failed:" + std::to_string(result);
-        return -7;
+        return -8;
     }
 
     out->get_memory_fd = reinterpret_cast<PFN_vkGetMemoryFdKHR>(
         vkGetDeviceProcAddr(out->device, "vkGetMemoryFdKHR"));
     if (out->get_memory_fd == nullptr) {
         *reason = "vkGetMemoryFdKHR-missing";
-        return -8;
+        return -9;
     }
 
     VkPhysicalDeviceExternalImageFormatInfo external_format_info {};
@@ -318,14 +336,17 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
         out->physical, &format_info, &format_properties);
     if (result != VK_SUCCESS) {
         *reason = "external-image-format-unsupported:" + std::to_string(result);
-        return -9;
+        return -10;
     }
-    const VkExternalMemoryFeatureFlags features =
-        external_properties.externalMemoryProperties.externalMemoryFeatures;
-    if ((features & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) == 0 ||
+    const VkExternalMemoryProperties& external_memory =
+        external_properties.externalMemoryProperties;
+    const VkExternalMemoryFeatureFlags features = external_memory.externalMemoryFeatures;
+    if ((external_memory.compatibleHandleTypes &
+            VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT) == 0 ||
+        (features & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) == 0 ||
         (features & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) == 0) {
         *reason = "external-image-not-import-export-compatible";
-        return -10;
+        return -11;
     }
 
     VkExternalMemoryImageCreateInfo external_image {};
@@ -348,44 +369,51 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     result = vkCreateImage(out->device, &image_info, nullptr, &out->image);
     if (result != VK_SUCCESS) {
         *reason = "image-create-failed:" + std::to_string(result);
-        return -11;
+        return -12;
     }
 
     VkMemoryRequirements requirements {};
     vkGetImageMemoryRequirements(out->device, out->image, &requirements);
     if (requirements.size == 0 || requirements.memoryTypeBits == 0) {
         *reason = "image-memory-requirements-invalid";
-        return -12;
+        return -13;
     }
+    out->memory_type_bits = requirements.memoryTypeBits;
 
     if (FindMemoryType(
             out->physical,
             requirements.memoryTypeBits,
             &out->memory_type_index) != 0) {
         *reason = "compatible-memory-type-missing";
-        return -13;
+        return -14;
     }
 
     VkExportMemoryAllocateInfo export_info {};
     export_info.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
     export_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
 
+    VkMemoryDedicatedAllocateInfo dedicated_info {};
+    dedicated_info.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
+    dedicated_info.pNext = &export_info;
+    dedicated_info.image = out->image;
+    dedicated_info.buffer = VK_NULL_HANDLE;
+
     VkMemoryAllocateInfo allocation_info {};
     allocation_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocation_info.pNext = &export_info;
+    allocation_info.pNext = &dedicated_info;
     allocation_info.allocationSize = requirements.size;
     allocation_info.memoryTypeIndex = out->memory_type_index;
     result = vkAllocateMemory(out->device, &allocation_info, nullptr, &out->memory);
     if (result != VK_SUCCESS) {
         *reason = "memory-allocate-failed:" + std::to_string(result);
-        return -14;
+        return -15;
     }
     out->allocation_size = requirements.size;
 
     result = vkBindImageMemory(out->device, out->image, out->memory, 0);
     if (result != VK_SUCCESS) {
         *reason = "image-bind-failed:" + std::to_string(result);
-        return -15;
+        return -16;
     }
 
     out->width = width;
@@ -402,12 +430,13 @@ std::string LeaseRecord(
     out << "vulkan-external-image-fd=" << status
         << ";protocol=" << kProtocol
         << ";resource_id=" << resource_id;
-    if (resource != nullptr) {
+    if (resource != nullptr && resource->generation != 0) {
         out << ";generation=" << resource->generation
             << ";width=" << resource->width
             << ";height=" << resource->height
             << ";format=" << static_cast<int>(kFormat)
             << ";allocation_size=" << resource->allocation_size
+            << ";memory_type_bits=" << resource->memory_type_bits
             << ";memory_type_index=" << resource->memory_type_index;
     }
     if (!reason.empty()) out << ";reason=" << reason;
@@ -426,17 +455,23 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeCreate(
     if (width <= 0 || height <= 0 ||
         static_cast<uint32_t>(width) > kMaxDimension ||
         static_cast<uint32_t>(height) > kMaxDimension) {
-        return ToJString(env, "vulkan-external-image-fd=invalid-dimensions;protocol=1;resource_id=0");
+        return ToJString(
+            env,
+            "vulkan-external-image-fd=invalid-dimensions;protocol=1;resource_id=0");
     }
 
     std::lock_guard<std::mutex> lock(g_mutex);
     if (g_resources.size() >= kMaxResources) {
-        return ToJString(env, "vulkan-external-image-fd=resource-limit;protocol=1;resource_id=0");
+        return ToJString(
+            env,
+            "vulkan-external-image-fd=resource-limit;protocol=1;resource_id=0");
     }
 
     Resource resource;
     resource.generation = g_next_generation.fetch_add(1);
-    if (resource.generation == 0) resource.generation = g_next_generation.fetch_add(1);
+    if (resource.generation == 0) {
+        resource.generation = g_next_generation.fetch_add(1);
+    }
 
     std::string reason;
     const int create_result = CreateResource(
@@ -445,17 +480,28 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeCreate(
         &resource,
         &reason);
     if (create_result != 0) {
+        const std::string record = LeaseRecord("create-failed", 0, &resource, reason);
         Destroy(&resource);
-        return ToJString(env, LeaseRecord("create-failed", 0, &resource, reason));
+        return ToJString(env, record);
     }
 
     uint64_t resource_id = g_next_id.fetch_add(1);
-    if (resource_id == 0) resource_id = g_next_id.fetch_add(1);
-    auto inserted = g_resources.emplace(resource_id, std::move(resource));
+    if (resource_id == 0) {
+        resource_id = g_next_id.fetch_add(1);
+    }
+    if (resource_id == 0 || g_resources.find(resource_id) != g_resources.end()) {
+        Destroy(&resource);
+        return ToJString(
+            env,
+            "vulkan-external-image-fd=id-collision;protocol=1;resource_id=0");
+    }
+
+    const auto inserted = g_resources.emplace(resource_id, resource);
     if (!inserted.second) {
-        Resource cleanup = std::move(inserted.first->second);
-        Destroy(&cleanup);
-        return ToJString(env, "vulkan-external-image-fd=id-collision;protocol=1;resource_id=0");
+        Destroy(&resource);
+        return ToJString(
+            env,
+            "vulkan-external-image-fd=id-collision;protocol=1;resource_id=0");
     }
 
     return ToJString(env, LeaseRecord("ok", resource_id, &inserted.first->second));
@@ -471,14 +517,18 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSend(
         jint socket_fd,
         jlong sequence) {
     if (resource_id <= 0 || generation <= 0 || sequence <= 0 || socket_fd < 0) {
-        return ToJString(env, "vulkan-external-image-fd-send=invalid-argument;protocol=1");
+        return ToJString(
+            env,
+            "vulkan-external-image-fd-send=invalid-argument;protocol=1");
     }
 
     std::lock_guard<std::mutex> lock(g_mutex);
     const auto found = g_resources.find(static_cast<uint64_t>(resource_id));
     if (found == g_resources.end() ||
         found->second.generation != static_cast<uint64_t>(generation)) {
-        return ToJString(env, "vulkan-external-image-fd-send=stale-or-unknown-resource;protocol=1");
+        return ToJString(
+            env,
+            "vulkan-external-image-fd-send=stale-or-unknown-resource;protocol=1");
     }
 
     Resource& resource = found->second;
@@ -523,7 +573,9 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeRelease(
         jlong resource_id,
         jlong generation) {
     if (resource_id <= 0 || generation <= 0) {
-        return ToJString(env, "vulkan-external-image-fd-release=invalid-argument;protocol=1");
+        return ToJString(
+            env,
+            "vulkan-external-image-fd-release=invalid-argument;protocol=1");
     }
 
     Resource resource;
@@ -532,9 +584,11 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeRelease(
         const auto found = g_resources.find(static_cast<uint64_t>(resource_id));
         if (found == g_resources.end() ||
             found->second.generation != static_cast<uint64_t>(generation)) {
-            return ToJString(env, "vulkan-external-image-fd-release=stale-or-unknown-resource;protocol=1");
+            return ToJString(
+                env,
+                "vulkan-external-image-fd-release=stale-or-unknown-resource;protocol=1");
         }
-        resource = std::move(found->second);
+        resource = found->second;
         g_resources.erase(found);
     }
     Destroy(&resource);
