@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +44,7 @@ private sealed interface PocketTextSaveState {
 @Composable
 fun PocketTextEditorPane(
     request: PocketFileOpenRequest,
+    onDirtyChange: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -58,6 +60,7 @@ fun PocketTextEditorPane(
     }
 
     LaunchedEffect(uri) {
+        onDirtyChange(false)
         saveState = PocketTextSaveState.Idle
         if (uri == null) {
             editorState = PocketTextEditorState.Failed(
@@ -72,12 +75,14 @@ fun PocketTextEditorPane(
                 text = document.text
                 originalText = document.text
                 editorState = PocketTextEditorState.Ready(document)
+                onDirtyChange(false)
             }
             .onFailure { error ->
                 editorState = PocketTextEditorState.Failed(
                     "Não foi possível ler o arquivo dentro do PocketPC: " +
                         (error.message ?: error.javaClass.simpleName)
                 )
+                onDirtyChange(false)
             }
     }
 
@@ -99,11 +104,19 @@ fun PocketTextEditorPane(
 
             is PocketTextEditorState.Ready -> {
                 val document = state.document
+                val dirty = document.editable && text != originalText
+
                 if (document.truncated) {
                     Text(
                         "Arquivo acima de 512 KiB: prévia em somente leitura para impedir truncamento acidental.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (dirty) {
+                    Text(
+                        "● Modificado — alterações ainda não salvas",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
 
@@ -116,6 +129,7 @@ fun PocketTextEditorPane(
                         ) {
                             text = value
                             saveState = PocketTextSaveState.Idle
+                            onDirtyChange(value != originalText)
                         }
                     },
                     modifier =
@@ -170,9 +184,7 @@ fun PocketTextEditorPane(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Button(
-                            enabled =
-                                text != originalText &&
-                                    saveState !is PocketTextSaveState.Saving,
+                            enabled = dirty && saveState !is PocketTextSaveState.Saving,
                             onClick = {
                                 val targetUri = uri ?: return@Button
                                 saveState = PocketTextSaveState.Saving
@@ -184,16 +196,29 @@ fun PocketTextEditorPane(
                                     ).onSuccess { bytes ->
                                         originalText = text
                                         saveState = PocketTextSaveState.Saved(bytes)
+                                        onDirtyChange(false)
                                     }.onFailure { error ->
                                         saveState = PocketTextSaveState.Failed(
                                             "Falha ao salvar: " +
                                                 (error.message ?: error.javaClass.simpleName)
                                         )
+                                        onDirtyChange(text != originalText)
                                     }
                                 }
                             },
                         ) {
                             Text("Salvar")
+                        }
+
+                        OutlinedButton(
+                            enabled = dirty && saveState !is PocketTextSaveState.Saving,
+                            onClick = {
+                                text = originalText
+                                saveState = PocketTextSaveState.Idle
+                                onDirtyChange(false)
+                            },
+                        ) {
+                            Text("Reverter")
                         }
                     }
                 }
