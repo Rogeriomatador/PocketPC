@@ -33,6 +33,7 @@ VERSION_NAME="$(read_lock app.versionName 2>/dev/null || echo unknown)"
 VERSION_CODE="$(read_lock app.versionCode 2>/dev/null || echo unknown)"
 NDK_VERSION="$(read_lock android.ndk 2>/dev/null || echo unknown)"
 BUILD_TOOLS="$(read_lock android.buildTools 2>/dev/null || echo unknown)"
+COMPILE_SDK="$(read_lock android.compileSdk 2>/dev/null || echo unknown)"
 PLATFORM_PACKAGE="$(read_lock android.platformPackage 2>/dev/null || echo unknown)"
 GRADLE_REQUIRED="$(read_lock gradle.version 2>/dev/null || echo unknown)"
 JDK_REQUIRED="$(read_lock jdk.major 2>/dev/null || echo unknown)"
@@ -50,6 +51,7 @@ echo "  gradle=$GRADLE_REQUIRED"
 echo "  jdk=$JDK_REQUIRED"
 echo "  ndk=$NDK_VERSION"
 echo "  build_tools=$BUILD_TOOLS"
+echo "  compile_sdk=$COMPILE_SDK"
 echo "  platform=$PLATFORM_PACKAGE"
 echo
 
@@ -125,19 +127,14 @@ if has gradle; then
 fi
 
 AAPT2_OK=false
-if has aapt2; then
-  AAPT2_OK=true
-fi
 
 ANDROID_HOME_CANDIDATE="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
-ANDROID_JAR=""
-for candidate in   "$ANDROID_HOME_CANDIDATE/platforms/android-37/android.jar"   "$ANDROID_HOME_CANDIDATE/platforms/android-37.0/android.jar"
-do
-  if [ -f "$candidate" ]; then
-    ANDROID_JAR="$candidate"
-    break
-  fi
-done
+PLATFORM_DIR_NAME="${PLATFORM_PACKAGE#platforms;}"
+PLATFORM_DIR="$ANDROID_HOME_CANDIDATE/platforms/$PLATFORM_DIR_NAME"
+ANDROID_JAR="$PLATFORM_DIR/android.jar"
+if [ ! -f "$ANDROID_JAR" ]; then
+  ANDROID_JAR=""
+fi
 
 echo
 echo "Android SDK"
@@ -160,6 +157,37 @@ fi
 
 if has aapt2; then
   echo "  aapt2_version=$(aapt2 version 2>&1 | head -1)"
+  if command -v dpkg-query >/dev/null 2>&1; then
+    AAPT2_PACKAGE_VERSION="$(dpkg-query -W -f='${Version}' aapt2 2>/dev/null || true)"
+    echo "  aapt2_package_version=${AAPT2_PACKAGE_VERSION:-unknown}"
+  fi
+
+  if [ -n "$ANDROID_JAR" ]; then
+    AAPT2_PROBE_DIR="$(mktemp -d)"
+    cat > "$AAPT2_PROBE_DIR/AndroidManifest.xml" <<EOF
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.pocketpc.preflight">
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="$COMPILE_SDK" />
+    <application />
+</manifest>
+EOF
+
+    if aapt2 link \
+      -o "$AAPT2_PROBE_DIR/probe.apk" \
+      -I "$ANDROID_JAR" \
+      --manifest "$AAPT2_PROBE_DIR/AndroidManifest.xml" \
+      >"$AAPT2_PROBE_DIR/link.log" 2>&1; then
+      AAPT2_OK=true
+      echo "  aapt2_platform_compatible=true"
+    else
+      echo "  aapt2_platform_compatible=false"
+      AAPT2_PROBE_ERROR="$(head -1 "$AAPT2_PROBE_DIR/link.log" 2>/dev/null || true)"
+      echo "  aapt2_platform_probe_error=${AAPT2_PROBE_ERROR:-unknown}"
+    fi
+    rm -rf "$AAPT2_PROBE_DIR"
+  else
+    echo "  aapt2_platform_compatible=false"
+    echo "  aapt2_platform_probe_error=ANDROID_JAR_MISSING"
+  fi
 fi
 
 NDK_ROOT="${ANDROID_NDK_HOME:-$ANDROID_HOME_CANDIDATE/ndk/$NDK_VERSION}"
