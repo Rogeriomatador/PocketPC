@@ -23,6 +23,7 @@ object RobloxInstalledLaunchAttemptPlanner {
         runtimeReadiness: PcRuntimeReadiness,
         deployedLayers: List<DeployedWindowsRuntimeLayer> = emptyList(),
         deepLink: RobloxPlayerDeepLink? = null,
+        wsiFoundation: PocketPcVulkanWsiFoundationStatus? = null,
     ): RobloxInstalledLaunchAttemptPlan {
         val blockers = mutableListOf<String>()
         val layout = prefixPlan.layout
@@ -50,6 +51,7 @@ object RobloxInstalledLaunchAttemptPlanner {
                     runtimeReadiness = runtimeReadiness,
                     probeEvidence = evidence,
                     installation = discovery,
+                    wsiFoundation = wsiFoundation,
                 )
             } else {
                 null
