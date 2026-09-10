@@ -16,7 +16,7 @@ compile_sdk = str(lock["android"]["compileSdk"])
 
 required_helper_fragments = (
     'read_lock android.platformPackage',
-    'pkg install -y aapt aapt2',
+    'pkg install -y aapt',
     'TERMUX_AAPT2_PLATFORM_INCOMPATIBLE_AFTER_OFFICIAL_UPDATE',
     'Do not lower compileSdk',
 )
@@ -27,6 +27,7 @@ for fragment in required_helper_fragments:
 for forbidden in (
     "Commit451",
     "android-arm-build-tools",
+    "pkg install -y aapt2",
     "curl -fsSL",
     "wget ",
     "platforms/android-36",
