@@ -1,6 +1,9 @@
 package dev.pocketpc.core.ui
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +27,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.storage.PocketFileHandler
@@ -36,6 +41,7 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 
 private const val MAX_TEXT_PREVIEW_BYTES = 512 * 1024
+private const val MAX_IMAGE_PREVIEW_SIDE = 2048
 
 private sealed interface PocketTextPreviewState {
     data object Loading : PocketTextPreviewState
@@ -47,12 +53,22 @@ private sealed interface PocketTextPreviewState {
     data class Failed(val message: String) : PocketTextPreviewState
 }
 
+private sealed interface PocketImagePreviewState {
+    data object Loading : PocketImagePreviewState
+    data class Ready(
+        val bitmap: Bitmap,
+        val sourceWidth: Int,
+        val sourceHeight: Int,
+    ) : PocketImagePreviewState
+    data class Failed(val message: String) : PocketImagePreviewState
+}
+
 /**
  * Desktop-owned replacement for Android's generic "Abrir com" chooser.
  *
- * Text files are the first genuinely handled PocketPC association: the file is
- * read from its content URI and rendered here. Other ROUTE_ONLY handlers remain
- * explicitly pending so association is never confused with tested capability.
+ * Implemented internal handlers are rendered directly here. Route-only file
+ * associations remain inside PocketPC and are never delegated to a generic
+ * Android ACTION_VIEW fallback.
  */
 @Composable
 fun PocketFileOpenOverlay() {
@@ -70,138 +86,145 @@ fun PocketFileOpenOverlay() {
     ) {
         mutableStateOf<PocketTextPreviewState?>(null)
     }
+    var imagePreview by remember(
+        currentRequest.uri,
+        current.association.handler,
+    ) {
+        mutableStateOf<PocketImagePreviewState?>(null)
+    }
 
     val isTextViewer =
-        current.association.handler ==
-            PocketFileHandler.TEXT_EDITOR &&
+        current.association.handler == PocketFileHandler.TEXT_EDITOR &&
+            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
+            currentRequest.uri != null
+    val isImageViewer =
+        current.association.handler == PocketFileHandler.IMAGE_VIEWER &&
+            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
             currentRequest.uri != null
 
     LaunchedEffect(
         currentRequest.uri,
         current.association.handler,
+        current.association.readiness,
     ) {
         if (!isTextViewer) {
             textPreview = null
-            return@LaunchedEffect
+        } else {
+            textPreview = PocketTextPreviewState.Loading
+            textPreview =
+                withContext(Dispatchers.IO) {
+                    loadPocketTextPreview(
+                        context = context,
+                        request = currentRequest,
+                    )
+                }
         }
 
-        textPreview = PocketTextPreviewState.Loading
-        textPreview =
-            withContext(Dispatchers.IO) {
-                loadPocketTextPreview(
-                    context = context,
-                    request = currentRequest,
-                )
-            }
+        if (!isImageViewer) {
+            imagePreview = null
+        } else {
+            imagePreview = PocketImagePreviewState.Loading
+            imagePreview =
+                withContext(Dispatchers.IO) {
+                    loadPocketImagePreview(
+                        context = context,
+                        request = currentRequest,
+                    )
+                }
+        }
     }
 
     AlertDialog(
-        onDismissRequest =
-            PocketFileOpenCoordinator::dismiss,
+        onDismissRequest = PocketFileOpenCoordinator::dismiss,
         title = {
             Text(
-                if (isTextViewer) {
-                    "Editor de Texto do PocketPC"
-                } else {
-                    current.title
+                when {
+                    isTextViewer -> "Editor de Texto do PocketPC"
+                    isImageViewer -> "Fotos do PocketPC"
+                    else -> current.title
                 }
             )
         },
         text = {
             Column(
-                verticalArrangement =
-                    Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
                     current.fileName,
-                    style =
-                        MaterialTheme.typography
-                            .titleSmall,
+                    style = MaterialTheme.typography.titleSmall,
                 )
 
-                if (isTextViewer) {
-                    PocketTextPreview(
-                        state = textPreview,
-                    )
-                } else {
-                    Text(current.description)
+                when {
+                    isTextViewer ->
+                        PocketTextPreview(state = textPreview)
 
-                    Row(
-                        modifier =
-                            Modifier.fillMaxWidth(),
-                        horizontalArrangement =
-                            Arrangement.spacedBy(8.dp),
-                    ) {
-                        AssistChip(
-                            onClick = {},
-                            label = {
-                                Text(
-                                    current.association
-                                        .displayName
-                                )
-                            },
-                        )
-                        AssistChip(
-                            onClick = {},
-                            label = {
-                                Text(
-                                    when (
-                                        current.capability
-                                    ) {
-                                        PocketFileOpenCapability
-                                            .WINDOWS_RUNTIME_REQUIRED ->
-                                            "Runtime necessário"
+                    isImageViewer ->
+                        PocketImagePreview(state = imagePreview)
 
-                                        PocketFileOpenCapability
-                                            .ANDROID_SYSTEM_ACTION_REQUIRED ->
-                                            "Android necessário"
+                    else -> {
+                        Text(current.description)
 
-                                        PocketFileOpenCapability
-                                            .INTERNAL_HANDLER_PENDING ->
-                                            "Em preparação"
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            AssistChip(
+                                onClick = {},
+                                label = { Text(current.association.displayName) },
+                            )
+                            AssistChip(
+                                onClick = {},
+                                label = {
+                                    Text(
+                                        when (current.capability) {
+                                            PocketFileOpenCapability.WINDOWS_RUNTIME_REQUIRED ->
+                                                "Runtime necessário"
+                                            PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED ->
+                                                "Android necessário"
+                                            PocketFileOpenCapability.INTERNAL_HANDLER_PENDING ->
+                                                if (
+                                                    current.association.readiness ==
+                                                        PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL
+                                                ) {
+                                                    "Disponível no PocketPC"
+                                                } else {
+                                                    "Em preparação"
+                                                }
+                                            PocketFileOpenCapability.UNSUPPORTED ->
+                                                "Sem associação"
+                                        }
+                                    )
+                                },
+                            )
+                        }
 
-                                        PocketFileOpenCapability
-                                            .UNSUPPORTED ->
-                                            "Sem associação"
-                                    }
-                                )
-                            },
-                        )
-                    }
+                        if (
+                            current.association.readiness ==
+                                PocketFileHandlerReadiness.ROUTE_ONLY
+                        ) {
+                            Text(
+                                "O arquivo continua dentro do PocketPC. " +
+                                    "Esta associação não é evidência de que " +
+                                    "o aplicativo já esteja funcional.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
 
-                    if (
-                        current.association.readiness ==
-                        PocketFileHandlerReadiness.ROUTE_ONLY
-                    ) {
-                        Text(
-                            "O arquivo continua dentro do PocketPC. " +
-                                "Esta associação não é evidência de que " +
-                                "o aplicativo já esteja funcional.",
-                            style =
-                                MaterialTheme.typography
-                                    .bodySmall,
-                        )
-                    }
-
-                    if (current.leavesPocketPc) {
-                        Text(
-                            "Esta ação cruza uma fronteira do Android " +
-                                "e só deve ocorrer após uma ação explícita.",
-                            style =
-                                MaterialTheme.typography
-                                    .bodySmall,
-                        )
+                        if (current.leavesPocketPc) {
+                            Text(
+                                "Esta ação cruza uma fronteira do Android " +
+                                    "e só deve ocorrer após uma ação explícita.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(
-                onClick =
-                    PocketFileOpenCoordinator::dismiss,
-            ) {
+            TextButton(onClick = PocketFileOpenCoordinator::dismiss) {
                 Text(
-                    if (isTextViewer) {
+                    if (isTextViewer || isImageViewer) {
                         "Fechar"
                     } else {
                         "Entendi"
@@ -220,10 +243,7 @@ private fun PocketTextPreview(
     when (state) {
         null,
         PocketTextPreviewState.Loading ->
-            Row(
-                horizontalArrangement =
-                    Arrangement.spacedBy(10.dp),
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 CircularProgressIndicator()
                 Text("Abrindo dentro do PocketPC...")
             }
@@ -231,8 +251,7 @@ private fun PocketTextPreview(
         is PocketTextPreviewState.Failed ->
             Text(
                 state.message,
-                color =
-                    MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error,
             )
 
         is PocketTextPreviewState.Ready -> {
@@ -241,35 +260,59 @@ private fun PocketTextPreview(
                     "Visualização limitada aos primeiros " +
                         formatTextPreviewBytes(state.bytesRead) +
                         " para manter o desktop responsivo.",
-                    style =
-                        MaterialTheme.typography.bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             SelectionContainer {
                 Text(
-                    text =
-                        state.text.ifEmpty {
-                            "(arquivo vazio)"
-                        },
+                    text = state.text.ifEmpty { "(arquivo vazio)" },
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .heightIn(
-                                min = 120.dp,
-                                max = 480.dp,
-                            )
-                            .verticalScroll(
-                                rememberScrollState()
-                            ),
-                    style =
-                        MaterialTheme.typography
-                            .bodyMedium,
+                            .heightIn(min = 120.dp, max = 480.dp)
+                            .verticalScroll(rememberScrollState()),
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun PocketImagePreview(
+    state: PocketImagePreviewState?,
+) {
+    when (state) {
+        null,
+        PocketImagePreviewState.Loading ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CircularProgressIndicator()
+                Text("Carregando imagem dentro do PocketPC...")
+            }
+
+        is PocketImagePreviewState.Failed ->
+            Text(
+                state.message,
+                color = MaterialTheme.colorScheme.error,
+            )
+
+        is PocketImagePreviewState.Ready -> {
+            Text(
+                "${state.sourceWidth} × ${state.sourceHeight}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Image(
+                bitmap = state.bitmap.asImageBitmap(),
+                contentDescription = "Imagem aberta no PocketPC",
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 160.dp, max = 520.dp),
+                contentScale = ContentScale.Fit,
+            )
         }
     }
 }
@@ -299,15 +342,13 @@ private fun loadPocketTextPreview(
                     if (count < 0) break
                     if (count == 0) continue
 
-                    val remaining =
-                        MAX_TEXT_PREVIEW_BYTES - total
+                    val remaining = MAX_TEXT_PREVIEW_BYTES - total
                     if (remaining <= 0) {
                         truncated = true
                         break
                     }
 
-                    val accepted =
-                        count.coerceAtMost(remaining)
+                    val accepted = count.coerceAtMost(remaining)
                     output.write(buffer, 0, accepted)
                     total += accepted
 
@@ -317,24 +358,73 @@ private fun loadPocketTextPreview(
                     }
                 }
             }
-            ?: error(
-                "Não foi possível abrir o conteúdo do arquivo."
-            )
+            ?: error("Não foi possível abrir o conteúdo do arquivo.")
 
         PocketTextPreviewState.Ready(
             text =
                 output.toByteArray()
                     .toString(Charsets.UTF_8)
                     .removePrefix("\uFEFF"),
-            truncated = truncated ||
-                request.sizeBytes > MAX_TEXT_PREVIEW_BYTES,
+            truncated = truncated || request.sizeBytes > MAX_TEXT_PREVIEW_BYTES,
             bytesRead = total,
         )
     }.getOrElse { error ->
         PocketTextPreviewState.Failed(
             "Não foi possível ler o arquivo dentro do PocketPC: " +
-                (error.message
-                    ?: error.javaClass.simpleName)
+                (error.message ?: error.javaClass.simpleName)
+        )
+    }
+}
+
+private fun loadPocketImagePreview(
+    context: android.content.Context,
+    request: PocketFileOpenRequest,
+): PocketImagePreviewState {
+    val uriString =
+        request.uri
+            ?: return PocketImagePreviewState.Failed(
+                "O PocketPC não recebeu acesso à imagem."
+            )
+    val uri = Uri.parse(uriString)
+
+    return runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver
+            .openInputStream(uri)
+            ?.use { input -> BitmapFactory.decodeStream(input, null, bounds) }
+            ?: error("Não foi possível ler a imagem.")
+
+        check(bounds.outWidth > 0 && bounds.outHeight > 0) {
+            "Formato de imagem não reconhecido pelo visualizador interno."
+        }
+
+        var sampleSize = 1
+        while (
+            bounds.outWidth / sampleSize > MAX_IMAGE_PREVIEW_SIDE ||
+            bounds.outHeight / sampleSize > MAX_IMAGE_PREVIEW_SIDE
+        ) {
+            sampleSize *= 2
+        }
+
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val bitmap =
+            context.contentResolver
+                .openInputStream(uri)
+                ?.use { input -> BitmapFactory.decodeStream(input, null, options) }
+                ?: error("Não foi possível decodificar a imagem.")
+
+        PocketImagePreviewState.Ready(
+            bitmap = bitmap,
+            sourceWidth = bounds.outWidth,
+            sourceHeight = bounds.outHeight,
+        )
+    }.getOrElse { error ->
+        PocketImagePreviewState.Failed(
+            "Não foi possível abrir a imagem dentro do PocketPC: " +
+                (error.message ?: error.javaClass.simpleName)
         )
     }
 }
