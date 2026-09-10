@@ -143,6 +143,17 @@ for dependency in (
     if dependency not in local_builder:
         errors.append(f"local AAPT2 builder missing official dependency/config sentinel: {dependency}")
 
+for label, text_blob in (
+    ("AAPT2 helper", helper),
+    ("local AAPT2 builder", local_builder),
+    ("Kotlin gate", gate),
+    ("Termux preflight", preflight),
+):
+    if "awk '/Candidate:/ {print $2; exit}'" in text_blob:
+        errors.append(f"{label} contains SIGPIPE-prone apt-cache/awk early exit")
+    if "find " in text_blob and "|\n        head -1" in text_blob:
+        errors.append(f"{label} contains SIGPIPE-prone find/head pipeline")
+
 for insecure in (
     "trusted=yes",
     "--allow-unauthenticated",
