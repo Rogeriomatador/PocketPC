@@ -27,6 +27,9 @@ enum class PocketFileHandlerReadiness {
     /** Handler ownership exists, but its app/runtime still needs implementation or validation. */
     ROUTE_ONLY,
 
+    /** A PocketPC-owned handler exists in code. This is not physical-test evidence. */
+    IMPLEMENTED_INTERNAL,
+
     /** The handler deliberately delegates to an Android system component. */
     ANDROID_SYSTEM_REQUIRED,
 }
@@ -125,6 +128,7 @@ fun resolvePocketFileAssociation(
                         handler = PocketFileHandler.TEXT_EDITOR,
                         displayName = "Editor de Texto do PocketPC",
                         route = route.route,
+                        readiness = PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
                     )
 
                 else ->
@@ -154,12 +158,13 @@ private fun association(
     handler: PocketFileHandler,
     displayName: String,
     route: PocketFileRoute,
+    readiness: PocketFileHandlerReadiness = PocketFileHandlerReadiness.ROUTE_ONLY,
 ): PocketFileAssociation =
     PocketFileAssociation(
         handler = handler,
         displayName = displayName,
         route = route,
-        readiness = PocketFileHandlerReadiness.ROUTE_ONLY,
+        readiness = readiness,
     )
 
 private val TEXT_EXTENSIONS =
