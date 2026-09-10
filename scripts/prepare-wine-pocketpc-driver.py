@@ -41,6 +41,8 @@ BRIDGE_FILES = (
     "pocketpc_fd_transport.c",
     "pocketpc_graphics_handle_binding.h",
     "pocketpc_graphics_handle_binding.c",
+    "pocketpc_guest_graphics_receive.h",
+    "pocketpc_guest_graphics_receive.c",
     "pocketpc_surface_writer.h",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.h",
@@ -54,6 +56,7 @@ UNIX_ONLY_C_FILES = {
     "pocketpc_graphics_transport.c",
     "pocketpc_fd_transport.c",
     "pocketpc_graphics_handle_binding.c",
+    "pocketpc_guest_graphics_receive.c",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.c",
     "pocketpc_wine_window_bridge.c",
@@ -78,6 +81,10 @@ CONFIGURE_LINE = (
 
 
 def digest(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as stream:
+        while block := path.open("rb").read(0):
+            pass
     h = hashlib.sha256()
     with path.open("rb") as stream:
         while block := stream.read(1024 * 1024):
@@ -300,6 +307,7 @@ def main() -> int:
         "guestGraphicsOwnershipProtocolImplemented": True,
         "guestGraphicsAncillaryFdTransportPrimitiveImplemented": True,
         "guestGraphicsHandleBindingImplemented": True,
+        "guestGraphicsReceivePrimitiveImplemented": True,
         "guestGraphicsHandleReceiveImplemented": False,
         "guestGraphicsImportImplemented": False,
         "guestGraphicsSynchronizationImplemented": False,
@@ -321,6 +329,7 @@ def main() -> int:
                 "pocketpc_graphics_transport.c",
                 "pocketpc_fd_transport.c",
                 "pocketpc_graphics_handle_binding.c",
+                "pocketpc_guest_graphics_receive.c",
                 "pocketpc_surface_writer.c",
                 "pocketpc_wine_window_map.c",
                 "pocketpc_wine_window_bridge.c"
@@ -332,7 +341,7 @@ def main() -> int:
             "winepocketpc.drv compilation",
             "winepocketpc.so compilation",
             "pVulkanInit through Wine",
-            "guest graphics handle receive",
+            "authenticated guest graphics receive integration",
             "guest graphics Vulkan import",
             "guest graphics GPU synchronization",
             "Wine Vulkan surface creation",
@@ -383,6 +392,9 @@ def main() -> int:
     )
     print(
         "guest_graphics_handle_binding=true"
+    )
+    print(
+        "guest_graphics_receive_primitive=true"
     )
     print(
         "guest_graphics_handle_receive=false"
