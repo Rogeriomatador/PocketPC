@@ -59,6 +59,7 @@ CHECKS=(
     "scripts/test-ci-version-policy.py"
     "scripts/test-update-feed-policy.py"
     "scripts/test-pocketdrive-research-policy.py"
+    "scripts/test-kotlin-source-regressions.py"
 )
 
 echo "Python syntax"
