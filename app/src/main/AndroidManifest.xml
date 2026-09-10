@@ -47,6 +47,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <service
+            android:name=".runtime.HardwareBufferCrossProcessProbeService"
+            android:exported="false"
+            android:process=":gpu_probe"
+            android:stopWithTask="true" />
 
         <activity
             android:name=".MainActivity"
