@@ -22,17 +22,17 @@ for tool in git python java gradle; do
     need "$tool"
 done
 
+if [ ! -f "$LOCK" ]; then
+    echo "LOCK_MISSING=$LOCK" >&2
+    exit 2
+fi
+
 if ! command -v aapt2 >/dev/null 2>&1; then
     echo "AAPT2 is missing; invoking the official Termux recovery gate."
     bash scripts/termux-ensure-aapt2.sh
 fi
 
 need aapt2
-
-if [ ! -f "$LOCK" ]; then
-    echo "LOCK_MISSING=$LOCK" >&2
-    exit 2
-fi
 
 read_lock() {
     python - "$LOCK" "$1" <<'PY'
