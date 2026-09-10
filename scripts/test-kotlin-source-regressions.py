@@ -53,13 +53,22 @@ if "private fun formatBytes(" in task_manager:
 if task_manager.count("private fun formatTaskManagerBytes(") != 1:
     errors.append("TaskManagerApp formatTaskManagerBytes helper count is not exactly one")
 
-# Opening files from PocketPC-owned surfaces must fail closed inside PocketPC.
-# BrowserApp has one explicit opt-in Android escape hatch for web pages; it is
-# deliberately excluded from the generic-file prohibition below.
+# PocketPC-owned file surfaces must never silently escape to Android ACTION_VIEW.
 for rel in (
     "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
     "app/src/main/java/dev/pocketpc/core/ui/DownloadsApp.kt",
     "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt",
+    "app/src/main/java/dev/pocketpc/core/storage/PocketZipArchive.kt",
+    "app/src/main/java/dev/pocketpc/core/storage/PocketZipCreator.kt",
+    "app/src/main/java/dev/pocketpc/core/storage/PocketTextFileStore.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketTextEditorPane.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketImageViewerPane.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketPdfViewerPane.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketAudioPlayerPane.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketVideoPlayerPane.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketWebDocumentPane.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketOfficePreviewPane.kt",
+    "app/src/main/java/dev/pocketpc/core/ui/PocketFileQuickActions.kt",
 ):
     source = read(rel)
     if "Intent.ACTION_VIEW" in source:
@@ -86,14 +95,20 @@ if "O PocketPC bloqueou a saída automática para o Android." not in browser:
     errors.append("Browser no longer fail-closes non-web URL schemes")
 
 associations = read("app/src/main/java/dev/pocketpc/core/storage/PocketFileAssociations.kt")
-if "PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL" not in associations:
-    errors.append("PocketFileAssociations lost implemented-internal readiness tracking")
-if 'if (extension == "zip")' not in associations:
-    errors.append("ZIP must be the only archive promoted to implemented-internal readiness")
-if "PocketFileHandler.PDF_VIEWER" not in associations:
-    errors.append("PocketFileAssociations lost PDF ownership")
-if "IMPLEMENTED_AUDIO_EXTENSIONS" not in associations:
-    errors.append("PocketFileAssociations lost implemented audio readiness")
+for required in (
+    "PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL",
+    'if (extension == "zip")',
+    "PocketFileHandler.PDF_VIEWER",
+    "IMPLEMENTED_IMAGE_EXTENSIONS",
+    "IMPLEMENTED_AUDIO_EXTENSIONS",
+    "IMPLEMENTED_VIDEO_EXTENSIONS",
+    "IMPLEMENTED_OFFICE_PREVIEW_EXTENSIONS",
+):
+    if required not in associations:
+        errors.append(f"PocketFileAssociations lost readiness invariant: {required}")
+for modern_office in ("docx", "odt", "xlsx", "ods", "pptx", "odp"):
+    if f'"{modern_office}"' not in associations:
+        errors.append(f"PocketFileAssociations lost modern Office type: {modern_office}")
 
 zip_engine = read("app/src/main/java/dev/pocketpc/core/storage/PocketZipArchive.kt")
 for required in (
@@ -111,8 +126,6 @@ for required in (
 ):
     if required not in zip_engine:
         errors.append(f"PocketZipArchive lost security invariant: {required}")
-if "Intent.ACTION_VIEW" in zip_engine:
-    errors.append("PocketZipArchive must never delegate extraction to Android ACTION_VIEW")
 
 zip_pane = read("app/src/main/java/dev/pocketpc/core/ui/PocketZipArchivePane.kt")
 for required in (
@@ -132,11 +145,19 @@ for required in (
     '".pocketpc-part-${System.nanoTime()}-$outputName"',
     "runCatching { target?.delete() }",
     "ZipOutputStream(raw)",
+    "createPocketZipFileInDownloads(",
+    "createPocketZipBesideEntry(",
 ):
     if required not in zip_creator:
         errors.append(f"PocketZipCreator lost transactional/safety invariant: {required}")
-if "Intent.ACTION_VIEW" in zip_creator:
-    errors.append("PocketZipCreator must never delegate compression to Android ACTION_VIEW")
+
+quick_actions = read("app/src/main/java/dev/pocketpc/core/ui/PocketFileQuickActions.kt")
+for required in (
+    "createPocketZipFileInDownloads(",
+    '"Compactar em P:\\\\Downloads"',
+):
+    if required not in quick_actions:
+        errors.append(f"PocketFileQuickActions lost internal compression action: {required}")
 
 text_store = read("app/src/main/java/dev/pocketpc/core/storage/PocketTextFileStore.kt")
 for required in (
@@ -157,6 +178,17 @@ for required in (
     if required not in text_editor:
         errors.append(f"PocketTextEditorPane missing editable-text behavior: {required}")
 
+image_viewer = read("app/src/main/java/dev/pocketpc/core/ui/PocketImageViewerPane.kt")
+for required in (
+    "MAX_IMAGE_PREVIEW_SIDE",
+    "MIN_IMAGE_ZOOM",
+    "MAX_IMAGE_ZOOM",
+    ".graphicsLayer",
+    "rotationZ = rotation",
+):
+    if required not in image_viewer:
+        errors.append(f"PocketImageViewerPane missing internal image behavior: {required}")
+
 pdf_viewer = read("app/src/main/java/dev/pocketpc/core/ui/PocketPdfViewerPane.kt")
 for required in (
     "PdfRenderer(descriptor)",
@@ -166,8 +198,6 @@ for required in (
 ):
     if required not in pdf_viewer:
         errors.append(f"PocketPdfViewerPane missing internal PDF flow: {required}")
-if "Intent.ACTION_VIEW" in pdf_viewer:
-    errors.append("PocketPdfViewerPane must never delegate PDF opening to Android ACTION_VIEW")
 
 audio_player = read("app/src/main/java/dev/pocketpc/core/ui/PocketAudioPlayerPane.kt")
 for required in (
@@ -178,15 +208,58 @@ for required in (
 ):
     if required not in audio_player:
         errors.append(f"PocketAudioPlayerPane missing internal playback behavior: {required}")
-if "Intent.ACTION_VIEW" in audio_player:
-    errors.append("PocketAudioPlayerPane must never delegate audio to Android ACTION_VIEW")
+
+video_player = read("app/src/main/java/dev/pocketpc/core/ui/PocketVideoPlayerPane.kt")
+for required in (
+    "VideoView(context)",
+    "AndroidView(",
+    "setVideoURI(Uri.parse(uriString))",
+    "stopPlayback()",
+):
+    if required not in video_player:
+        errors.append(f"PocketVideoPlayerPane missing internal video behavior: {required}")
+
+web_document = read("app/src/main/java/dev/pocketpc/core/ui/PocketWebDocumentPane.kt")
+for required in (
+    "settings.javaScriptEnabled = false",
+    "settings.domStorageEnabled = false",
+    "settings.allowFileAccess = false",
+    "settings.allowContentAccess = false",
+    "settings.blockNetworkLoads = true",
+    "shouldOverrideUrlLoading(",
+    "loadDataWithBaseURL(",
+):
+    if required not in web_document:
+        errors.append(f"PocketWebDocumentPane lost isolation invariant: {required}")
+
+office = read("app/src/main/java/dev/pocketpc/core/ui/PocketOfficePreviewPane.kt")
+for required in (
+    "MAX_OFFICE_CONTAINER_BYTES",
+    "MAX_OFFICE_XML_BYTES",
+    "MAX_OFFICE_ENTRY_COUNT",
+    "MAX_OFFICE_TOTAL_XML_BYTES",
+    "ZipFile(cacheFile)",
+    "XmlPullParser.FEATURE_PROCESS_DOCDECL",
+    "XmlPullParser.DOCDECL",
+    '"word/document.xml"',
+    '"xl/sharedStrings.xml"',
+    'Regex("^ppt/slides/slide([0-9]+)[.]xml$")',
+    'setOf("docx", "odt", "xlsx", "ods", "pptx", "odp")',
+):
+    if required not in office:
+        errors.append(f"PocketOfficePreviewPane lost safe-preview invariant: {required}")
 
 open_overlay = read("app/src/main/java/dev/pocketpc/core/ui/PocketFileOpenOverlay.kt")
 for required in (
     "PocketTextEditorPane(request = currentRequest)",
+    "PocketImageViewerPane(request = currentRequest)",
     "PocketZipArchivePane(request = currentRequest)",
     "PocketPdfViewerPane(request = currentRequest)",
+    "PocketOfficePreviewPane(request = currentRequest)",
+    "PocketWebDocumentPane(request = currentRequest)",
+    "PocketVideoPlayerPane(request = currentRequest)",
     "PocketAudioPlayerPane(request = currentRequest)",
+    "PocketFileQuickActions(",
 ):
     if open_overlay.count(required) != 1:
         errors.append(f"Global file-open overlay must mount exactly one: {required}")
@@ -207,5 +280,9 @@ print("browser_external_escape=explicit_only")
 print("pocket_zip_security=guarded")
 print("pocket_zip_creation=guarded")
 print("pocket_text_editor=guarded")
+print("pocket_image_viewer=guarded")
 print("pocket_pdf_viewer=guarded")
 print("pocket_audio_player=guarded")
+print("pocket_video_player=guarded")
+print("pocket_web_document=isolated")
+print("pocket_office_preview=guarded")
