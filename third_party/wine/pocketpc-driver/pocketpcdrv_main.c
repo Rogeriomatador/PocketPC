@@ -65,6 +65,12 @@ static NTSTATUS pocketpcdrv_unix_init(
 
     (void)arg;
 
+    TRACE(
+        "POCKETPC_DRIVER_LOAD stage=unix_init_begin protocol=%u pid=%ld\n",
+        PDB_VERSION,
+        (long)getpid()
+    );
+
     memset(
         &pocketpc_connection,
         0,
@@ -80,11 +86,18 @@ static NTSTATUS pocketpcdrv_unix_init(
         ) != 0
     ) {
         ERR(
-            "display bridge connection failed: %s\n",
+            "POCKETPC_DRIVER_LOAD stage=bridge_connect_failed protocol=%u error=%s\n",
+            PDB_VERSION,
             error
         );
         return STATUS_UNSUCCESSFUL;
     }
+
+    TRACE(
+        "POCKETPC_DRIVER_LOAD stage=bridge_connected protocol=%u capabilities=%u\n",
+        PDB_VERSION,
+        pocketpc_connection.negotiated_capabilities
+    );
 
     pdb_wine_window_bridge_init(
         &pocketpc_windows,
@@ -102,7 +115,8 @@ static NTSTATUS pocketpcdrv_unix_init(
             &pocketpc_connection
         );
         ERR(
-            "window namespace setup failed pid=%ld namespace=%lu\n",
+            "POCKETPC_DRIVER_LOAD stage=namespace_failed protocol=%u pid=%ld namespace=%lu\n",
+            PDB_VERSION,
             (long)getpid(),
             (unsigned long)process_namespace
         );
@@ -117,7 +131,7 @@ static NTSTATUS pocketpcdrv_unix_init(
     );
 
     TRACE(
-        "PocketPC USER driver registered, protocol=%u pid_namespace=%lu\n",
+        "POCKETPC_DRIVER_LOAD stage=user_driver_registered protocol=%u pid_namespace=%lu\n",
         PDB_VERSION,
         (unsigned long)process_namespace
     );
