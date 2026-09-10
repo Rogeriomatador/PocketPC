@@ -93,6 +93,7 @@ fun resolvePocketFileAssociation(
                         handler = PocketFileHandler.PDF_VIEWER,
                         displayName = "Leitor de PDF do PocketPC",
                         route = route.route,
+                        readiness = PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
                     )
 
                 extension in IMAGE_EXTENSIONS ||
