@@ -53,10 +53,9 @@ static void pocketpc_map_instance_extensions(
     struct vulkan_instance_extensions *extensions
 ) {
     /*
-     * Do not advertise a host surface route until PocketPC can create a
-     * process-valid native Vulkan surface for the Wine guest. In particular,
-     * never translate VK_KHR_win32_surface directly to VK_KHR_android_surface
-     * without a valid ANativeWindow in this process.
+     * Surface extension mapping remains deliberately disabled. A Win32 surface
+     * must never be advertised until PocketPC can create a real host
+     * VkSurfaceKHR with process-valid native presentation state.
      */
     (void)extensions;
 }
@@ -64,11 +63,36 @@ static void pocketpc_map_instance_extensions(
 static void pocketpc_map_device_extensions(
     struct vulkan_device_extensions *extensions
 ) {
+    if (!extensions)
+        return;
+
     /*
-     * External-memory mappings will be added only with an implementation that
-     * preserves handle ownership and synchronization across Box64/Android.
+     * Wine's Linux graphics drivers translate Win32 external-handle
+     * extensions to the host fd variants. This mapping is independent of WSI
+     * surface creation and allows Wine's Vulkan core to use its normal fd
+     * external-memory/semaphore/fence paths when the host driver supports
+     * them. It does NOT prove that PocketPC's guest graphics broker has
+     * transported or imported any particular resource.
      */
-    (void)extensions;
+    if (extensions->has_VK_KHR_external_memory_win32)
+        extensions->has_VK_KHR_external_memory_fd = 1;
+    if (extensions->has_VK_KHR_external_memory_fd)
+        extensions->has_VK_KHR_external_memory_win32 = 1;
+
+    if (extensions->has_VK_KHR_external_semaphore_win32)
+        extensions->has_VK_KHR_external_semaphore_fd = 1;
+    if (extensions->has_VK_KHR_external_semaphore_fd)
+        extensions->has_VK_KHR_external_semaphore_win32 = 1;
+
+    if (extensions->has_VK_KHR_external_fence_win32)
+        extensions->has_VK_KHR_external_fence_fd = 1;
+    if (extensions->has_VK_KHR_external_fence_fd)
+        extensions->has_VK_KHR_external_fence_win32 = 1;
+
+    TRACE(
+        "POCKETPC_VULKAN_WSI stage=external_handle_extension_mapping_ready version=%u surface_mapping=blocked\n",
+        WINE_VULKAN_DRIVER_VERSION
+    );
 }
 
 static const struct vulkan_driver_funcs pocketpc_vulkan_driver_funcs =
@@ -103,7 +127,7 @@ UINT POCKETPC_VulkanInit(
     *driver_funcs = &pocketpc_vulkan_driver_funcs;
 
     TRACE(
-        "POCKETPC_VULKAN_WSI stage=abi_initialized version=%u surface_backend=blocked\n",
+        "POCKETPC_VULKAN_WSI stage=abi_initialized version=%u surface_backend=blocked external_handle_mapping=ready\n",
         WINE_VULKAN_DRIVER_VERSION
     );
 
