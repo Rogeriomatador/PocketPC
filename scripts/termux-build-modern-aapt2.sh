@@ -63,6 +63,7 @@ pkg install -y \
     git \
     clang \
     pkg-config \
+    linux-headers \
     fmt \
     libexpat \
     libpng \
