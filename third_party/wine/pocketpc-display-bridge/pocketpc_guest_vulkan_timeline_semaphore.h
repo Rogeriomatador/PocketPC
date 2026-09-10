@@ -19,6 +19,10 @@ enum pocketpc_guest_vulkan_timeline_result {
     POCKETPC_GUEST_VULKAN_TIMELINE_FUNCTION_NOT_READY = -3,
     POCKETPC_GUEST_VULKAN_TIMELINE_CREATE_FAILED = -4,
     POCKETPC_GUEST_VULKAN_TIMELINE_IMPORT_FAILED = -5,
+    POCKETPC_GUEST_VULKAN_TIMELINE_SIGNAL_FAILED = -6,
+    POCKETPC_GUEST_VULKAN_TIMELINE_WAIT_FAILED = -7,
+    POCKETPC_GUEST_VULKAN_TIMELINE_COUNTER_FAILED = -8,
+    POCKETPC_GUEST_VULKAN_TIMELINE_NON_MONOTONIC = -9,
 };
 
 struct pocketpc_guest_vulkan_timeline {
@@ -32,6 +36,27 @@ int pocketpc_guest_vulkan_timeline_import(
     struct vulkan_device *device,
     struct pocketpc_external_timeline_semaphore_fd_received *received,
     struct pocketpc_guest_vulkan_timeline *timeline
+);
+
+int pocketpc_guest_vulkan_timeline_get_counter(
+    struct vulkan_device *device,
+    struct pocketpc_guest_vulkan_timeline *timeline,
+    uint64_t *value
+);
+
+/* CPU-side diagnostic primitive. This does not prove queue/GPU ordering. */
+int pocketpc_guest_vulkan_timeline_signal_cpu(
+    struct vulkan_device *device,
+    struct pocketpc_guest_vulkan_timeline *timeline,
+    uint64_t value
+);
+
+/* CPU-side diagnostic primitive. This does not prove queue/GPU ordering. */
+int pocketpc_guest_vulkan_timeline_wait_cpu(
+    struct vulkan_device *device,
+    struct pocketpc_guest_vulkan_timeline *timeline,
+    uint64_t value,
+    uint64_t timeout_ns
 );
 
 void pocketpc_guest_vulkan_timeline_release(
