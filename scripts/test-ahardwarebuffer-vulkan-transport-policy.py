@@ -16,6 +16,7 @@ WSI = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiContr
 FOUNDATION = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiFoundation.kt"
 GUEST = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt"
 DESCRIPTOR = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsResourceDescriptor.kt"
+SURFACE_BACKEND = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanSurfaceBackend.kt"
 BOX64 = ROOT / "third_party/box64/LOCK.json"
 
 
@@ -74,6 +75,7 @@ def main() -> int:
         "vulkanCapabilityProbeImplemented",
         "wineVulkanAbiEntryPointImplemented",
         "guestGraphicsTransportContractImplemented",
+        "vulkanSurfaceBackendModelImplemented",
     )
     expected_false = (
         "ahardwareBufferHostProbeSoftwareTestExecuted",
@@ -87,6 +89,7 @@ def main() -> int:
         "guestGraphicsTransportSoftwareTestExecuted",
         "guestGraphicsTransportIntegrationTestExecuted",
         "guestGraphicsTransportPhysicalTestExecuted",
+        "vulkanSurfaceBackendRunnable",
         "wineVulkanWsiImplemented",
         "wineVulkanWsiSoftwareTestExecuted",
         "wineVulkanWsiPhysicalTestExecuted",
@@ -113,6 +116,24 @@ def main() -> int:
     ):
         failures.append("guest graphics transport architecture state changed")
 
+    surface_arch = arch.get("surfaceBackend") or {}
+    surface_candidates = surface_arch.get("candidates") or {}
+    if (
+        surface_arch.get("model") != "PocketPcVulkanSurfaceBackendProbe"
+        or surface_arch.get("modelImplemented") is not True
+        or surface_arch.get("runnable") is not False
+        or surface_arch.get("ahardwareBufferIsSurface") is not False
+    ):
+        failures.append("surface backend architecture state changed")
+    for candidate_name in (
+        "ANDROID_NATIVE_SURFACE",
+        "HEADLESS_SURFACE_SHIM",
+        "VIRTUAL_WSI",
+    ):
+        candidate = surface_candidates.get(candidate_name) or {}
+        if candidate.get("implemented") is not False:
+            failures.append(f"surface backend must remain unimplemented: {candidate_name}")
+
     native = NATIVE.read_text(encoding="utf-8")
     cross_native = CROSS_PROCESS_NATIVE.read_text(encoding="utf-8")
     cmake = CMAKE.read_text(encoding="utf-8")
@@ -121,6 +142,7 @@ def main() -> int:
     foundation = FOUNDATION.read_text(encoding="utf-8")
     guest = GUEST.read_text(encoding="utf-8")
     descriptor = DESCRIPTOR.read_text(encoding="utf-8")
+    surface_backend = SURFACE_BACKEND.read_text(encoding="utf-8")
 
     require(
         failures,
@@ -213,6 +235,22 @@ def main() -> int:
 
     require(
         failures,
+        "Vulkan surface backend model",
+        surface_backend,
+        (
+            "PocketPcVulkanSurfaceBackendKind.ANDROID_NATIVE_SURFACE",
+            "PocketPcVulkanSurfaceBackendKind.HEADLESS_SURFACE_SHIM",
+            "PocketPcVulkanSurfaceBackendKind.VIRTUAL_WSI",
+            "implemented = false",
+            "ahardwareBufferIsSurface = false",
+            "VULKAN_ANDROID_NATIVE_WINDOW_TRANSPORT_NOT_IMPLEMENTED",
+            "VULKAN_HEADLESS_PRESENT_CAPTURE_NOT_IMPLEMENTED",
+            "VULKAN_VIRTUAL_WSI_NOT_IMPLEMENTED",
+        ),
+    )
+
+    require(
+        failures,
         "WSI fail-closed contract",
         wsi,
         (
@@ -239,9 +277,11 @@ def main() -> int:
     rejected_text = json.dumps(rejected, sort_keys=True)
     for marker in (
         "ANativeWindow",
+        "AHardwareBuffer as VkSurfaceKHR",
         "GDI window_surface.flush",
         "wineandroid.drv",
         "Android-to-Android AHardwareBuffer",
+        "VK_EXT_headless_surface",
     ):
         if marker not in rejected_text:
             failures.append(f"rejected route missing: {marker}")
@@ -258,6 +298,8 @@ def main() -> int:
     print("guest_receive_implemented=false")
     print("guest_import_implemented=false")
     print("guest_synchronization_implemented=false")
+    print("surface_backend_model_implemented=true")
+    print("surface_backend_runnable=false")
     print("wine_vulkan_wsi_implemented=false")
     print("physical_execution_evidence=false")
     return 0
