@@ -26,13 +26,6 @@ import dev.pocketpc.core.storage.PocketFileOpenCoordinator
 private val POCKETPC_VIDEO_EXTENSIONS =
     setOf("mp4", "mkv", "webm", "avi", "mov")
 
-/**
- * Desktop-owned replacement for Android's generic "Abrir com" chooser.
- *
- * Implemented internal handlers are rendered directly here. Route-only file
- * associations remain inside PocketPC and are never delegated to a generic
- * Android ACTION_VIEW fallback.
- */
 @Composable
 fun PocketFileOpenOverlay() {
     val request by
@@ -68,7 +61,7 @@ fun PocketFileOpenOverlay() {
         current.association.handler == PocketFileHandler.IMAGE_VIEWER &&
             implemented &&
             !isSvgViewer
-    val isZipViewer =
+    val isArchiveViewer =
         current.association.handler == PocketFileHandler.ARCHIVE_MANAGER && implemented
     val isPdfViewer =
         current.association.handler == PocketFileHandler.PDF_VIEWER && implemented
@@ -109,7 +102,7 @@ fun PocketFileOpenOverlay() {
                             "Editor de Texto do PocketPC"
                         }
                     isSvgViewer || isImageViewer -> "Fotos do PocketPC"
-                    isZipViewer -> "Compactador do PocketPC"
+                    isArchiveViewer -> "Compactador do PocketPC"
                     isPdfViewer -> "Leitor de PDF do PocketPC"
                     isOfficePreview -> "Documentos do PocketPC"
                     isWebDocument -> "Documento Web do PocketPC"
@@ -148,7 +141,10 @@ fun PocketFileOpenOverlay() {
                     isImageViewer ->
                         PocketImageViewerPane(request = currentRequest)
 
-                    isZipViewer ->
+                    isArchiveViewer && (extension == "gz" || extension == "tgz") ->
+                        PocketGzipArchivePane(request = currentRequest)
+
+                    isArchiveViewer ->
                         PocketZipArchivePane(request = currentRequest)
 
                     isPdfViewer ->
@@ -242,7 +238,7 @@ fun PocketFileOpenOverlay() {
                         isTextEditor ||
                         isSvgViewer ||
                         isImageViewer ||
-                        isZipViewer ||
+                        isArchiveViewer ||
                         isPdfViewer ||
                         isOfficePreview ||
                         isWebDocument ||
