@@ -90,6 +90,8 @@ if "PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL" not in associations:
     errors.append("PocketFileAssociations lost implemented-internal readiness tracking")
 if 'if (extension == "zip")' not in associations:
     errors.append("ZIP must be the only archive promoted to implemented-internal readiness")
+if "PocketFileHandler.PDF_VIEWER" not in associations:
+    errors.append("PocketFileAssociations lost PDF ownership")
 
 zip_engine = read("app/src/main/java/dev/pocketpc/core/storage/PocketZipArchive.kt")
 for required in (
@@ -101,6 +103,8 @@ for required in (
     'require(!normalized.startsWith(\'/\'))',
     'Regex("^[A-Za-z]:")',
     'segment != "." && segment != ".."',
+    "WINDOWS_RESERVED_ZIP_NAMES",
+    "consumeZipEntryForInspection(",
     "runCatching { extractionRoot?.delete() }",
 ):
     if required not in zip_engine:
@@ -117,9 +121,23 @@ for required in (
     if required not in zip_pane:
         errors.append(f"PocketZipArchivePane missing internal ZIP flow: {required}")
 
+pdf_viewer = read("app/src/main/java/dev/pocketpc/core/ui/PocketPdfViewerPane.kt")
+for required in (
+    "PdfRenderer(descriptor)",
+    "PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY",
+    "openFileDescriptor(Uri.parse(uriString), \"r\")",
+    "Página ${state.pageIndex + 1} de ${state.pageCount}",
+):
+    if required not in pdf_viewer:
+        errors.append(f"PocketPdfViewerPane missing internal PDF flow: {required}")
+if "Intent.ACTION_VIEW" in pdf_viewer:
+    errors.append("PocketPdfViewerPane must never delegate PDF opening to Android ACTION_VIEW")
+
 open_overlay = read("app/src/main/java/dev/pocketpc/core/ui/PocketFileOpenOverlay.kt")
 if open_overlay.count("PocketZipArchivePane(request = currentRequest)") != 1:
     errors.append("Global file-open overlay must mount exactly one PocketZipArchivePane")
+if open_overlay.count("PocketPdfViewerPane(request = currentRequest)") != 1:
+    errors.append("Global file-open overlay must mount exactly one PocketPdfViewerPane")
 
 if errors:
     for error in errors:
@@ -135,3 +153,4 @@ print("pocket_file_open_boundary=guarded")
 print("pocket_file_overlay=global")
 print("browser_external_escape=explicit_only")
 print("pocket_zip_security=guarded")
+print("pocket_pdf_viewer=guarded")
