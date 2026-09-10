@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 3,
-  "status": "VULKAN_ABI_FAIL_CLOSED_IMPLEMENTED_NOT_EXECUTED_WSI_NOT_IMPLEMENTED",
+  "schemaVersion": 4,
+  "status": "VULKAN_ABI_FAIL_CLOSED_IMPLEMENTED_GUEST_TRANSPORT_NOT_IMPLEMENTED_WSI_NOT_IMPLEMENTED",
   "wine": {
     "version": "11.0",
     "commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
@@ -55,7 +55,20 @@
     "hostProbeSoftwareTestExecuted": false,
     "hostProbePhysicalTestExecuted": false,
     "crossProcessPhysicalTestExecuted": false,
-    "note": "The cross-process probe requires native sender/receiver records, matching descriptors and distinct Android PIDs. It intentionally does not set vulkanWsiValidated."
+    "note": "This proves only Android-process transport. It cannot satisfy the guest/Wine transport gate."
+  },
+  "guestGraphicsTransport": {
+    "contract": "GuestGraphicsTransportContract",
+    "protocolVersion": 1,
+    "descriptorProtocolImplemented": true,
+    "guestReceiveImplemented": false,
+    "guestImportImplemented": false,
+    "synchronizationImplemented": false,
+    "softwareTestExecuted": false,
+    "integrationTestExecuted": false,
+    "physicalTestExecuted": false,
+    "blocker": "VULKAN_WSI_GUEST_GRAPHICS_TRANSPORT_NOT_IMPLEMENTED",
+    "note": "A transferable graphics resource must cross from the Android host into the actual guest/Wine execution side and remain importable/synchronizable without trusting raw process-local pointers."
   },
   "capabilityDiscovery": {
     "probe": "NativeRuntimeHost.nativeVulkanWsiCapabilityProbe",
@@ -79,7 +92,8 @@
   },
   "roblox": {
     "graphicsPreflightImplemented": true,
-    "requiresCrossProcessTransportFoundation": true,
+    "requiresAndroidCrossProcessTransportFoundation": true,
+    "requiresGuestGraphicsTransport": true,
     "requiresCapabilityDiscovery": true,
     "requiresWineVulkanWsi": true,
     "requiresHostVisiblePresent": true,
@@ -100,8 +114,8 @@
       "reason": "Pinned Wine 11 wineandroid.drv exposes pOpenGLInit but no pVulkanInit."
     },
     {
-      "route": "promote AHardwareBuffer cross-process transport directly to Roblox graphics readiness",
-      "reason": "Transport proves only handle ownership transfer. Vulkan surface creation, acquire/render/present synchronization and a host-visible frame remain separate gates."
+      "route": "promote Android-to-Android AHardwareBuffer transport to guest graphics readiness",
+      "reason": "Distinct Android processes prove host handle transfer only. Box64/Wine receive, Vulkan import and synchronization remain separate guest gates."
     },
     {
       "route": "advertise VK_KHR_win32_surface before a real PocketPC surface backend exists",
@@ -113,11 +127,12 @@
     "phase2": "A dedicated Android :gpu_probe process receives the real transferable AHardwareBuffer handle, validates descriptor and bytes, and returns evidence from a distinct PID.",
     "phase3": "Probe the physical Android Vulkan driver and record surface, swapchain, AHardwareBuffer external-memory and synchronization capabilities without promoting readiness.",
     "phase4": "Expose the exact Wine Vulkan driver v47 ABI through pVulkanInit while surface creation remains explicitly fail-closed.",
-    "phase5": "Guest-side transport receives a real transferable graphics-buffer identity without trusting raw pointers.",
-    "phase6": "Implement Wine Vulkan surface creation, presentation support and extension mapping on the chosen transferable-buffer backend.",
-    "phase7": "Implement synchronization and image ownership for acquire/render/present.",
-    "phase8": "Run D3D11 Present smoke and require a host-visible frame before recording evidence.",
-    "phase9": "Only then unblock controlled Roblox/DXVK application attempts."
+    "phase5": "Guest-side transport receives a real transferable graphics-buffer identity and imports it without trusting raw pointers.",
+    "phase6": "Prove guest/host synchronization ownership for the imported graphics resource.",
+    "phase7": "Implement Wine Vulkan surface creation, presentation support and extension mapping on the proven transport backend.",
+    "phase8": "Implement acquire/render/present ownership and swapchain presentation.",
+    "phase9": "Run D3D11 Present smoke and require a host-visible frame before recording evidence.",
+    "phase10": "Only then unblock controlled Roblox/DXVK application attempts."
   },
   "gates": {
     "box64AndroidVulkanWrapperSourceReviewed": true,
@@ -126,12 +141,18 @@
     "ahardwareBufferEvidenceProtocolImplemented": true,
     "vulkanCapabilityProbeImplemented": true,
     "wineVulkanAbiEntryPointImplemented": true,
+    "guestGraphicsTransportContractImplemented": true,
     "ahardwareBufferHostProbeSoftwareTestExecuted": false,
     "ahardwareBufferHostProbePhysicalTestExecuted": false,
     "ahardwareBufferCrossProcessPhysicalTestExecuted": false,
     "vulkanCapabilityProbeSoftwareTestExecuted": false,
     "vulkanCapabilityProbePhysicalTestExecuted": false,
     "guestHardwareBufferReceiveImplemented": false,
+    "guestGraphicsResourceImportImplemented": false,
+    "guestGraphicsSynchronizationImplemented": false,
+    "guestGraphicsTransportSoftwareTestExecuted": false,
+    "guestGraphicsTransportIntegrationTestExecuted": false,
+    "guestGraphicsTransportPhysicalTestExecuted": false,
     "wineVulkanWsiImplemented": false,
     "wineVulkanWsiSoftwareTestExecuted": false,
     "wineVulkanWsiPhysicalTestExecuted": false,
