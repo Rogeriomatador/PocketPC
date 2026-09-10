@@ -88,6 +88,10 @@ fun PocketFileOpenOverlay() {
         current.association.handler == PocketFileHandler.PDF_VIEWER &&
             current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
             currentRequest.uri != null
+    val isAudioPlayer =
+        current.association.handler == PocketFileHandler.MEDIA_PLAYER &&
+            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
+            currentRequest.uri != null
 
     LaunchedEffect(
         currentRequest.uri,
@@ -117,6 +121,7 @@ fun PocketFileOpenOverlay() {
                     isImageViewer -> "Fotos do PocketPC"
                     isZipViewer -> "Compactador do PocketPC"
                     isPdfViewer -> "Leitor de PDF do PocketPC"
+                    isAudioPlayer -> "Mídia do PocketPC"
                     else -> current.title
                 }
             )
@@ -142,6 +147,9 @@ fun PocketFileOpenOverlay() {
 
                     isPdfViewer ->
                         PocketPdfViewerPane(request = currentRequest)
+
+                    isAudioPlayer ->
+                        PocketAudioPlayerPane(request = currentRequest)
 
                     else -> {
                         Text(current.description)
@@ -210,7 +218,8 @@ fun PocketFileOpenOverlay() {
                         isTextEditor ||
                         isImageViewer ||
                         isZipViewer ||
-                        isPdfViewer
+                        isPdfViewer ||
+                        isAudioPlayer
                     ) {
                         "Fechar"
                     } else {
