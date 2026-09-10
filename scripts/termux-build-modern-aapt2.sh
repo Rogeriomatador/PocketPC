@@ -32,7 +32,7 @@ need() {
     }
 }
 
-for tool in git python cmake ninja clang pkg sha256sum; do
+for tool in git python cmake ninja clang pkg pkg-config sha256sum; do
     need "$tool"
 done
 
@@ -68,6 +68,8 @@ pkg install -y \
     libpng \
     libprotobuf \
     protobuf \
+    libzopfli \
+    zlib \
     googletest \
     ndk-sysroot \
     patch
@@ -112,12 +114,19 @@ export CPPFLAGS="${CPPFLAGS:-} -DNDEBUG -D__ANDROID_SDK_VERSION__=__ANDROID_API_
 echo
 echo "Configuring AAPT2..."
 set +e
+PROTOC="$(command -v protoc 2>/dev/null || true)"
+if [ -z "$PROTOC" ]; then
+    echo "MISSING_TOOL=protoc" >&2
+    exit 8
+fi
+
 cmake \
     -S "$SOURCE_DIR" \
     -B "$BUILD_DIR" \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DANDROID_BUILD_TOOLS_DEV_MODE=ON \
+    -Dprotobuf_generate_PROTOC_EXE="$PROTOC" \
     2>&1 | tee "$LOG_FILE"
 CONFIG_STATUS=${PIPESTATUS[0]}
 set -e
