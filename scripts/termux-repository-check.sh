@@ -44,8 +44,11 @@ if printf '%s\n' "$SOURCES" | grep -Eq 'https?://([^/]*[.])?termux[.]net([/[:spa
         echo "recovery_command=termux-change-repo"
         echo "recovery_hint=Select Main repository, then choose the packages.termux.dev primary mirror."
     else
-        echo "recovery_command=apt edit-sources"
-        echo "recovery_hint=Replace the legacy main source with the recommended_main_repo line above."
+        echo "recovery_command=manual_sources_list_edit"
+        echo "recovery_file=$APT_ETC/sources.list"
+        echo "recovery_backup=cp -a $APT_ETC/sources.list $APT_ETC/sources.list.pocketpc-backup"
+        echo "recovery_source=deb https://packages.termux.dev/apt/termux-main stable main"
+        echo "recovery_hint=Back up sources.list, replace the legacy main entry, then run pkg update and pkg upgrade."
     fi
     echo "Classification : TERMUX_REPOSITORY_LEGACY"
     [ "$MODE" = "--require-modern" ] && exit 13
