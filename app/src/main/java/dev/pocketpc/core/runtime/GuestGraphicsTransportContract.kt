@@ -21,9 +21,13 @@ object GuestGraphicsTransportContract {
         true
     const val externalResourceCapabilityProbeImplemented =
         true
+    const val canonicalAhardwareBufferImportProbeImplemented =
+        true
     const val ancillaryFdTransportPrimitiveImplemented =
         true
     const val handleBindingImplemented =
+        true
+    const val guestReceivePrimitiveImplemented =
         true
 
     /*
@@ -36,11 +40,11 @@ object GuestGraphicsTransportContract {
         false
 
     /*
-     * SCM_RIGHTS support and handle binding are only transport foundations.
-     * These gates describe the real runtime path and remain false until
-     * Wine/Box64 receives a resource from the authenticated graphics broker,
-     * imports it into the Vulkan device used by DXVK and proves
-     * synchronization/ownership there.
+     * SCM_RIGHTS, handle binding and the isolated guest receive function are
+     * only transport foundations. These gates describe the real runtime path
+     * and remain false until the authenticated PocketPC graphics session feeds
+     * Wine/Box64, the resource is imported into the Vulkan device used by
+     * Wine/DXVK, and synchronization/ownership is exercised there.
      */
     const val guestReceiveImplemented =
         false
