@@ -216,11 +216,11 @@ fun DownloadsApp(
                                         name = item.title,
                                         mimeType = item.mimeType,
                                     )
+                                val uri = manager.getUriForDownloadedFile(item.id)
                                 if (
                                     plan.capability ==
                                     PocketFileOpenCapability.WINDOWS_RUNTIME_REQUIRED
                                 ) {
-                                    val uri = manager.getUriForDownloadedFile(item.id)
                                     if (uri == null) {
                                         statusMessage =
                                             "O download terminou, mas o arquivo ainda não está disponível para o runtime."
@@ -237,7 +237,12 @@ fun DownloadsApp(
                                     }
                                 } else {
                                     statusMessage = null
-                                    PocketFileOpenCoordinator.present(plan)
+                                    PocketFileOpenCoordinator.present(
+                                        plan = plan,
+                                        uri = uri?.toString(),
+                                        mimeType = item.mimeType,
+                                        sizeBytes = item.totalBytes.coerceAtLeast(0L),
+                                    )
                                 }
                             }
                         },
@@ -315,7 +320,12 @@ fun DownloadsApp(
                                     PocketFileOpenCapability.INTERNAL_HANDLER_PENDING,
                                     PocketFileOpenCapability.UNSUPPORTED -> {
                                         statusMessage = null
-                                        PocketFileOpenCoordinator.present(plan)
+                                        PocketFileOpenCoordinator.present(
+                                            plan = plan,
+                                            uri = entry.uri,
+                                            mimeType = entry.mimeType,
+                                            sizeBytes = entry.size,
+                                        )
                                     }
                                 }
                             }
