@@ -37,6 +37,8 @@ BRIDGE_FILES = (
     "pocketpc_display_bridge.c",
     "pocketpc_graphics_transport.h",
     "pocketpc_graphics_transport.c",
+    "pocketpc_fd_transport.h",
+    "pocketpc_fd_transport.c",
     "pocketpc_surface_writer.h",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.h",
@@ -48,6 +50,7 @@ BRIDGE_FILES = (
 UNIX_ONLY_C_FILES = {
     "pocketpc_display_bridge.c",
     "pocketpc_graphics_transport.c",
+    "pocketpc_fd_transport.c",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.c",
     "pocketpc_wine_window_bridge.c",
@@ -259,7 +262,7 @@ def main() -> int:
     )
 
     evidence = {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "status": "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT_NOT_RUNTIME_TESTED",
         "wineVersion": lock["version"],
         "wineCommit": lock["commit"],
@@ -267,6 +270,7 @@ def main() -> int:
         "unixLibrary": "winepocketpc.so",
         "protocolVersion": 4,
         "guestGraphicsProtocolVersion": 1,
+        "graphicsFdTransportProtocolVersion": 1,
         "graphicsSelection": {
             "registryPath": r"HKCU\Software\Wine\Drivers",
             "valueName": "Graphics",
@@ -291,6 +295,7 @@ def main() -> int:
         "vulkanDriverImplemented": False,
         "guestGraphicsDescriptorProtocolImplemented": True,
         "guestGraphicsOwnershipProtocolImplemented": True,
+        "guestGraphicsAncillaryFdTransportPrimitiveImplemented": True,
         "guestGraphicsHandleReceiveImplemented": False,
         "guestGraphicsImportImplemented": False,
         "guestGraphicsSynchronizationImplemented": False,
@@ -310,6 +315,7 @@ def main() -> int:
                 "window.c",
                 "pocketpc_display_bridge.c",
                 "pocketpc_graphics_transport.c",
+                "pocketpc_fd_transport.c",
                 "pocketpc_surface_writer.c",
                 "pocketpc_wine_window_map.c",
                 "pocketpc_wine_window_bridge.c"
@@ -366,6 +372,9 @@ def main() -> int:
     )
     print(
         "guest_graphics_ownership_protocol=true"
+    )
+    print(
+        "guest_graphics_ancillary_fd_transport_primitive=true"
     )
     print(
         "guest_graphics_handle_receive=false"
