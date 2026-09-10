@@ -9,6 +9,9 @@ helper = (ROOT / "scripts/termux-ensure-aapt2.sh").read_text(encoding="utf-8")
 gate = (ROOT / "scripts/termux-kotlin-unit-test.sh").read_text(encoding="utf-8")
 wrapper = (ROOT / "PocketPC-Termux-Update-Test.sh").read_text(encoding="utf-8")
 repo_check = (ROOT / "scripts/termux-repository-check.sh").read_text(encoding="utf-8")
+repo_repair = (ROOT / "scripts/termux-repair-repository.sh").read_text(encoding="utf-8")
+keyring_repair = (ROOT / "scripts/termux-repair-keyring.sh").read_text(encoding="utf-8")
+variant_detect = (ROOT / "scripts/termux-detect-variant.sh").read_text(encoding="utf-8")
 lock = json.loads((ROOT / "toolchains/android-build-lock.json").read_text(encoding="utf-8"))
 
 errors: list[str] = []
@@ -74,6 +77,38 @@ if "TERMUX_GOOGLE_PLAY_AAPT2_PLATFORM_INCOMPATIBLE" not in helper:
 
 if "TERMUX_KOTLIN_COMPILE_PASS_UNIT_TEST_BLOCKED_AAPT2" not in gate:
     errors.append("Kotlin gate does not preserve compile PASS when Google Play AAPT2 blocks unit tests")
+
+
+for sentinel in (
+    "*.sources",
+    "TERMUX_VARIANT",
+    "googleplay",
+    "MIXED_GOOGLE_PLAY_AND_CLASSIC",
+):
+    if sentinel not in repo_check and sentinel not in variant_detect:
+        errors.append(f"Termux variant/repository support missing sentinel: {sentinel}")
+
+for sentinel in (
+    "TERMUX_VARIANT",
+    "googleplay",
+    "termux.net",
+    "packages.termux.dev",
+    "--require-compatible",
+):
+    if sentinel not in repo_repair:
+        errors.append(f"variant-aware repository repair missing sentinel: {sentinel}")
+
+if "TERMUX_KEYRING_REPAIR_BLOCKED_GOOGLE_PLAY" not in keyring_repair:
+    errors.append("classic Termux keyring repair is not blocked on Google Play variant")
+
+for insecure in (
+    "trusted=yes",
+    "--allow-unauthenticated",
+    "--allow-insecure-repositories",
+    "Acquire::AllowInsecureRepositories",
+):
+    if insecure in helper or insecure in repo_repair or insecure in keyring_repair:
+        errors.append(f"insecure Termux recovery option is forbidden: {insecure}")
 
 if platform_package != f"platforms;android-{compile_sdk}.0":
     errors.append(
