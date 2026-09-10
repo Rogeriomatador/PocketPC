@@ -23,6 +23,26 @@ class PocketFileOpenPlanTest {
     }
 
     @Test
+    fun textFileUsesImplementedPocketPcViewerWithoutAndroidEscape() {
+        val plan = planPocketFileOpen("notas.txt", "text/plain")
+
+        assertEquals(
+            PocketFileHandler.TEXT_EDITOR,
+            plan.association.handler,
+        )
+        assertEquals(
+            PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
+            plan.association.readiness,
+        )
+        assertEquals(
+            PocketFileOpenCapability.INTERNAL_HANDLER_PENDING,
+            plan.capability,
+        )
+        assertTrue(plan.canAttemptNow)
+        assertFalse(plan.leavesPocketPc)
+    }
+
+    @Test
     fun archiveHasPocketPcAssociationButDoesNotPretendHandlerIsReady() {
         val plan = planPocketFileOpen("backup.rar")
 
@@ -33,6 +53,10 @@ class PocketFileOpenPlanTest {
         assertEquals(
             PocketFileHandler.ARCHIVE_MANAGER,
             plan.association.handler,
+        )
+        assertEquals(
+            PocketFileHandlerReadiness.ROUTE_ONLY,
+            plan.association.readiness,
         )
         assertFalse(plan.canAttemptNow)
         assertFalse(plan.leavesPocketPc)
@@ -50,6 +74,7 @@ class PocketFileOpenPlanTest {
             PocketFileOpenCapability.INTERNAL_HANDLER_PENDING,
             plan.capability,
         )
+        assertFalse(plan.canAttemptNow)
         assertFalse(plan.leavesPocketPc)
     }
 
