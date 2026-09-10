@@ -87,11 +87,36 @@ jobs:
           print(f"HOME_TEST_OTA_VERSION code={code} name={name}")
           PY
 
-      - name: Setup Java 17
+      - name: Read pinned Android toolchain
+        id: android_lock
+        working-directory: source
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          lock = json.loads(Path("toolchains/android-build-lock.json").read_text(encoding="utf-8"))
+          android = lock["android"]
+          values = {
+              "jdk": str(lock["jdk"]["major"]),
+              "gradle": str(lock["gradle"]["version"]),
+              "platform": str(android["platformPackage"]),
+              "build_tools": str(android["buildTools"]),
+              "ndk": str(android["ndk"]),
+              "cmake": str(android["cmake"]),
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              for key, value in values.items():
+                  out.write(f"{key}={value}\n")
+          print("HOME_TEST_OTA_ANDROID_LOCK_OK " + " ".join(f"{k}={v}" for k, v in values.items()))
+          PY
+
+      - name: Setup pinned Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ steps.android_lock.outputs.jdk }}
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -101,15 +126,15 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager \
             "platform-tools" \
-            "platforms;android-37" \
-            "build-tools;36.0.0" \
-            "ndk;29.0.14206865" \
-            "cmake;3.22.1"
+            "${{ steps.android_lock.outputs.platform }}" \
+            "build-tools;${{ steps.android_lock.outputs.build_tools }}" \
+            "ndk;${{ steps.android_lock.outputs.ndk }}" \
+            "cmake;${{ steps.android_lock.outputs.cmake }}"
 
       - name: Setup pinned Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "9.6.0"
+          gradle-version: ${{ steps.android_lock.outputs.gradle }}
 
       - name: Materialize signing key
         env:
@@ -129,9 +154,12 @@ jobs:
         working-directory: source
         run: |
           python3 scripts/test-python-script-syntax.py
+          python3 scripts/verify-android-build-lock.py
           python3 scripts/test-update-feed-policy.py
           python3 scripts/test-desktop-mode-policy.py
           python3 scripts/test-desktop-enum-coverage.py
+          python3 scripts/test-kotlin-source-regressions.py
+          python3 scripts/test-termux-aapt2-policy.py
 
       - name: Build and unit-test signed home build
         working-directory: source
@@ -158,7 +186,7 @@ jobs:
           OUT="app/build/outputs/apk/release/PocketPC-${EXPECTED_VERSION}.apk"
           cp "$APK" "$OUT"
 
-          APK_SIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          APK_SIGNER="$ANDROID_HOME/build-tools/${{ steps.android_lock.outputs.build_tools }}/apksigner"
           "$APK_SIGNER" verify --verbose --print-certs "$OUT"
           SIGNER_SHA="$($APK_SIGNER verify --print-certs "$OUT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
           test -n "$SIGNER_SHA"
