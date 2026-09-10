@@ -1,19 +1,9 @@
 #!/usr/bin/env python3
-"""Verify stable winepocketpc.drv load/registration markers from a Wine debug log.
-
-This verifier proves only what the PocketPC driver itself emitted. Reaching the
-Unix init does not by itself prove that the Wine Graphics registry value was
-configured through the intended launcher, and registration does not prove
-surface presentation, input round-trip, Android execution, DXVK/Vulkan, or
-Roblox.
-"""
+"""Verify stable winepocketpc.drv load/registration markers from a Wine debug log."""
 
 from __future__ import annotations
-
-import argparse
-import json
+import argparse, json, re
 from pathlib import Path
-import re
 
 EXPECTED_PROTOCOL = 4
 MARKER = re.compile(
@@ -22,18 +12,74 @@ MARKER = re.compile(
     r"\s+protocol=(\d+)"
 )
 
-
 def load_json(path: Path) -> dict[str, object]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise RuntimeError(f"JSON is not an object: {path}")
     return value
 
+def validate_static_precondition(
+    artifact_set_path: Path | None,
+    package_evidence_path: Path | None,
+) -> str:
+    if (artifact_set_path is None) == (package_evidence_path is None):
+        raise RuntimeError("exactly one static precondition evidence source is required")
+    if artifact_set_path is not None:
+        evidence = load_json(artifact_set_path)
+        if evidence.get("status") != "pass":
+            raise RuntimeError("artifact-set evidence status is not pass")
+        if evidence.get("scope") != "static_artifact_set_coherence":
+            raise RuntimeError("artifact-set evidence scope is invalid")
+        claims = evidence.get("claims")
+        if not isinstance(claims, dict):
+            raise RuntimeError("artifact-set claims object is missing")
+        if claims.get("same_build_evidence_set") is not True:
+            raise RuntimeError("artifact-set coherence was not proven")
+        if claims.get("static_binary_identity") is not True:
+            raise RuntimeError("static binary identity was not proven")
+        for key in ("driver_loaded", "runtime_executed", "android_executed", "physical_validation"):
+            if claims.get(key) is not False:
+                raise RuntimeError(
+                    f"artifact-set claim {key} must remain false before load verification"
+                )
+        return "driver_artifact_set"
+
+    evidence = load_json(package_evidence_path)
+    if evidence.get("status") != "pass":
+        raise RuntimeError("full Wine package evidence status is not pass")
+    if evidence.get("scope") != "full_wine_package_driver_static_identity":
+        raise RuntimeError("full Wine package evidence scope is invalid")
+    if evidence.get("protocolVersion") != EXPECTED_PROTOCOL:
+        raise RuntimeError("full Wine package protocol is not v4")
+    claims = evidence.get("claims")
+    if not isinstance(claims, dict):
+        raise RuntimeError("full Wine package claims object is missing")
+    if claims.get("full_wine_build_static_identity") is not True:
+        raise RuntimeError("full Wine package static identity was not proven")
+    if claims.get("driver_pair_hashes_match_build_evidence") is not True:
+        raise RuntimeError("full Wine package driver hashes were not proven")
+    for key in (
+        "driver_loaded",
+        "graphics_registry_selection_proved",
+        "surface_presented",
+        "input_round_trip",
+        "android_executed",
+        "dxvk_vulkan_executed",
+        "roblox_executed",
+        "physical_validation",
+    ):
+        if claims.get(key) is not False:
+            raise RuntimeError(
+                f"full Wine package claim {key} must remain false before load verification"
+            )
+    return "full_wine_package"
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", type=Path, required=True)
-    parser.add_argument("--artifact-set", type=Path, required=True)
+    static_group = parser.add_mutually_exclusive_group(required=True)
+    static_group.add_argument("--artifact-set", type=Path)
+    static_group.add_argument("--package-evidence", type=Path)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument(
         "--expect",
@@ -45,36 +91,16 @@ def main() -> int:
     try:
         if not args.log.is_file():
             raise RuntimeError(f"missing Wine driver log: {args.log}")
-        artifact_set = load_json(args.artifact_set)
-        if artifact_set.get("status") != "pass":
-            raise RuntimeError("artifact-set evidence status is not pass")
-        if artifact_set.get("scope") != "static_artifact_set_coherence":
-            raise RuntimeError("artifact-set evidence scope is invalid")
-        claims = artifact_set.get("claims")
-        if not isinstance(claims, dict):
-            raise RuntimeError("artifact-set claims object is missing")
-        if claims.get("same_build_evidence_set") is not True:
-            raise RuntimeError("artifact-set coherence was not proven")
-        if claims.get("static_binary_identity") is not True:
-            raise RuntimeError("static binary identity was not proven")
-        for key in (
-            "driver_loaded",
-            "runtime_executed",
-            "android_executed",
-            "physical_validation",
-        ):
-            if claims.get(key) is not False:
-                raise RuntimeError(
-                    f"artifact-set claim {key} must remain false before load verification"
-                )
+        precondition = validate_static_precondition(
+            args.artifact_set,
+            args.package_evidence,
+        )
 
         text = args.log.read_text(encoding="utf-8", errors="replace")
-        events: list[tuple[int, str, int]] = []
-        for match in MARKER.finditer(text):
-            events.append(
-                (match.start(), match.group(1), int(match.group(2)))
-            )
-
+        events: list[tuple[int, str, int]] = [
+            (match.start(), match.group(1), int(match.group(2)))
+            for match in MARKER.finditer(text)
+        ]
         if not events:
             raise RuntimeError("no PocketPC driver load markers found")
         if any(protocol != EXPECTED_PROTOCOL for _, _, protocol in events):
@@ -120,9 +146,10 @@ def main() -> int:
         )
 
         output = {
-            "schema": 1,
+            "schema": 2,
             "status": "pass",
             "scope": "wine_driver_load_markers",
+            "staticPrecondition": precondition,
             "expectedProtocol": EXPECTED_PROTOCOL,
             "requestedLevel": args.expect,
             "verifiedLevel": verified_level,
@@ -150,6 +177,7 @@ def main() -> int:
         return 1
 
     print("WINE_POCKETPC_DRIVER_LOAD_VERIFY_OK")
+    print(f"static_precondition={precondition}")
     print(f"verified_level={verified_level}")
     print("graphics_registry_selection_proved=false")
     print("surface_presented=false")
@@ -157,7 +185,6 @@ def main() -> int:
     print("physical_validation=false")
     print(f"evidence={args.evidence}")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
