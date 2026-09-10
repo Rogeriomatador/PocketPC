@@ -74,7 +74,7 @@ object NativeRuntimeHost {
             "native-host=load-failed;error=${loadResult.exceptionOrNull()?.javaClass?.simpleName ?: "unknown"}"
         }
 
-        val graphicsProbe = if (loaded) {
+        val baseGraphicsProbe = if (loaded) {
             runCatching { nativeGraphicsProbe() }
                 .getOrElse { "vulkan=probe-failed;error=${it.javaClass.simpleName}" }
         } else {
@@ -113,7 +113,10 @@ object NativeRuntimeHost {
         return NativeHostStatus(
             loaded = loaded,
             probe = probe,
-            graphicsProbe = graphicsProbe,
+            graphicsProbe =
+                baseGraphicsProbe +
+                    "\n" +
+                    vulkanExternalResourceProbe,
             nativeLibraryDir = appInfo.nativeLibraryDir ?: "indisponível",
             hardwareBufferProbe = hardwareBufferProbe,
             vulkanWsiCapabilityProbe = vulkanWsiCapabilityProbe,
