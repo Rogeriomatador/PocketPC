@@ -174,7 +174,7 @@ fi
 if [ -n "$AAPT2_CANDIDATE" ]; then
   echo "  aapt2=$AAPT2_CANDIDATE"
   echo "  aapt2_source=$AAPT2_SOURCE"
-  echo "  aapt2_version=$("$AAPT2_CANDIDATE" version 2>&1 | head -1)"
+  echo "  aapt2_version=$("$AAPT2_CANDIDATE" version 2>&1 | awk 'NR == 1 {line=$0} END {print line}')"
   if command -v dpkg-query >/dev/null 2>&1; then
     AAPT2_PACKAGE_VERSION="$(dpkg-query -W -f='${Version}' aapt 2>/dev/null || true)"
     echo "  aapt2_package_version=${AAPT2_PACKAGE_VERSION:-unknown}"
