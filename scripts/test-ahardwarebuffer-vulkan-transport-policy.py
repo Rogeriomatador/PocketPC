@@ -7,30 +7,20 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCH = ROOT / "third_party/wine/POCKETPC_VULKAN_WSI_ARCHITECTURE.json"
-NATIVE = ROOT / "app/src/main/cpp/runtime_host.cpp"
-CROSS_PROCESS_NATIVE = ROOT / "app/src/main/cpp/hardware_buffer_cross_process.cpp"
-BROKER_NATIVE = ROOT / "app/src/main/cpp/hardware_buffer_resource_broker.cpp"
-AHB_IMPORT_NATIVE = ROOT / "app/src/main/cpp/vulkan_ahardwarebuffer_import_probe.cpp"
-CMAKE = ROOT / "app/src/main/cpp/CMakeLists.txt"
-HOST = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/NativeRuntimeHost.kt"
-AHB_IMPORT_KT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/VulkanAhardwareBufferImportProbe.kt"
+BOX64 = ROOT / "third_party/box64/LOCK.json"
+CONTRACT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt"
 WSI = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiContract.kt"
 FOUNDATION = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiFoundation.kt"
-GUEST = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt"
-DESCRIPTOR = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsResourceDescriptor.kt"
-SURFACE_BACKEND = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanSurfaceBackend.kt"
-BOX64 = ROOT / "third_party/box64/LOCK.json"
-GUEST_RECEIVE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_graphics_receive.c"
-FD_TRANSPORT = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_fd_transport.c"
-HANDLE_BINDING = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_graphics_handle_binding.c"
+AHB = ROOT / "app/src/main/cpp/hardware_buffer_cross_process.cpp"
+AHB_CANONICAL = ROOT / "app/src/main/cpp/vulkan_ahardwarebuffer_import_probe.cpp"
+IMAGE_HOST = ROOT / "app/src/main/cpp/vulkan_external_image_fd_broker.cpp"
+PVI = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_external_image_fd_protocol.c"
+PVS = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_external_timeline_semaphore_fd_protocol.c"
+IMAGE_IMPORT = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_vulkan_import.c"
+TIMELINE_IMPORT = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_vulkan_timeline_semaphore.c"
 
 
-def require(
-    failures: list[str],
-    label: str,
-    text: str,
-    markers: tuple[str, ...],
-) -> None:
+def require(failures: list[str], label: str, text: str, markers: tuple[str, ...]) -> None:
     for marker in markers:
         if marker not in text:
             failures.append(f"{label} missing: {marker}")
@@ -38,7 +28,6 @@ def require(
 
 def main() -> int:
     failures: list[str] = []
-
     try:
         arch = json.loads(ARCH.read_text(encoding="utf-8"))
         box64 = json.loads(BOX64.read_text(encoding="utf-8"))
@@ -47,348 +36,192 @@ def main() -> int:
         print(f"- json: {error}", file=sys.stderr)
         return 1
 
-    if arch.get("schemaVersion") != 5:
-        failures.append("architecture schema is not v5")
-    if arch.get("status") != (
-        "VULKAN_ABI_HEADLESS_DIAGNOSTIC_IMPLEMENTED_VISIBLE_WSI_NOT_IMPLEMENTED"
-    ):
-        failures.append("architecture status changed")
+    if arch.get("schemaVersion") != 6:
+        failures.append("architecture schema must be v6")
+    if arch.get("status") != "VULKAN_TRANSPORT_PRIMITIVES_IMPLEMENTED_VISIBLE_WSI_NOT_IMPLEMENTED_NOT_EXECUTED":
+        failures.append("architecture status changed without policy update")
 
-    wine = arch.get("wine") or {}
-    if (
-        wine.get("version") != "11.0"
-        or wine.get("commit") != "db11d0fe6a169c457e23d007e20404643d067aa8"
-        or wine.get("vulkanDriverVersion") != 47
-        or wine.get("requiredEntryPoint") != "user_driver_funcs.pVulkanInit"
-        or wine.get("abiEntryPointImplemented") is not True
-        or wine.get("externalHandleFdMappingImplemented") is not True
-        or wine.get("headlessDiagnosticSurfaceImplemented") is not True
-        or wine.get("surfaceCreateImplemented") is not False
-        or wine.get("presentationSupportImplemented") is not False
-    ):
-        failures.append("Wine Vulkan ABI/diagnostic/visible fail-closed contract changed")
-
-    if box64.get("version") != "0.4.4" or box64.get("commit") != (
-        "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a"
-    ):
+    if box64.get("version") != "0.4.4" or box64.get("commit") != "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a":
         failures.append("Box64 source lock changed")
 
-    gates = arch.get("gates") or {}
-    expected_true = (
-        "box64AndroidVulkanWrapperSourceReviewed",
-        "ahardwareBufferHostProbeImplemented",
+    wine = arch.get("wine") or {}
+    for key in (
+        "abiEntryPointImplemented",
+        "externalHandleFdMappingImplemented",
+        "headlessDiagnosticSurfaceImplemented",
+        "headlessPresentObserverImplemented",
+    ):
+        if wine.get(key) is not True:
+            failures.append(f"Wine implemented gate missing: {key}")
+    for key in (
+        "visibleSurfaceCreateImplemented",
+        "visiblePresentationSupportImplemented",
+        "visibleSurfaceExtensionMappingImplemented",
+        "swapchainCaptureImplemented",
+        "hostVisiblePresentImplemented",
+        "softwareTestExecuted",
+        "integrationTestExecuted",
+        "physicalTestExecuted",
+    ):
+        if wine.get(key) is not False:
+            failures.append(f"Wine gate must remain false: {key}")
+
+    host = arch.get("hostGraphics") or {}
+    for key in (
         "ahardwareBufferCrossProcessProbeImplemented",
-        "ahardwareBufferEvidenceProtocolImplemented",
-        "ahardwareBufferResourceBrokerImplemented",
-        "canonicalAhardwareBufferImportProbeImplemented",
-        "vulkanCapabilityProbeImplemented",
-        "vulkanExternalResourceProbeImplemented",
-        "wineVulkanAbiEntryPointImplemented",
-        "wineExternalHandleFdMappingImplemented",
-        "wineHeadlessDiagnosticSurfaceImplemented",
-        "guestGraphicsTransportContractImplemented",
-        "guestGraphicsAncillaryFdTransportPrimitiveImplemented",
-        "guestGraphicsHandleBindingImplemented",
-        "guestGraphicsReceivePrimitiveImplemented",
-        "vulkanSurfaceBackendModelImplemented",
-    )
-    expected_false = (
-        "ahardwareBufferHostProbeSoftwareTestExecuted",
-        "ahardwareBufferHostProbePhysicalTestExecuted",
-        "ahardwareBufferCrossProcessPhysicalTestExecuted",
-        "canonicalAhardwareBufferImportProbePhysicalTestExecuted",
-        "vulkanCapabilityProbeSoftwareTestExecuted",
-        "vulkanCapabilityProbePhysicalTestExecuted",
-        "wineExternalHandleFdMappingSoftwareTestExecuted",
-        "wineHeadlessDiagnosticSoftwareTestExecuted",
-        "wineHeadlessDiagnosticIntegrationTestExecuted",
-        "guestGraphicsReceiveRuntimeIntegrated",
-        "guestGraphicsResourceImportImplemented",
-        "guestGraphicsSynchronizationImplemented",
-        "guestGraphicsTransportSoftwareTestExecuted",
-        "guestGraphicsTransportIntegrationTestExecuted",
-        "guestGraphicsTransportPhysicalTestExecuted",
-        "vulkanVisibleSurfaceBackendRunnable",
+        "canonicalAhardwareBufferImportPropertyProbeImplemented",
+        "externalResourceCapabilityProbeImplemented",
+        "opaqueFdImageBrokerImplemented",
+        "opaqueFdTimelineSemaphoreExporterImplemented",
+        "pvi1ImageProtocolImplemented",
+        "pvs1TimelineProtocolImplemented",
+        "imageAndTimelineShareSameVkDevice",
+    ):
+        if host.get(key) is not True:
+            failures.append(f"host graphics foundation missing: {key}")
+    for key in ("softwareTestExecuted", "integrationTestExecuted", "physicalTestExecuted"):
+        if host.get(key) is not False:
+            failures.append(f"host execution gate must remain false: {key}")
+
+    guest = arch.get("guestGraphics") or {}
+    for key in (
+        "descriptorProtocolImplemented",
+        "ownershipProtocolImplemented",
+        "ancillaryFdTransportPrimitiveImplemented",
+        "handleBindingImplemented",
+        "receivePrimitiveImplemented",
+        "pvi1ReceiverImplemented",
+        "opaqueFdVulkanImageImportPrimitiveImplemented",
+        "pvs1ReceiverImplemented",
+        "timelineSemaphoreImportPrimitiveImplemented",
+        "timelineCounterPrimitiveImplemented",
+        "timelineCpuSignalPrimitiveImplemented",
+        "timelineCpuWaitPrimitiveImplemented",
+    ):
+        if guest.get(key) is not True:
+            failures.append(f"guest primitive missing: {key}")
+    for key in (
+        "authenticatedRuntimeReceiveIntegrated",
+        "activeWineDeviceImageImportIntegrated",
+        "timelineCpuRoundTripExecuted",
+        "gpuQueueSynchronizationImplemented",
+        "gpuQueueSynchronizationExecuted",
+        "softwareTestExecuted",
+        "integrationTestExecuted",
+        "physicalTestExecuted",
+    ):
+        if guest.get(key) is not False:
+            failures.append(f"guest integration/execution gate must remain false: {key}")
+
+    gates = arch.get("gates") or {}
+    for key in (
+        "authenticatedGuestGraphicsReceiveIntegrated",
+        "guestVulkanImageImportIntegrated",
+        "timelineCpuRoundTripExecuted",
+        "guestGraphicsGpuSynchronizationImplemented",
+        "guestGraphicsGpuSynchronizationExecuted",
+        "swapchainImageCaptureHookImplemented",
+        "hostVisiblePresentImplemented",
+        "visibleVulkanSurfaceBackendRunnable",
         "wineVisibleVulkanWsiImplemented",
-        "wineVulkanWsiSoftwareTestExecuted",
-        "wineVulkanWsiPhysicalTestExecuted",
         "d3d11PresentHostVisibleFrameExecuted",
-        "controlledDxvkApplicationAttemptAllowed",
         "robloxControlledAttemptExecuted",
         "robloxGameplayValidated",
-    )
-
-    for key in expected_true:
-        if gates.get(key) is not True:
-            failures.append(f"expected true gate: {key}")
-    for key in expected_false:
+        "softwareTestExecutedForCurrentRevision",
+        "integrationTestExecutedForCurrentRevision",
+        "physicalTestExecutedForCurrentRevision",
+    ):
         if gates.get(key) is not False:
-            failures.append(f"expected false gate: {key}")
+            failures.append(f"fail-closed gate must remain false: {key}")
 
-    guest_arch = arch.get("guestGraphicsTransport") or {}
-    if (
-        guest_arch.get("protocolVersion") != 1
-        or guest_arch.get("descriptorProtocolImplemented") is not True
-        or guest_arch.get("ownershipProtocolImplemented") is not True
-        or guest_arch.get("ancillaryFdTransportPrimitiveImplemented") is not True
-        or guest_arch.get("handleBindingImplemented") is not True
-        or guest_arch.get("guestReceivePrimitiveImplemented") is not True
-        or guest_arch.get("guestReceiveRuntimeIntegrated") is not False
-        or guest_arch.get("guestImportImplemented") is not False
-        or guest_arch.get("synchronizationImplemented") is not False
-    ):
-        failures.append("guest graphics transport architecture state changed")
+    texts = {
+        "contract": CONTRACT.read_text(encoding="utf-8"),
+        "wsi": WSI.read_text(encoding="utf-8"),
+        "foundation": FOUNDATION.read_text(encoding="utf-8"),
+        "ahb": AHB.read_text(encoding="utf-8"),
+        "canonical ahb": AHB_CANONICAL.read_text(encoding="utf-8"),
+        "host image": IMAGE_HOST.read_text(encoding="utf-8"),
+        "pvi1": PVI.read_text(encoding="utf-8"),
+        "pvs1": PVS.read_text(encoding="utf-8"),
+        "image import": IMAGE_IMPORT.read_text(encoding="utf-8"),
+        "timeline import": TIMELINE_IMPORT.read_text(encoding="utf-8"),
+    }
 
-    surface_arch = arch.get("surfaceBackend") or {}
-    surface_candidates = surface_arch.get("candidates") or {}
-    if (
-        surface_arch.get("model") != "PocketPcVulkanSurfaceBackendProbe"
-        or surface_arch.get("modelImplemented") is not True
-        or surface_arch.get("productionRunnable") is not False
-        or surface_arch.get("ahardwareBufferIsSurface") is not False
-    ):
-        failures.append("surface backend architecture state changed")
+    require(failures, "runtime contract", texts["contract"], (
+        "const val externalImagePvi1ProtocolImplemented = true",
+        "const val guestVulkanImportPrimitiveImplemented = true",
+        "const val externalTimelineSemaphorePvs1ProtocolImplemented = true",
+        "const val hostTimelineSemaphoreExporterImplemented = true",
+        "const val guestVulkanTimelineImportPrimitiveImplemented = true",
+        "const val guestReceiveImplemented = false",
+        "const val guestImportImplemented = false",
+        "const val synchronizationImplemented = false",
+    ))
+    require(failures, "WSI contract", texts["wsi"], (
+        "const val implemented =",
+        "false",
+        "VULKAN_WSI_NOT_IMPLEMENTED",
+    ))
+    require(failures, "WSI foundation", texts["foundation"], (
+        "GuestGraphicsTransportContract.readyForWsiImplementation()",
+        "BLOCKER_GUEST_GRAPHICS_TRANSPORT",
+    ))
+    require(failures, "cross process AHB", texts["ahb"], (
+        "AHardwareBuffer_sendHandleToUnixSocket",
+        "AHardwareBuffer_recvHandleFromUnixSocket",
+        "descriptor_match=",
+        "pattern_match=",
+    ))
+    require(failures, "canonical AHB", texts["canonical ahb"], (
+        "vkGetAndroidHardwareBufferPropertiesANDROID",
+        "allocationSize",
+        "memoryTypeBits",
+        "canonical_import_query_supported",
+    ))
+    require(failures, "host image and timeline", texts["host image"], (
+        "VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME",
+        "VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME",
+        "VK_SEMAPHORE_TYPE_TIMELINE",
+        "nativeSendTimeline",
+        "kExternalImageMagic = 0x31495650u",
+        "kExternalTimelineMagic = 0x31535650u",
+    ))
+    require(failures, "PVI1", texts["pvi1"], (
+        "SCM_RIGHTS",
+        "SOCK_SEQPACKET",
+        "pocketpc_graphics_handle_binding_validate_offer",
+    ))
+    require(failures, "PVS1", texts["pvs1"], (
+        "SCM_RIGHTS",
+        "SOCK_SEQPACKET",
+        "metadata->initial_value == 0u",
+        "PGT_STATE_OFFERED_TO_GUEST",
+    ))
+    require(failures, "guest image import", texts["image import"], (
+        "device->p_vkGetMemoryFdPropertiesKHR",
+        "VkImportMemoryFdInfoKHR",
+        "device->physical_device",
+        "received->resource_fd = -1;",
+    ))
+    require(failures, "guest timeline import", texts["timeline import"], (
+        "VkImportSemaphoreFdInfoKHR",
+        "device->p_vkImportSemaphoreFdKHR",
+        "pocketpc_guest_vulkan_timeline_signal_cpu",
+        "pocketpc_guest_vulkan_timeline_wait_cpu",
+        "pocketpc_guest_vulkan_timeline_get_counter",
+    ))
 
-    if (surface_candidates.get("HEADLESS_DIAGNOSTIC") or {}).get("implemented") is not True:
-        failures.append("headless diagnostic backend must be represented as implemented code")
-    for candidate_name in (
-        "ANDROID_NATIVE_SURFACE",
-        "HEADLESS_SURFACE_SHIM_VISIBLE",
-        "VIRTUAL_WSI",
-    ):
-        candidate = surface_candidates.get(candidate_name) or {}
-        if candidate.get("implemented") is not False:
-            failures.append(f"visible surface backend must remain unimplemented: {candidate_name}")
-
-    native = NATIVE.read_text(encoding="utf-8")
-    cross_native = CROSS_PROCESS_NATIVE.read_text(encoding="utf-8")
-    broker_native = BROKER_NATIVE.read_text(encoding="utf-8")
-    ahb_import_native = AHB_IMPORT_NATIVE.read_text(encoding="utf-8")
-    cmake = CMAKE.read_text(encoding="utf-8")
-    host = HOST.read_text(encoding="utf-8")
-    ahb_import_kt = AHB_IMPORT_KT.read_text(encoding="utf-8")
-    wsi = WSI.read_text(encoding="utf-8")
-    foundation = FOUNDATION.read_text(encoding="utf-8")
-    guest = GUEST.read_text(encoding="utf-8")
-    descriptor = DESCRIPTOR.read_text(encoding="utf-8")
-    surface_backend = SURFACE_BACKEND.read_text(encoding="utf-8")
-    guest_receive = GUEST_RECEIVE.read_text(encoding="utf-8")
-    fd_transport = FD_TRANSPORT.read_text(encoding="utf-8")
-    handle_binding = HANDLE_BINDING.read_text(encoding="utf-8")
-
-    require(
-        failures,
-        "native AHardwareBuffer probe",
-        native,
-        (
-            "#include <android/hardware_buffer.h>",
-            "AHardwareBuffer_allocate",
-            "AHardwareBuffer_describe",
-            "AHardwareBuffer_lock",
-            "AHardwareBuffer_unlock",
-            "AHardwareBuffer_sendHandleToUnixSocket",
-            "AHardwareBuffer_recvHandleFromUnixSocket",
-            "socketpair(",
-            "AF_UNIX",
-            "cross_process_transport=",
-            "vulkan_wsi=not-tested",
-        ),
-    )
-    require(
-        failures,
-        "cross-process AHardwareBuffer probe",
-        cross_native,
-        (
-            "AHardwareBuffer_sendHandleToUnixSocket",
-            "AHardwareBuffer_recvHandleFromUnixSocket",
-            "protocol=",
-            "pattern_match=",
-            "descriptor_match=",
-        ),
-    )
-    require(
-        failures,
-        "host AHardwareBuffer resource broker",
-        broker_native,
-        (
-            "AHardwareBuffer_allocate",
-            "AHardwareBuffer_acquire",
-            "AHardwareBuffer_sendHandleToUnixSocket",
-            "AHardwareBuffer_release",
-            "generation",
-            "stale-or-unknown-resource",
-        ),
-    )
-    require(
-        failures,
-        "canonical AHardwareBuffer Vulkan query",
-        ahb_import_native,
-        (
-            "vkGetAndroidHardwareBufferPropertiesANDROID",
-            "VK_ANDROID_external_memory_android_hardware_buffer",
-            "VK_EXT_queue_family_foreign",
-            "allocationSize",
-            "memoryTypeBits",
-            "canonical_import_query_supported",
-        ),
-    )
-    require(
-        failures,
-        "canonical AHardwareBuffer Kotlin parser",
-        ahb_import_kt,
-        (
-            "canonicalImportQuerySupported",
-            "propertiesQuerySucceeded",
-            "allocationSizeNonzero",
-            "memoryTypeBitsNonzero",
-            "nativeCanonicalImportClaim",
-        ),
-    )
-    require(
-        failures,
-        "native host linkage",
-        cmake,
-        (
-            "hardware_buffer_cross_process.cpp",
-            "hardware_buffer_resource_broker.cpp",
-            "vulkan_external_resource_probe.cpp",
-            "vulkan_ahardwarebuffer_import_probe.cpp",
-            "find_library(android_lib android)",
-            "${android_lib}",
-            "${vulkan_lib}",
-        ),
-    )
-    require(
-        failures,
-        "Kotlin host diagnostics",
-        host,
-        (
-            "hardwareBufferProbe",
-            "vulkanExternalResourceProbe",
-            "vulkanAhardwareBufferImportProbe",
-            "VulkanAhardwareBufferImportProbe",
-        ),
-    )
-
-    require(
-        failures,
-        "guest receive primitive",
-        guest_receive,
-        (
-            "pocketpc_fd_transport_receive(",
-            "pocketpc_graphics_handle_binding_validate_offer(",
-            "close(resource_fd);",
-            "pocketpc_guest_graphics_received_offer_release",
-        ),
-    )
-    require(
-        failures,
-        "guest ancillary fd transport",
-        fd_transport,
-        (
-            "SCM_RIGHTS",
-            "SOCK_SEQPACKET",
-            "FD_CLOEXEC",
-        ),
-    )
-    require(
-        failures,
-        "guest handle identity binding",
-        handle_binding,
-        (
-            "resource_id",
-            "generation",
-            "sync_sequence",
-            "PGT_STATE_OFFERED_TO_GUEST",
-        ),
-    )
-
-    require(
-        failures,
-        "guest graphics fail-closed contract",
-        guest,
-        (
-            "const val canonicalAhardwareBufferImportProbeImplemented =\n        true",
-            "const val guestReceivePrimitiveImplemented =\n        true",
-            "const val guestReceiveImplemented =\n        false",
-            "const val guestImportImplemented =\n        false",
-            "const val synchronizationImplemented =\n        false",
-            '"VULKAN_WSI_GUEST_GRAPHICS_TRANSPORT_NOT_IMPLEMENTED"',
-        ),
-    )
-    require(
-        failures,
-        "guest graphics descriptor",
-        descriptor,
-        (
-            "object GuestGraphicsResourceDescriptorCodec",
-            "const val CURRENT_PROTOCOL = 1",
-            '"resource_id"',
-            '"generation"',
-            '"producer_pid"',
-            '"process_namespace"',
-            '"sync_sequence"',
-            "fields.keys != REQUIRED_FIELDS",
-        ),
-    )
-    for forbidden in ('"raw_pointer"', '"native_window"', '"fd"'):
-        if forbidden in descriptor:
-            failures.append(
-                "descriptor must not define process-local transport field: " + forbidden
-            )
-
-    require(
-        failures,
-        "Vulkan surface backend model",
-        surface_backend,
-        (
-            "PocketPcVulkanSurfaceBackendKind.ANDROID_NATIVE_SURFACE",
-            "PocketPcVulkanSurfaceBackendKind.HEADLESS_SURFACE_SHIM",
-            "PocketPcVulkanSurfaceBackendKind.VIRTUAL_WSI",
-            "implemented = false",
-            "ahardwareBufferIsSurface = false",
-            "VULKAN_ANDROID_NATIVE_WINDOW_TRANSPORT_NOT_IMPLEMENTED",
-            "VULKAN_HEADLESS_PRESENT_CAPTURE_NOT_IMPLEMENTED",
-            "VULKAN_VIRTUAL_WSI_NOT_IMPLEMENTED",
-        ),
-    )
-
-    require(
-        failures,
-        "WSI visible fail-closed contract",
-        wsi,
-        (
-            "const val headlessDiagnosticSurfaceImplemented =\n        true",
-            "const val surfaceCreateImplemented =\n        false",
-            "const val presentationSupportImplemented =\n        false",
-            "const val implemented =\n        false",
-            '"VULKAN_WSI_NOT_IMPLEMENTED"',
-            "foundation.guestGraphicsTransportReady",
-        ),
-    )
-    require(
-        failures,
-        "WSI foundation guest boundary",
-        foundation,
-        (
-            "GuestGraphicsTransportContract.readyForWsiImplementation()",
-            "BLOCKER_GUEST_GRAPHICS_TRANSPORT",
-            "guestGraphicsTransportReady",
-        ),
-    )
-
-    rejected_text = json.dumps(arch.get("rejectedRoutes") or [], sort_keys=True)
+    rejected = json.dumps(arch.get("rejectedRoutes") or [], sort_keys=True)
     for marker in (
         "ANativeWindow",
         "AHardwareBuffer as VkSurfaceKHR",
-        "GDI window_surface.flush",
-        "wineandroid.drv",
-        "Android-to-Android AHardwareBuffer",
-        "headless diagnostic",
-        "external-memory extension mapping",
+        "memoryTypeIndex",
+        "CPU timeline signal/wait",
+        "headless Present observer",
+        "Roblox readiness",
     ):
-        if marker not in rejected_text:
-            failures.append(f"rejected route missing: {marker}")
+        if marker not in rejected:
+            failures.append(f"rejected-route guard missing: {marker}")
 
     if failures:
         print("AHARDWAREBUFFER_VULKAN_TRANSPORT_POLICY_FAILED", file=sys.stderr)
@@ -397,17 +230,16 @@ def main() -> int:
         return 1
 
     print("AHARDWAREBUFFER_VULKAN_TRANSPORT_POLICY_OK")
-    print("architecture_schema=5")
-    print("android_cross_process_probe_implemented=true")
-    print("canonical_ahb_import_query_implemented=true")
-    print("guest_receive_primitive_implemented=true")
-    print("guest_receive_runtime_integrated=false")
-    print("guest_vulkan_import_implemented=false")
-    print("guest_synchronization_implemented=false")
-    print("headless_diagnostic_implemented=true")
-    print("visible_surface_backend_runnable=false")
-    print("wine_visible_vulkan_wsi_implemented=false")
-    print("physical_execution_evidence=false")
+    print("architecture_schema=6")
+    print("pvi1_implemented=true")
+    print("pvs1_implemented=true")
+    print("guest_vulkan_import_primitive=true")
+    print("guest_timeline_cpu_primitives=true")
+    print("authenticated_runtime_receive=false")
+    print("gpu_queue_synchronization=false")
+    print("host_visible_present=false")
+    print("roblox_executed=false")
+    print("current_revision_execution=false")
     return 0
 
 
