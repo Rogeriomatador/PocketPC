@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - "scripts/build-local-windows.ps1"
+      - "toolchains/android-build-lock.json"
       - "scripts/verify-local-build-record.py"
       - "scripts/test-local-build-record-verifier.py"
       - "scripts/test-gitignore-policy.py"
