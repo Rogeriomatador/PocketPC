@@ -95,6 +95,12 @@ fun resolvePocketFileAssociation(
                         handler = PocketFileHandler.IMAGE_VIEWER,
                         displayName = "Fotos do PocketPC",
                         route = route.route,
+                        readiness =
+                            if (extension in IMPLEMENTED_RASTER_EXTENSIONS) {
+                                PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL
+                            } else {
+                                PocketFileHandlerReadiness.ROUTE_ONLY
+                            },
                     )
 
                 extension in MEDIA_EXTENSIONS ||
@@ -172,6 +178,9 @@ private val TEXT_EXTENSIONS =
 
 private val IMAGE_EXTENSIONS =
     setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico")
+
+private val IMPLEMENTED_RASTER_EXTENSIONS =
+    setOf("png", "jpg", "jpeg", "webp", "bmp")
 
 private val MEDIA_EXTENSIONS =
     setOf("mp3", "wav", "ogg", "flac", "m4a", "mp4", "mkv", "webm", "avi", "mov")
