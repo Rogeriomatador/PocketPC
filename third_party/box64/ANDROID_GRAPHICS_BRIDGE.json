@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "status": "STATICALLY_INSPECTED_PARTIAL_NOT_RUNTIME_TESTED",
+  "component": "box64-android-graphics-bridge",
+  "box64": {
+    "version": "0.4.4",
+    "commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a"
+  },
+  "sourceEvidence": {
+    "wrappedAndroidShmemPresent": true,
+    "wrappedAndroidSupportPresent": true,
+    "directLibandroidWrapperFileVerified": false,
+    "directAhardwareBufferWrapperVerified": false,
+    "note": "The pinned source exposes Android-specific wrappers such as libandroid-shmem/libandroid-support. A direct libandroid.so/AHardwareBuffer guest bridge has not been verified and must not be assumed from those wrappers."
+  },
+  "pocketPcHostFoundation": {
+    "ahardwareBufferCrossProcessProbeImplemented": true,
+    "ahardwareBufferResourceBrokerImplemented": true,
+    "resourceDescriptorProtocolImplemented": true,
+    "ownershipProtocolImplemented": true,
+    "vulkanExternalResourceCapabilityProbeImplemented": true
+  },
+  "guestGates": {
+    "directAhardwareBufferBridgeVerified": false,
+    "handleReceiveImplemented": false,
+    "vulkanResourceImportImplemented": false,
+    "synchronizationImplemented": false,
+    "runtimeTestExecuted": false,
+    "physicalTestExecuted": false
+  },
+  "candidateOrder": [
+    "VK_KHR_external_memory_fd / OPAQUE_FD + fd synchronization",
+    "VK_EXT_external_memory_dma_buf + fd synchronization",
+    "AHardwareBuffer host broker only if a verified guest bridge is implemented",
+    "virtual/offscreen WSI fallback"
+  ],
+  "rules": [
+    "Extension advertisement is capability evidence, not execution evidence.",
+    "AHardwareBuffer is image/memory transport and is never treated as VkSurfaceKHR.",
+    "No raw pointer or process-local file descriptor number is serialized as a portable graphics resource identity.",
+    "Host broker implementation does not promote guest receive/import/synchronization gates.",
+    "Roblox and D3D11 Present remain fail-closed until the guest transport and WSI backend are implemented and tested."
+  ]
+}
