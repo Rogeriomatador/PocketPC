@@ -9,6 +9,7 @@ add_library(
     hardware_buffer_resource_broker.cpp
     vulkan_wsi_capability_probe.cpp
     vulkan_external_resource_probe.cpp
+    vulkan_ahardwarebuffer_import_probe.cpp
 )
 
 find_library(vulkan_lib vulkan)
