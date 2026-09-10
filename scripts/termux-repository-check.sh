@@ -118,7 +118,8 @@ if [ "$TERMUX_VARIANT" = "googleplay" ]; then
         echo "repository_state=MIXED_GOOGLE_PLAY_AND_CLASSIC"
         echo "action_required=REMOVE_CLASSIC_REPOSITORY_FROM_GOOGLE_PLAY_TERMUX"
         echo "note=Google Play Termux uses its own package set; do not mix packages.termux.dev with termux.net."
-        echo "recovery_hint=Remove the packages.termux.dev main entry you added; keep the original termux.net Google Play source."
+        echo "recovery_command=bash scripts/termux-repair-repository.sh --apply"
+        echo "recovery_hint=The repair script backs up apt configuration, removes the incompatible classic entry, and keeps the Google Play source."
         echo "Classification : TERMUX_REPOSITORY_VARIANT_MIXED"
         if [ "$MODE" = "--require-compatible" ] || [ "$MODE" = "--require-modern" ]; then
             exit 15
