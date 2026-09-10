@@ -44,6 +44,15 @@ class PocketZipArchiveTest {
         assertRejected("pasta/arquivo:alternativo.txt")
         assertRejected("pasta/arquivo?.txt")
         assertRejected("pasta/<arquivo>.txt")
+        assertRejected("pasta/nome. ")
+    }
+
+    @Test
+    fun windowsReservedDeviceNamesAreRejected() {
+        assertRejected("CON")
+        assertRejected("nul.txt")
+        assertRejected("pasta/COM1.log")
+        assertRejected("pasta/lpt9")
     }
 
     @Test
