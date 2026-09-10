@@ -92,6 +92,8 @@ if 'if (extension == "zip")' not in associations:
     errors.append("ZIP must be the only archive promoted to implemented-internal readiness")
 if "PocketFileHandler.PDF_VIEWER" not in associations:
     errors.append("PocketFileAssociations lost PDF ownership")
+if "IMPLEMENTED_AUDIO_EXTENSIONS" not in associations:
+    errors.append("PocketFileAssociations lost implemented audio readiness")
 
 zip_engine = read("app/src/main/java/dev/pocketpc/core/storage/PocketZipArchive.kt")
 for required in (
@@ -121,6 +123,40 @@ for required in (
     if required not in zip_pane:
         errors.append(f"PocketZipArchivePane missing internal ZIP flow: {required}")
 
+zip_creator = read("app/src/main/java/dev/pocketpc/core/storage/PocketZipCreator.kt")
+for required in (
+    "MAX_CREATE_ZIP_ENTRY_COUNT",
+    "MAX_CREATE_ZIP_DEPTH",
+    "MAX_CREATE_ZIP_FILE_BYTES",
+    "MAX_CREATE_ZIP_TOTAL_BYTES",
+    '".pocketpc-part-${System.nanoTime()}-$outputName"',
+    "runCatching { target?.delete() }",
+    "ZipOutputStream(raw)",
+):
+    if required not in zip_creator:
+        errors.append(f"PocketZipCreator lost transactional/safety invariant: {required}")
+if "Intent.ACTION_VIEW" in zip_creator:
+    errors.append("PocketZipCreator must never delegate compression to Android ACTION_VIEW")
+
+text_store = read("app/src/main/java/dev/pocketpc/core/storage/PocketTextFileStore.kt")
+for required in (
+    "MAX_EDITABLE_TEXT_BYTES",
+    "readOriginalEditableBytes(",
+    'openOutputStream(uri, "rwt")',
+    "writeTextBytes(",
+):
+    if required not in text_store:
+        errors.append(f"PocketTextFileStore lost safe-save invariant: {required}")
+
+text_editor = read("app/src/main/java/dev/pocketpc/core/ui/PocketTextEditorPane.kt")
+for required in (
+    "readOnly = !document.editable",
+    "savePocketTextDocument(",
+    'Text("Salvar")',
+):
+    if required not in text_editor:
+        errors.append(f"PocketTextEditorPane missing editable-text behavior: {required}")
+
 pdf_viewer = read("app/src/main/java/dev/pocketpc/core/ui/PocketPdfViewerPane.kt")
 for required in (
     "PdfRenderer(descriptor)",
@@ -133,11 +169,27 @@ for required in (
 if "Intent.ACTION_VIEW" in pdf_viewer:
     errors.append("PocketPdfViewerPane must never delegate PDF opening to Android ACTION_VIEW")
 
+audio_player = read("app/src/main/java/dev/pocketpc/core/ui/PocketAudioPlayerPane.kt")
+for required in (
+    "MediaPlayer()",
+    "setDataSource(",
+    "prepareAsync()",
+    'Text(if (playing) "Pausar" else "Reproduzir")',
+):
+    if required not in audio_player:
+        errors.append(f"PocketAudioPlayerPane missing internal playback behavior: {required}")
+if "Intent.ACTION_VIEW" in audio_player:
+    errors.append("PocketAudioPlayerPane must never delegate audio to Android ACTION_VIEW")
+
 open_overlay = read("app/src/main/java/dev/pocketpc/core/ui/PocketFileOpenOverlay.kt")
-if open_overlay.count("PocketZipArchivePane(request = currentRequest)") != 1:
-    errors.append("Global file-open overlay must mount exactly one PocketZipArchivePane")
-if open_overlay.count("PocketPdfViewerPane(request = currentRequest)") != 1:
-    errors.append("Global file-open overlay must mount exactly one PocketPdfViewerPane")
+for required in (
+    "PocketTextEditorPane(request = currentRequest)",
+    "PocketZipArchivePane(request = currentRequest)",
+    "PocketPdfViewerPane(request = currentRequest)",
+    "PocketAudioPlayerPane(request = currentRequest)",
+):
+    if open_overlay.count(required) != 1:
+        errors.append(f"Global file-open overlay must mount exactly one: {required}")
 
 if errors:
     for error in errors:
@@ -153,4 +205,7 @@ print("pocket_file_open_boundary=guarded")
 print("pocket_file_overlay=global")
 print("browser_external_escape=explicit_only")
 print("pocket_zip_security=guarded")
+print("pocket_zip_creation=guarded")
+print("pocket_text_editor=guarded")
 print("pocket_pdf_viewer=guarded")
+print("pocket_audio_player=guarded")
