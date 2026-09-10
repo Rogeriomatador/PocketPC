@@ -1899,7 +1899,6 @@ fun RuntimeApp(
                     runtimeProbeEvidence
                         .wineSmokePassed &&
                     runtimePrefixReady &&
-                    runtimePrefixPlan != null &&
                     windowsLayerDeployManager !=
                         null
                 ) {
