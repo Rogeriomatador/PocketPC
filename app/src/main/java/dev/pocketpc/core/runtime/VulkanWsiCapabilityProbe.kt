@@ -5,6 +5,8 @@ data class VulkanWsiCapabilitySnapshot(
     val protocol: Int,
     val vendorId: Long?,
     val deviceId: Long?,
+    val instanceExtensionCount: Int?,
+    val deviceExtensionCount: Int?,
     val khrSurface: Boolean,
     val khrAndroidSurface: Boolean,
     val extHeadlessSurface: Boolean,
@@ -20,7 +22,11 @@ data class VulkanWsiCapabilitySnapshot(
     val probeSucceeded: Boolean
         get() =
             status == "ok" &&
-                protocol == CURRENT_PROTOCOL
+                protocol == CURRENT_PROTOCOL &&
+                vendorId != null &&
+                deviceId != null &&
+                instanceExtensionCount != null &&
+                deviceExtensionCount != null
 
     val androidSurfaceRouteAdvertised: Boolean
         get() =
@@ -88,11 +94,11 @@ object VulkanWsiCapabilityProbeParser {
                 ?.toIntOrNull()
                 ?: return null
 
-        fun bool(name: String): Boolean =
+        fun booleanField(name: String): Boolean? =
             when (fields[name]) {
                 "yes" -> true
-                "no", null -> false
-                else -> return false
+                "no" -> false
+                else -> null
             }
 
         fun unsignedLong(name: String): Long? =
@@ -100,44 +106,77 @@ object VulkanWsiCapabilityProbeParser {
                 ?.toLongOrNull()
                 ?.takeIf { it >= 0L }
 
+        fun boundedCount(name: String): Int? =
+            fields[name]
+                ?.toIntOrNull()
+                ?.takeIf { it in 0..MAX_EXTENSION_COUNT }
+
+        val successfulRecord = status == "ok"
+        val vendorId = unsignedLong("vendor_id")
+        val deviceId = unsignedLong("device_id")
+        val instanceExtensionCount =
+            boundedCount("instance_extensions")
+        val deviceExtensionCount =
+            boundedCount("device_extensions")
+
+        val flags =
+            CAPABILITY_FIELDS.associateWith(::booleanField)
+        if (
+            successfulRecord &&
+            (
+                vendorId == null ||
+                    deviceId == null ||
+                    instanceExtensionCount == null ||
+                    deviceExtensionCount == null ||
+                    flags.values.any { it == null }
+                )
+        ) {
+            return null
+        }
+        if (
+            CAPABILITY_FIELDS.any { name ->
+                name in fields &&
+                    flags[name] == null
+            }
+        ) {
+            return null
+        }
+
         return VulkanWsiCapabilitySnapshot(
             status = status,
             protocol = protocol,
-            vendorId = unsignedLong("vendor_id"),
-            deviceId = unsignedLong("device_id"),
-            khrSurface = bool("khr_surface"),
-            khrAndroidSurface = bool("khr_android_surface"),
-            extHeadlessSurface = bool("ext_headless_surface"),
+            vendorId = vendorId,
+            deviceId = deviceId,
+            instanceExtensionCount = instanceExtensionCount,
+            deviceExtensionCount = deviceExtensionCount,
+            khrSurface = flags["khr_surface"] ?: false,
+            khrAndroidSurface =
+                flags["khr_android_surface"] ?: false,
+            extHeadlessSurface =
+                flags["ext_headless_surface"] ?: false,
             khrExternalMemoryCapabilities =
-                bool("khr_external_memory_capabilities"),
-            khrSwapchain = bool("khr_swapchain"),
+                flags["khr_external_memory_capabilities"] ?: false,
+            khrSwapchain = flags["khr_swapchain"] ?: false,
             androidExternalMemoryAhb =
-                bool("android_external_memory_ahb"),
+                flags["android_external_memory_ahb"] ?: false,
             khrExternalMemory =
-                bool("khr_external_memory"),
+                flags["khr_external_memory"] ?: false,
             khrExternalMemoryFd =
-                bool("khr_external_memory_fd"),
+                flags["khr_external_memory_fd"] ?: false,
             khrTimelineSemaphore =
-                bool("khr_timeline_semaphore"),
+                flags["khr_timeline_semaphore"] ?: false,
             khrSynchronization2 =
-                bool("khr_synchronization2"),
+                flags["khr_synchronization2"] ?: false,
             raw = raw,
         )
     }
 
     private const val MAX_RECORD_LENGTH = 4_096
+    private const val MAX_EXTENSION_COUNT = 4_096
     private val FIELD_NAME = Regex("^[a-z0-9_-]{1,64}$")
     private val STATUS = Regex("^[a-z0-9-]{1,64}$")
-    private val ALLOWED_FIELDS =
+    private val CAPABILITY_FIELDS =
         setOf(
-            "vulkan-wsi-capabilities",
-            "protocol",
-            "result",
-            "count",
-            "vendor_id",
-            "device_id",
-            "instance_extensions",
-            "device_extensions",
             "khr_surface",
             "khr_android_surface",
             "ext_headless_surface",
@@ -149,4 +188,15 @@ object VulkanWsiCapabilityProbeParser {
             "khr_timeline_semaphore",
             "khr_synchronization2",
         )
+    private val ALLOWED_FIELDS =
+        setOf(
+            "vulkan-wsi-capabilities",
+            "protocol",
+            "result",
+            "count",
+            "vendor_id",
+            "device_id",
+            "instance_extensions",
+            "device_extensions",
+        ) + CAPABILITY_FIELDS
 }
