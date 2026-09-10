@@ -17,6 +17,20 @@ object GuestGraphicsTransportContract {
         true
     const val ownershipProtocolImplemented =
         true
+    const val hostAhardwareBufferBrokerImplemented =
+        true
+    const val externalResourceCapabilityProbeImplemented =
+        true
+
+    /*
+     * The pinned Box64 source has not yet provided verified evidence that a
+     * direct libandroid/AHardwareBuffer bridge is available to the x86_64
+     * guest. Keep this false until that exact path is source-verified and
+     * exercised; the host broker does not change it.
+     */
+    const val box64DirectAhardwareBufferBridgeVerified =
+        false
+
     const val guestReceiveImplemented =
         false
     const val guestImportImplemented =
