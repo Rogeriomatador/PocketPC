@@ -5,6 +5,7 @@ import java.io.File
 data class RobloxInstalledLaunchAttemptPlan(
     val ready: Boolean,
     val installation: RobloxPlayerInstallation?,
+    val deepLink: RobloxPlayerDeepLink?,
     val wine: WineLaunchPlan,
     val graphicsConfigurationInvocation: ProotInvocationPlan,
     val invocation: ProotInvocationPlan,
@@ -21,6 +22,7 @@ object RobloxInstalledLaunchAttemptPlanner {
         evidence: RuntimeProbeEvidenceState,
         runtimeReadiness: PcRuntimeReadiness,
         deployedLayers: List<DeployedWindowsRuntimeLayer> = emptyList(),
+        deepLink: RobloxPlayerDeepLink? = null,
     ): RobloxInstalledLaunchAttemptPlan {
         val blockers = mutableListOf<String>()
         val layout = prefixPlan.layout
@@ -71,13 +73,20 @@ object RobloxInstalledLaunchAttemptPlanner {
             blockers += prefixReadiness.blockers
         }
 
+        val windowsArguments =
+            deepLink?.let {
+                // Keep the protocol request opaque. It becomes one
+                // Windows argv element and is never interpreted as shell.
+                listOf(it.raw)
+            }.orEmpty()
+
         val wine =
             if (installation != null) {
                 WineLaunchPlanner.build(
                     prefixPlan = prefixPlan,
                     windowsExecutable =
                         installation.windowsExecutable,
-                    windowsArgs = emptyList(),
+                    windowsArgs = windowsArguments,
                     box64RuntimeValidated =
                         evidence.box64SmokePassed,
                     wineRuntimeValidated =
@@ -175,6 +184,7 @@ object RobloxInstalledLaunchAttemptPlanner {
                     graphicsConfigurationInvocation.argv.isNotEmpty() &&
                     invocation.argv.isNotEmpty(),
             installation = installation,
+            deepLink = deepLink,
             wine = wine,
             graphicsConfigurationInvocation =
                 graphicsConfigurationInvocation,
