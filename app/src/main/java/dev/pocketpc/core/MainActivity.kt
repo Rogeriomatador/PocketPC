@@ -17,7 +17,9 @@ import androidx.core.view.ViewCompat
 import dev.pocketpc.core.desktop.DesktopCommand
 import dev.pocketpc.core.desktop.DesktopPointerCommandBridge
 import dev.pocketpc.core.ui.PocketPcApp
+import dev.pocketpc.core.ui.PocketPcForegroundUpdateFlow
 import dev.pocketpc.core.update.PocketPcUpdateScheduler
+import dev.pocketpc.core.update.clearPostUpdateNotification
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlin.math.roundToInt
 
@@ -33,15 +35,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Opening PocketPC is an explicit foreground opportunity to check the
-        // public OTA feed. Keep the six-hour throttle for background WorkManager,
-        // but do not let a previous background check suppress the launch check.
+        // The foreground update flow performs a fresh launch check and owns the
+        // visible prompt/progress UX. Mark the legacy six-hour checker as recent
+        // so the older background-style Toast flow does not race the modal.
         getSharedPreferences(
             "pocketpc-updater",
             MODE_PRIVATE,
         ).edit()
-            .remove("last-auto-check")
+            .putLong(
+                "last-auto-check",
+                System.currentTimeMillis(),
+            )
             .apply()
+
+        clearPostUpdateNotification(
+            applicationContext
+        )
 
         PocketPcUpdateScheduler.schedule(
             applicationContext
@@ -56,6 +65,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PocketPcApp(commandFlow = desktopCommands)
+            PocketPcForegroundUpdateFlow()
         }
     }
 
