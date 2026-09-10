@@ -57,11 +57,14 @@ else:
 
 for sentinel in (
     "TERMUX_REPOSITORY_LEGACY",
+    "LEGACY_TERMUX_NET",
     "packages.termux.dev/apt/termux-main",
-    "termux.net",
 ):
     if sentinel not in repo_check:
         errors.append(f"repository check missing sentinel: {sentinel}")
+
+if "termux[.]net" not in repo_check and "termux.net" not in repo_check:
+    errors.append("repository check does not recognize legacy termux.net")
 
 if platform_package != f"platforms;android-{compile_sdk}.0":
     errors.append(
