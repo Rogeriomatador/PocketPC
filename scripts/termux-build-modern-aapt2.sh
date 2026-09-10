@@ -70,16 +70,21 @@ REQUIRED_PACKAGES=(
     libpng
     libprotobuf
     protobuf
-    protobuf-dev
     libzopfli
     zlib
     googletest
     patch
 )
 
+candidate_version() {
+    local package="$1"
+    apt-cache policy "$package" 2>/dev/null |
+        awk '/Candidate:/ {candidate=$2} END {if (candidate != "" && candidate != "(none)") print candidate}'
+}
+
 HEADER_PACKAGE=""
 for candidate in linux-headers ndk-sysroot; do
-    if apt-cache show "$candidate" >/dev/null 2>&1; then
+    if [ -n "$(candidate_version "$candidate")" ]; then
         HEADER_PACKAGE="$candidate"
         break
     fi
@@ -97,7 +102,7 @@ echo "resolved_packages=${REQUIRED_PACKAGES[*]}"
 
 UNAVAILABLE_PACKAGES=()
 for package in "${REQUIRED_PACKAGES[@]}"; do
-    if ! apt-cache show "$package" >/dev/null 2>&1; then
+    if [ -z "$(candidate_version "$package")" ]; then
         UNAVAILABLE_PACKAGES+=("$package")
     fi
 done
@@ -168,6 +173,21 @@ if [ -z "$PROTOC" ]; then
     echo "MISSING_TOOL=protoc" >&2
     exit 8
 fi
+
+PROTOBUF_HEADER="${PREFIX:-/data/data/com.termux/files/usr}/include/google/protobuf/message.h"
+if [ ! -f "$PROTOBUF_HEADER" ]; then
+    echo "PROTOBUF_HEADER_MISSING=$PROTOBUF_HEADER" >&2
+    exit 11
+fi
+
+if ! pkg-config --exists protobuf; then
+    echo "PROTOBUF_PKGCONFIG_MISSING=protobuf" >&2
+    exit 12
+fi
+
+echo "protoc=$PROTOC"
+echo "protobuf_header=$PROTOBUF_HEADER"
+echo "protobuf_pkgconfig=$(pkg-config --modversion protobuf 2>/dev/null || printf 'unknown')"
 
 cmake \
     -S "$SOURCE_DIR" \
