@@ -143,6 +143,12 @@ fun resolvePocketFileAssociation(
                         handler = PocketFileHandler.OFFICE_VIEWER,
                         displayName = "Documentos do PocketPC",
                         route = route.route,
+                        readiness =
+                            if (extension in IMPLEMENTED_OFFICE_PREVIEW_EXTENSIONS) {
+                                PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL
+                            } else {
+                                PocketFileHandlerReadiness.ROUTE_ONLY
+                            },
                     )
 
                 extension in WEB_EXTENSIONS ||
@@ -228,6 +234,9 @@ private val IMPLEMENTED_VIDEO_EXTENSIONS =
 
 private val OFFICE_EXTENSIONS =
     setOf("doc", "docx", "odt", "xls", "xlsx", "ods", "ppt", "pptx", "odp")
+
+private val IMPLEMENTED_OFFICE_PREVIEW_EXTENSIONS =
+    setOf("docx", "odt")
 
 private val WEB_EXTENSIONS =
     setOf("htm", "html", "xhtml")
