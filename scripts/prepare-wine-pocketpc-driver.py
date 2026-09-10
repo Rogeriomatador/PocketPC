@@ -45,6 +45,8 @@ BRIDGE_FILES = (
     "pocketpc_guest_graphics_receive.c",
     "pocketpc_external_image_fd_protocol.h",
     "pocketpc_external_image_fd_protocol.c",
+    "pocketpc_guest_vulkan_import.h",
+    "pocketpc_guest_vulkan_import.c",
     "pocketpc_surface_writer.h",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.h",
@@ -60,6 +62,7 @@ UNIX_ONLY_C_FILES = {
     "pocketpc_graphics_handle_binding.c",
     "pocketpc_guest_graphics_receive.c",
     "pocketpc_external_image_fd_protocol.c",
+    "pocketpc_guest_vulkan_import.c",
     "pocketpc_surface_writer.c",
     "pocketpc_wine_window_map.c",
     "pocketpc_wine_window_bridge.c",
@@ -98,11 +101,7 @@ def git_head(source: Path) -> str:
     ).strip()
 
 
-def patch_once(
-    path: Path,
-    anchor: str,
-    line: str,
-) -> bool:
+def patch_once(path: Path, anchor: str, line: str) -> bool:
     text = path.read_text(encoding="utf-8")
     if line in text:
         return False
@@ -110,77 +109,41 @@ def patch_once(
         raise RuntimeError(
             f"PATCH_ANCHOR_INVALID:{path.name}:{text.count(anchor)}"
         )
-    text = text.replace(
-        anchor,
-        anchor + "\n" + line,
-        1,
-    )
-    path.write_text(
-        text,
-        encoding="utf-8",
-    )
+    text = text.replace(anchor, anchor + "\n" + line, 1)
+    path.write_text(text, encoding="utf-8")
     return True
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--wine-source",
-        type=Path,
-        required=True,
-    )
-    parser.add_argument(
-        "--evidence",
-        type=Path,
-        required=True,
-    )
+    parser.add_argument("--wine-source", type=Path, required=True)
+    parser.add_argument("--evidence", type=Path, required=True)
     args = parser.parse_args()
 
-    lock = json.loads(
-        LOCK.read_text(encoding="utf-8")
-    )
+    lock = json.loads(LOCK.read_text(encoding="utf-8"))
     source = args.wine_source.resolve()
     evidence_path = args.evidence.resolve()
 
-    if (
-        source == ROOT.resolve()
-        or ROOT.resolve() in source.parents
-    ):
-        raise SystemExit(
-            "WINE_SOURCE_MUST_BE_OUTSIDE_POCKETPC_REPOSITORY"
-        )
+    if source == ROOT.resolve() or ROOT.resolve() in source.parents:
+        raise SystemExit("WINE_SOURCE_MUST_BE_OUTSIDE_POCKETPC_REPOSITORY")
     if not (source / ".git").exists():
-        raise SystemExit(
-            "WINE_SOURCE_GIT_CHECKOUT_REQUIRED"
-        )
+        raise SystemExit("WINE_SOURCE_GIT_CHECKOUT_REQUIRED")
     if git_head(source) != lock["commit"]:
-        raise SystemExit(
-            "WINE_SOURCE_COMMIT_MISMATCH"
-        )
+        raise SystemExit("WINE_SOURCE_COMMIT_MISMATCH")
 
     copying = source / "COPYING.LIB"
     if not copying.is_file():
-        raise SystemExit(
-            "WINE_LICENSE_FILE_MISSING"
-        )
-    license_text = copying.read_text(
-        encoding="utf-8",
-        errors="replace",
-    )
+        raise SystemExit("WINE_LICENSE_FILE_MISSING")
+    license_text = copying.read_text(encoding="utf-8", errors="replace")
     if (
-        "GNU LESSER GENERAL PUBLIC LICENSE"
-        not in license_text
+        "GNU LESSER GENERAL PUBLIC LICENSE" not in license_text
         or "Version 2.1" not in license_text
     ):
-        raise SystemExit(
-            "WINE_LICENSE_EVIDENCE_MISMATCH"
-        )
+        raise SystemExit("WINE_LICENSE_EVIDENCE_MISMATCH")
 
     destination = source / "dlls/winepocketpc.drv"
     if destination.exists():
-        raise SystemExit(
-            "WINE_POCKETPC_DRIVER_DESTINATION_ALREADY_EXISTS"
-        )
+        raise SystemExit("WINE_POCKETPC_DRIVER_DESTINATION_ALREADY_EXISTS")
     destination.mkdir(parents=True)
 
     copied: list[dict[str, object]] = []
@@ -188,21 +151,9 @@ def main() -> int:
     for name in DRIVER_FILES:
         src = TEMPLATE / name
         if not src.is_file():
-            raise SystemExit(
-                f"DRIVER_TEMPLATE_MISSING:{name}"
-            )
+            raise SystemExit(f"DRIVER_TEMPLATE_MISSING:{name}")
         dst = destination / name
         shutil.copyfile(src, dst)
-        if name in UNIX_ONLY_C_FILES:
-            original = dst.read_text(encoding="utf-8")
-            if "#pragma makedep unix" in original:
-                raise SystemExit(
-                    f"BRIDGE_SOURCE_ALREADY_HAS_WINE_MAKEDEP:{name}"
-                )
-            dst.write_text(
-                UNIX_MAKEDEP_PREAMBLE + original,
-                encoding="utf-8",
-            )
         copied.append(
             {
                 "path": f"dlls/winepocketpc.drv/{name}",
@@ -215,9 +166,7 @@ def main() -> int:
     for name in BRIDGE_FILES:
         src = BRIDGE / name
         if not src.is_file():
-            raise SystemExit(
-                f"DISPLAY_BRIDGE_SOURCE_MISSING:{name}"
-            )
+            raise SystemExit(f"DISPLAY_BRIDGE_SOURCE_MISSING:{name}")
         dst = destination / name
         shutil.copyfile(src, dst)
         if name in UNIX_ONLY_C_FILES:
@@ -226,10 +175,7 @@ def main() -> int:
                 raise SystemExit(
                     f"BRIDGE_SOURCE_ALREADY_HAS_WINE_MAKEDEP:{name}"
                 )
-            dst.write_text(
-                UNIX_MAKEDEP_PREAMBLE + original,
-                encoding="utf-8",
-            )
+            dst.write_text(UNIX_MAKEDEP_PREAMBLE + original, encoding="utf-8")
         copied.append(
             {
                 "path": f"dlls/winepocketpc.drv/{name}",
@@ -258,7 +204,7 @@ def main() -> int:
     )
 
     evidence = {
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "status": "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT_NOT_RUNTIME_TESTED",
         "wineVersion": lock["version"],
         "wineCommit": lock["commit"],
@@ -299,8 +245,9 @@ def main() -> int:
         "guestGraphicsHandleBindingImplemented": True,
         "guestGraphicsReceivePrimitiveImplemented": True,
         "externalImagePvi1ProtocolImplemented": True,
+        "guestVulkanImportPrimitiveImplemented": True,
         "guestGraphicsHandleReceiveIntegrated": False,
-        "guestGraphicsImportImplemented": False,
+        "guestGraphicsImportIntegrated": False,
         "guestGraphicsSynchronizationImplemented": False,
         "openglDriverImplemented": False,
         "configureAcPatched": ac_changed,
@@ -320,6 +267,7 @@ def main() -> int:
                 "pocketpc_graphics_handle_binding.c",
                 "pocketpc_guest_graphics_receive.c",
                 "pocketpc_external_image_fd_protocol.c",
+                "pocketpc_guest_vulkan_import.c",
                 "pocketpc_surface_writer.c",
                 "pocketpc_wine_window_map.c",
                 "pocketpc_wine_window_bridge.c",
@@ -333,8 +281,9 @@ def main() -> int:
             "pVulkanInit through Wine",
             "headless diagnostic Vulkan surface through Wine",
             "PVI1 external image receive through Wine",
+            "guest Vulkan import primitive through Wine VkDevice",
             "authenticated guest graphics receive integration",
-            "guest graphics Vulkan import",
+            "guest graphics Vulkan import integration",
             "guest graphics GPU synchronization",
             "visible Wine Vulkan surface creation",
             "visible Vulkan presentation support",
@@ -350,10 +299,7 @@ def main() -> int:
     }
 
     evidence_path.parent.mkdir(parents=True, exist_ok=True)
-    evidence_path.write_text(
-        json.dumps(evidence, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
 
     print("WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT")
     print(f"wine_commit={lock['commit']}")
@@ -367,7 +313,9 @@ def main() -> int:
     print("guest_graphics_handle_binding=true")
     print("guest_graphics_receive_primitive=true")
     print("external_image_fd_protocol=PVI1")
+    print("guest_vulkan_import_primitive=true")
     print("guest_graphics_handle_receive_integrated=false")
+    print("guest_graphics_import_integrated=false")
     print("visible_vulkan_surface_implemented=false")
     print("runtime_execution_evidence=false")
     return 0
