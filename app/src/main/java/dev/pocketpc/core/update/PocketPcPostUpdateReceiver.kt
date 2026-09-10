@@ -98,13 +98,18 @@ class PocketPcPostUpdateReceiver : BroadcastReceiver() {
                 }
 
         if (launchIntent != null) {
-            runCatching {
-                context.startActivity(launchIntent)
-            }
+            // Publish the fallback before asking Android to reopen PocketPC.
+            // MainActivity clears it immediately on a successful reopen. This
+            // avoids the previous race where the Activity could clear first
+            // and the receiver would post a stale notification afterwards.
             postOpenPocketPcFallback(
                 context = context,
                 launchIntent = launchIntent,
             )
+
+            runCatching {
+                context.startActivity(launchIntent)
+            }
         }
     }
 }
