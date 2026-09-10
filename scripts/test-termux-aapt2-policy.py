@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 helper = (ROOT / "scripts/termux-ensure-aapt2.sh").read_text(encoding="utf-8")
 gate = (ROOT / "scripts/termux-kotlin-unit-test.sh").read_text(encoding="utf-8")
+wrapper = (ROOT / "PocketPC-Termux-Update-Test.sh").read_text(encoding="utf-8")
+repo_check = (ROOT / "scripts/termux-repository-check.sh").read_text(encoding="utf-8")
 lock = json.loads((ROOT / "toolchains/android-build-lock.json").read_text(encoding="utf-8"))
 
 errors: list[str] = []
@@ -44,6 +46,22 @@ else:
     compile_index = gate.index(':app:compileDebugKotlin')
     if ensure_index > compile_index:
         errors.append("AAPT2 compatibility gate must run before Kotlin compile gate")
+
+if 'bash scripts/termux-repository-check.sh --require-modern' not in wrapper:
+    errors.append("Termux update wrapper does not fail early on legacy repositories")
+else:
+    repo_index = wrapper.index('bash scripts/termux-repository-check.sh --require-modern')
+    preflight_index = wrapper.index('bash scripts/termux-on-device-preflight.sh')
+    if repo_index > preflight_index:
+        errors.append("Termux repository gate must run before device preflight")
+
+for sentinel in (
+    "TERMUX_REPOSITORY_LEGACY",
+    "packages.termux.dev/apt/termux-main",
+    "termux.net",
+):
+    if sentinel not in repo_check:
+        errors.append(f"repository check missing sentinel: {sentinel}")
 
 if platform_package != f"platforms;android-{compile_sdk}.0":
     errors.append(
