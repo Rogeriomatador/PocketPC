@@ -68,9 +68,6 @@ class StorageRepository(private val context: Context) {
                             "Escolha uma pasta gravável para o PocketDrive."
                     }
 
-                    // Existing metadata is validated before changing the
-                    // directory layout. A future/corrupt volume therefore
-                    // fails closed instead of being silently rewritten.
                     val existingMetadata =
                         readPocketDriveMetadata(root)
 
@@ -471,7 +468,12 @@ class StorageRepository(private val context: Context) {
                     Uri.parse(entry.uri)
                 )
             } else {
-                PocketFileOpenCoordinator.present(plan)
+                PocketFileOpenCoordinator.present(
+                    plan = plan,
+                    uri = entry.uri,
+                    mimeType = entry.mimeType,
+                    sizeBytes = entry.size,
+                )
             }
         }
 
