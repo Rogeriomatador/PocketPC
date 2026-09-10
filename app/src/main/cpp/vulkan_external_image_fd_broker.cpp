@@ -12,18 +12,22 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 namespace {
 
 constexpr uint32_t kProtocol = 1;
-constexpr uint32_t kFdTokenMagic = 0x31444650u;  // PFD1 little-endian.
-constexpr uint16_t kFdTokenVersion = 1;
-constexpr size_t kFdTokenBytes = 32;
+constexpr uint32_t kExternalImageMagic = 0x31495650u;  // PVI1 little-endian.
+constexpr uint16_t kExternalImageVersion = 1;
+constexpr size_t kExternalImagePayloadBytes = 64;
 constexpr uint32_t kMaxDimension = 4096;
 constexpr size_t kMaxResources = 16;
 constexpr VkFormat kFormat = VK_FORMAT_R8G8B8A8_UNORM;
+constexpr VkImageUsageFlags kImageUsage =
+    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+    VK_IMAGE_USAGE_SAMPLED_BIT |
+    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
 struct Resource {
     uint64_t generation = 0;
@@ -67,18 +71,25 @@ void PutU64Le(uint8_t* out, uint64_t value) {
     }
 }
 
-void EncodeToken(
-        uint8_t out[kFdTokenBytes],
+void EncodeExternalImagePayload(
+        uint8_t out[kExternalImagePayloadBytes],
         uint64_t resource_id,
-        uint64_t generation,
+        const Resource& resource,
         uint64_t sequence) {
-    std::memset(out, 0, kFdTokenBytes);
-    PutU32Le(out + 0, kFdTokenMagic);
-    PutU16Le(out + 4, kFdTokenVersion);
+    std::memset(out, 0, kExternalImagePayloadBytes);
+    PutU32Le(out + 0, kExternalImageMagic);
+    PutU16Le(out + 4, kExternalImageVersion);
     PutU16Le(out + 6, 0);
     PutU64Le(out + 8, resource_id);
-    PutU64Le(out + 16, generation);
+    PutU64Le(out + 16, resource.generation);
     PutU64Le(out + 24, sequence);
+    PutU32Le(out + 32, resource.width);
+    PutU32Le(out + 36, resource.height);
+    PutU32Le(out + 40, static_cast<uint32_t>(kFormat));
+    PutU32Le(out + 44, static_cast<uint32_t>(kImageUsage));
+    PutU64Le(out + 48, static_cast<uint64_t>(resource.allocation_size));
+    PutU32Le(out + 56, resource.memory_type_bits);
+    PutU32Le(out + 60, resource.memory_type_index);
 }
 
 bool IsSeqpacket(int socket_fd) {
@@ -89,19 +100,23 @@ bool IsSeqpacket(int socket_fd) {
         socket_type == SOCK_SEQPACKET;
 }
 
-int SendFd(
+int SendExternalImageFd(
         int socket_fd,
         int fd,
         uint64_t resource_id,
-        uint64_t generation,
+        const Resource& resource,
         uint64_t sequence) {
     if (!IsSeqpacket(socket_fd) || fd < 0 || resource_id == 0 ||
-        generation == 0 || sequence == 0) {
+        resource.generation == 0 || sequence == 0 ||
+        resource.width == 0 || resource.height == 0 ||
+        resource.allocation_size == 0 || resource.memory_type_bits == 0 ||
+        resource.memory_type_index >= 32 ||
+        (resource.memory_type_bits & (1u << resource.memory_type_index)) == 0) {
         return -1;
     }
 
-    uint8_t payload[kFdTokenBytes];
-    EncodeToken(payload, resource_id, generation, sequence);
+    uint8_t payload[kExternalImagePayloadBytes];
+    EncodeExternalImagePayload(payload, resource_id, resource, sequence);
 
     struct iovec iov {};
     iov.iov_base = payload;
@@ -117,9 +132,7 @@ int SendFd(
     message.msg_controllen = sizeof(control);
 
     struct cmsghdr* header = CMSG_FIRSTHDR(&message);
-    if (header == nullptr) {
-        return -2;
-    }
+    if (header == nullptr) return -2;
     header->cmsg_level = SOL_SOCKET;
     header->cmsg_type = SCM_RIGHTS;
     header->cmsg_len = CMSG_LEN(sizeof(int));
@@ -320,11 +333,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     format_info.format = kFormat;
     format_info.type = VK_IMAGE_TYPE_2D;
     format_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    format_info.usage =
-        VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-        VK_IMAGE_USAGE_SAMPLED_BIT |
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    format_info.usage = kImageUsage;
     format_info.flags = 0;
 
     VkExternalImageFormatProperties external_properties {};
@@ -363,7 +372,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     image_info.arrayLayers = 1;
     image_info.samples = VK_SAMPLE_COUNT_1_BIT;
     image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    image_info.usage = format_info.usage;
+    image_info.usage = kImageUsage;
     image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     result = vkCreateImage(out->device, &image_info, nullptr, &out->image);
@@ -486,9 +495,7 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeCreate(
     }
 
     uint64_t resource_id = g_next_id.fetch_add(1);
-    if (resource_id == 0) {
-        resource_id = g_next_id.fetch_add(1);
-    }
+    if (resource_id == 0) resource_id = g_next_id.fetch_add(1);
     if (resource_id == 0 || g_resources.find(resource_id) != g_resources.end()) {
         Destroy(&resource);
         return ToJString(
@@ -547,11 +554,11 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSend(
         return ToJString(env, out.str());
     }
 
-    const int send_result = SendFd(
+    const int send_result = SendExternalImageFd(
         socket_fd,
         exported_fd,
         static_cast<uint64_t>(resource_id),
-        static_cast<uint64_t>(generation),
+        resource,
         static_cast<uint64_t>(sequence));
     close(exported_fd);
 
