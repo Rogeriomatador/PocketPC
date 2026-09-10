@@ -39,6 +39,13 @@
         <receiver
             android:name=".update.PocketPcInstallReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".update.PocketPcPostUpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".MainActivity"
