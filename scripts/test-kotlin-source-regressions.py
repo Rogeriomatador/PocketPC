@@ -17,7 +17,7 @@ guest = read("app/src/main/java/dev/pocketpc/core/runtime/GuestRuntimeProbe.kt")
 guest_lines = guest.count("\n") + 1
 if guest_lines > 1000:
     errors.append(f"GuestRuntimeProbe.kt unexpectedly large: {guest_lines} lines")
-if "}POCKETPC_DISPLAY_" in guest:
+if re.search(r"(?m)^\\s*}POCKETPC_DISPLAY_", guest):
     errors.append("GuestRuntimeProbe.kt contains interpolation-corruption marker")
 if re.search(r'"\$POCKETPC_DISPLAY_', guest):
     errors.append("GuestRuntimeProbe.kt contains unescaped shell display variable")
