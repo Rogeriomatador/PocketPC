@@ -28,6 +28,7 @@ fun routePocketFile(
 ): PocketFileRoutingDecision {
     val normalized = name.trim().lowercase()
     val extension = normalized.substringAfterLast('.', "")
+    val normalizedMime = mimeType?.trim()?.lowercase().orEmpty()
     val fileClass = classifyPocketFile(name)
 
     return when {
@@ -65,11 +66,12 @@ fun routePocketFile(
             )
 
         extension in INTERNAL_DOCUMENT_EXTENSIONS ||
-            mimeType?.startsWith("text/") == true ||
-            mimeType?.startsWith("image/") == true ||
-            mimeType?.startsWith("audio/") == true ||
-            mimeType?.startsWith("video/") == true ||
-            mimeType == "application/pdf" ->
+            normalizedMime.startsWith("text/") ||
+            normalizedMime.startsWith("image/") ||
+            normalizedMime.startsWith("audio/") ||
+            normalizedMime.startsWith("video/") ||
+            normalizedMime == "application/pdf" ||
+            normalizedMime == "application/xhtml+xml" ->
             PocketFileRoutingDecision(
                 route = PocketFileRoute.POCKET_INTERNAL_APP,
                 reason = "Tipo reservado para aplicativo interno/associação de arquivos do PocketPC.",
@@ -84,7 +86,10 @@ fun routePocketFile(
 }
 
 private val PC_EXECUTABLE_EXTENSIONS =
-    setOf("exe", "msi", "bat", "cmd", "com", "scr")
+    setOf(
+        "exe", "msi", "msix", "appx", "appxbundle",
+        "bat", "cmd", "com", "scr",
+    )
 
 private val ARCHIVE_EXTENSIONS =
     setOf("zip", "rar", "7z", "tar", "gz", "bz2", "xz", "cab")
@@ -94,7 +99,9 @@ private val DISK_IMAGE_EXTENSIONS =
 
 private val INTERNAL_DOCUMENT_EXTENSIONS =
     setOf(
-        "txt", "md", "log", "json", "xml", "csv",
-        "pdf", "png", "jpg", "jpeg", "gif", "webp", "svg",
-        "mp3", "wav", "ogg", "flac", "mp4", "mkv", "webm", "avi",
+        "txt", "md", "log", "json", "xml", "csv", "ini", "cfg", "conf",
+        "pdf", "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico",
+        "mp3", "wav", "ogg", "flac", "m4a", "mp4", "mkv", "webm", "avi", "mov",
+        "doc", "docx", "odt", "xls", "xlsx", "ods", "ppt", "pptx", "odp",
+        "htm", "html", "xhtml",
     )
