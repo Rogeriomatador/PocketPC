@@ -335,7 +335,6 @@ fun BrowserApp(
                         settings.loadWithOverviewMode = session.desktopMode
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
-                        settings.databaseEnabled = true
                         settings.loadsImagesAutomatically = true
                         settings.safeBrowsingEnabled = true
                         settings.allowFileAccess = false
