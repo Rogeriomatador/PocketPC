@@ -60,7 +60,6 @@ class RuntimeDiagnosticSuiteTest {
                 GuestRuntimeProbe
                     .D3D11_SMOKE,
             )
-
         val wineWindow =
             probes.indexOf(
                 GuestRuntimeProbe
@@ -70,7 +69,9 @@ class RuntimeDiagnosticSuiteTest {
         assertTrue(bridge > 0)
         assertTrue(bridge < wine)
         assertTrue(wine < wineWindow)
-        ass
+        assertTrue(wineWindow < graphics)
+    }
+
     @Test
     fun presentProbeIsExplicitlyBlockedUntilWsiBackendExists() {
         assertFalse(
@@ -89,7 +90,5 @@ class RuntimeDiagnosticSuiteTest {
                         .D3D11_PRESENT_SMOKE,
                 ),
         )
-    }
-ertTrue(wineWindow < graphics)
     }
 }
