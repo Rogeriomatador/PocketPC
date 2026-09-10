@@ -19,7 +19,7 @@ compile_sdk = str(lock["android"]["compileSdk"])
 required_helper_fragments = (
     'read_lock android.platformPackage',
     'pkg install -y aapt',
-    'termux-repository-check.sh --require-modern',
+    'termux-repository-check.sh --require-compatible',
     'TERMUX_AAPT2_PLATFORM_INCOMPATIBLE_AFTER_OFFICIAL_UPDATE',
     'Do not lower compileSdk',
 )
@@ -47,24 +47,33 @@ else:
     if ensure_index > compile_index:
         errors.append("AAPT2 compatibility gate must run before Kotlin compile gate")
 
-if 'bash scripts/termux-repository-check.sh --require-modern' not in wrapper:
-    errors.append("Termux update wrapper does not fail early on legacy repositories")
+if 'bash scripts/termux-repository-check.sh --require-compatible' not in wrapper:
+    errors.append("Termux update wrapper does not validate repository compatibility")
 else:
-    repo_index = wrapper.index('bash scripts/termux-repository-check.sh --require-modern')
+    repo_index = wrapper.index('bash scripts/termux-repository-check.sh --require-compatible')
     preflight_index = wrapper.index('bash scripts/termux-on-device-preflight.sh')
     if repo_index > preflight_index:
         errors.append("Termux repository gate must run before device preflight")
 
 for sentinel in (
+    "TERMUX_REPOSITORY_GOOGLE_PLAY_OK",
+    "TERMUX_REPOSITORY_VARIANT_MIXED",
+    "TERMUX_REPOSITORY_VARIANT_MISMATCH",
     "TERMUX_REPOSITORY_LEGACY",
-    "LEGACY_TERMUX_NET",
     "packages.termux.dev/apt/termux-main",
+    "termux-detect-variant.sh",
 ):
     if sentinel not in repo_check:
         errors.append(f"repository check missing sentinel: {sentinel}")
 
 if "termux[.]net" not in repo_check and "termux.net" not in repo_check:
-    errors.append("repository check does not recognize legacy termux.net")
+    errors.append("repository check does not recognize termux.net")
+
+if "TERMUX_GOOGLE_PLAY_AAPT2_PLATFORM_INCOMPATIBLE" not in helper:
+    errors.append("AAPT2 helper does not classify the Google Play toolchain limitation")
+
+if "TERMUX_KOTLIN_COMPILE_PASS_UNIT_TEST_BLOCKED_AAPT2" not in gate:
+    errors.append("Kotlin gate does not preserve compile PASS when Google Play AAPT2 blocks unit tests")
 
 if platform_package != f"platforms;android-{compile_sdk}.0":
     errors.append(
