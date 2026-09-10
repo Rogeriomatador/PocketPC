@@ -17,6 +17,7 @@ on:
       - 'scripts/pocketpc_wine_surface_broker.py'
       - 'scripts/test-wine-pocketpc-surface-broker.py'
       - 'scripts/run-wine-pocketpc-window-surface-smoke.py'
+      - 'scripts/test-wine-pocketpc-window-surface-policy.py'
       - 'scripts/test-pc-runtime-source-locks.py'
       - 'scripts/test-pocketpc-pe-audit.py'
       - 'scripts/test-wine-pocketpc-driver-policy.py'
@@ -52,6 +53,7 @@ jobs:
         run: |
           python3 scripts/test-wine-pocketpc-driver-policy.py
           python3 scripts/test-wine-pocketpc-driver-load-policy.py
+          python3 scripts/test-wine-pocketpc-window-surface-policy.py
 
       - name: Validate PocketPC Wine driver ABI and package verifier
         run: |
