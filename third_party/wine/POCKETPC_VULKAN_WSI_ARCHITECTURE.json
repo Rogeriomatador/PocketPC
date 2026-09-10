@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "status": "AHARDWAREBUFFER_TRANSPORT_FOUNDATION_IMPLEMENTED_NOT_EXECUTED_WSI_NOT_IMPLEMENTED",
+  "schemaVersion": 2,
+  "status": "AHARDWAREBUFFER_CROSS_PROCESS_PROBE_IMPLEMENTED_NOT_EXECUTED_WSI_NOT_IMPLEMENTED",
   "wine": {
     "version": "11.0",
     "commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
@@ -25,16 +25,32 @@
   "androidTransport": {
     "candidate": "AHardwareBuffer",
     "minimumApi": 26,
-    "hostProbe": "NativeRuntimeHost.nativeHardwareBufferProbe",
-    "probeSource": "app/src/main/cpp/runtime_host.cpp",
+    "sameProcessProbe": "NativeRuntimeHost.nativeHardwareBufferProbe",
+    "sameProcessProbeSource": "app/src/main/cpp/runtime_host.cpp",
+    "crossProcessProbe": "HardwareBufferCrossProcessProbe",
+    "crossProcessNativeSource": "app/src/main/cpp/hardware_buffer_cross_process.cpp",
+    "crossProcessReceiverProcess": ":gpu_probe",
+    "crossProcessEvidenceProtocol": 1,
     "allocation": "AHardwareBuffer_allocate",
     "socketSend": "AHardwareBuffer_sendHandleToUnixSocket",
     "socketReceive": "AHardwareBuffer_recvHandleFromUnixSocket",
     "vulkanExternalMemoryExtension": "VK_ANDROID_external_memory_android_hardware_buffer",
-    "hostProbeImplemented": true,
+    "sameProcessProbeImplemented": true,
+    "crossProcessProbeImplemented": true,
+    "strictEvidenceParserImplemented": true,
+    "crossProcessRaceSafeCompletionImplemented": true,
     "hostProbeSoftwareTestExecuted": false,
     "hostProbePhysicalTestExecuted": false,
-    "crossProcessPhysicalTestExecuted": false
+    "crossProcessPhysicalTestExecuted": false,
+    "note": "The cross-process probe requires native sender/receiver records, matching descriptors and distinct Android PIDs. It intentionally does not set vulkanWsiValidated."
+  },
+  "roblox": {
+    "graphicsPreflightImplemented": true,
+    "requiresCrossProcessTransportFoundation": true,
+    "requiresWineVulkanWsi": true,
+    "requiresHostVisiblePresent": true,
+    "controlledAttemptExecuted": false,
+    "gameplayValidated": false
   },
   "rejectedRoutes": [
     {
@@ -48,19 +64,26 @@
     {
       "route": "reuse wineandroid.drv as the DXVK WSI backend",
       "reason": "Pinned Wine 11 wineandroid.drv exposes pOpenGLInit but no pVulkanInit."
+    },
+    {
+      "route": "promote AHardwareBuffer cross-process transport directly to Roblox graphics readiness",
+      "reason": "Transport proves only handle ownership transfer. Vulkan surface creation, acquire/render/present synchronization and a host-visible frame remain separate gates."
     }
   ],
   "targetArchitecture": {
-    "phase1": "Android host proves AHardwareBuffer allocation plus AF_UNIX handle round-trip.",
-    "phase2": "Guest-side transport receives a real transferable graphics buffer identity without trusting raw pointers.",
-    "phase3": "Implement Wine Vulkan driver v47 callbacks and map Win32 surface semantics onto the transferable-buffer backend.",
-    "phase4": "Implement synchronization and image ownership for acquire/render/present.",
-    "phase5": "Run D3D11 Present smoke and require a host-visible frame before recording evidence.",
-    "phase6": "Only then unblock controlled DXVK application attempts."
+    "phase1": "Android host proves AHardwareBuffer allocation plus same-process AF_UNIX handle round-trip.",
+    "phase2": "A dedicated Android :gpu_probe process receives the real transferable AHardwareBuffer handle, validates descriptor and bytes, and returns evidence from a distinct PID.",
+    "phase3": "Guest-side transport receives a real transferable graphics-buffer identity without trusting raw pointers.",
+    "phase4": "Implement Wine Vulkan driver v47 callbacks and map Win32 surface semantics onto the transferable-buffer backend.",
+    "phase5": "Implement synchronization and image ownership for acquire/render/present.",
+    "phase6": "Run D3D11 Present smoke and require a host-visible frame before recording evidence.",
+    "phase7": "Only then unblock controlled Roblox/DXVK application attempts."
   },
   "gates": {
     "box64AndroidVulkanWrapperSourceReviewed": true,
     "ahardwareBufferHostProbeImplemented": true,
+    "ahardwareBufferCrossProcessProbeImplemented": true,
+    "ahardwareBufferEvidenceProtocolImplemented": true,
     "ahardwareBufferHostProbeSoftwareTestExecuted": false,
     "ahardwareBufferHostProbePhysicalTestExecuted": false,
     "ahardwareBufferCrossProcessPhysicalTestExecuted": false,
@@ -69,6 +92,8 @@
     "wineVulkanWsiSoftwareTestExecuted": false,
     "wineVulkanWsiPhysicalTestExecuted": false,
     "d3d11PresentHostVisibleFrameExecuted": false,
-    "controlledDxvkApplicationAttemptAllowed": false
+    "controlledDxvkApplicationAttemptAllowed": false,
+    "robloxControlledAttemptExecuted": false,
+    "robloxGameplayValidated": false
   }
 }
