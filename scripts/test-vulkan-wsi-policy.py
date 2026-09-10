@@ -10,12 +10,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL = ROOT / "third_party/wine/POCKETPC_DISPLAY_BRIDGE_PROTOCOL.json"
 AUDIT = ROOT / "third_party/wine/ANDROID_DRIVER_REUSE.json"
 CONTRACT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiContract.kt"
+GUEST_TRANSPORT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportContract.kt"
 REQUIREMENTS = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestProbeRequirements.kt"
 READINESS = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcRuntimeReadiness.kt"
 EVIDENCE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeProbeEvidenceStore.kt"
 SUITE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDiagnosticSuite.kt"
 ATTEMPT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PcWindowsLaunchAttemptPlan.kt"
 DRIVER_MAIN = ROOT / "third_party/wine/pocketpc-driver/pocketpcdrv_main.c"
+DRIVER_VULKAN = ROOT / "third_party/wine/pocketpc-driver/vulkan.c"
 REQUIREMENTS_TEST = ROOT / "app/src/test/java/dev/pocketpc/core/runtime/GuestProbeRequirementsTest.kt"
 READINESS_TEST = ROOT / "app/src/test/java/dev/pocketpc/core/runtime/PcRuntimeReadinessTest.kt"
 SUITE_TEST = ROOT / "app/src/test/java/dev/pocketpc/core/runtime/RuntimeDiagnosticSuiteTest.kt"
@@ -103,12 +105,14 @@ def main() -> int:
 
     texts = {
         "contract": CONTRACT.read_text(encoding="utf-8"),
+        "guest transport": GUEST_TRANSPORT.read_text(encoding="utf-8"),
         "requirements": REQUIREMENTS.read_text(encoding="utf-8"),
         "readiness": READINESS.read_text(encoding="utf-8"),
         "evidence": EVIDENCE.read_text(encoding="utf-8"),
         "suite": SUITE.read_text(encoding="utf-8"),
         "attempt": ATTEMPT.read_text(encoding="utf-8"),
         "driver": DRIVER_MAIN.read_text(encoding="utf-8"),
+        "driver vulkan": DRIVER_VULKAN.read_text(encoding="utf-8"),
         "requirements test": REQUIREMENTS_TEST.read_text(encoding="utf-8"),
         "readiness test": READINESS_TEST.read_text(encoding="utf-8"),
         "suite test": SUITE_TEST.read_text(encoding="utf-8"),
@@ -123,12 +127,31 @@ def main() -> int:
             "47",
             'PINNED_WINE_VERSION =\n        "11.0"',
             "db11d0fe6a169c457e23d007e20404643d067aa8",
+            "const val abiEntryPointImplemented =\n        true",
+            "const val surfaceCreateImplemented =\n        false",
+            "const val presentationSupportImplemented =\n        false",
+            "const val extensionMappingImplemented =\n        false",
+            "const val swapchainPresentationImplemented =\n        false",
             "const val implemented =\n        false",
             '"VULKAN_WSI_NOT_IMPLEMENTED"',
             '"p_vulkan_surface_create"',
             '"p_get_physical_device_presentation_support"',
             '"p_map_instance_extensions"',
             '"p_map_device_extensions"',
+            '"guest-graphics-handle-receive"',
+            '"guest-graphics-resource-import"',
+            '"guest-graphics-synchronization"',
+        ),
+    )
+    require(
+        failures,
+        "guest graphics transport contract",
+        texts["guest transport"],
+        (
+            "const val descriptorProtocolImplemented =\n        true",
+            "const val guestReceiveImplemented =\n        false",
+            "const val guestImportImplemented =\n        false",
+            "const val synchronizationImplemented =\n        false",
         ),
     )
     require(
@@ -187,13 +210,42 @@ def main() -> int:
         ),
     )
 
-    # Current PocketPC driver must not claim a Vulkan hook while the
-    # contract says NOT_IMPLEMENTED. A future real implementation must
-    # flip the contract/gates and update this policy atomically.
-    if ".pVulkanInit" in texts["driver"]:
-        failures.append(
-            "PocketPC driver exposes pVulkanInit while WSI contract is NOT_IMPLEMENTED"
-        )
+    # pVulkanInit may exist before WSI only as the exact Wine v47 ABI shell.
+    # While the contract says NOT_IMPLEMENTED, it must remain fail-closed and
+    # must not advertise a usable Win32/Android presentation route.
+    require(
+        failures,
+        "PocketPC Vulkan ABI registration",
+        texts["driver"],
+        (
+            ".pVulkanInit =",
+            "POCKETPC_VulkanInit",
+        ),
+    )
+    require(
+        failures,
+        "PocketPC Vulkan fail-closed backend",
+        texts["driver vulkan"],
+        (
+            "WINE_VULKAN_DRIVER_VERSION",
+            "return VK_ERROR_INCOMPATIBLE_DRIVER;",
+            "return VK_FALSE;",
+            "surface_backend=blocked",
+            ".p_vulkan_surface_create = pocketpc_vulkan_surface_create,",
+            ".p_get_physical_device_presentation_support =",
+            ".p_map_instance_extensions = pocketpc_map_instance_extensions,",
+            ".p_map_device_extensions = pocketpc_map_device_extensions,",
+        ),
+    )
+    for forbidden in (
+        "vkCreateAndroidSurfaceKHR",
+        "has_VK_KHR_android_surface = 1",
+        "has_VK_KHR_win32_surface = 1",
+    ):
+        if forbidden in texts["driver vulkan"]:
+            failures.append(
+                "fail-closed Vulkan ABI contains forbidden promotion: " + forbidden
+            )
 
     require(
         failures,
@@ -237,6 +289,8 @@ def main() -> int:
 
     print("VULKAN_WSI_POLICY_OK")
     print("wine_vulkan_driver_version=47")
+    print("vulkan_abi_entrypoint_implemented=true")
+    print("guest_graphics_transport_ready=false")
     print("wsi_implemented=false")
     print("d3d11_present_runnable=false")
     print("evidence_namespace=runtime-probe-evidence-v9")
