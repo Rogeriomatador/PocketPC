@@ -87,6 +87,7 @@ sdk.dir=$SDK_ROOT
 EOF
 
 AAPT2="$(command -v aapt2)"
+AAPT2_VERSION="$("$AAPT2" version 2>&1 | head -1 || true)"
 
 echo "Evidence"
 echo "  source_revision=$SOURCE_REVISION"
@@ -100,6 +101,7 @@ echo "  platform_dir=$PLATFORM_DIR"
 echo "  android_jar=$ANDROID_JAR"
 echo "  build_tools=$BUILD_TOOLS_DIR"
 echo "  aapt2=$AAPT2"
+echo "  aapt2_version=$AAPT2_VERSION"
 echo
 LOG_DIR="$ROOT/build/termux"
 mkdir -p "$LOG_DIR"
@@ -134,6 +136,41 @@ if [ "$COMPILE_STATUS" -ne 0 ]; then
 fi
 
 echo "Classification : TERMUX_KOTLIN_COMPILE_PASS"
+echo
+
+AAPT2_PROBE_DIR="$LOG_DIR/aapt2-probe"
+mkdir -p "$AAPT2_PROBE_DIR"
+cat > "$AAPT2_PROBE_DIR/AndroidManifest.xml" <<'EOF'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.pocketpc.aapt2probe">
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="37" />
+    <application />
+</manifest>
+EOF
+
+echo "Checking AAPT2 against locked Android platform..."
+set +e
+"$AAPT2" link \
+    -o "$AAPT2_PROBE_DIR/probe.apk" \
+    -I "$ANDROID_JAR" \
+    --manifest "$AAPT2_PROBE_DIR/AndroidManifest.xml" \
+    >"$AAPT2_PROBE_DIR/link.log" 2>&1
+AAPT2_PROBE_STATUS=$?
+set -e
+
+if [ "$AAPT2_PROBE_STATUS" -ne 0 ]; then
+    echo "===== AAPT2 PLATFORM PROBE ====="
+    cat "$AAPT2_PROBE_DIR/link.log"
+    echo "===== END AAPT2 PLATFORM PROBE ====="
+    echo
+    echo "Classification : TERMUX_AAPT2_PLATFORM_INCOMPATIBLE"
+    echo "aapt2=$AAPT2"
+    echo "aapt2_version=$AAPT2_VERSION"
+    echo "android_jar=$ANDROID_JAR"
+    echo "Important: Kotlin compilation passed; Android resource linking is blocked by this AAPT2/platform combination."
+    exit 11
+fi
+
+echo "Classification : TERMUX_AAPT2_PLATFORM_PASS"
 echo
 echo "Executing unit-test gate:"
 echo "  :app:testDebugUnitTest"
