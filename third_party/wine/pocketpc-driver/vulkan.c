@@ -16,6 +16,8 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(pocketpcdrv);
 
+static LONG pocketpc_headless_present_count;
+
 static BOOL pocketpc_headless_diagnostic_enabled(void)
 {
     const char *value = getenv("POCKETPC_VULKAN_HEADLESS_DIAGNOSTIC");
@@ -44,8 +46,18 @@ static void pocketpc_headless_client_surface_present(
     struct client_surface *surface,
     HDC hdc
 ) {
-    (void)surface;
+    LONG count;
     (void)hdc;
+
+    if (!pocketpc_headless_diagnostic_enabled())
+        return;
+
+    count = InterlockedIncrement(&pocketpc_headless_present_count);
+    TRACE(
+        "POCKETPC_VULKAN_WSI stage=headless_present_observed diagnostic_only=1 visible_present=0 count=%ld hwnd=%p\n",
+        count,
+        surface ? surface->hwnd : NULL
+    );
 }
 
 static const struct client_surface_funcs pocketpc_headless_client_surface_funcs =
@@ -154,11 +166,6 @@ static void pocketpc_map_instance_extensions(
     if (!extensions || !pocketpc_headless_diagnostic_enabled())
         return;
 
-    /*
-     * Diagnostic-only mapping follows Wine's nulldrv model. It creates an
-     * actual host VkSurfaceKHR backed by VK_EXT_headless_surface, but it is not
-     * a visible Android presentation path and must never be promoted as one.
-     */
     if (extensions->has_VK_KHR_win32_surface)
         extensions->has_VK_EXT_headless_surface = 1;
     if (extensions->has_VK_EXT_headless_surface)
@@ -171,14 +178,6 @@ static void pocketpc_map_device_extensions(
     if (!extensions)
         return;
 
-    /*
-     * Wine's Linux graphics drivers translate Win32 external-handle
-     * extensions to the host fd variants. This mapping is independent of WSI
-     * surface creation and allows Wine's Vulkan core to use its normal fd
-     * external-memory/semaphore/fence paths when the host driver supports
-     * them. It does NOT prove that PocketPC's guest graphics broker has
-     * transported or imported any particular resource.
-     */
     if (extensions->has_VK_KHR_external_memory_win32)
         extensions->has_VK_KHR_external_memory_fd = 1;
     if (extensions->has_VK_KHR_external_memory_fd)
