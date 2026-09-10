@@ -157,6 +157,9 @@ for label, text_blob in (
     if "find " in text_blob and "|\n        head -1" in text_blob:
         errors.append(f"{label} contains SIGPIPE-prone find/head pipeline")
 
+if "protobuf-dev" in local_builder:
+    errors.append("local AAPT2 builder must not require obsolete protobuf-dev package")
+
 for insecure in (
     "trusted=yes",
     "--allow-unauthenticated",
