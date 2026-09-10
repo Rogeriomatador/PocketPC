@@ -402,7 +402,8 @@ function Invoke-PythonPolicyChecks {
         "scripts\test-update-feed-policy.py",
         "scripts\test-bootstrap-signer-verifier.py",
         "scripts\test-pocketdrive-research-policy.py",
-        "scripts\test-kotlin-source-regressions.py"
+        "scripts\test-kotlin-source-regressions.py",
+        "scripts\test-termux-aapt2-policy.py"
     )
 
     $oldPocketPcReadelf = $env:POCKETPC_READELF
