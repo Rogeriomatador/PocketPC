@@ -236,7 +236,7 @@ private val OFFICE_EXTENSIONS =
     setOf("doc", "docx", "odt", "xls", "xlsx", "ods", "ppt", "pptx", "odp")
 
 private val IMPLEMENTED_OFFICE_PREVIEW_EXTENSIONS =
-    setOf("docx", "odt")
+    setOf("docx", "odt", "xlsx", "ods", "pptx", "odp")
 
 private val WEB_EXTENSIONS =
     setOf("htm", "html", "xhtml")
