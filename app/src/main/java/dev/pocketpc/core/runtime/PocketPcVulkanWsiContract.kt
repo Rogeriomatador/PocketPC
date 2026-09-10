@@ -4,7 +4,9 @@ package dev.pocketpc.core.runtime
  * Contract for the Wine graphics-driver Vulkan WSI needed by DXVK Present.
  *
  * This is intentionally fail-closed. GDI window_surface flush support does
- * not satisfy Wine's Vulkan graphics-driver ABI.
+ * not satisfy Wine's Vulkan graphics-driver ABI, and proving cross-process
+ * AHardwareBuffer transport does not by itself prove a Vulkan surface,
+ * swapchain or Present path.
  */
 object PocketPcVulkanWsiContract {
     const val WINE_VULKAN_DRIVER_VERSION =
@@ -32,4 +34,19 @@ object PocketPcVulkanWsiContract {
             "p_map_instance_extensions",
             "p_map_device_extensions",
         )
+
+    val requiredTransportProofs:
+        Set<String> =
+        setOf(
+            "native-host-loaded",
+            "ahardwarebuffer-same-process-structural-roundtrip",
+            "ahardwarebuffer-cross-process-handle-roundtrip",
+            "distinct-sender-receiver-processes",
+        )
+
+    fun canEnterWsiIntegrationTest(
+        foundation: PocketPcVulkanWsiFoundationStatus,
+    ): Boolean =
+        implemented &&
+            foundation.readyForWsiImplementation
 }
