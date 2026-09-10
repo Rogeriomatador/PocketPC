@@ -201,8 +201,7 @@ if [ "$BUILD_STATUS" -ne 0 ]; then
 fi
 
 BUILT_BIN="$(
-    find "$BUILD_DIR" -type f -name aapt2 -perm -u+x -print 2>/dev/null |
-        head -1
+    find "$BUILD_DIR" -type f -name aapt2 -perm -u+x -print -quit 2>/dev/null
 )"
 
 if [ -z "$BUILT_BIN" ] || [ ! -x "$BUILT_BIN" ]; then
