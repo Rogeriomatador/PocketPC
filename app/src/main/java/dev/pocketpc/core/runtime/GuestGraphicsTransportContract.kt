@@ -6,13 +6,16 @@ package dev.pocketpc.core.runtime
  *
  * Android-to-Android AHardwareBuffer transfer is useful host evidence, but it
  * does not prove that Box64/Wine can receive, identify, import or synchronize
- * the same graphics resource. This gate exists so host transport evidence can
- * never be promoted into guest graphics readiness by accident.
+ * the same graphics resource. Metadata and ownership protocols can be
+ * implemented before the actual handle/import/synchronization transport and
+ * must never promote readiness by themselves.
  */
 object GuestGraphicsTransportContract {
     const val PROTOCOL_VERSION = 1
 
     const val descriptorProtocolImplemented =
+        true
+    const val ownershipProtocolImplemented =
         true
     const val guestReceiveImplemented =
         false
@@ -33,6 +36,7 @@ object GuestGraphicsTransportContract {
 
     fun readyForWsiImplementation(): Boolean =
         descriptorProtocolImplemented &&
+            ownershipProtocolImplemented &&
             guestReceiveImplemented &&
             guestImportImplemented &&
             synchronizationImplemented
