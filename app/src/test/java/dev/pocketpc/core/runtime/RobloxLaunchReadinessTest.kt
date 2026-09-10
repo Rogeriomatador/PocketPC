@@ -21,8 +21,7 @@ class RobloxLaunchReadinessTest {
             winePocketPcWindowSmokePassed = true,
         )
 
-    @Test
-    fun vulkanWsiKeepsRobloxFailClosedEvenWhenOtherEvidenceIsTrue() {
+    private fun installedRoblox(): RobloxInstallationDiscovery {
         val installation =
             RobloxPlayerInstallation(
                 versionDirectoryName = "version-test",
@@ -34,26 +33,29 @@ class RobloxLaunchReadinessTest {
                 bytes = 123L,
                 modifiedAtMillis = 1L,
             )
-        val discovery =
-            RobloxInstallationDiscovery(
-                versionsRoot = File("/tmp/Versions"),
-                installations = listOf(installation),
-                selected = installation,
-                blockers = emptyList(),
-            )
-        val runtime =
-            PcRuntimeReadiness(
-                target = "Windows x64 em Android ARM64",
-                stages = emptyList(),
-                executableReady = false,
-                controlledAttemptReady = true,
-            )
+        return RobloxInstallationDiscovery(
+            versionsRoot = File("/tmp/Versions"),
+            installations = listOf(installation),
+            selected = installation,
+            blockers = emptyList(),
+        )
+    }
 
+    private fun readyRuntime() =
+        PcRuntimeReadiness(
+            target = "Windows x64 em Android ARM64",
+            stages = emptyList(),
+            executableReady = false,
+            controlledAttemptReady = true,
+        )
+
+    @Test
+    fun vulkanWsiKeepsRobloxFailClosedEvenWhenOtherEvidenceIsTrue() {
         val result =
             RobloxLaunchReadinessProbe.assess(
-                runtimeReadiness = runtime,
+                runtimeReadiness = readyRuntime(),
                 probeEvidence = allRuntimeEvidence(),
-                installation = discovery,
+                installation = installedRoblox(),
             )
 
         assertFalse(PocketPcVulkanWsiContract.implemented)
@@ -67,6 +69,44 @@ class RobloxLaunchReadinessTest {
         assertTrue(
             result.blockers.contains(
                 PocketPcVulkanWsiContract.blocker,
+            ),
+        )
+    }
+
+    @Test
+    fun guestGraphicsTransportHasDedicatedRobloxBlocker() {
+        val hostOnlyFoundation =
+            PocketPcVulkanWsiFoundationStatus(
+                nativeHostLoaded = true,
+                sameProcessTransportStructurallyReady = true,
+                crossProcessTransportVerified = true,
+                distinctProcessesObserved = true,
+                readyForWsiImplementation = false,
+                blockers =
+                    listOf(
+                        PocketPcVulkanWsiFoundationProbe
+                            .BLOCKER_GUEST_GRAPHICS_TRANSPORT,
+                    ),
+                guestGraphicsTransportReady = false,
+            )
+
+        val result =
+            RobloxLaunchReadinessProbe.assess(
+                runtimeReadiness = readyRuntime(),
+                probeEvidence = allRuntimeEvidence(),
+                installation = installedRoblox(),
+                wsiFoundation = hostOnlyFoundation,
+            )
+
+        assertEquals(
+            RobloxLaunchReadinessState.RUNTIME_BLOCKED,
+            result.state,
+        )
+        assertFalse(result.controlledAttemptReady)
+        assertTrue(
+            result.blockers.contains(
+                RobloxLaunchReadinessProbe
+                    .BLOCKER_GUEST_GRAPHICS_TRANSPORT,
             ),
         )
     }
