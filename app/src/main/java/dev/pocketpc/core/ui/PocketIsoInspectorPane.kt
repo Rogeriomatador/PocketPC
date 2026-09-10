@@ -16,11 +16,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.storage.PocketFileOpenRequest
+import dev.pocketpc.core.storage.parsePocketIso9660PrimaryDescriptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileInputStream
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 private const val ISO_SECTOR_BYTES = 2048
 private const val ISO_DESCRIPTOR_START_SECTOR = 16
@@ -95,6 +95,11 @@ fun PocketIsoInspectorPane(
                 }
 
                 Text(
+                    "Os campos numéricos duplicados little-endian/big-endian do ISO9660 precisam coincidir; imagens inconsistentes são recusadas.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
                     "O PocketPC está apenas inspecionando a estrutura ISO9660. Montagem e execução de conteúdo da imagem ainda não são declaradas como implementadas.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -159,34 +164,14 @@ private fun inspectIso9660(
 
                     val pvd = primary
                         ?: error("Primary Volume Descriptor ISO9660 não encontrado.")
-                    val volumeId =
-                        pvd.copyOfRange(40, 72)
-                            .toString(Charsets.US_ASCII)
-                            .trim('\u0000', ' ')
-                    val volumeBlocks =
-                        ByteBuffer.wrap(pvd, 80, 4)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .int
-                            .toLong() and 0xFFFF_FFFFL
-                    val logicalBlockSize =
-                        ByteBuffer.wrap(pvd, 128, 2)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .short
-                            .toInt() and 0xFFFF
-                    check(logicalBlockSize > 0) {
-                        "ISO9660 declarou tamanho de bloco inválido."
-                    }
-                    check(volumeBlocks <= Long.MAX_VALUE / logicalBlockSize.toLong()) {
-                        "ISO9660 declarou tamanho de volume fora do intervalo suportado."
-                    }
-                    val declaredBytes = volumeBlocks * logicalBlockSize.toLong()
+                    val parsed = parsePocketIso9660PrimaryDescriptor(pvd)
 
                     PocketIsoState.Ready(
                         PocketIsoInfo(
-                            volumeId = volumeId,
-                            logicalBlockSize = logicalBlockSize,
-                            volumeBlocks = volumeBlocks,
-                            declaredBytes = declaredBytes,
+                            volumeId = parsed.volumeId,
+                            logicalBlockSize = parsed.logicalBlockSize,
+                            volumeBlocks = parsed.volumeBlocks,
+                            declaredBytes = parsed.declaredBytes,
                             sourceBytes = sourceBytes.coerceAtLeast(0L),
                         )
                     )
