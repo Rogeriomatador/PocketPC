@@ -43,6 +43,38 @@ class PocketFileOpenPlanTest {
     }
 
     @Test
+    fun rasterImageUsesImplementedPocketPcViewerWithoutAndroidEscape() {
+        val plan = planPocketFileOpen("foto.webp", "image/webp")
+
+        assertEquals(
+            PocketFileHandler.IMAGE_VIEWER,
+            plan.association.handler,
+        )
+        assertEquals(
+            PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
+            plan.association.readiness,
+        )
+        assertTrue(plan.canAttemptNow)
+        assertFalse(plan.leavesPocketPc)
+    }
+
+    @Test
+    fun svgRemainsAssociatedButPendingUntilItsRendererExists() {
+        val plan = planPocketFileOpen("vetor.svg", "image/svg+xml")
+
+        assertEquals(
+            PocketFileHandler.IMAGE_VIEWER,
+            plan.association.handler,
+        )
+        assertEquals(
+            PocketFileHandlerReadiness.ROUTE_ONLY,
+            plan.association.readiness,
+        )
+        assertFalse(plan.canAttemptNow)
+        assertFalse(plan.leavesPocketPc)
+    }
+
+    @Test
     fun archiveHasPocketPcAssociationButDoesNotPretendHandlerIsReady() {
         val plan = planPocketFileOpen("backup.rar")
 
