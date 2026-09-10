@@ -209,6 +209,10 @@ fun PocketFileOpenOverlay() {
                         }
                     }
                 }
+
+                PocketFileQuickActions(
+                    request = currentRequest,
+                )
             }
         },
         confirmButton = {
