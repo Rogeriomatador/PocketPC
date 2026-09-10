@@ -106,11 +106,21 @@ class PocketFileOpenPlanTest {
     }
 
     @Test
-    fun unknownFileFailsClosed() {
-        val plan = planPocketFileOpen("mystery.unknown")
-        assertEquals(PocketFileOpenCapability.UNSUPPORTED, plan.capability)
-        assertFalse(plan.canAttemptNow)
-        assertFalse(plan.leavesPocketPc)
+    fun unknownFileFailsClosedUntilUserExplicitlyChoosesText() {
+        val defaultPlan = planPocketFileOpen("codigo.nerva")
+        assertEquals(PocketFileOpenCapability.UNSUPPORTED, defaultPlan.capability)
+        assertFalse(defaultPlan.canAttemptNow)
+        assertFalse(defaultPlan.leavesPocketPc)
+
+        val textPlan = planPocketFileOpenAsText("codigo.nerva")
+        assertEquals(PocketFileHandler.TEXT_EDITOR, textPlan.association.handler)
+        assertEquals(
+            PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL,
+            textPlan.association.readiness,
+        )
+        assertTrue(textPlan.canAttemptNow)
+        assertFalse(textPlan.leavesPocketPc)
+        assertEquals("codigo.nerva", textPlan.fileName)
     }
 
     private fun assertImplementedInternal(
