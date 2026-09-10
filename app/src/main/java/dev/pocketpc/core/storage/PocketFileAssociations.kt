@@ -70,6 +70,12 @@ fun resolvePocketFileAssociation(
                 handler = PocketFileHandler.ARCHIVE_MANAGER,
                 displayName = "Compactador do PocketPC",
                 route = route.route,
+                readiness =
+                    if (extension == "zip") {
+                        PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL
+                    } else {
+                        PocketFileHandlerReadiness.ROUTE_ONLY
+                    },
             )
 
         PocketFileRoute.POCKET_DISK_IMAGE ->
