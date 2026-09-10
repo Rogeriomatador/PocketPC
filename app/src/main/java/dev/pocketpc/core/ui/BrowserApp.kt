@@ -250,14 +250,14 @@ fun BrowserApp(
                 }
                 BrowserNavButton("+", description = "Nova aba", enabled = session.canAddTab) { session.newTab() }
                 if (integratedWindowControls) {
-                    WindowControlButton("—") { windowActions?.minimized?.invoke() }
+                    WindowControlButton("—") { windowActions.minimized.invoke() }
                     // Compact windows already fill the workspace; maximize would have no visible effect.
                     if (!compactWindowControls) {
-                        WindowControlButton(if (windowActions?.maximized == true) "▣" else "□") {
-                            windowActions?.toggleMaximize?.invoke()
+                        WindowControlButton(if (windowActions.maximized) "▣" else "□") {
+                            windowActions.toggleMaximize.invoke()
                         }
                     }
-                    WindowControlButton("×", danger = true) { windowActions?.close?.invoke() }
+                    WindowControlButton("×", danger = true) { windowActions.close.invoke() }
                 }
             }
         }
