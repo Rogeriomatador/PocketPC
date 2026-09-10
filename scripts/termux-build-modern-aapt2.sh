@@ -212,7 +212,7 @@ fi
 cp -f "$BUILT_BIN" "$INSTALL_BIN"
 chmod 700 "$INSTALL_BIN"
 
-AAPT2_VERSION="$("$INSTALL_BIN" version 2>&1 | head -1 || true)"
+AAPT2_VERSION="$("$INSTALL_BIN" version 2>&1 | awk 'NR == 1 {line=$0} END {print line}')"
 AAPT2_SHA256="$(sha256sum "$INSTALL_BIN" | awk '{print $1}')"
 
 PLATFORM_PACKAGE="$(
