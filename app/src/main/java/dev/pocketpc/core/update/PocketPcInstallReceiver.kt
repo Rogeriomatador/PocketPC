@@ -162,12 +162,24 @@ class PocketPcInstallReceiver :
                     KEY_INSTALL_ATTEMPT_DOWNLOAD_ID
                 )
                 .apply()
+
+            cancelPocketPcReopenAfterUpdate(
+                context.applicationContext
+            )
         }
 
         if (
             status ==
             PackageInstaller.STATUS_PENDING_USER_ACTION
         ) {
+            // From this point the user is in the system installer, so remember
+            // that a successful replacement should return them to PocketPC.
+            // This also covers installs started from Este PC > Atualizações,
+            // not only the foreground modal flow.
+            requestPocketPcReopenAfterUpdate(
+                context.applicationContext
+            )
+
             val confirmation =
                 if (
                     Build.VERSION.SDK_INT >=
