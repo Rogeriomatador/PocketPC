@@ -101,6 +101,10 @@ fun PocketFileOpenOverlay() {
         current.association.handler == PocketFileHandler.IMAGE_VIEWER &&
             current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
             currentRequest.uri != null
+    val isZipViewer =
+        current.association.handler == PocketFileHandler.ARCHIVE_MANAGER &&
+            current.association.readiness == PocketFileHandlerReadiness.IMPLEMENTED_INTERNAL &&
+            currentRequest.uri != null
 
     LaunchedEffect(
         currentRequest.uri,
@@ -141,6 +145,7 @@ fun PocketFileOpenOverlay() {
                 when {
                     isTextViewer -> "Editor de Texto do PocketPC"
                     isImageViewer -> "Fotos do PocketPC"
+                    isZipViewer -> "Compactador do PocketPC"
                     else -> current.title
                 }
             )
@@ -160,6 +165,9 @@ fun PocketFileOpenOverlay() {
 
                     isImageViewer ->
                         PocketImagePreview(state = imagePreview)
+
+                    isZipViewer ->
+                        PocketZipArchivePane(request = currentRequest)
 
                     else -> {
                         Text(current.description)
@@ -224,7 +232,7 @@ fun PocketFileOpenOverlay() {
         confirmButton = {
             TextButton(onClick = PocketFileOpenCoordinator::dismiss) {
                 Text(
-                    if (isTextViewer || isImageViewer) {
+                    if (isTextViewer || isImageViewer || isZipViewer) {
                         "Fechar"
                     } else {
                         "Entendi"
