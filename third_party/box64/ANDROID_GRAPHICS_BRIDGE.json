@@ -16,15 +16,17 @@
   "pocketPcHostFoundation": {
     "ahardwareBufferCrossProcessProbeImplemented": true,
     "ahardwareBufferResourceBrokerImplemented": true,
+    "canonicalAhardwareBufferImportProbeImplemented": true,
     "resourceDescriptorProtocolImplemented": true,
     "ownershipProtocolImplemented": true,
     "vulkanExternalResourceCapabilityProbeImplemented": true,
     "ancillaryFdTransportPrimitiveImplemented": true,
-    "graphicsHandleBindingImplemented": true
+    "graphicsHandleBindingImplemented": true,
+    "guestReceivePrimitiveImplemented": true
   },
   "guestGates": {
     "directAhardwareBufferBridgeVerified": false,
-    "handleReceiveImplemented": false,
+    "handleReceiveRuntimeIntegrated": false,
     "vulkanResourceImportImplemented": false,
     "synchronizationImplemented": false,
     "runtimeTestExecuted": false,
@@ -33,15 +35,19 @@
   "candidateOrder": [
     "VK_KHR_external_memory_fd / OPAQUE_FD + fd synchronization",
     "VK_EXT_external_memory_dma_buf + fd synchronization",
-    "AHardwareBuffer host broker only if a verified guest bridge is implemented",
-    "virtual/offscreen WSI fallback"
+    "AHardwareBuffer host broker only after canonical AHB query and a verified guest bridge",
+    "headless diagnostic WSI for non-visible surface/swapchain diagnostics",
+    "virtual/offscreen WSI fallback for a future visible compositor"
   ],
   "rules": [
     "Extension advertisement is capability evidence, not execution evidence.",
     "AHardwareBuffer is image/memory transport and is never treated as VkSurfaceKHR.",
     "No raw pointer or process-local file descriptor number is serialized as a portable graphics resource identity.",
-    "SCM_RIGHTS transport and resource identity binding are host/guest protocol foundations, not Vulkan import evidence.",
+    "SCM_RIGHTS transport, resource identity binding and guest receive helpers are protocol foundations, not Vulkan import evidence.",
+    "A canonical vkGetAndroidHardwareBufferPropertiesANDROID query is host capability evidence, not guest import evidence.",
+    "Guest receive is not considered integrated until the authenticated PocketPC runtime session feeds the exact Wine/Box64 process.",
     "Host broker implementation does not promote guest receive/import/synchronization gates.",
-    "Roblox and D3D11 Present remain fail-closed until the guest transport and WSI backend are implemented and tested."
+    "Headless diagnostic surface creation is not visible presentation evidence.",
+    "Roblox and visible D3D11 Present remain fail-closed until guest transport, Vulkan import/synchronization and visible WSI are implemented and tested."
   ]
 }
