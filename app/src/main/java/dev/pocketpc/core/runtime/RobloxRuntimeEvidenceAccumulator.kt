@@ -26,6 +26,7 @@ class RobloxRuntimeEvidenceAccumulator(
 
     private var processStarted = false
     private var processAlive = false
+    private var processStartedAtElapsedMillis: Long? = null
     private var windowPresented = false
     private var d3d11PresentObserved = false
     private var networkObserved = false
@@ -45,7 +46,11 @@ class RobloxRuntimeEvidenceAccumulator(
 
         when (signal) {
             RobloxObservedSignal.PLAYER_PROCESS_STARTED -> {
-                processStarted = true
+                if (!processStarted) {
+                    processStarted = true
+                    processStartedAtElapsedMillis =
+                        elapsedMillis
+                }
                 processAlive = true
                 stoppedAtElapsedMillis = null
             }
@@ -94,7 +99,9 @@ class RobloxRuntimeEvidenceAccumulator(
             return
         }
         processAlive = false
-        stoppedAtElapsedMillis = elapsedMillis
+        if (stoppedAtElapsedMillis == null) {
+            stoppedAtElapsedMillis = elapsedMillis
+        }
         if (crashed) {
             crashObserved = true
         }
@@ -111,16 +118,21 @@ class RobloxRuntimeEvidenceAccumulator(
             "Tempo de snapshot Roblox inválido."
         }
 
+        val processStart =
+            processStartedAtElapsedMillis
         val effectiveEnd =
-            if (processStarted) {
+            if (processStart != null) {
                 stoppedAtElapsedMillis
                     ?: elapsedMillis
             } else {
-                startedAtElapsedMillis
+                null
             }
         val stableMillis =
-            if (processStarted) {
-                (effectiveEnd - startedAtElapsedMillis)
+            if (
+                processStart != null &&
+                effectiveEnd != null
+            ) {
+                (effectiveEnd - processStart)
                     .coerceAtLeast(0L)
             } else {
                 0L
