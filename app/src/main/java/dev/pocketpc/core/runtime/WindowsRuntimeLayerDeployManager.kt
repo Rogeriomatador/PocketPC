@@ -147,11 +147,10 @@ class WindowsRuntimeLayerDeployManager(
                                 )
 
                             val destinationParent =
-                                requireNotNull(
-                                    destination.parentFile,
-                                ) {
-                                    "WINDOWS_LAYER_DESTINATION_PARENT_MISSING"
-                                }
+                                destination.parentFile
+                                    ?: error(
+                                        "WINDOWS_LAYER_DESTINATION_PARENT_MISSING",
+                                    )
                             require(
                                 destinationParent
                                     .canonicalFile ==
@@ -306,11 +305,10 @@ class WindowsRuntimeLayerDeployManager(
                     )
 
                     val layerStateParent =
-                        requireNotNull(
-                            layerState.parentFile,
-                        ) {
-                            "WINDOWS_LAYER_STATE_PARENT_MISSING"
-                        }
+                        layerState.parentFile
+                            ?: error(
+                                "WINDOWS_LAYER_STATE_PARENT_MISSING",
+                            )
                     require(
                         layerStateParent.mkdirs() ||
                             layerStateParent.isDirectory,
