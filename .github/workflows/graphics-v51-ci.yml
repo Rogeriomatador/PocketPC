@@ -6,9 +6,11 @@ on:
       - improve/alpha22-desktop-continuity
     paths:
       - '.github/workflows/graphics-v51-ci.yml'
+      - '.github/workflows/wine-x86_64-v52-experimental.yml'
       - 'app/src/main/cpp/**'
       - 'app/src/main/java/dev/pocketpc/core/runtime/**'
       - 'app/src/test/java/dev/pocketpc/core/runtime/**'
+      - 'scripts/build-wine-x86_64-v52-experimental.py'
       - 'scripts/prepare-wine-pocketpc-continuous-present-v52.py'
       - 'scripts/prepare-wine-pocketpc-driver-v52.py'
       - 'scripts/test-runtime-v52-present-selection-policy.py'
@@ -40,6 +42,7 @@ jobs:
       - name: Python syntax
         run: >-
           python3 -m py_compile
+          scripts/build-wine-x86_64-v52-experimental.py
           scripts/prepare-wine-pocketpc-continuous-present-v52.py
           scripts/prepare-wine-pocketpc-driver-v52.py
           scripts/test-runtime-v52-present-selection-policy.py
