@@ -148,6 +148,15 @@ class RuntimeDisplaySessionController(
                 frame = value.frame,
             ).getOrThrow()
             publishSnapshot()
+
+            RuntimeGraphicsEvidenceLog.desktopModelFrameDelivered(
+                windowId = value.windowId,
+                resourceId = value.identity.resourceId,
+                generation = value.identity.generation,
+                sequence = value.identity.sequence,
+                width = value.frame.width,
+                height = value.frame.height,
+            )
         }
 
     fun sendPointer(
