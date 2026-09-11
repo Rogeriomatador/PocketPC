@@ -33,6 +33,8 @@ data class RuntimeDisplayExecutionResult(
     val graphicsResourceId: Long? = null,
     val graphicsGeneration: Long? = null,
     val graphicsError: String? = null,
+    val graphicsV52FramesDelivered: Long = 0L,
+    val graphicsV52FrameFingerprints: List<Long> = emptyList(),
 )
 
 private data class RuntimeDisplayGraphicsState(
@@ -201,6 +203,8 @@ class RuntimeDisplayExecutionController(
             var graphicsGpuQueueFamilyIndex: Int? = null
             var graphicsResourceId: Long? = null
             var graphicsGeneration: Long? = null
+            var graphicsV52FramesDelivered = 0L
+            val graphicsV52FrameFingerprints = mutableListOf<Long>()
             var graphicsError: String? =
                 graphicsSelection.blocker
                     ?: if (graphicsSession == null) {
@@ -474,6 +478,20 @@ class RuntimeDisplayExecutionController(
                                         1L,
                                         VulkanContinuousPresentHostCoordinator.MAX_TIMEOUT_MILLIS,
                                     ),
+                                onHostStep = { step ->
+                                    if (
+                                        step.status ==
+                                            VulkanContinuousPresentHostStepStatus.MODEL_DELIVERED_GUEST_RELEASED
+                                    ) {
+                                        val fingerprint = step.frameFingerprint
+                                        if (fingerprint != null) {
+                                            synchronized(stateLock) {
+                                                graphicsV52FramesDelivered += 1L
+                                                graphicsV52FrameFingerprints += fingerprint
+                                            }
+                                        }
+                                    }
+                                },
                             )
                         if (terminal != null) {
                             updateGraphicsState(
@@ -750,6 +768,10 @@ class RuntimeDisplayExecutionController(
                     graphicsResourceId = graphics.resourceId,
                     graphicsGeneration = graphics.generation,
                     graphicsError = graphics.error,
+                    graphicsV52FramesDelivered =
+                        synchronized(stateLock) { graphicsV52FramesDelivered },
+                    graphicsV52FrameFingerprints =
+                        synchronized(stateLock) { graphicsV52FrameFingerprints.toList() },
                 )
             } finally {
                 host.close()
