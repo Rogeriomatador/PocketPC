@@ -103,8 +103,7 @@ object RuntimeDisplayContinuousPresentV52Runner {
 
                     VulkanContinuousPresentHostStepStatus.WAIT_FAILED,
                     VulkanContinuousPresentHostStepStatus.READBACK_RETRYABLE,
-                    VulkanContinuousPresentHostStepStatus.MODEL_DELIVERY_RETRYABLE,
-                    -> {
+                    VulkanContinuousPresentHostStepStatus.MODEL_DELIVERY_RETRYABLE -> {
                         // These states preserve the same generation/frame contract.
                         // Retrying cannot skip to frame N+1.
                     }
