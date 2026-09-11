@@ -149,6 +149,7 @@ $markers = [ordered]@{
     importReady = "POCKETPC_VULKAN_GUEST stage=resource_import_source_path_ready"
     presentQueueSignalSubmitted = "POCKETPC_VULKAN_GUEST stage=present_queue_signal_submitted"
     exactPresentedImageObserved = "POCKETPC_VULKAN_PRESENT_IMAGE stage=exact_swapchain_image_observed"
+    externalOwnershipRoundTrip = "POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=roundtrip_completed"
     headlessPresentObserved = "POCKETPC_VULKAN_WSI stage=headless_present_observed"
 }
 
@@ -165,12 +166,14 @@ $failureMarkers = @(
     "stage=pvs1_receive_failed",
     "stage=pvs1_import_failed",
     "stage=present_queue_signal_failed",
-    "stage=pga_present_queue_signal_ack_failed"
+    "stage=pga_present_queue_signal_ack_failed",
+    "POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=acquire_failed",
+    "POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=release_failed"
 )
 $observedFailures = @($failureMarkers | Where-Object { Test-Marker -Text $logcat.Text -Marker $_ })
 
 $evidence = [ordered]@{
-    schemaVersion = 1
+    schemaVersion = 2
     classification = "PHYSICAL_EVIDENCE_CAPTURED_NOT_AUTOMATIC_PASS"
     capturedAtUtc = [DateTime]::UtcNow.ToString("o")
     repositoryCommit = $gitCommit
@@ -183,6 +186,7 @@ $evidence = [ordered]@{
         importReady = "Only proves the guest source path reported PGT/PVI1/PVS1 import completion; correlate with host PGA1 evidence before promotion."
         presentQueueSignalSubmitted = "Can support same-Present-queue ordering evidence when emitted by the patched Wine path. It does not prove pixel capture."
         exactPresentedImageObserved = "Proves the v50 callback identified one exact host swapchain VkImage in that run. It does not prove pixels were copied."
+        externalOwnershipRoundTrip = "Proves one observed guest acquire/release round-trip between VK_QUEUE_FAMILY_EXTERNAL and the exact Wine queue. It does not prove a copied frame."
         headlessPresentObserved = "Headless control-flow evidence only; never a visible-frame proof."
     }
     explicitNonClaims = @(
