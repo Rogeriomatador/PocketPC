@@ -20,6 +20,11 @@ extern "C" {
 #define PGT_VERSION 1u
 #define PGT_HEADER_BYTES 24u
 #define PGT_RESOURCE_DESCRIPTOR_BYTES 64u
+#define PGT_OWNERSHIP_RECORD_BYTES 32u
+#define PGT_RESOURCE_OFFER_PAYLOAD_BYTES \
+    (PGT_RESOURCE_DESCRIPTOR_BYTES + PGT_OWNERSHIP_RECORD_BYTES)
+#define PGT_RESOURCE_OFFER_FRAME_BYTES \
+    (PGT_HEADER_BYTES + PGT_RESOURCE_OFFER_PAYLOAD_BYTES)
 #define PGT_MAX_FRAME_BYTES 4096u
 
 /* Authenticated SOCK_SEQPACKET session handshake ("PGH1"). */
@@ -105,6 +110,18 @@ int pgt_validate_ownership_transition(
     uint16_t event_type,
     uint64_t next_sequence,
     struct pgt_ownership_record *next
+);
+
+/*
+ * Receive the canonical descriptor + ownership offer sent by the Android host
+ * before PVI1/PVS1. The packet contains no file descriptor or process-local
+ * pointer. Both records are fully validated and must identify the same resource
+ * in OFFERED_TO_GUEST state at the frame sequence.
+ */
+int pgt_receive_resource_offer(
+    int socket_fd,
+    struct pgt_resource_descriptor *descriptor,
+    struct pgt_ownership_record *ownership
 );
 
 /*
