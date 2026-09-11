@@ -29,6 +29,7 @@ TEST_BOOTSTRAP_SIGNER = ROOT / "scripts" / "test-bootstrap-signer-verifier.py"
 BOOTSTRAP_WINDOWS = ROOT / "scripts" / "bootstrap-update-signing-windows.ps1"
 LOCAL_PUBLISHER = ROOT / "scripts" / "publish-update-local-windows.ps1"
 BUILD_GRADLE = ROOT / "app" / "build.gradle.kts"
+PAIRED_V52_POLICY = ROOT / "scripts" / "test-paired-v52-home-test-policy.py"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 REVISION_RE = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -227,6 +228,12 @@ def main() -> int:
             "source revision must be exactly 40 hexadecimal characters",
             "--publish",
             '"published": bool(args.publish)',
+        ),
+        PAIRED_V52_POLICY: (
+            "POCKETPC_PAIRED_V52_HOME_TEST_POLICY_OK",
+            "PAIRED_IN_APP_OFFER_IMPLEMENTED=1",
+            "INSTALL_IDENTITY_REVALIDATION_IMPLEMENTED=1",
+            "NORMAL_OTA_REMAINS_APK_ONLY=1",
         ),
         BUILD_GRADLE: (
             'androidx.work:work-runtime:2.11.2',
