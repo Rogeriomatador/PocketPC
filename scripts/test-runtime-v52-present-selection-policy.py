@@ -15,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeGraphicsPresentPolicy.kt"
 CONTROLLER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayExecutionController.kt"
 RUNNER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayContinuousPresentV52Runner.kt"
+RESOLVER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeGraphicsGuestDeclarationResolver.kt"
+EVIDENCE_STORE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeV52IntegrationEvidenceStore.kt"
+RUNTIME_UI = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt"
 PORT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/VulkanContinuousPresentBrokerPort.kt"
 BRIDGE = ROOT / "app/src/main/cpp/vulkan_continuous_present_broker_port.cpp"
 CMAKE = ROOT / "app/src/main/cpp/CMakeLists.txt"
@@ -48,6 +51,9 @@ def main() -> None:
     policy = POLICY.read_text(encoding="utf-8")
     controller = CONTROLLER.read_text(encoding="utf-8")
     runner = RUNNER.read_text(encoding="utf-8")
+    resolver = RESOLVER.read_text(encoding="utf-8")
+    evidence_store = EVIDENCE_STORE.read_text(encoding="utf-8")
+    runtime_ui = RUNTIME_UI.read_text(encoding="utf-8")
     port = PORT.read_text(encoding="utf-8")
     bridge = BRIDGE.read_text(encoding="utf-8")
     cmake = CMAKE.read_text(encoding="utf-8")
@@ -69,6 +75,17 @@ def main() -> None:
     # environment input is stripped before policy-owned environment injection.
     require(controller, "RuntimeExecutionIdentity.of(runtime, tools, layers)", "runtime identity binding")
     require(controller, "RuntimeGraphicsPresentPolicy.select(", "runtime selection")
+    require(controller, "RuntimeGraphicsGuestDeclarationResolver.resolve(", "verified package metadata resolver")
+    require(controller, "requestContinuousPresentV52: Boolean = false", "explicit v52 request default off")
+    require(resolver, 'const val CAPABILITY_PATH =', "capability sidecar path")
+    require(resolver, "sha256(file) != listed.sha256", "capability sidecar SHA verification")
+    require(resolver, "verifiedArtifactMetadata = true", "verified declaration promotion")
+    require(resolver, "officialBuildSelected", "experimental sidecar official gate")
+    require(resolver, "physicalVisibleFrame", "physical evidence fail-closed")
+    require(resolver, "robloxExecuted", "Roblox evidence fail-closed")
+    require(runtime_ui, "requestContinuousPresentV52 by rememberSaveable", "explicit UI v52 toggle")
+    require(runtime_ui, "Vulkan Present v52 experimental", "experimental UI label")
+    require(runtime_ui, "requestContinuousPresentV52 =", "UI request wiring")
     require(controller, "expectedRuntimeIdentity = identity", "selection identity")
     require(controller, "remove(RuntimeGraphicsPresentPolicy.ENV_CONTINUOUS_PRESENT_V52)", "environment stripping")
     require(controller, "putAll(RuntimeGraphicsPresentPolicy.launchEnvironment(graphicsSelection))", "policy environment injection")
@@ -122,6 +139,11 @@ def main() -> None:
     require(runner, "port.close()", "runner port close")
     require(runner, "hostVisibleFrameValidated: Boolean = false", "physical fail-closed")
     require(runner, "robloxValidated: Boolean = false", "Roblox fail-closed")
+    require(runner, "onHostStep(step)", "host evidence callback")
+    require(evidence_store, "MODEL_DELIVERED_GUEST_RELEASED", "evidence records completed host release only")
+    require(evidence_store, "frameFingerprint", "frame fingerprint evidence")
+    require(evidence_store, "physicalVisibleFrameValidated: Boolean = false", "evidence physical fail-closed")
+    require(controller, "RuntimeV52IntegrationEvidenceStore.record(step)", "runtime evidence store wiring")
 
     # Broker-backed host open validates the immutable PVI1 identity and then
     # delegates to the persistent native v52 session. Source presence is not
