@@ -12,8 +12,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "third_party/wine/POCKETPC_VULKAN_CONTINUOUS_PRESENT_V52.json"
-UINT64_MAX = (1 << 64) - 1
-MAX_FRAME_SEQUENCE = UINT64_MAX // 2
+LONG_MAX = (1 << 63) - 1
+MAX_FRAME_SEQUENCE = LONG_MAX // 2
 
 
 def fail(message: str) -> None:
@@ -22,13 +22,13 @@ def fail(message: str) -> None:
 
 def guest_ready(frame_sequence: int) -> int:
     if frame_sequence < 1 or frame_sequence > MAX_FRAME_SEQUENCE:
-        raise ValueError("frame sequence outside fail-closed uint64 range")
+        raise ValueError("frame sequence outside fail-closed signed JNI range")
     return 2 * frame_sequence - 1
 
 
 def host_consumed(frame_sequence: int) -> int:
     if frame_sequence < 1 or frame_sequence > MAX_FRAME_SEQUENCE:
-        raise ValueError("frame sequence outside fail-closed uint64 range")
+        raise ValueError("frame sequence outside fail-closed signed JNI range")
     return 2 * frame_sequence
 
 
@@ -56,6 +56,10 @@ def main() -> None:
     timeline = data.get("timelineOwnership") or {}
     if timeline.get("initialValue") != 0:
         fail("timeline must start at zero")
+    if timeline.get("bridgeMaximumTimelineValue") != LONG_MAX:
+        fail("bridge timeline ceiling must equal Long.MAX_VALUE")
+    if timeline.get("maximumFrameSequence") != MAX_FRAME_SEQUENCE:
+        fail("maximum frame sequence must stay inside signed JNI range")
     if timeline.get("guestReadyFormula") != "2 * frameSequence - 1":
         fail("guest-ready formula changed")
     if timeline.get("hostConsumedFormula") != "2 * frameSequence":
@@ -72,7 +76,7 @@ def main() -> None:
         2: (3, 4),
         3: (5, 6),
         1024: (2047, 2048),
-        MAX_FRAME_SEQUENCE: (UINT64_MAX - 2, UINT64_MAX - 1),
+        MAX_FRAME_SEQUENCE: (LONG_MAX - 2, LONG_MAX - 1),
     }
     previous_consumed = 0
     for frame, pair in expected.items():
@@ -89,7 +93,15 @@ def main() -> None:
         if frame <= 3:
             previous_consumed = consumed
 
-    for invalid in (0, -1, MAX_FRAME_SEQUENCE + 1, UINT64_MAX):
+    last = timeline.get("lastRepresentableFrame") or {}
+    if last != {
+        "frameSequence": MAX_FRAME_SEQUENCE,
+        "guestReadyValue": LONG_MAX - 2,
+        "hostConsumedValue": LONG_MAX - 1,
+    }:
+        fail("last representable frame contract mismatch")
+
+    for invalid in (0, -1, MAX_FRAME_SEQUENCE + 1, LONG_MAX):
         for formula in (guest_ready, host_consumed):
             try:
                 formula(invalid)
