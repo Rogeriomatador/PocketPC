@@ -48,6 +48,14 @@ def run_stage(script: Path, wine_source: Path, evidence: Path) -> None:
 def require_v51(data: dict[str, object]) -> None:
     if data.get("privateWineVulkanAbi") != 51:
         raise SystemExit("WINE_V52_INPUT_ABI_NOT_51")
+    if data.get("protocolVersion") != 4:
+        raise SystemExit("WINE_V52_INPUT_DRIVER_PROTOCOL_INVALID")
+    if data.get("driverName") != "winepocketpc.drv":
+        raise SystemExit("WINE_V52_INPUT_DRIVER_NAME_INVALID")
+    if data.get("surfaceCallbackImplemented") is not True:
+        raise SystemExit("WINE_V52_INPUT_SURFACE_CALLBACK_MISSING")
+    if data.get("inputInjectionImplemented") is not True:
+        raise SystemExit("WINE_V52_INPUT_INPUT_INJECTION_MISSING")
     if data.get("pixelCopyImplemented") is not True:
         raise SystemExit("WINE_V52_INPUT_PIXEL_COPY_SOURCE_MISSING")
     if data.get("pixelCopyExecuted") is not False:
@@ -159,6 +167,10 @@ def main() -> int:
         "activationEnvironment": "POCKETPC_VULKAN_CONTINUOUS_PRESENT_V52=1",
         "v51FallbackRetained": True,
         "continuousPresentSourceImplemented": True,
+        "protocolVersion": v51["protocolVersion"],
+        "driverName": v51["driverName"],
+        "surfaceCallbackImplemented": v51["surfaceCallbackImplemented"],
+        "inputInjectionImplemented": v51["inputInjectionImplemented"],
         "timelineOwnership": v52["timelineOwnership"],
         "presentOrdering": v52["presentOrdering"],
         "sourceIntegration": v52["sourceIntegration"],
