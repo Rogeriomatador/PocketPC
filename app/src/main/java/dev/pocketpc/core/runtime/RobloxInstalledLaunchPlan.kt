@@ -118,6 +118,7 @@ object RobloxInstalledLaunchAttemptPlanner {
 
         fun buildInvocation(
             guestArguments: List<String>,
+            enableRobloxGraphicsDiagnostics: Boolean = false,
         ): ProotInvocationPlan {
             val base =
                 ProotInvocationPlanner.build(
@@ -127,9 +128,16 @@ object RobloxInstalledLaunchAttemptPlanner {
                     allowedHostRoots = allowedHostRoots,
                     guestArguments = guestArguments,
                 )
-            val environment =
+            val standardEnvironment =
                 LinkedHashMap(base.environment).apply {
                     putAll(wine.environment)
+                }
+            val environment =
+                if (enableRobloxGraphicsDiagnostics) {
+                    RobloxGraphicsDiagnosticEnvironment
+                        .applyTo(standardEnvironment)
+                } else {
+                    standardEnvironment
                 }
             val environmentErrors =
                 RuntimeEnvironment.validate(environment)
@@ -150,6 +158,7 @@ object RobloxInstalledLaunchAttemptPlanner {
                             box64 = WineLaunchPlanner.DEFAULT_BOX64,
                             wine = WineLaunchPlanner.DEFAULT_WINE,
                         ),
+                    enableRobloxGraphicsDiagnostics = false,
                 )
             } else {
                 blockedInvocation(structural)
@@ -160,6 +169,7 @@ object RobloxInstalledLaunchAttemptPlanner {
                 buildInvocation(
                     PcWindowsLaunchAttemptPlanner
                         .shellArguments(wine.argv),
+                    enableRobloxGraphicsDiagnostics = true,
                 )
             } else {
                 blockedInvocation(structural)
