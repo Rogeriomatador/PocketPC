@@ -12,10 +12,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * A successful host offer means only that PGT RESOURCE_OFFER + PVI1 + PVS1
  * were sent over the authenticated SOCK_SEQPACKET connection. Guest import is
- * confirmed separately through PGA1 stages 1..4. PGA1 stage 5 is emitted only
- * after the pinned Wine Present callback signals PVS1 on the exact queue used
- * by host vkQueuePresentKHR. That proves same-Present-queue ordering when it is
- * observed in a real run, but not swapchain capture or a host-visible frame.
+ * confirmed separately through PGA1 stages 1..4. Stage 5 proves that PVS1 was
+ * submitted on the exact Present queue. Stage 6 proves that the v51 exact-image
+ * pre-Present copy completed and PVI1 returned to EXTERNAL/GENERAL. A later
+ * Android-host readback may prove reacquire/readback of those bytes. None of
+ * those gates, by itself, proves Surface/compositor presentation or Roblox.
  */
 class GuestGraphicsSessionOrchestrator private constructor(
     private val session: GraphicsSeqpacketSessionHost.Session,
@@ -26,6 +27,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
         RESOURCE_OFFERED,
         GUEST_IMPORT_CONFIRMED,
         PRESENT_QUEUE_SIGNAL_OBSERVED,
+        PRESENT_COPY_COMPLETED,
+        ANDROID_HOST_READBACK_COMPLETED,
         CLOSED,
     }
 
@@ -44,6 +47,10 @@ class GuestGraphicsSessionOrchestrator private constructor(
         val guestImportedOwnership: GuestGraphicsOwnershipToken? = null,
         val gpuQueueSignalAcknowledgement:
             GraphicsSeqpacketSessionHost.GpuQueueSignalAcknowledgement? = null,
+        val presentCopyAcknowledgement:
+            GraphicsPresentCopyAckHost.Acknowledgement? = null,
+        val androidHostReadback:
+            VulkanExternalImageHostReadback? = null,
     ) {
         val hostOfferComplete: Boolean
             get() =
@@ -67,6 +74,23 @@ class GuestGraphicsSessionOrchestrator private constructor(
                     gpuQueueSignalAcknowledgement?.submitted == true &&
                     gpuQueueSignalAcknowledgement.presentQueueOrdered &&
                     !gpuQueueSignalAcknowledgement.hostVisibleFrame
+
+        val presentCopyCompleted: Boolean
+            get() =
+                gpuQueueSignalObserved &&
+                    presentCopyAcknowledgement?.exactSwapchainPixelsCopied == true &&
+                    presentCopyAcknowledgement.returnedToExternalGeneral &&
+                    !presentCopyAcknowledgement.androidVisibleFrame &&
+                    !presentCopyAcknowledgement.robloxGameplayValidated
+
+        val androidHostReadbackCompleted: Boolean
+            get() =
+                presentCopyCompleted &&
+                    androidHostReadback?.androidAcquireExecuted == true &&
+                    androidHostReadback.resourceId == resourceId &&
+                    androidHostReadback.generation == generation &&
+                    androidHostReadback.sequence == ownership.sequence &&
+                    !androidHostReadback.androidVisibleFrame
     }
 
     data class Snapshot(
@@ -77,9 +101,15 @@ class GuestGraphicsSessionOrchestrator private constructor(
         val hostResourceOffered: Boolean,
         val guestImportConfirmed: Boolean,
         val gpuQueueSignalObserved: Boolean,
+        val presentCopyCompleted: Boolean,
+        val androidAcquireExecuted: Boolean,
         val gpuQueueFamilyIndex: Int?,
         val presentQueueOrdered: Boolean,
+        val readbackBytes: Long?,
+        val readbackNonzeroBytes: Long?,
+        val readbackFnv1a64: ULong?,
         val hostVisibleFrame: Boolean,
+        val robloxValidated: Boolean,
         val blocker: String?,
     )
 
@@ -108,6 +138,10 @@ class GuestGraphicsSessionOrchestrator private constructor(
             "GUEST_GRAPHICS_IMPORT_OWNERSHIP_CONFIRM_FAILED"
         const val BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED =
             "GUEST_GRAPHICS_GPU_QUEUE_SIGNAL_ACK_FAILED"
+        const val BLOCKER_PRESENT_COPY_ACK_FAILED =
+            "GUEST_GRAPHICS_PRESENT_COPY_ACK_FAILED"
+        const val BLOCKER_ANDROID_HOST_READBACK_FAILED =
+            "GUEST_GRAPHICS_ANDROID_HOST_READBACK_FAILED"
         const val BLOCKER_CLOSED =
             "GUEST_GRAPHICS_SESSION_CLOSED"
 
@@ -335,13 +369,12 @@ class GuestGraphicsSessionOrchestrator private constructor(
         }
 
     /**
-     * Wait for PGA1 stage 5 after import confirmation. The patched Wine v49
-     * calls the driver immediately after host vkQueuePresentKHR with the exact
-     * vulkan_queue used for Present. The driver submits the PVS1 signal on that
-     * queue and only then sends stage 5.
+     * Wait for PGA1 stage 5 after import confirmation. The patched Wine driver
+     * submits the PVS1 signal on the exact queue used for Present before it
+     * emits stage 5.
      *
-     * This may prove same-Present-queue ordering in an executed run, but the
-     * exported PocketPC image still is not populated from the swapchain here.
+     * This can prove same-Present-queue ordering when executed. It does not
+     * replace stage 6 and does not prove that the copied image reached Android.
      */
     fun awaitGpuQueueSignalProbe(
         timeoutMillis: Long = GraphicsSeqpacketSessionHost.DEFAULT_AUTH_TIMEOUT_MILLIS,
@@ -404,6 +437,159 @@ class GuestGraphicsSessionOrchestrator private constructor(
             RuntimeGraphicsEvidenceLog.blocked(lastBlocker ?: BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED)
         }
 
+    /**
+     * Wait for PGA1 stage 6 from the same authenticated connection, and only
+     * after stage 5 was accepted. A successful acknowledgement means the v51
+     * exact swapchain-image copy reached queue completion and PVI1 was released
+     * back to VK_QUEUE_FAMILY_EXTERNAL / GENERAL.
+     *
+     * It is still not an Android acquire and is never a visible-frame claim.
+     */
+    fun awaitPresentCopyCompletion(
+        timeoutMillis: Long = GraphicsSeqpacketSessionHost.DEFAULT_AUTH_TIMEOUT_MILLIS,
+    ): Result<ResourceOffer> =
+        runCatching {
+            check(!closed.get()) { BLOCKER_CLOSED }
+            check(authenticated.get()) { BLOCKER_NOT_AUTHENTICATED }
+
+            val connection = acceptedConnection
+            check(connection != null && connection.valid) {
+                BLOCKER_NOT_AUTHENTICATED
+            }
+
+            val offer = activeOffer
+                ?: throw IllegalStateException(BLOCKER_PRESENT_COPY_ACK_FAILED)
+            check(offer.gpuQueueSignalObserved) { BLOCKER_PRESENT_COPY_ACK_FAILED }
+            if (offer.presentCopyCompleted) return@runCatching offer
+
+            val acknowledgement =
+                GraphicsPresentCopyAckHost.await(
+                    connection = connection,
+                    resourceId = offer.resourceId,
+                    generation = offer.generation,
+                    sequence = offer.ownership.sequence,
+                    timeoutMillis = timeoutMillis,
+                ) ?: run {
+                    lastBlocker = BLOCKER_PRESENT_COPY_ACK_FAILED
+                    throw IllegalStateException(BLOCKER_PRESENT_COPY_ACK_FAILED)
+                }
+
+            check(
+                acknowledgement.exactSwapchainPixelsCopied &&
+                    acknowledgement.returnedToExternalGeneral &&
+                    !acknowledgement.androidVisibleFrame &&
+                    !acknowledgement.robloxGameplayValidated
+            ) {
+                BLOCKER_PRESENT_COPY_ACK_FAILED
+            }
+
+            val updated =
+                offer.copy(
+                    presentCopyAcknowledgement = acknowledgement,
+                )
+            check(updated.presentCopyCompleted) { BLOCKER_PRESENT_COPY_ACK_FAILED }
+
+            activeOffer = updated
+            lastBlocker = null
+            RuntimeGraphicsEvidenceLog.presentCopyCompleted(
+                resourceId = updated.resourceId,
+                generation = updated.generation,
+                sequence = updated.ownership.sequence,
+                queueFamilyIndex = acknowledgement.queueFamilyIndex,
+            )
+            updated
+        }.onFailure {
+            if (lastBlocker == null) {
+                lastBlocker =
+                    it.message?.takeIf(String::isNotBlank)
+                        ?: BLOCKER_PRESENT_COPY_ACK_FAILED
+            }
+            RuntimeGraphicsEvidenceLog.blocked(lastBlocker ?: BLOCKER_PRESENT_COPY_ACK_FAILED)
+        }
+
+    /**
+     * Correctness-first one-shot Android-host consumer for the current PVI1.
+     * It is allowed only after PGA1 stage 6. A successful result proves that
+     * Android-side Vulkan re-imported the exact resource, waited PVS1, acquired
+     * EXTERNAL/GENERAL ownership, copied RGBA8 bytes into host-visible memory,
+     * and released the image back to EXTERNAL/GENERAL.
+     *
+     * This intentionally remains a separate gate from Surface/compositor
+     * presentation. hostVisibleFrame and robloxValidated remain false.
+     */
+    fun consumePresentCopyOnAndroidHost(
+        timeoutMillis: Long = VulkanExternalImageHostConsumer.DEFAULT_TIMEOUT_MILLIS,
+    ): Result<ResourceOffer> =
+        runCatching {
+            check(!closed.get()) { BLOCKER_CLOSED }
+            check(authenticated.get()) { BLOCKER_NOT_AUTHENTICATED }
+
+            val offer = activeOffer
+                ?: throw IllegalStateException(BLOCKER_ANDROID_HOST_READBACK_FAILED)
+            val lease = activeLease
+                ?: throw IllegalStateException(BLOCKER_ANDROID_HOST_READBACK_FAILED)
+            check(offer.presentCopyCompleted) { BLOCKER_ANDROID_HOST_READBACK_FAILED }
+            check(
+                lease.resourceId == offer.resourceId &&
+                    lease.generation == offer.generation &&
+                    lease.width == offer.width &&
+                    lease.height == offer.height
+            ) {
+                BLOCKER_ANDROID_HOST_READBACK_FAILED
+            }
+            if (offer.androidHostReadbackCompleted) return@runCatching offer
+
+            val readback =
+                VulkanExternalImageHostConsumer.consume(
+                    lease = lease,
+                    sequence = offer.ownership.sequence,
+                    timeoutMillis = timeoutMillis,
+                ).getOrElse {
+                    lastBlocker = BLOCKER_ANDROID_HOST_READBACK_FAILED
+                    throw IllegalStateException(BLOCKER_ANDROID_HOST_READBACK_FAILED, it)
+                }
+
+            check(
+                readback.androidAcquireExecuted &&
+                    readback.resourceId == offer.resourceId &&
+                    readback.generation == offer.generation &&
+                    readback.sequence == offer.ownership.sequence &&
+                    !readback.androidVisibleFrame
+            ) {
+                BLOCKER_ANDROID_HOST_READBACK_FAILED
+            }
+
+            val updated =
+                offer.copy(
+                    androidHostReadback = readback,
+                )
+            check(updated.androidHostReadbackCompleted) {
+                BLOCKER_ANDROID_HOST_READBACK_FAILED
+            }
+
+            activeOffer = updated
+            lastBlocker = null
+            RuntimeGraphicsEvidenceLog.androidHostReadbackCompleted(
+                resourceId = updated.resourceId,
+                generation = updated.generation,
+                sequence = updated.ownership.sequence,
+                timelineValue = readback.timelineValue,
+                bytes = readback.bytes,
+                nonzeroBytes = readback.nonzeroBytes,
+                fnv1a64 = readback.fnv1a64,
+            )
+            updated
+        }.onFailure {
+            if (lastBlocker == null) {
+                lastBlocker =
+                    it.message?.takeIf(String::isNotBlank)
+                        ?: BLOCKER_ANDROID_HOST_READBACK_FAILED
+            }
+            RuntimeGraphicsEvidenceLog.blocked(
+                lastBlocker ?: BLOCKER_ANDROID_HOST_READBACK_FAILED,
+            )
+        }
+
     fun activeOffer(): ResourceOffer? = activeOffer
 
     fun releaseActiveResource(): Boolean {
@@ -422,10 +608,14 @@ class GuestGraphicsSessionOrchestrator private constructor(
             !isClosed && authenticated.get() && acceptedConnection?.valid == true
         val offer = activeOffer
         val queueAck = offer?.gpuQueueSignalAcknowledgement
+        val readback = offer?.androidHostReadback
         return Snapshot(
             state =
                 when {
                     isClosed -> State.CLOSED
+                    offer?.androidHostReadbackCompleted == true ->
+                        State.ANDROID_HOST_READBACK_COMPLETED
+                    offer?.presentCopyCompleted == true -> State.PRESENT_COPY_COMPLETED
                     offer?.gpuQueueSignalObserved == true -> State.PRESENT_QUEUE_SIGNAL_OBSERVED
                     offer?.guestImportConfirmed == true -> State.GUEST_IMPORT_CONFIRMED
                     offer?.hostOfferComplete == true -> State.RESOURCE_OFFERED
@@ -438,9 +628,17 @@ class GuestGraphicsSessionOrchestrator private constructor(
             hostResourceOffered = offer?.hostOfferComplete == true,
             guestImportConfirmed = offer?.guestImportConfirmed == true,
             gpuQueueSignalObserved = offer?.gpuQueueSignalObserved == true,
-            gpuQueueFamilyIndex = queueAck?.queueFamilyIndex,
+            presentCopyCompleted = offer?.presentCopyCompleted == true,
+            androidAcquireExecuted = offer?.androidHostReadbackCompleted == true,
+            gpuQueueFamilyIndex =
+                offer?.presentCopyAcknowledgement?.queueFamilyIndex
+                    ?: queueAck?.queueFamilyIndex,
             presentQueueOrdered = queueAck?.presentQueueOrdered == true,
-            hostVisibleFrame = queueAck?.hostVisibleFrame == true,
+            readbackBytes = readback?.bytes,
+            readbackNonzeroBytes = readback?.nonzeroBytes,
+            readbackFnv1a64 = readback?.fnv1a64,
+            hostVisibleFrame = false,
+            robloxValidated = false,
             blocker = lastBlocker,
         )
     }
