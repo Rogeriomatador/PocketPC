@@ -37,6 +37,21 @@ object GraphicsSeqpacketSessionHost {
         timeoutMillis: Int,
     ): Int
 
+    private external fun nativeSendResourceOffer(
+        fd: Int,
+        resourceId: Long,
+        generation: Long,
+        width: Int,
+        height: Int,
+        layers: Int,
+        pixelFormat: Int,
+        usage: Long,
+        producerPid: Int,
+        processNamespace: Long,
+        sequence: Long,
+        ownershipState: Int,
+    ): Boolean
+
     private external fun nativeCloseAcceptedFd(fd: Int)
     private external fun nativeCloseServer(sessionId: Long)
 
@@ -63,6 +78,43 @@ object GraphicsSeqpacketSessionHost {
 
         val valid: Boolean
             get() = fd >= 0 && !closed.get()
+
+        /**
+         * Sends descriptor + ownership in the canonical PGT RESOURCE_OFFER
+         * packet. No FD is serialized here; PVI1/PVS1 follow separately via
+         * SCM_RIGHTS on this same authenticated socket.
+         */
+        fun sendResourceOffer(
+            descriptor: GuestGraphicsResourceDescriptor,
+            ownership: GuestGraphicsOwnershipToken,
+        ): Boolean {
+            if (!valid || !descriptor.valid || !ownership.validIdentity) return false
+            if (
+                descriptor.resourceId != ownership.resourceId ||
+                descriptor.generation != ownership.generation ||
+                descriptor.syncSequence != ownership.sequence ||
+                ownership.state != GuestGraphicsOwnershipState.OFFERED_TO_GUEST
+            ) {
+                return false
+            }
+
+            return runCatching {
+                GraphicsSeqpacketSessionHost.nativeSendResourceOffer(
+                    fd = fd,
+                    resourceId = descriptor.resourceId,
+                    generation = descriptor.generation,
+                    width = descriptor.width,
+                    height = descriptor.height,
+                    layers = descriptor.layers,
+                    pixelFormat = descriptor.pixelFormat,
+                    usage = descriptor.usage,
+                    producerPid = descriptor.producerPid,
+                    processNamespace = descriptor.processNamespace,
+                    sequence = ownership.sequence,
+                    ownershipState = ownership.state.wireValue(),
+                )
+            }.getOrDefault(false)
+        }
 
         override fun close() {
             if (fd >= 0 && closed.compareAndSet(false, true)) {
@@ -123,6 +175,17 @@ object GraphicsSeqpacketSessionHost {
             ),
         )
     }
+
+    private fun GuestGraphicsOwnershipState.wireValue(): Int =
+        when (this) {
+            GuestGraphicsOwnershipState.HOST_AVAILABLE -> 1
+            GuestGraphicsOwnershipState.OFFERED_TO_GUEST -> 2
+            GuestGraphicsOwnershipState.GUEST_IMPORTED -> 3
+            GuestGraphicsOwnershipState.GUEST_RENDERING -> 4
+            GuestGraphicsOwnershipState.GUEST_RENDER_COMPLETE -> 5
+            GuestGraphicsOwnershipState.HOST_PRESENTING -> 6
+            GuestGraphicsOwnershipState.RETIRED -> 7
+        }
 
     private fun ByteArray.toHex(): String =
         joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xff) }
