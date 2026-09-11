@@ -2,6 +2,7 @@ package dev.pocketpc.core.update
 
 import android.content.Context
 import android.net.Uri
+import dev.pocketpc.core.BuildConfig
 import dev.pocketpc.core.runtime.GuestToolInstallManager
 import dev.pocketpc.core.runtime.GuestToolPackageManager
 import dev.pocketpc.core.runtime.InstalledGuestTool
@@ -12,6 +13,9 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
+
+private const val REQUIRED_V52_CAPABILITY =
+    "pocketpc.vulkan.continuous-present.v52"
 
 class PocketPcExperimentalRuntimeInstaller(
     context: Context,
@@ -40,6 +44,7 @@ class PocketPcExperimentalRuntimeInstaller(
                     ) {
                         "EXPERIMENTAL_RUNTIME_OFFER_NOT_AVAILABLE"
                     }
+                validateOfferAgainstRunningApk(offer)
 
                 recoverDownloads()
                 val transaction =
@@ -53,18 +58,33 @@ class PocketPcExperimentalRuntimeInstaller(
                         packages.stageZip(
                             Uri.fromFile(transaction).toString()
                         ).getOrThrow()
-                    require(staged.manifest.id == "wine") {
-                        "EXPERIMENTAL_RUNTIME_STAGED_ID_MISMATCH"
-                    }
+                    try {
+                        require(staged.manifest.id == "wine") {
+                            "EXPERIMENTAL_RUNTIME_STAGED_ID_MISMATCH"
+                        }
+                        require(
+                            staged.manifest.version ==
+                                offer.guestToolVersion
+                        ) {
+                            "EXPERIMENTAL_RUNTIME_STAGED_VERSION_MISMATCH"
+                        }
 
-                    val installed =
-                        installer.install(staged.directory)
-                            .getOrThrow()
-                    require(installed.manifest.id == "wine") {
-                        "EXPERIMENTAL_RUNTIME_INSTALLED_ID_MISMATCH"
+                        val installed =
+                            installer.install(staged.directory)
+                                .getOrThrow()
+                        require(installed.manifest.id == "wine") {
+                            "EXPERIMENTAL_RUNTIME_INSTALLED_ID_MISMATCH"
+                        }
+                        require(
+                            installed.manifest.version ==
+                                offer.guestToolVersion
+                        ) {
+                            "EXPERIMENTAL_RUNTIME_INSTALLED_VERSION_MISMATCH"
+                        }
+                        installed
+                    } finally {
+                        packages.remove(staged)
                     }
-                    packages.remove(staged)
-                    installed
                 } finally {
                     if (transaction.exists()) {
                         transaction.delete()
@@ -72,6 +92,38 @@ class PocketPcExperimentalRuntimeInstaller(
                 }
             }
         }
+
+    private fun validateOfferAgainstRunningApk(
+        offer: PocketPcExperimentalRuntimeOffer,
+    ) {
+        val revision =
+            BuildConfig.POCKETPC_SOURCE_REVISION
+                .trim()
+                .lowercase()
+        require(
+            BuildConfig.POCKETPC_SOURCE_REVISION_PINNED &&
+                Regex("^[0-9a-f]{40}$").matches(revision)
+        ) {
+            "EXPERIMENTAL_RUNTIME_APK_REVISION_NOT_PINNED"
+        }
+        require(
+            offer.pocketPcSourceRevision == revision
+        ) {
+            "EXPERIMENTAL_RUNTIME_INSTALL_REVISION_MISMATCH"
+        }
+        require(
+            offer.capabilities ==
+                setOf(REQUIRED_V52_CAPABILITY)
+        ) {
+            "EXPERIMENTAL_RUNTIME_INSTALL_CAPABILITY_MISMATCH"
+        }
+        require(
+            Regex("^[A-Za-z0-9._+-]{1,128}$")
+                .matches(offer.guestToolVersion)
+        ) {
+            "EXPERIMENTAL_RUNTIME_INSTALL_VERSION_INVALID"
+        }
+    }
 
     private fun downloadAndVerify(
         offer: PocketPcExperimentalRuntimeOffer,
