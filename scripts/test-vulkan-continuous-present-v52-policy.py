@@ -31,6 +31,17 @@ NATIVE_KOTLIN = (
 NATIVE_CPP = ROOT / "app/src/main/cpp/vulkan_continuous_present_host.cpp"
 NATIVE_CONTRACT = ROOT / "app/src/main/cpp/vulkan_continuous_present_contract.h"
 CMAKE = ROOT / "app/src/main/cpp/CMakeLists.txt"
+GUEST_HEADER = (
+    ROOT
+    / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_continuous_present.h"
+)
+GUEST_SOURCE = (
+    ROOT
+    / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_continuous_present.c"
+)
+V52_OVERLAY = ROOT / "scripts/prepare-wine-pocketpc-continuous-present-v52.py"
+V52_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver-v52.py"
+OFFICIAL_WINE_WORKFLOW = ROOT / ".github/workflows/wine-x86_64-build.yml"
 LONG_MAX = (1 << 63) - 1
 MAX_FRAME_SEQUENCE = LONG_MAX // 2
 
@@ -47,6 +58,13 @@ def require(text: str, needle: str, label: str) -> None:
 def forbid(text: str, needle: str, label: str) -> None:
     if needle in text:
         fail(f"{label} contains forbidden {needle!r}")
+
+
+def require_before(text: str, first: str, second: str, label: str) -> None:
+    first_index = text.find(first)
+    second_index = text.find(second)
+    if first_index < 0 or second_index < 0 or first_index >= second_index:
+        fail(f"{label} must keep {first!r} before {second!r}")
 
 
 def guest_ready(frame_sequence: int) -> int:
@@ -70,6 +88,11 @@ def main() -> None:
     native_cpp = NATIVE_CPP.read_text(encoding="utf-8")
     native_contract = NATIVE_CONTRACT.read_text(encoding="utf-8")
     cmake = CMAKE.read_text(encoding="utf-8")
+    guest_header = GUEST_HEADER.read_text(encoding="utf-8")
+    guest_source = GUEST_SOURCE.read_text(encoding="utf-8")
+    v52_overlay = V52_OVERLAY.read_text(encoding="utf-8")
+    v52_preparer = V52_PREPARER.read_text(encoding="utf-8")
+    official_wine_workflow = OFFICIAL_WINE_WORKFLOW.read_text(encoding="utf-8")
 
     if data.get("schemaVersion") != 1:
         fail("schemaVersion must remain 1")
@@ -78,7 +101,7 @@ def main() -> None:
     if data.get("officialBuildSelected") is not False:
         fail("v52 must not be selected as official before executed evidence")
     if data.get("runtimeIntegrated") is not False:
-        fail("partial host source must not claim active runtime integration")
+        fail("source-only v52 must not claim active runtime integration")
 
     for key in (
         "softwareTestExecuted",
@@ -169,20 +192,21 @@ def main() -> None:
         "nativeHostConsumedSignal",
         "kotlinNativePort",
         "cmakeSourceIncluded",
-    }
-    expected_false = {
-        "activeRuntimeWiring",
         "guestWineV52CopyLoop",
+        "guestExactPreviousEvenWait",
+        "guestOddReadySignalSameCopySubmit",
+        "guestPostPresentEvenSignalSuppressed",
+        "guestV52Preparer",
+        "v51FallbackRetained",
     }
+    expected_false = {"activeRuntimeWiring"}
     if set(source) != expected_true | expected_false:
         fail("sourceImplementation keys changed unexpectedly")
     if any(source.get(key) is not True for key in expected_true):
-        fail("implemented v52 host source was demoted")
+        fail("implemented v52 host/guest source was demoted")
     if any(source.get(key) is not False for key in expected_false):
-        fail("active/guest v52 source was promoted without implementation evidence")
+        fail("active runtime wiring was promoted without integration evidence")
 
-    # Full implementation gates remain false until the host source is actively
-    # wired to a v52 Wine guest and the relevant test stages are executed.
     gates = data.get("requiredImplementationGates") or {}
     if not gates or any(value is not False for value in gates.values()):
         fail("full implementation gates were promoted prematurely")
@@ -192,6 +216,7 @@ def main() -> None:
         "contract": "DESIGN",
         "sourceRuntime": "PARTIALLY_IMPLEMENTED_SOURCE_ONLY",
         "nativeHostSource": "IMPLEMENTED_NOT_EXECUTED",
+        "guestWineSource": "IMPLEMENTED_NOT_EXECUTED",
         "software": "NOT_EXECUTED",
         "integration": "NOT_EXECUTED",
         "physical": "NOT_EXECUTED",
@@ -199,7 +224,7 @@ def main() -> None:
     }:
         fail("evidence classification does not match source-only state")
 
-    # Host coordinator ordering: do not accept N+1 until even(N) was signalled.
+    # Android host ordering: do not accept N+1 until even(N) was signalled.
     require(coordinator, "interface VulkanContinuousPresentHostPort", "host port boundary")
     require(coordinator, "awaitGuestReady(", "guest-ready wait")
     require(coordinator, "ownership.beginHostConsume(", "ownership begin")
@@ -213,8 +238,6 @@ def main() -> None:
     require(coordinator, "hostVisibleFrameValidated", "physical fail-closed flag")
     require(coordinator, "get() = false", "fail-closed evidence getters")
 
-    # Kotlin/JNI adapter must preserve immutable offer identity separately from
-    # the frame sequence and must not advertise visible-frame proof.
     require(native_kotlin, "object VulkanContinuousPresentNativeSession", "native Kotlin bridge")
     require(native_kotlin, "offerSequence = resource.offerSequence", "immutable offer sequence")
     require(native_kotlin, "nativeAwaitGuestReady(", "native odd wait")
@@ -223,9 +246,6 @@ def main() -> None:
     require(native_kotlin, "class VulkanContinuousPresentNativePort", "native host port")
     require(native_kotlin, "fields[\"visible_frame\"] == \"0\"", "visible-frame fail closed")
 
-    # Native session must import PVI1/PVS1 once, keep frame sequence separate
-    # from offer_sequence, enforce exact timeline values, and return the image to
-    # VK_QUEUE_FAMILY_EXTERNAL before the host-consumed signal can be emitted.
     require(native_cpp, '#include "vulkan_continuous_present_contract.h"', "native contract include")
     require(native_cpp, "offer_sequence", "native immutable offer identity")
     require(native_cpp, "expected_frame_sequence", "native frame sequence state")
@@ -250,23 +270,73 @@ def main() -> None:
     require(native_contract, "kMaximumFrameSequence", "native signed timeline ceiling")
     require(cmake, "vulkan_continuous_present_host.cpp", "CMake v52 native source")
 
+    # Wine guest must wait exact previous even, release PVI1 to EXTERNAL, and
+    # signal only guestReady(N) from the same submit as the copy/release.
+    require(guest_header, "POCKETPC_GUEST_CONTINUOUS_PRESENT_MAX_FRAME 4611686018427387903ull", "guest frame ceiling")
+    require(guest_header, "The even hostConsumed(N) value is never signalled here", "guest even ownership contract")
+    require(guest_source, "return frame_sequence * 2u - 1u;", "guest odd formula")
+    require(guest_source, "return (frame_sequence - 1u) * 2u;", "guest previous-even formula")
+    require(guest_source, "pocketpc_guest_vulkan_timeline_wait_cpu(", "guest previous-even wait")
+    require(guest_source, "if (observed != expected)", "guest exact previous-even check")
+    require(guest_source, "device->p_vkCmdCopyImage(", "guest exact image copy")
+    require(guest_source, "after[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;", "guest release to external")
+    require(guest_source, "signal_values[1] = guest_ready;", "guest odd timeline signal")
+    require(guest_source, "device->p_vkQueueSubmit(", "guest copy/signal queue submit")
+    require(guest_source, "timeline->queue_signal_value = guest_ready;", "guest recorded odd signal")
+    forbid(guest_source, "signal_values[1] = previous_host_consumed", "guest source")
+    forbid(guest_source, "signal_values[1] = frame_sequence * 2u", "guest source")
+
+    # Overlay retains v51 fallback, and its v52 post-Present branch returns before
+    # the v51 callback can increment PVS1. Only Android owns even values.
+    require(v52_overlay, "POCKETPC_VULKAN_CONTINUOUS_PRESENT_V52=1", "v52 environment gate")
+    require(v52_overlay, "pocketpc_guest_continuous_present_submit(", "v52 guest dispatch")
+    require(v52_overlay, "guest_signalled_host_consumed=0", "v52 no-even diagnostic")
+    require(v52_overlay, "postPresentCallbackMutatesTimelineInV52\": False", "v52 evidence no post-present mutation")
+    require(v52_overlay, "v51OneShotPathRetainedWhenV52GateDisabled\": True", "v51 fallback evidence")
+    require(v52_overlay, "post_present_changed = before_once(", "v52 post-present injection")
+    require_before(v52_overlay, "V52_POST_PRESENT_BRANCH =", "QUEUE_COUNTER_ANCHOR =", "v52 branch declaration ordering")
+    require(v52_overlay, "MAKEFILE_CONTINUOUS_LINE = \"\\tpocketpc_guest_continuous_present.c \" + \"\\\\\"", "deterministic Makefile line")
+
+    require(v52_preparer, "V51_PREPARER", "v52 derives from v51")
+    require(v52_preparer, "officialBuildSelected\": False", "v52 remains experimental")
+    require(v52_preparer, "continuousPresentSourceImplemented\": True", "v52 source evidence")
+    require(v52_preparer, "compiled\": False", "v52 compile fail-closed")
+    require(v52_preparer, "runtimeExecuted\": False", "v52 runtime fail-closed")
+    require(v52_preparer, "integrationExecuted\": False", "v52 integration fail-closed")
+    require(v52_preparer, "physicalVisibleFrame\": False", "v52 physical fail-closed")
+    require(v52_preparer, "robloxExecuted\": False", "v52 Roblox fail-closed")
+
+    # Official Wine workflow must stay v51 until v52 has actual build/integration evidence.
+    require(official_wine_workflow, "Build pinned Wine 11 x86_64 package with PocketPC v51 driver", "official v51 build")
+    require(official_wine_workflow, "python3 scripts/build-wine-x86_64-v51.py", "official v51 builder")
+    forbid(official_wine_workflow, "build-wine-x86_64-v52.py", "official Wine workflow")
+    forbid(official_wine_workflow, "prepare-wine-pocketpc-driver-v52.py", "official Wine workflow")
+    forbid(official_wine_workflow, "POCKETPC_VULKAN_CONTINUOUS_PRESENT_V52=1", "official Wine workflow")
+
     for text, label in (
         (coordinator, "coordinator"),
         (ownership, "ownership"),
         (timeline_source, "timeline"),
         (native_kotlin, "native Kotlin"),
         (native_cpp, "native C++"),
+        (guest_header, "guest header"),
+        (guest_source, "guest source"),
+        (v52_overlay, "v52 overlay"),
+        (v52_preparer, "v52 preparer"),
     ):
         forbid(text, "hostVisiblePresentValidated = true", label)
         forbid(text, "robloxExecuted = true", label)
         forbid(text, "robloxRendered = true", label)
         forbid(text, "robloxPlayable = true", label)
 
-    print("PASS static Vulkan v52 partial host-source policy")
+    print("PASS static Vulkan v52 host+guest source policy")
     print("CLASSIFICATION=PARTIALLY_IMPLEMENTED_SOURCE_ONLY")
     print("NATIVE_HOST_SOURCE=IMPLEMENTED_NOT_EXECUTED")
+    print("GUEST_WINE_SOURCE=IMPLEMENTED_NOT_EXECUTED")
+    print("OFFICIAL_WINE_BUILD=v51")
     print("RUNTIME_INTEGRATED=0")
     print("SOFTWARE=NOT_EXECUTED")
+    print("INTEGRATION=NOT_EXECUTED")
     print("PHYSICAL=NOT_EXECUTED")
     print("ROBLOX=NOT_EXECUTED")
 
