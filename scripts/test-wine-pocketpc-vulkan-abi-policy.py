@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard the PocketPC Wine Vulkan v49 ABI and its fail-closed visible path."""
+"""Guard the staged PocketPC Wine Vulkan ABI and fail-closed visible path."""
 from __future__ import annotations
 
 import json
@@ -11,6 +11,7 @@ VULKAN = DRIVER / "vulkan.c"
 MAIN = DRIVER / "pocketpcdrv_main.c"
 MAKEFILE = DRIVER / "Makefile.in"
 PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver.py"
+PRESENT_PATCHER = ROOT / "scripts/prepare-wine-pocketpc-present-image.py"
 CONTRACT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/PocketPcVulkanWsiContract.kt"
 ARCH = ROOT / "third_party/wine/POCKETPC_VULKAN_WSI_ARCHITECTURE.json"
 
@@ -30,10 +31,11 @@ def main() -> int:
     main_source = MAIN.read_text(encoding="utf-8")
     makefile = MAKEFILE.read_text(encoding="utf-8")
     preparer = PREPARER.read_text(encoding="utf-8")
+    present_patcher = PRESENT_PATCHER.read_text(encoding="utf-8")
     contract = CONTRACT.read_text(encoding="utf-8")
     arch = json.loads(ARCH.read_text(encoding="utf-8"))
 
-    if arch.get("schemaVersion") != 7:
+    if arch.get("schemaVersion") != 8:
         raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_ARCHITECTURE_SCHEMA_MISMATCH")
     if arch.get("status") != "VULKAN_TRANSPORT_PRIMITIVES_IMPLEMENTED_VISIBLE_WSI_NOT_IMPLEMENTED_NOT_EXECUTED":
         raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_ARCHITECTURE_STATUS_MISMATCH")
@@ -43,22 +45,34 @@ def main() -> int:
     need(makefile, "\tpocketpc_graphics_session_client.c \\", "graphics-session-client-build")
     need(makefile, "\tpocketpc_graphics_ack.c \\", "graphics-ack-build")
 
+    # Stage 1 overlay: pinned upstream v47 -> PocketPC v49.
     need(preparer, 'VULKAN_DRIVER_VERSION_47 = "#define WINE_VULKAN_DRIVER_VERSION 47"', "upstream-version-lock")
-    need(preparer, 'VULKAN_DRIVER_VERSION_49 = "#define WINE_VULKAN_DRIVER_VERSION 49"', "pocketpc-version-patch")
+    need(preparer, 'VULKAN_DRIVER_VERSION_49 = "#define WINE_VULKAN_DRIVER_VERSION 49"', "base-pocketpc-version-patch")
     need(preparer, "p_vulkan_device_created", "overlay-device-created-patch")
     need(preparer, "p_vulkan_device_destroyed", "overlay-device-destroyed-patch")
     need(preparer, "p_vulkan_queue_presented", "overlay-present-queue-patch")
     need(preparer, "driver_funcs->p_vulkan_queue_presented( queue, res )", "win32u-present-callback-call")
-    need(preparer, '"vulkanAbiDriverVersion": 49', "overlay-vulkan-version")
+    need(preparer, '"vulkanAbiDriverVersion": 49', "base-overlay-vulkan-version")
     need(preparer, '"presentQueueTimelineSignalSourceIntegrated": True', "overlay-present-queue-signal")
     need(preparer, '"presentQueueTimelineSignalExecuted": False', "overlay-present-queue-not-executed")
 
-    need(contract, "WINE_VULKAN_DRIVER_VERSION =\n        49", "contract-version-49")
+    # Stage 2 overlay: prepared v49 -> private v50 exact image identity.
+    need(present_patcher, 'V49 = "#define WINE_VULKAN_DRIVER_VERSION 49"', "present-patch-input-v49")
+    need(present_patcher, 'V50 = "#define WINE_VULKAN_DRIVER_VERSION 50"', "present-patch-output-v50")
+    need(present_patcher, "p_vulkan_image_presented", "present-image-callback")
+    need(present_patcher, "p_vkGetSwapchainImagesKHR", "swapchain-image-enumeration")
+    need(present_patcher, "present_info->pImageIndices", "present-image-index")
+    need(present_patcher, '"pixelCopyImplemented": False', "no-pixel-copy")
+    need(present_patcher, '"hostVisiblePresentImplemented": False', "no-visible-present")
+
+    need(contract, "WINE_VULKAN_DRIVER_VERSION =\n        50", "contract-version-50")
+    need(contract, "BASE_OVERLAY_VULKAN_DRIVER_VERSION =\n        49", "contract-base-overlay-49")
     need(contract, "PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION =\n        47", "contract-upstream-version-47")
     need(contract, "const val deviceLifecycleCallbacksImplemented =\n        true", "contract-device-lifecycle")
     need(contract, "const val presentQueueCallbackImplemented =\n        true", "contract-present-queue-callback")
     need(contract, "const val presentQueueTimelineSignalSourceIntegrated =\n        true", "contract-present-queue-signal")
-    need(contract, "const val presentQueueTimelineSignalExecuted =\n        false", "contract-present-queue-not-executed")
+    need(contract, "const val exactPresentedImageIdentitySourceIntegrated =\n        true", "contract-exact-image-source")
+    need(contract, "const val exactPresentedImageIdentityExecuted =\n        false", "contract-exact-image-not-executed")
     need(contract, "const val swapchainImageCaptureImplemented =\n        false", "contract-no-image-capture")
     need(contract, "const val hostVisibleFrameImplemented =\n        false", "contract-no-visible-frame")
     need(contract, "const val implemented =\n        false", "contract-visible-wsi-state")
@@ -118,7 +132,9 @@ def main() -> int:
     wine = arch.get("wine") or {}
     if wine.get("upstreamVulkanDriverVersion") != 47:
         raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_UPSTREAM_VERSION_MISMATCH")
-    if wine.get("vulkanDriverVersion") != 49:
+    if wine.get("basePocketPcVulkanDriverVersion") != 49:
+        raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_BASE_VERSION_MISMATCH")
+    if wine.get("vulkanDriverVersion") != 50:
         raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_VERSION_MISMATCH")
 
     required_true = (
@@ -126,6 +142,7 @@ def main() -> int:
         "deviceLifecycleCallbacksImplemented",
         "presentQueueCallbackSourceIntegrated",
         "presentQueueTimelineSignalSourceIntegrated",
+        "exactPresentedImageIdentitySourceIntegrated",
         "externalHandleFdMappingImplemented",
         "headlessDiagnosticSurfaceImplemented",
         "headlessDiagnosticPresentationSupportImplemented",
@@ -136,6 +153,7 @@ def main() -> int:
         "deviceLifecycleCallbacksExecuted",
         "presentQueueCallbackExecuted",
         "presentQueueTimelineSignalExecuted",
+        "exactPresentedImageIdentityExecuted",
         "visibleSurfaceCreateImplemented",
         "visiblePresentationSupportImplemented",
         "visibleSurfaceExtensionMappingImplemented",
@@ -158,6 +176,7 @@ def main() -> int:
         "resourceOfferReceiverImplemented",
         "activeWineDeviceImportSourceIntegrated",
         "presentQueueTimelineSignalSourceIntegrated",
+        "exactPresentedImageIdentitySourceIntegrated",
     ):
         if guest.get(key) is not True:
             raise SystemExit(f"POCKETPC_VULKAN_ABI_POLICY_MISSING:guest-{key}")
@@ -165,6 +184,7 @@ def main() -> int:
         "authenticatedRuntimeReceiveIntegrated",
         "activeWineDeviceImageImportIntegrated",
         "presentQueueTimelineSignalExecuted",
+        "exactPresentedImageIdentityExecuted",
         "gpuQueueSynchronizationImplemented",
         "integrationTestExecuted",
         "physicalTestExecuted",
@@ -177,6 +197,8 @@ def main() -> int:
         "wineVulkanDeviceLifecycleCallbacksExecuted",
         "winePresentQueueCallbackExecuted",
         "presentQueueTimelineSignalExecuted",
+        "samePresentQueueOrderingObserved",
+        "exactPresentedImageIdentityExecuted",
         "authenticatedGuestGraphicsReceiveIntegrated",
         "guestVulkanImageImportIntegrated",
         "guestGraphicsGpuSynchronizationImplemented",
@@ -193,14 +215,14 @@ def main() -> int:
 
     print("POCKETPC_VULKAN_ABI_POLICY_OK")
     print("wine_vulkan_upstream_driver_version=47")
-    print("wine_vulkan_pocketpc_driver_version=49")
+    print("wine_vulkan_base_overlay_version=49")
+    print("wine_vulkan_effective_source_version=50")
     print("device_lifecycle_callbacks_source_integrated=true")
     print("present_queue_callback_source_integrated=true")
     print("present_queue_timeline_signal_source_integrated=true")
+    print("exact_presented_image_identity_source_integrated=true")
     print("present_queue_timeline_signal_executed=false")
-    print("active_wine_device_import_source_integrated=true")
-    print("headless_diagnostic_implemented=true")
-    print("external_handle_fd_mapping=true")
+    print("exact_presented_image_identity_executed=false")
     print("swapchain_capture=false")
     print("visible_wsi_implemented=false")
     print("host_visible_present=false")
