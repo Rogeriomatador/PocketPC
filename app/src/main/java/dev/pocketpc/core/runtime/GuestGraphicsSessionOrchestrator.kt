@@ -12,8 +12,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * A successful host offer means only that PGT RESOURCE_OFFER + PVI1 + PVS1
  * were sent over the authenticated SOCK_SEQPACKET connection. Guest import is
- * confirmed separately through the ordered PGA1 acknowledgement chain. Neither
- * condition proves GPU queue synchronization, visible Present, or Roblox.
+ * confirmed separately through PGA1 stages 1..4. PGA1 stage 5 is tracked as a
+ * queue-submit diagnostic only and never promoted to Present ordering.
  */
 class GuestGraphicsSessionOrchestrator private constructor(
     private val session: GraphicsSeqpacketSessionHost.Session,
@@ -23,6 +23,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
         AUTHENTICATED,
         RESOURCE_OFFERED,
         GUEST_IMPORT_CONFIRMED,
+        GPU_QUEUE_SIGNAL_OBSERVED,
         CLOSED,
     }
 
@@ -39,6 +40,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
         val guestImportAcknowledgements:
             GraphicsSeqpacketSessionHost.ImportAcknowledgements? = null,
         val guestImportedOwnership: GuestGraphicsOwnershipToken? = null,
+        val gpuQueueSignalAcknowledgement:
+            GraphicsSeqpacketSessionHost.GpuQueueSignalAcknowledgement? = null,
     ) {
         val hostOfferComplete: Boolean
             get() =
@@ -55,6 +58,12 @@ class GuestGraphicsSessionOrchestrator private constructor(
                     guestImportedOwnership.resourceId == resourceId &&
                     guestImportedOwnership.generation == generation &&
                     guestImportedOwnership.sequence == ownership.sequence + 1L
+
+        val gpuQueueSignalObserved: Boolean
+            get() =
+                guestImportConfirmed &&
+                    gpuQueueSignalAcknowledgement?.submitted == true &&
+                    gpuQueueSignalAcknowledgement.presentOrdered == false
     }
 
     data class Snapshot(
@@ -64,6 +73,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
         val activeGeneration: Long?,
         val hostResourceOffered: Boolean,
         val guestImportConfirmed: Boolean,
+        val gpuQueueSignalObserved: Boolean,
+        val gpuQueueFamilyIndex: Int?,
         val blocker: String?,
     )
 
@@ -90,6 +101,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
             "GUEST_GRAPHICS_IMPORT_ACK_FAILED"
         const val BLOCKER_IMPORT_OWNERSHIP_CONFIRM_FAILED =
             "GUEST_GRAPHICS_IMPORT_OWNERSHIP_CONFIRM_FAILED"
+        const val BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED =
+            "GUEST_GRAPHICS_GPU_QUEUE_SIGNAL_ACK_FAILED"
         const val BLOCKER_CLOSED =
             "GUEST_GRAPHICS_SESSION_CLOSED"
 
@@ -319,6 +332,63 @@ class GuestGraphicsSessionOrchestrator private constructor(
             }
         }
 
+    /**
+     * Waits for PGA1 stage 5 after import confirmation. This is deliberately a
+     * diagnostic precursor: it proves the guest says vkQueueSubmit accepted a
+     * PVS1 timeline signal on one Wine queue, but it does not advance the
+     * ownership state to GUEST_RENDERING and does not prove Present ordering.
+     */
+    fun awaitGpuQueueSignalProbe(
+        timeoutMillis: Long = GraphicsSeqpacketSessionHost.DEFAULT_AUTH_TIMEOUT_MILLIS,
+    ): Result<ResourceOffer> =
+        runCatching {
+            check(!closed.get()) { BLOCKER_CLOSED }
+            check(authenticated.get()) { BLOCKER_NOT_AUTHENTICATED }
+
+            val connection = acceptedConnection
+            check(connection != null && connection.valid) {
+                BLOCKER_NOT_AUTHENTICATED
+            }
+
+            val offer = activeOffer
+                ?: throw IllegalStateException(BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED)
+            check(offer.guestImportConfirmed) { BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED }
+            if (offer.gpuQueueSignalObserved) return@runCatching offer
+
+            val acknowledgement =
+                connection.awaitGpuQueueSignalAcknowledgement(
+                    resourceId = offer.resourceId,
+                    generation = offer.generation,
+                    sequence = offer.ownership.sequence,
+                    timeoutMillis = timeoutMillis,
+                ) ?: run {
+                    lastBlocker = BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED
+                    throw IllegalStateException(BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED)
+                }
+
+            check(acknowledgement.submitted && !acknowledgement.presentOrdered) {
+                BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED
+            }
+
+            val updated =
+                offer.copy(
+                    gpuQueueSignalAcknowledgement = acknowledgement,
+                )
+            check(updated.gpuQueueSignalObserved) {
+                BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED
+            }
+
+            activeOffer = updated
+            lastBlocker = null
+            updated
+        }.onFailure {
+            if (lastBlocker == null) {
+                lastBlocker =
+                    it.message?.takeIf(String::isNotBlank)
+                        ?: BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED
+            }
+        }
+
     fun activeOffer(): ResourceOffer? = activeOffer
 
     fun releaseActiveResource(): Boolean {
@@ -340,6 +410,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
             state =
                 when {
                     isClosed -> State.CLOSED
+                    offer?.gpuQueueSignalObserved == true -> State.GPU_QUEUE_SIGNAL_OBSERVED
                     offer?.guestImportConfirmed == true -> State.GUEST_IMPORT_CONFIRMED
                     offer?.hostOfferComplete == true -> State.RESOURCE_OFFERED
                     isAuthenticated -> State.AUTHENTICATED
@@ -350,6 +421,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
             activeGeneration = offer?.generation,
             hostResourceOffered = offer?.hostOfferComplete == true,
             guestImportConfirmed = offer?.guestImportConfirmed == true,
+            gpuQueueSignalObserved = offer?.gpuQueueSignalObserved == true,
+            gpuQueueFamilyIndex = offer?.gpuQueueSignalAcknowledgement?.queueFamilyIndex,
             blocker = lastBlocker,
         )
     }
