@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -357,6 +358,17 @@ def main() -> int:
         for sentinel in sentinels:
             if sentinel not in text:
                 failures.append(f"{path.relative_to(ROOT)} missing sentinel: {sentinel}")
+
+    paired_policy = subprocess.run(
+        [sys.executable, str(PAIRED_V52_POLICY)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if paired_policy.returncode != 0:
+        detail = (paired_policy.stderr or paired_policy.stdout).strip()
+        failures.append("paired v52 policy failed: " + detail)
 
     if failures:
         print("UPDATE_FEED_POLICY_FAILED", file=sys.stderr)
