@@ -5,6 +5,7 @@ Stages:
   1. v49 base driver/lifecycle overlay
   2. v50 exact presented-image + external ownership overlay
   3. v51 one-shot pre-Present GPU copy overlay
+  4. ordered PGA1 stage-6 copy-completed acknowledgement
 
 The combined evidence remains fail-closed: source integration never implies
 compilation, runtime execution, Android-visible presentation or Roblox support.
@@ -21,6 +22,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 V50_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver-v50.py"
 V51_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-pre-present-copy.py"
+COPY_ACK_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-present-copy-ack.py"
 
 
 def run_stage(script: Path, wine_source: Path, evidence: Path) -> None:
@@ -98,6 +100,35 @@ def require_v51(data: dict[str, object]) -> None:
         raise SystemExit("WINE_V51_ROBLOX_MUST_REMAIN_FALSE")
 
 
+def require_copy_ack(data: dict[str, object]) -> None:
+    if data.get("schemaVersion") != 1:
+        raise SystemExit("WINE_V51_COPY_ACK_EVIDENCE_SCHEMA_INVALID")
+    if data.get("privateWineVulkanAbi") != 51:
+        raise SystemExit("WINE_V51_COPY_ACK_ABI_INVALID")
+    if data.get("pgaProtocolVersion") != 1:
+        raise SystemExit("WINE_V51_COPY_ACK_PROTOCOL_INVALID")
+    if data.get("presentCopyCompletedStage") != 6:
+        raise SystemExit("WINE_V51_COPY_ACK_STAGE_INVALID")
+    source = data.get("sourceIntegration")
+    if not isinstance(source, dict):
+        raise SystemExit("WINE_V51_COPY_ACK_SOURCE_MISSING")
+    required_true = (
+        "stage5MustSucceedBeforeStage6",
+        "stage6UsesSameResourceIdentity",
+        "stage6DetailCarriesQueueFamily",
+    )
+    if any(source.get(key) is not True for key in required_true):
+        raise SystemExit("WINE_V51_COPY_ACK_ORDERING_INCOMPLETE")
+    if data.get("copyCompletedAckImplemented") is not True:
+        raise SystemExit("WINE_V51_COPY_ACK_NOT_IMPLEMENTED")
+    if data.get("copyCompletedAckExecuted") is not False:
+        raise SystemExit("WINE_V51_COPY_ACK_MUST_REMAIN_NOT_EXECUTED")
+    if data.get("androidVisibleFrameImplemented") is not False:
+        raise SystemExit("WINE_V51_COPY_ACK_VISIBLE_FRAME_MUST_REMAIN_FALSE")
+    if data.get("robloxExecuted") is not False:
+        raise SystemExit("WINE_V51_COPY_ACK_ROBLOX_MUST_REMAIN_FALSE")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wine-source", type=Path, required=True)
@@ -112,6 +143,7 @@ def main() -> int:
         temp_root = Path(temp)
         v50_path = temp_root / "v50.json"
         v51_path = temp_root / "v51.json"
+        copy_ack_path = temp_root / "copy-ack.json"
 
         run_stage(V50_PREPARER, wine_source, v50_path)
         v50 = json.loads(v50_path.read_text(encoding="utf-8"))
@@ -121,12 +153,25 @@ def main() -> int:
         v51 = json.loads(v51_path.read_text(encoding="utf-8"))
         require_v51(v51)
 
+        run_stage(COPY_ACK_PREPARER, wine_source, copy_ack_path)
+        copy_ack = json.loads(copy_ack_path.read_text(encoding="utf-8"))
+        require_copy_ack(copy_ack)
+
     combined = dict(v50)
     combined.update(
         {
             "status": "POCKETPC_WINE_DRIVER_V51_SOURCE_INTEGRATED_NOT_BUILT_NOT_EXECUTED",
             "privateWineVulkanAbi": 51,
             "prePresentCopy": v51["copyContract"],
+            "presentCopyCompletedAck": {
+                "pgaProtocolVersion": copy_ack["pgaProtocolVersion"],
+                "stage": copy_ack["presentCopyCompletedStage"],
+                "stage5MustSucceedBeforeStage6": copy_ack["sourceIntegration"]["stage5MustSucceedBeforeStage6"],
+                "sameResourceIdentity": copy_ack["sourceIntegration"]["stage6UsesSameResourceIdentity"],
+                "queueFamilyInDetail": copy_ack["sourceIntegration"]["stage6DetailCarriesQueueFamily"],
+                "implemented": True,
+                "executed": False,
+            },
             "pixelCopyImplemented": True,
             "pixelCopyExecuted": False,
             "formatConversionImplemented": False,
@@ -140,6 +185,9 @@ def main() -> int:
                 "helperFiles": v51.get("helperFiles"),
                 "files": v51.get("files"),
                 "notExecuted": v51.get("notExecuted"),
+                "copyAckStatus": copy_ack.get("status"),
+                "copyAckFiles": copy_ack.get("files"),
+                "copyAckNotExecuted": copy_ack.get("notExecuted"),
             },
         }
     )
@@ -153,6 +201,7 @@ def main() -> int:
     print("POCKETPC_WINE_DRIVER_V51_SOURCE_INTEGRATED_NOT_EXECUTED")
     print("private_wine_vulkan_abi=51")
     print("pixel_copy_source_integrated=true")
+    print("pga_present_copy_completed_stage=6")
     print("pixel_copy_executed=false")
     print("android_visible_consumer=false")
     print("roblox_executed=false")
