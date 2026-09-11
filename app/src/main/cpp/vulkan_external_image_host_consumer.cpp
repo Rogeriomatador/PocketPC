@@ -2,6 +2,7 @@
 #include <vulkan/vulkan.h>
 
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include <array>
@@ -41,6 +42,8 @@ constexpr uint64_t kFnvOffset = 14695981039346656037ull;
 constexpr uint64_t kFnvPrime = 1099511628211ull;
 constexpr uint32_t kMaxDimension = 4096;
 constexpr uint64_t kMaxReadbackBytes = 4096ull * 4096ull * 4ull;
+constexpr uint64_t kNanosPerSecond = 1000000000ull;
+constexpr uint64_t kNanosPerMicrosecond = 1000ull;
 
 struct ReceivedFd {
     int fd = -1;
@@ -70,6 +73,22 @@ jstring ToJString(JNIEnv* env, const std::string& value) {
     return env->NewStringUTF(value.c_str());
 }
 
+std::string FromJString(JNIEnv* env, jstring value) {
+    if (!env || !value) return {};
+    const char* chars = env->GetStringUTFChars(value, nullptr);
+    if (!chars) return {};
+    std::string result(chars);
+    env->ReleaseStringUTFChars(value, chars);
+    return result;
+}
+
+bool StartsWith(const std::string& value, const char* prefix) {
+    if (!prefix) return false;
+    const size_t prefix_size = std::strlen(prefix);
+    return value.size() >= prefix_size &&
+        value.compare(0, prefix_size, prefix) == 0;
+}
+
 uint16_t GetU16Le(const uint8_t* p) {
     return static_cast<uint16_t>(p[0]) |
         (static_cast<uint16_t>(p[1]) << 8u);
@@ -94,6 +113,29 @@ void CloseReceived(ReceivedFd* received) {
     if (received->fd >= 0) close(received->fd);
     received->fd = -1;
     received->payload.clear();
+}
+
+bool SetReceiveTimeout(int socket_fd, uint64_t timeout_nanos) {
+    if (socket_fd < 0 || timeout_nanos == 0) return false;
+
+    timeval timeout {};
+    timeout.tv_sec = static_cast<time_t>(timeout_nanos / kNanosPerSecond);
+    const uint64_t remainder = timeout_nanos % kNanosPerSecond;
+    uint64_t micros =
+        (remainder + kNanosPerMicrosecond - 1u) / kNanosPerMicrosecond;
+    if (micros >= 1000000u) {
+        ++timeout.tv_sec;
+        micros -= 1000000u;
+    }
+    timeout.tv_usec = static_cast<suseconds_t>(micros);
+    if (timeout.tv_sec == 0 && timeout.tv_usec == 0) timeout.tv_usec = 1;
+
+    return setsockopt(
+        socket_fd,
+        SOL_SOCKET,
+        SO_RCVTIMEO,
+        &timeout,
+        sizeof(timeout)) == 0;
 }
 
 bool ReceiveSingleFd(int socket_fd, size_t payload_bytes, ReceivedFd* out) {
@@ -138,6 +180,7 @@ bool ReceiveSingleFd(int socket_fd, size_t payload_bytes, ReceivedFd* out) {
             else if (fds[i] >= 0) close(fds[i]);
         }
     }
+
     if (fd_count != 1 || accepted_fd < 0) {
         if (accepted_fd >= 0) close(accepted_fd);
         return false;
@@ -168,6 +211,7 @@ bool PickPhysicalAndQueue(
         VkPhysicalDevice* physical,
         uint32_t* queue_family) {
     if (!physical || !queue_family) return false;
+
     uint32_t physical_count = 0;
     if (vkEnumeratePhysicalDevices(instance, &physical_count, nullptr) != VK_SUCCESS ||
         physical_count == 0 || physical_count > 64) return false;
@@ -206,6 +250,7 @@ bool FindHostVisibleMemoryType(
         uint32_t* index,
         bool* coherent) {
     if (!index || !coherent || type_bits == 0) return false;
+
     VkPhysicalDeviceMemoryProperties properties {};
     vkGetPhysicalDeviceMemoryProperties(physical, &properties);
     for (uint32_t i = 0; i < properties.memoryTypeCount; ++i) {
@@ -342,11 +387,13 @@ int CreateImportedConsumer(
     if (result != VK_SUCCESS) { *reason = "instance-create"; return result; }
 
     if (!PickPhysicalAndQueue(consumer->instance, &consumer->physical, &consumer->queue_family)) {
-        *reason = "physical-or-queue"; return -2;
+        *reason = "physical-or-queue";
+        return -2;
     }
     if (!HasDeviceExtension(consumer->physical, VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME) ||
         !HasDeviceExtension(consumer->physical, VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME)) {
-        *reason = "external-fd-extension"; return -3;
+        *reason = "external-fd-extension";
+        return -3;
     }
 
     VkPhysicalDeviceProperties properties {};
@@ -356,7 +403,8 @@ int CreateImportedConsumer(
         (VK_VERSION_MAJOR(properties.apiVersion) == 1 && VK_VERSION_MINOR(properties.apiVersion) >= 2);
     if (!core_12 && !HasDeviceExtension(
             consumer->physical, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)) {
-        *reason = "timeline-extension"; return -4;
+        *reason = "timeline-extension";
+        return -4;
     }
 
     VkPhysicalDeviceTimelineSemaphoreFeatures timeline_features {};
@@ -366,7 +414,8 @@ int CreateImportedConsumer(
     features.pNext = &timeline_features;
     vkGetPhysicalDeviceFeatures2(consumer->physical, &features);
     if (timeline_features.timelineSemaphore != VK_TRUE) {
-        *reason = "timeline-feature"; return -5;
+        *reason = "timeline-feature";
+        return -5;
     }
 
     const float priority = 1.0f;
@@ -414,7 +463,8 @@ int CreateImportedConsumer(
     }
     if (!consumer->import_semaphore_fd || !consumer->wait_semaphores ||
         !consumer->get_semaphore_counter) {
-        *reason = "timeline-functions"; return -7;
+        *reason = "timeline-functions";
+        return -7;
     }
 
     VkExternalMemoryImageCreateInfo external_image {};
@@ -442,7 +492,8 @@ int CreateImportedConsumer(
         memory_type_index >= 32 ||
         (image_requirements.memoryTypeBits & (1u << memory_type_index)) == 0 ||
         allocation_size < image_requirements.size) {
-        *reason = "import-memory-requirements"; return -8;
+        *reason = "import-memory-requirements";
+        return -8;
     }
 
     VkMemoryDedicatedAllocateInfo dedicated {};
@@ -461,6 +512,7 @@ int CreateImportedConsumer(
     result = vkAllocateMemory(consumer->device, &allocation, nullptr, &consumer->image_memory);
     if (result != VK_SUCCESS) { *reason = "image-memory-import"; return result; }
     *image_fd = -1;
+
     result = vkBindImageMemory(consumer->device, consumer->image, consumer->image_memory, 0);
     if (result != VK_SUCCESS) { *reason = "image-bind"; return result; }
 
@@ -491,11 +543,15 @@ int CreateImportedConsumer(
     result = vkCreateCommandPool(consumer->device, &pool_info, nullptr, &consumer->command_pool);
     if (result != VK_SUCCESS) { *reason = "command-pool"; return result; }
 
-    const uint64_t bytes = static_cast<uint64_t>(width) * height * 4ull;
-    if (bytes == 0 || bytes > kMaxReadbackBytes || bytes > std::numeric_limits<VkDeviceSize>::max()) {
-        *reason = "readback-size"; return -9;
+    const uint64_t bytes = static_cast<uint64_t>(width) *
+        static_cast<uint64_t>(height) * 4ull;
+    if (bytes == 0 || bytes > kMaxReadbackBytes ||
+        bytes > static_cast<uint64_t>(std::numeric_limits<VkDeviceSize>::max())) {
+        *reason = "readback-size";
+        return -9;
     }
     consumer->staging_size = static_cast<VkDeviceSize>(bytes);
+
     VkBufferCreateInfo buffer_info {};
     buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_info.size = consumer->staging_size;
@@ -512,8 +568,10 @@ int CreateImportedConsumer(
             staging_requirements.memoryTypeBits,
             &staging_memory_index,
             &consumer->staging_coherent)) {
-        *reason = "host-visible-memory"; return -10;
+        *reason = "host-visible-memory";
+        return -10;
     }
+
     VkMemoryAllocateInfo staging_allocation {};
     staging_allocation.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     staging_allocation.allocationSize = staging_requirements.size;
@@ -521,6 +579,7 @@ int CreateImportedConsumer(
     result = vkAllocateMemory(
         consumer->device, &staging_allocation, nullptr, &consumer->staging_memory);
     if (result != VK_SUCCESS) { *reason = "staging-memory"; return result; }
+
     result = vkBindBufferMemory(consumer->device, consumer->staging, consumer->staging_memory, 0);
     if (result != VK_SUCCESS) { *reason = "staging-bind"; return result; }
 
@@ -533,6 +592,7 @@ int WaitGuestSignal(
         uint64_t* timeline_value,
         std::string* reason) {
     if (!consumer || !timeline_value || !reason || timeout_ns == 0) return -1;
+
     VkSemaphore semaphore = consumer->timeline;
     const uint64_t target = kFirstGuestSignalValue;
     VkSemaphoreWaitInfo wait_info {};
@@ -540,12 +600,15 @@ int WaitGuestSignal(
     wait_info.semaphoreCount = 1;
     wait_info.pSemaphores = &semaphore;
     wait_info.pValues = &target;
+
     VkResult result = consumer->wait_semaphores(consumer->device, &wait_info, timeout_ns);
     if (result != VK_SUCCESS) { *reason = "timeline-wait"; return result; }
+
     result = consumer->get_semaphore_counter(
         consumer->device, consumer->timeline, timeline_value);
     if (result != VK_SUCCESS || *timeline_value < target) {
-        *reason = "timeline-counter"; return result == VK_SUCCESS ? -2 : result;
+        *reason = "timeline-counter";
+        return result == VK_SUCCESS ? -2 : result;
     }
     return 0;
 }
@@ -593,7 +656,13 @@ int ReadbackAndReturnExternal(
         command,
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &acquire);
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &acquire);
 
     VkBufferImageCopy region {};
     region.bufferOffset = 0;
@@ -621,6 +690,17 @@ int ReadbackAndReturnExternal(
     buffer_barrier.buffer = consumer->staging;
     buffer_barrier.offset = 0;
     buffer_barrier.size = consumer->staging_size;
+    vkCmdPipelineBarrier(
+        command,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        0,
+        0,
+        nullptr,
+        1,
+        &buffer_barrier,
+        0,
+        nullptr);
 
     VkImageMemoryBarrier release {};
     release.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -632,29 +712,40 @@ int ReadbackAndReturnExternal(
     release.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
     release.image = consumer->image;
     release.subresourceRange = acquire.subresourceRange;
-
     vkCmdPipelineBarrier(
         command,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
         0,
         0,
         nullptr,
-        1,
-        &buffer_barrier,
+        0,
+        nullptr,
         1,
         &release);
 
     result = vkEndCommandBuffer(command);
     if (result != VK_SUCCESS) { *reason = "command-end"; return result; }
+
     VkSubmitInfo submit {};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &command;
     result = vkQueueSubmit(consumer->queue, 1, &submit, VK_NULL_HANDLE);
     if (result != VK_SUCCESS) { *reason = "queue-submit"; return result; }
+
     result = vkQueueWaitIdle(consumer->queue);
     if (result != VK_SUCCESS) { *reason = "queue-wait"; return result; }
+
+    void* mapped = nullptr;
+    result = vkMapMemory(
+        consumer->device,
+        consumer->staging_memory,
+        0,
+        VK_WHOLE_SIZE,
+        0,
+        &mapped);
+    if (result != VK_SUCCESS || !mapped) { *reason = "staging-map"; return result; }
 
     if (!consumer->staging_coherent) {
         VkMappedMemoryRange range {};
@@ -663,18 +754,12 @@ int ReadbackAndReturnExternal(
         range.offset = 0;
         range.size = VK_WHOLE_SIZE;
         result = vkInvalidateMappedMemoryRanges(consumer->device, 1, &range);
-        if (result != VK_SUCCESS) { *reason = "staging-invalidate"; return result; }
+        if (result != VK_SUCCESS) {
+            vkUnmapMemory(consumer->device, consumer->staging_memory);
+            *reason = "staging-invalidate";
+            return result;
+        }
     }
-
-    void* mapped = nullptr;
-    result = vkMapMemory(
-        consumer->device,
-        consumer->staging_memory,
-        0,
-        consumer->staging_size,
-        0,
-        &mapped);
-    if (result != VK_SUCCESS || !mapped) { *reason = "staging-map"; return result; }
 
     const auto* bytes = static_cast<const uint8_t*>(mapped);
     uint64_t hash = kFnvOffset;
@@ -685,6 +770,7 @@ int ReadbackAndReturnExternal(
         if (bytes[i] != 0) ++nonzero;
     }
     vkUnmapMemory(consumer->device, consumer->staging_memory);
+
     *checksum = hash;
     *nonzero_bytes = nonzero;
     return 0;
@@ -728,33 +814,56 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageHostConsumer_nativeConsume(
     std::string reason;
     std::string response;
 
-    jstring send_image = Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSend(
-        env, nullptr, resource_id, generation, sockets[0], sequence);
-    if (send_image) env->DeleteLocalRef(send_image);
-    if (!ReceiveSingleFd(sockets[1], kPviBytes, &image_packet) ||
-        !ValidatePvi(
-            image_packet, rid, gen, seq,
-            static_cast<uint32_t>(width), static_cast<uint32_t>(height),
-            static_cast<VkFormat>(format), static_cast<uint64_t>(allocation_size),
-            static_cast<uint32_t>(memory_type_bits), static_cast<uint32_t>(memory_type_index))) {
-        response = Fail(rid, gen, seq, "pvi1-reexport-or-identity");
+    if (!SetReceiveTimeout(sockets[1], static_cast<uint64_t>(timeout_nanos))) {
+        response = Fail(rid, gen, seq, "socket-timeout", errno);
         goto done;
     }
 
     {
-        jstring send_timeline =
+        jstring result = Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSend(
+            env, nullptr, resource_id, generation, sockets[0], sequence);
+        const std::string status = FromJString(env, result);
+        if (result) env->DeleteLocalRef(result);
+        if (!StartsWith(status, "vulkan-external-image-fd-send=ok;")) {
+            response = Fail(rid, gen, seq, "pvi1-reexport");
+            goto done;
+        }
+    }
+    if (!ReceiveSingleFd(sockets[1], kPviBytes, &image_packet) ||
+        !ValidatePvi(
+            image_packet,
+            rid,
+            gen,
+            seq,
+            static_cast<uint32_t>(width),
+            static_cast<uint32_t>(height),
+            static_cast<VkFormat>(format),
+            static_cast<uint64_t>(allocation_size),
+            static_cast<uint32_t>(memory_type_bits),
+            static_cast<uint32_t>(memory_type_index))) {
+        response = Fail(rid, gen, seq, "pvi1-identity");
+        goto done;
+    }
+
+    {
+        jstring result =
             Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSendTimeline(
                 env, nullptr, resource_id, generation, sockets[0]);
-        if (send_timeline) env->DeleteLocalRef(send_timeline);
+        const std::string status = FromJString(env, result);
+        if (result) env->DeleteLocalRef(result);
+        if (!StartsWith(status, "vulkan-external-timeline-fd-send=ok;")) {
+            response = Fail(rid, gen, seq, "pvs1-reexport");
+            goto done;
+        }
     }
     if (!ReceiveSingleFd(sockets[1], kPvsBytes, &timeline_packet) ||
         !ValidatePvs(timeline_packet, rid, gen)) {
-        response = Fail(rid, gen, seq, "pvs1-reexport-or-identity");
+        response = Fail(rid, gen, seq, "pvs1-identity");
         goto done;
     }
 
     {
-        int create_result = CreateImportedConsumer(
+        const int create_result = CreateImportedConsumer(
             &consumer,
             &image_packet.fd,
             &timeline_packet.fd,
