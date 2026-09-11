@@ -296,6 +296,9 @@ internal fun RuntimeDesktopWindowLayer(
                             ?.let { frame ->
                                 RuntimeDisplayFramePreview(
                                     frame = frame,
+                                    frameId = window.frameId,
+                                    externalFrameIdentity =
+                                        window.externalFrameIdentity,
                                     modifier =
                                         Modifier
                                             .fillMaxSize()
