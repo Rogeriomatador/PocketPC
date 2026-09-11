@@ -47,7 +47,7 @@ object VulkanContinuousPresentTimeline {
         if (
             value <= INITIAL_VALUE ||
             value > MAX_GUEST_READY_VALUE ||
-            value and 1L == 0L
+            (value and 1L) == 0L
         ) {
             return null
         }
@@ -59,7 +59,7 @@ object VulkanContinuousPresentTimeline {
         if (
             value <= INITIAL_VALUE ||
             value > MAX_HOST_CONSUMED_VALUE ||
-            value and 1L != 0L
+            (value and 1L) != 0L
         ) {
             return null
         }
@@ -73,13 +73,17 @@ object VulkanContinuousPresentTimeline {
     fun isHostConsumedValue(value: Long): Boolean =
         value == INITIAL_VALUE || frameSequenceFromHostConsumed(value) != null
 
+    /**
+     * The guest may acquire frame N only from the exact previous host-consumed
+     * state. A larger value means ownership already moved through another
+     * transition, so skipping ahead would hide a race/stale producer.
+     */
     fun canAdvanceAfterHostConsumed(
         frameSequence: Long,
         observedTimelineValue: Long,
     ): Boolean {
         if (frameSequence !in FIRST_FRAME_SEQUENCE..MAX_FRAME_SEQUENCE) return false
-        val required = previousHostConsumedValue(frameSequence)
-        return observedTimelineValue >= required && observedTimelineValue >= INITIAL_VALUE
+        return observedTimelineValue == previousHostConsumedValue(frameSequence)
     }
 
     private fun requireFrameSequence(frameSequence: Long) {
