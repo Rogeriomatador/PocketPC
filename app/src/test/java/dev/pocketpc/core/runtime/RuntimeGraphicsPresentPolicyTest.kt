@@ -31,23 +31,16 @@ class RuntimeGraphicsPresentPolicyTest {
     }
 
     @Test
-    fun explicitV52RequiresVerifiedMetadataExactIdentityAbiAndCapability() {
+    fun forgedVerifiedV52DeclarationWithoutResolverSealFailsClosed() {
         val selection =
             RuntimeGraphicsPresentPolicy.select(
                 expectedRuntimeIdentity = runtimeIdentity,
-                declaration = validDeclaration(),
+                declaration = validLookingButUnsealedDeclaration(),
             )
 
-        assertEquals(
-            RuntimeGraphicsPresentMode.V52_CONTINUOUS_EXPERIMENTAL,
-            selection.mode,
-        )
-        assertNull(selection.blocker)
-        assertTrue(selection.usable)
-        assertTrue(selection.continuousV52Selected)
-        assertEquals(
-            mapOf(RuntimeGraphicsPresentPolicy.ENV_CONTINUOUS_PRESENT_V52 to "1"),
-            RuntimeGraphicsPresentPolicy.launchEnvironment(selection),
+        assertRejected(
+            selection,
+            RuntimeGraphicsPresentPolicy.BLOCKER_PACKAGE_BINDING_UNVERIFIED,
         )
     }
 
@@ -56,7 +49,9 @@ class RuntimeGraphicsPresentPolicyTest {
         val selection =
             RuntimeGraphicsPresentPolicy.select(
                 expectedRuntimeIdentity = runtimeIdentity,
-                declaration = validDeclaration().copy(verifiedArtifactMetadata = false),
+                declaration =
+                    validLookingButUnsealedDeclaration()
+                        .copy(verifiedArtifactMetadata = false),
             )
 
         assertRejected(
@@ -70,7 +65,9 @@ class RuntimeGraphicsPresentPolicyTest {
         val selection =
             RuntimeGraphicsPresentPolicy.select(
                 expectedRuntimeIdentity = runtimeIdentity,
-                declaration = validDeclaration().copy(runtimeIdentity = "runtime:other"),
+                declaration =
+                    validLookingButUnsealedDeclaration()
+                        .copy(runtimeIdentity = "runtime:other"),
             )
 
         assertRejected(
@@ -84,7 +81,8 @@ class RuntimeGraphicsPresentPolicyTest {
         val selection =
             RuntimeGraphicsPresentPolicy.select(
                 expectedRuntimeIdentity = runtimeIdentity,
-                declaration = validDeclaration().copy(wineVulkanAbi = 51),
+                declaration =
+                    validLookingButUnsealedDeclaration().copy(wineVulkanAbi = 51),
             )
 
         assertRejected(
@@ -98,7 +96,8 @@ class RuntimeGraphicsPresentPolicyTest {
         val selection =
             RuntimeGraphicsPresentPolicy.select(
                 expectedRuntimeIdentity = runtimeIdentity,
-                declaration = validDeclaration().copy(capabilities = emptySet()),
+                declaration =
+                    validLookingButUnsealedDeclaration().copy(capabilities = emptySet()),
             )
 
         assertRejected(
@@ -113,7 +112,7 @@ class RuntimeGraphicsPresentPolicyTest {
             RuntimeGraphicsPresentPolicy.select(
                 expectedRuntimeIdentity = runtimeIdentity,
                 declaration =
-                    validDeclaration().copy(
+                    validLookingButUnsealedDeclaration().copy(
                         requestContinuousPresentV52 = false,
                         verifiedArtifactMetadata = false,
                         wineVulkanAbi = 51,
@@ -128,7 +127,7 @@ class RuntimeGraphicsPresentPolicyTest {
         assertTrue(RuntimeGraphicsPresentPolicy.launchEnvironment(selection).isEmpty())
     }
 
-    private fun validDeclaration() =
+    private fun validLookingButUnsealedDeclaration() =
         RuntimeGraphicsGuestDeclaration(
             runtimeIdentity = runtimeIdentity,
             wineVulkanAbi = RuntimeGraphicsPresentPolicy.WINE_VULKAN_ABI_V52,

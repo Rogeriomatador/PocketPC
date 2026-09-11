@@ -14,6 +14,11 @@ import java.security.MessageDigest
  * revision embedded in the running APK. A local/unpinned APK or a Wine package
  * produced from another PocketPC revision fails closed instead of silently
  * enabling the experimental protocol.
+ *
+ * Successful declarations carry an opaque resolver token bound to the exact
+ * runtime identity and PocketPC revision that were verified. The selection
+ * policy requires that token, so a caller cannot activate v52 by constructing
+ * a declaration that merely claims verifiedArtifactMetadata=true.
  */
 object RuntimeGraphicsGuestDeclarationResolver {
     const val CAPABILITY_PATH =
@@ -21,14 +26,59 @@ object RuntimeGraphicsGuestDeclarationResolver {
 
     private val sourceRevisionRegex = Regex("^[0-9a-f]{40}$")
 
+    private data class VerificationToken(
+        val runtimeIdentity: String,
+        val pocketPcSourceRevision: String,
+    )
+
     fun resolve(
         expectedRuntimeIdentity: String,
         wineTool: InstalledGuestTool?,
         requestContinuousPresentV52: Boolean,
-        expectedPocketPcSourceRevision: String =
-            BuildConfig.POCKETPC_SOURCE_REVISION,
-        expectedPocketPcSourceRevisionPinned: Boolean =
-            BuildConfig.POCKETPC_SOURCE_REVISION_PINNED,
+    ): RuntimeGraphicsGuestDeclaration? =
+        resolveAgainstRevision(
+            expectedRuntimeIdentity = expectedRuntimeIdentity,
+            wineTool = wineTool,
+            requestContinuousPresentV52 = requestContinuousPresentV52,
+            expectedPocketPcSourceRevision = BuildConfig.POCKETPC_SOURCE_REVISION,
+            expectedPocketPcSourceRevisionPinned =
+                BuildConfig.POCKETPC_SOURCE_REVISION_PINNED,
+        )
+
+    /** Unit-test seam. Production code must use [resolve]. */
+    internal fun resolveForTest(
+        expectedRuntimeIdentity: String,
+        wineTool: InstalledGuestTool?,
+        requestContinuousPresentV52: Boolean,
+        expectedPocketPcSourceRevision: String,
+        expectedPocketPcSourceRevisionPinned: Boolean,
+    ): RuntimeGraphicsGuestDeclaration? =
+        resolveAgainstRevision(
+            expectedRuntimeIdentity = expectedRuntimeIdentity,
+            wineTool = wineTool,
+            requestContinuousPresentV52 = requestContinuousPresentV52,
+            expectedPocketPcSourceRevision = expectedPocketPcSourceRevision,
+            expectedPocketPcSourceRevisionPinned =
+                expectedPocketPcSourceRevisionPinned,
+        )
+
+    internal fun isResolverVerifiedInstalledPackage(
+        declaration: RuntimeGraphicsGuestDeclaration,
+        expectedRuntimeIdentity: String,
+    ): Boolean {
+        val token = declaration.resolverVerificationToken as? VerificationToken
+            ?: return false
+        return token.runtimeIdentity == expectedRuntimeIdentity &&
+            declaration.runtimeIdentity == token.runtimeIdentity &&
+            sourceRevisionRegex.matches(token.pocketPcSourceRevision)
+    }
+
+    private fun resolveAgainstRevision(
+        expectedRuntimeIdentity: String,
+        wineTool: InstalledGuestTool?,
+        requestContinuousPresentV52: Boolean,
+        expectedPocketPcSourceRevision: String,
+        expectedPocketPcSourceRevisionPinned: Boolean,
     ): RuntimeGraphicsGuestDeclaration? {
         if (!requestContinuousPresentV52) return null
 
@@ -123,6 +173,11 @@ object RuntimeGraphicsGuestDeclarationResolver {
             capabilities = capabilities,
             verifiedArtifactMetadata = true,
             requestContinuousPresentV52 = true,
+            resolverVerificationToken =
+                VerificationToken(
+                    runtimeIdentity = expectedRuntimeIdentity,
+                    pocketPcSourceRevision = normalizedPocketPcRevision,
+                ),
         )
     }
 

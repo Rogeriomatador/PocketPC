@@ -3,8 +3,9 @@
 
 This script does not compile or execute Android, Wine, Vulkan, JNI, or Roblox.
 It only prevents source regressions that could silently select v52 for a v51
-artifact, let an arbitrary launch environment enable v52, or promote model
-frame delivery to physical-visible evidence.
+artifact, let an arbitrary launch environment enable v52, bypass the verified
+installed-package resolver, or promote model frame delivery to physical-visible
+evidence.
 """
 
 from __future__ import annotations
@@ -12,13 +13,14 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-POLICY = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeGraphicsPresentPolicy.kt"
-CONTROLLER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayExecutionController.kt"
-RUNNER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayContinuousPresentV52Runner.kt"
-RESOLVER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeGraphicsGuestDeclarationResolver.kt"
-EVIDENCE_STORE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeV52IntegrationEvidenceStore.kt"
+MAIN_RUNTIME_DIR = ROOT / "app/src/main/java/dev/pocketpc/core/runtime"
+POLICY = MAIN_RUNTIME_DIR / "RuntimeGraphicsPresentPolicy.kt"
+CONTROLLER = MAIN_RUNTIME_DIR / "RuntimeDisplayExecutionController.kt"
+RUNNER = MAIN_RUNTIME_DIR / "RuntimeDisplayContinuousPresentV52Runner.kt"
+RESOLVER = MAIN_RUNTIME_DIR / "RuntimeGraphicsGuestDeclarationResolver.kt"
+EVIDENCE_STORE = MAIN_RUNTIME_DIR / "RuntimeV52IntegrationEvidenceStore.kt"
 RUNTIME_UI = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt"
-PORT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/VulkanContinuousPresentBrokerPort.kt"
+PORT = MAIN_RUNTIME_DIR / "VulkanContinuousPresentBrokerPort.kt"
 BRIDGE = ROOT / "app/src/main/cpp/vulkan_continuous_present_broker_port.cpp"
 CMAKE = ROOT / "app/src/main/cpp/CMakeLists.txt"
 OFFICIAL_WINE_WORKFLOW = ROOT / ".github/workflows/wine-x86_64-build.yml"
@@ -66,10 +68,31 @@ def main() -> None:
     require(policy, "declaration.runtimeIdentity != expectedRuntimeIdentity", "runtime identity gate")
     require(policy, "declaration.wineVulkanAbi != WINE_VULKAN_ABI_V52", "ABI gate")
     require(policy, "CAPABILITY_CONTINUOUS_PRESENT_V52 !in declaration.capabilities", "capability gate")
+    require(policy, "resolverVerificationToken", "opaque resolver verification token")
+    require(policy, "isResolverVerifiedInstalledPackage(", "installed-package resolver seal gate")
+    require(policy, "BLOCKER_PACKAGE_BINDING_UNVERIFIED", "forged declaration blocker")
     require(policy, "const val WINE_VULKAN_ABI_V52 = 52", "v52 ABI")
     require(policy, '"pocketpc.vulkan.continuous-present.v52"', "v52 capability")
     require(policy, '"POCKETPC_VULKAN_CONTINUOUS_PRESENT_V52"', "guest environment gate")
     require(policy, 'mapOf(ENV_CONTINUOUS_PRESENT_V52 to "1")', "selected v52 environment")
+
+    # Production resolution is tied to the running APK BuildConfig. The custom
+    # revision seam exists only for JVM tests and is forbidden in main runtime
+    # source outside the resolver itself.
+    require(resolver, "private data class VerificationToken(", "opaque resolver seal type")
+    require(resolver, "BuildConfig.POCKETPC_SOURCE_REVISION", "APK source revision binding")
+    require(resolver, "BuildConfig.POCKETPC_SOURCE_REVISION_PINNED", "APK pinned revision binding")
+    require(resolver, "internal fun resolveForTest(", "unit-test revision seam")
+    require(resolver, "private fun resolveAgainstRevision(", "private revision implementation")
+    require(resolver, "resolverVerificationToken =", "verified declaration seal creation")
+    require(resolver, "token.runtimeIdentity == expectedRuntimeIdentity", "seal runtime identity binding")
+    require(resolver, "declaration.runtimeIdentity == token.runtimeIdentity", "declaration identity seal binding")
+    for source_path in MAIN_RUNTIME_DIR.glob("*.kt"):
+        if source_path == RESOLVER:
+            continue
+        source = source_path.read_text(encoding="utf-8")
+        if "resolveForTest(" in source:
+            fail(f"production runtime uses test-only v52 resolver seam: {source_path.name}")
 
     # The exact runtime identity is bound before selection, and arbitrary base
     # environment input is stripped before policy-owned environment injection.
@@ -168,6 +191,7 @@ def main() -> None:
     print("CLASSIFICATION=IMPLEMENTED_SOURCE_NOT_EXECUTED")
     print("DEFAULT_PRESENT_PATH=v51")
     print("V52_REQUIRES_VERIFIED_ARTIFACT_METADATA=1")
+    print("V52_REQUIRES_RESOLVER_PACKAGE_SEAL=1")
     print("V52_RUNTIME_EXECUTED=0")
     print("PHYSICAL=NOT_EXECUTED")
     print("ROBLOX=NOT_EXECUTED")

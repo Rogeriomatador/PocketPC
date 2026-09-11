@@ -17,7 +17,7 @@ class RuntimeGraphicsGuestDeclarationResolverTest {
     @Test
     fun requestOffDoesNotResolveExperimentalMetadata() {
         assertNull(
-            RuntimeGraphicsGuestDeclarationResolver.resolve(
+            RuntimeGraphicsGuestDeclarationResolver.resolveForTest(
                 expectedRuntimeIdentity = runtimeIdentity,
                 wineTool = null,
                 requestContinuousPresentV52 = false,
@@ -44,6 +44,50 @@ class RuntimeGraphicsGuestDeclarationResolverTest {
             declaration.capabilities,
         )
         assertEquals(runtimeIdentity, declaration.runtimeIdentity)
+        assertTrue(
+            RuntimeGraphicsGuestDeclarationResolver
+                .isResolverVerifiedInstalledPackage(
+                    declaration = declaration,
+                    expectedRuntimeIdentity = runtimeIdentity,
+                ),
+        )
+
+        val selection =
+            RuntimeGraphicsPresentPolicy.select(
+                expectedRuntimeIdentity = runtimeIdentity,
+                declaration = declaration,
+            )
+        assertEquals(
+            RuntimeGraphicsPresentMode.V52_CONTINUOUS_EXPERIMENTAL,
+            selection.mode,
+        )
+        assertTrue(selection.usable)
+        assertTrue(selection.continuousV52Selected)
+    }
+
+    @Test
+    fun verificationSealCannotBeRetargetedWithDataClassCopy() = withWineTool(
+        pocketPcSourceRevision = pocketPcRevision,
+    ) { tool ->
+        val copied = resolve(tool).copy(runtimeIdentity = "runtime-other")
+
+        assertFalse(
+            RuntimeGraphicsGuestDeclarationResolver
+                .isResolverVerifiedInstalledPackage(
+                    declaration = copied,
+                    expectedRuntimeIdentity = "runtime-other",
+                ),
+        )
+        val selection =
+            RuntimeGraphicsPresentPolicy.select(
+                expectedRuntimeIdentity = "runtime-other",
+                declaration = copied,
+            )
+        assertEquals(
+            RuntimeGraphicsPresentPolicy.BLOCKER_PACKAGE_BINDING_UNVERIFIED,
+            selection.blocker,
+        )
+        assertFalse(selection.usable)
     }
 
     @Test
@@ -58,7 +102,7 @@ class RuntimeGraphicsGuestDeclarationResolverTest {
         pocketPcSourceRevision = pocketPcRevision,
     ) { tool ->
         val declaration =
-            RuntimeGraphicsGuestDeclarationResolver.resolve(
+            RuntimeGraphicsGuestDeclarationResolver.resolveForTest(
                 expectedRuntimeIdentity = runtimeIdentity,
                 wineTool = tool,
                 requestContinuousPresentV52 = true,
@@ -97,7 +141,7 @@ class RuntimeGraphicsGuestDeclarationResolverTest {
 
     private fun resolve(tool: InstalledGuestTool): RuntimeGraphicsGuestDeclaration =
         requireNotNull(
-            RuntimeGraphicsGuestDeclarationResolver.resolve(
+            RuntimeGraphicsGuestDeclarationResolver.resolveForTest(
                 expectedRuntimeIdentity = runtimeIdentity,
                 wineTool = tool,
                 requestContinuousPresentV52 = true,

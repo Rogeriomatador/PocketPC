@@ -4,9 +4,10 @@ package dev.pocketpc.core.runtime
  * Explicit, fail-closed selection for the Wine Vulkan Present protocol.
  *
  * v51 remains the default. v52 can only be selected when verified artifact
- * metadata is bound to the exact runtime identity being launched and declares
- * both private Wine Vulkan ABI 52 and the continuous-present capability.
- * Merely having v52 host/guest source in the APK/runtime tree never selects it.
+ * metadata is bound to the exact runtime identity being launched, originated
+ * from the installed-package resolver, and declares both private Wine Vulkan
+ * ABI 52 and the continuous-present capability. Merely having v52 host/guest
+ * source in the APK/runtime tree never selects it.
  */
 enum class RuntimeGraphicsPresentMode {
     V51_ONE_SHOT,
@@ -19,6 +20,7 @@ data class RuntimeGraphicsGuestDeclaration(
     val capabilities: Set<String>,
     val verifiedArtifactMetadata: Boolean,
     val requestContinuousPresentV52: Boolean,
+    internal val resolverVerificationToken: Any? = null,
 )
 
 data class RuntimeGraphicsPresentSelection(
@@ -49,6 +51,8 @@ object RuntimeGraphicsPresentPolicy {
         "VULKAN_CONTINUOUS_PRESENT_V52_WINE_VULKAN_ABI_MISMATCH"
     const val BLOCKER_CAPABILITY_MISSING =
         "VULKAN_CONTINUOUS_PRESENT_V52_CAPABILITY_MISSING"
+    const val BLOCKER_PACKAGE_BINDING_UNVERIFIED =
+        "VULKAN_CONTINUOUS_PRESENT_V52_PACKAGE_BINDING_UNVERIFIED"
 
     fun select(
         expectedRuntimeIdentity: String,
@@ -70,6 +74,12 @@ object RuntimeGraphicsPresentPolicy {
                     BLOCKER_WINE_VULKAN_ABI_MISMATCH
                 CAPABILITY_CONTINUOUS_PRESENT_V52 !in declaration.capabilities ->
                     BLOCKER_CAPABILITY_MISSING
+                !RuntimeGraphicsGuestDeclarationResolver
+                    .isResolverVerifiedInstalledPackage(
+                        declaration = declaration,
+                        expectedRuntimeIdentity = expectedRuntimeIdentity,
+                    ) ->
+                    BLOCKER_PACKAGE_BINDING_UNVERIFIED
                 else -> null
             }
 
