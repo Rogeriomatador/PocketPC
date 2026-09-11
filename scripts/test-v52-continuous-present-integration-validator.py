@@ -25,6 +25,7 @@ def guest_log() -> str:
 
 
 def run_case(work: Path, fingerprints: list[int], expect_success: bool) -> None:
+    work.mkdir(parents=True, exist_ok=True)
     guest = work / "guest.log"
     host = work / "host.json"
     output = work / "evidence.json"
@@ -75,7 +76,6 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="pocketpc-v52-validator-") as raw:
         work = Path(raw)
         run_case(work / "valid", [101, 202, 303, 404, 505, 606, 707, 808], True)
-        (work / "frozen").mkdir(parents=True, exist_ok=True)
         run_case(work / "frozen", [999] * 8, False)
     print("PASS v52 integration validator self-test")
     print("VALID_DISTINCT_FRAMES_ACCEPTED=1")
