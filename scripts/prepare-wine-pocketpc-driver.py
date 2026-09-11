@@ -35,6 +35,8 @@ DRIVER_FILES = (
 BRIDGE_FILES = (
     "pocketpc_display_bridge.h",
     "pocketpc_display_bridge.c",
+    "pocketpc_graphics_session_client.h",
+    "pocketpc_graphics_session_client.c",
     "pocketpc_graphics_transport.h",
     "pocketpc_graphics_transport.c",
     "pocketpc_fd_transport.h",
@@ -61,6 +63,7 @@ BRIDGE_FILES = (
 
 UNIX_ONLY_C_FILES = {
     "pocketpc_display_bridge.c",
+    "pocketpc_graphics_session_client.c",
     "pocketpc_graphics_transport.c",
     "pocketpc_fd_transport.c",
     "pocketpc_graphics_handle_binding.c",
@@ -91,8 +94,27 @@ CONFIGURE_LINE = (
     "enable_winepocketpc_drv"
 )
 
+VULKAN_DRIVER_VERSION_47 = "#define WINE_VULKAN_DRIVER_VERSION 47"
+VULKAN_DRIVER_VERSION_48 = "#define WINE_VULKAN_DRIVER_VERSION 48"
+VULKAN_DRIVER_FUNCS_ANCHOR = (
+    "    void (*p_map_device_extensions)( struct vulkan_device_extensions *extensions );"
+)
+VULKAN_DRIVER_DEVICE_CALLBACKS = """    /* PocketPC pinned-Wine extension: exact host VkDevice lifecycle. */
+    void (*p_vulkan_device_created)( struct vulkan_device *device );
+    void (*p_vulkan_device_destroyed)( struct vulkan_device *device );"""
+
 WIN32U_VULKAN_INCLUDE_ANCHOR = "#include <unistd.h>"
 WIN32U_VULKAN_EXTRA_INCLUDES = "#include <stdlib.h>\n#include <string.h>"
+WIN32U_DEVICE_CREATED_ANCHOR = (
+    "    instance->p_insert_object( instance, &device->obj );"
+)
+WIN32U_DEVICE_CREATED_CALLBACK = """    if (driver_funcs->p_vulkan_device_created)
+        driver_funcs->p_vulkan_device_created( device );"""
+WIN32U_DEVICE_DESTROY_ANCHOR = (
+    "    device->p_vkDestroyDevice( device->host.device, NULL /* pAllocator */ );"
+)
+WIN32U_DEVICE_DESTROY_CALLBACK = """    if (driver_funcs->p_vulkan_device_destroyed)
+        driver_funcs->p_vulkan_device_destroyed( device );"""
 WIN32U_PRESENT_ANCHOR = (
     "    res = device->p_vkQueuePresentKHR( queue->host.queue, present_info );"
 )
@@ -141,6 +163,17 @@ def patch_before_once(path: Path, anchor: str, insertion: str) -> bool:
     if text.count(anchor) != 1:
         raise RuntimeError(f"PATCH_ANCHOR_INVALID:{path}:{text.count(anchor)}")
     text = text.replace(anchor, insertion + "\n" + anchor, 1)
+    path.write_text(text, encoding="utf-8")
+    return True
+
+
+def replace_once(path: Path, old: str, new: str) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if new in text and old not in text:
+        return False
+    if text.count(old) != 1:
+        raise RuntimeError(f"PATCH_REPLACE_ANCHOR_INVALID:{path}:{text.count(old)}")
+    text = text.replace(old, new, 1)
     path.write_text(text, encoding="utf-8")
     return True
 
@@ -221,6 +254,20 @@ def main() -> int:
     ac_changed = patch_after_once(configure_ac, CONFIGURE_AC_ANCHOR, CONFIGURE_AC_LINE)
     configure_changed = patch_after_once(configure, CONFIGURE_ANCHOR, CONFIGURE_LINE)
 
+    vulkan_driver_header = source / "include/wine/vulkan_driver.h"
+    if not vulkan_driver_header.is_file():
+        raise SystemExit("WINE_VULKAN_DRIVER_HEADER_MISSING")
+    vulkan_version_changed = replace_once(
+        vulkan_driver_header,
+        VULKAN_DRIVER_VERSION_47,
+        VULKAN_DRIVER_VERSION_48,
+    )
+    vulkan_callbacks_changed = patch_after_once(
+        vulkan_driver_header,
+        VULKAN_DRIVER_FUNCS_ANCHOR,
+        VULKAN_DRIVER_DEVICE_CALLBACKS,
+    )
+
     win32u_vulkan = source / "dlls/win32u/vulkan.c"
     if not win32u_vulkan.is_file():
         raise SystemExit("WINE_WIN32U_VULKAN_SOURCE_MISSING")
@@ -229,6 +276,16 @@ def main() -> int:
         WIN32U_VULKAN_INCLUDE_ANCHOR,
         WIN32U_VULKAN_EXTRA_INCLUDES,
     )
+    win32u_device_created_changed = patch_after_once(
+        win32u_vulkan,
+        WIN32U_DEVICE_CREATED_ANCHOR,
+        WIN32U_DEVICE_CREATED_CALLBACK,
+    )
+    win32u_device_destroyed_changed = patch_before_once(
+        win32u_vulkan,
+        WIN32U_DEVICE_DESTROY_ANCHOR,
+        WIN32U_DEVICE_DESTROY_CALLBACK,
+    )
     win32u_present_observer_changed = patch_before_once(
         win32u_vulkan,
         WIN32U_PRESENT_ANCHOR,
@@ -236,7 +293,7 @@ def main() -> int:
     )
 
     evidence = {
-        "schemaVersion": 8,
+        "schemaVersion": 9,
         "status": "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT_NOT_RUNTIME_TESTED",
         "wineVersion": lock["version"],
         "wineCommit": lock["commit"],
@@ -244,11 +301,25 @@ def main() -> int:
         "unixLibrary": "winepocketpc.so",
         "protocolVersion": 4,
         "guestGraphicsProtocolVersion": 1,
+        "graphicsSessionProtocol": "PGH1",
+        "graphicsResourceOfferProtocol": "PGT1_RESOURCE_OFFER",
         "graphicsFdTransportProtocolVersion": 1,
         "externalImageFdProtocol": "PVI1",
         "externalImageFdProtocolVersion": 1,
         "externalTimelineSemaphoreFdProtocol": "PVS1",
         "externalTimelineSemaphoreFdProtocolVersion": 1,
+        "wineVulkanAbiPatch": {
+            "upstreamPinnedVersion": 47,
+            "pocketPcVersion": 48,
+            "versionPatchChanged": vulkan_version_changed,
+            "driverCallbacksPatchChanged": vulkan_callbacks_changed,
+            "deviceCreatedPatchChanged": win32u_device_created_changed,
+            "deviceDestroyedPatchChanged": win32u_device_destroyed_changed,
+            "deviceCreatedCallback": "p_vulkan_device_created",
+            "deviceDestroyedCallback": "p_vulkan_device_destroyed",
+            "compiled": False,
+            "runtimeExecuted": False,
+        },
         "win32uPresentContextObserver": {
             "implemented": True,
             "source": "dlls/win32u/vulkan.c",
@@ -272,20 +343,25 @@ def main() -> int:
             "pCreateWindowSurface",
             "pWindowPosChanging",
             "pWindowPosChanged",
-            "pVulkanInit_v47_fail_closed_visible_headless_diagnostic",
+            "pVulkanInit_v48_fail_closed_visible_headless_diagnostic",
+            "p_vulkan_device_created",
+            "p_vulkan_device_destroyed",
         ],
         "surfaceCallbackImplemented": True,
         "inputInjectionImplemented": True,
         "vulkanAbiEntryPointImplemented": True,
-        "vulkanAbiDriverVersion": 47,
+        "vulkanAbiDriverVersion": 48,
+        "vulkanDeviceLifecycleCallbacksImplemented": True,
         "vulkanHeadlessDiagnosticImplemented": True,
         "vulkanHeadlessPresentObserverImplemented": True,
         "vulkanExternalFdExtensionMappingImplemented": True,
         "vulkanVisibleSurfaceCreateImplemented": False,
         "vulkanVisiblePresentationSupportImplemented": False,
         "vulkanDriverProductionImplemented": False,
+        "guestGraphicsSessionClientImplemented": True,
         "guestGraphicsDescriptorProtocolImplemented": True,
         "guestGraphicsOwnershipProtocolImplemented": True,
+        "guestGraphicsResourceOfferReceiveImplemented": True,
         "guestGraphicsAncillaryFdTransportPrimitiveImplemented": True,
         "guestGraphicsHandleBindingImplemented": True,
         "guestGraphicsReceivePrimitiveImplemented": True,
@@ -295,6 +371,7 @@ def main() -> int:
         "hostTimelineSemaphoreExporterImplemented": True,
         "guestVulkanTimelineImportPrimitiveImplemented": True,
         "guestTimelineCpuSignalWaitPrimitiveImplemented": True,
+        "guestVulkanDeviceImportPathSourceIntegrated": True,
         "guestGraphicsHandleReceiveIntegrated": False,
         "guestGraphicsImportIntegrated": False,
         "guestGraphicsSynchronizationImplemented": False,
@@ -312,6 +389,7 @@ def main() -> int:
                 "vulkan.c",
                 "window.c",
                 "pocketpc_display_bridge.c",
+                "pocketpc_graphics_session_client.c",
                 "pocketpc_graphics_transport.c",
                 "pocketpc_fd_transport.c",
                 "pocketpc_graphics_handle_binding.c",
@@ -330,8 +408,13 @@ def main() -> int:
             "Wine configure",
             "winepocketpc.drv compilation",
             "winepocketpc.so compilation",
+            "patched Vulkan ABI v48 compilation",
             "patched win32u compilation",
             "pVulkanInit through Wine",
+            "p_vulkan_device_created through Wine",
+            "p_vulkan_device_destroyed through Wine",
+            "PGH1 guest session client through Box64/Wine",
+            "PGT resource offer receive through Box64/Wine",
             "headless diagnostic Vulkan surface through Wine",
             "headless Present observer through Wine",
             "win32u Present context observer through Wine",
@@ -364,18 +447,23 @@ def main() -> int:
     print("WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT")
     print(f"wine_commit={lock['commit']}")
     print("graphics_driver=winepocketpc.drv")
+    print("vulkan_abi_driver_version=48")
+    print("vulkan_device_lifecycle_callbacks=true")
     print("vulkan_abi_entrypoint=true")
     print("vulkan_headless_diagnostic=true")
     print("vulkan_headless_present_observer=true")
     print("win32u_present_context_observer=true")
     print("win32u_present_context_image_copy=false")
     print("vulkan_external_fd_extension_mapping=true")
+    print("graphics_session_client=PGH1")
+    print("graphics_resource_offer=PGT1_RESOURCE_OFFER")
     print("external_image_fd_protocol=PVI1")
     print("guest_vulkan_import_primitive=true")
     print("external_timeline_semaphore_fd_protocol=PVS1")
     print("host_timeline_semaphore_exporter=true")
     print("guest_vulkan_timeline_import_primitive=true")
     print("guest_timeline_cpu_signal_wait_primitive=true")
+    print("guest_vulkan_device_import_path_source_integrated=true")
     print("guest_graphics_handle_receive_integrated=false")
     print("guest_graphics_import_integrated=false")
     print("guest_graphics_synchronization=false")
