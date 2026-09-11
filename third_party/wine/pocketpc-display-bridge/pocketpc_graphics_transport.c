@@ -15,6 +15,9 @@ typedef char pgt_header_size_must_be_24[
 typedef char pgt_descriptor_size_must_be_64[
     sizeof(struct pgt_resource_descriptor) == PGT_RESOURCE_DESCRIPTOR_BYTES ? 1 : -1
 ];
+typedef char pgt_ownership_size_must_be_32[
+    sizeof(struct pgt_ownership_record) == PGT_OWNERSHIP_RECORD_BYTES ? 1 : -1
+];
 
 static int pgt_state_valid(uint32_t state)
 {
@@ -34,6 +37,28 @@ static void pgt_put_u32_le(unsigned char *out, uint32_t value)
     out[1] = (unsigned char)((value >> 8u) & 0xffu);
     out[2] = (unsigned char)((value >> 16u) & 0xffu);
     out[3] = (unsigned char)((value >> 24u) & 0xffu);
+}
+
+static uint16_t pgt_get_u16_le(const unsigned char *in)
+{
+    return (uint16_t)in[0] | ((uint16_t)in[1] << 8u);
+}
+
+static uint32_t pgt_get_u32_le(const unsigned char *in)
+{
+    return (uint32_t)in[0] |
+        ((uint32_t)in[1] << 8u) |
+        ((uint32_t)in[2] << 16u) |
+        ((uint32_t)in[3] << 24u);
+}
+
+static uint64_t pgt_get_u64_le(const unsigned char *in)
+{
+    uint64_t value = 0;
+    unsigned int index;
+    for (index = 0; index < 8u; ++index)
+        value |= ((uint64_t)in[index]) << (index * 8u);
+    return value;
 }
 
 static int pgt_hex_nibble(char value)
@@ -60,6 +85,17 @@ static int pgt_decode_token(
         token[index] = (unsigned char)((high << 4) | low);
     }
     return 0;
+}
+
+static int pgt_socket_is_seqpacket(int socket_fd)
+{
+    int socket_type = 0;
+    socklen_t length = sizeof(socket_type);
+
+    if (socket_fd < 0) return 0;
+    if (getsockopt(socket_fd, SOL_SOCKET, SO_TYPE, &socket_type, &length) != 0)
+        return 0;
+    return socket_type == SOCK_SEQPACKET;
 }
 
 int pgt_validate_header(
@@ -204,6 +240,88 @@ int pgt_validate_ownership_transition(
     next->generation = current->generation;
     next->sequence = next_sequence;
     next->state = next_state;
+    return 0;
+}
+
+int pgt_receive_resource_offer(
+    int socket_fd,
+    struct pgt_resource_descriptor *descriptor,
+    struct pgt_ownership_record *ownership)
+{
+    unsigned char packet[PGT_RESOURCE_OFFER_FRAME_BYTES];
+    struct pgt_frame_header header;
+    struct msghdr message;
+    struct iovec iov;
+    ssize_t received;
+    const unsigned char *d;
+    const unsigned char *o;
+
+    if (descriptor) memset(descriptor, 0, sizeof(*descriptor));
+    if (ownership) memset(ownership, 0, sizeof(*ownership));
+    if (socket_fd < 0 || !descriptor || !ownership) return -1;
+    if (!pgt_socket_is_seqpacket(socket_fd)) return -2;
+
+    memset(packet, 0, sizeof(packet));
+    memset(&message, 0, sizeof(message));
+    memset(&iov, 0, sizeof(iov));
+    iov.iov_base = packet;
+    iov.iov_len = sizeof(packet);
+    message.msg_iov = &iov;
+    message.msg_iovlen = 1;
+
+    do {
+        received = recvmsg(socket_fd, &message, 0);
+    } while (received < 0 && errno == EINTR);
+
+    if (received != (ssize_t)sizeof(packet)) return -3;
+    if ((message.msg_flags & (MSG_TRUNC | MSG_CTRUNC)) != 0) return -4;
+    if (message.msg_controllen != 0) return -5;
+
+    memset(&header, 0, sizeof(header));
+    header.magic = pgt_get_u32_le(packet + 0);
+    header.version = pgt_get_u16_le(packet + 4);
+    header.type = pgt_get_u16_le(packet + 6);
+    header.payload_bytes = pgt_get_u32_le(packet + 8);
+    header.reserved = pgt_get_u32_le(packet + 12);
+    header.sequence = pgt_get_u64_le(packet + 16);
+    if (pgt_validate_header(
+            &header,
+            PGT_MSG_RESOURCE_OFFER,
+            PGT_RESOURCE_OFFER_PAYLOAD_BYTES) != 0)
+        return -6;
+
+    d = packet + PGT_HEADER_BYTES;
+    descriptor->resource_id = pgt_get_u64_le(d + 0);
+    descriptor->generation = pgt_get_u64_le(d + 8);
+    descriptor->width = pgt_get_u32_le(d + 16);
+    descriptor->height = pgt_get_u32_le(d + 20);
+    descriptor->layers = pgt_get_u32_le(d + 24);
+    descriptor->pixel_format = pgt_get_u32_le(d + 28);
+    descriptor->usage = pgt_get_u64_le(d + 32);
+    descriptor->producer_pid = pgt_get_u32_le(d + 40);
+    descriptor->reserved = pgt_get_u32_le(d + 44);
+    descriptor->process_namespace = pgt_get_u64_le(d + 48);
+    descriptor->sync_sequence = pgt_get_u64_le(d + 56);
+    if (pgt_validate_resource_descriptor(descriptor) != 0) return -7;
+
+    o = d + PGT_RESOURCE_DESCRIPTOR_BYTES;
+    ownership->resource_id = pgt_get_u64_le(o + 0);
+    ownership->generation = pgt_get_u64_le(o + 8);
+    ownership->sequence = pgt_get_u64_le(o + 16);
+    ownership->state = pgt_get_u32_le(o + 24);
+    ownership->reserved = pgt_get_u32_le(o + 28);
+
+    if (ownership->resource_id == 0u || ownership->generation == 0u ||
+        ownership->sequence == 0u || ownership->reserved != 0u ||
+        ownership->state != PGT_STATE_OFFERED_TO_GUEST)
+        return -8;
+
+    if (descriptor->resource_id != ownership->resource_id ||
+        descriptor->generation != ownership->generation ||
+        descriptor->sync_sequence != ownership->sequence ||
+        header.sequence != ownership->sequence)
+        return -9;
+
     return 0;
 }
 
