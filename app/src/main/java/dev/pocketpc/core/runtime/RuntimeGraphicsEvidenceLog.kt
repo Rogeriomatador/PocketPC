@@ -93,6 +93,28 @@ object RuntimeGraphicsEvidenceLog {
                 " roblox_validated=0",
         )
 
+    fun desktopModelFrameDelivered(
+        windowId: Long,
+        resourceId: Long,
+        generation: Long,
+        sequence: Long,
+        width: Int,
+        height: Int,
+    ) =
+        emit(
+            "DESKTOP_MODEL_FRAME_DELIVERED" +
+                " window_id=" + windowId +
+                " resource_id=" + resourceId +
+                " generation=" + generation +
+                " sequence=" + sequence +
+                " width=" + width +
+                " height=" + height +
+                " model_delivery=1" +
+                " host_visible_frame=0" +
+                " physical_validated=0" +
+                " roblox_validated=0",
+        )
+
     fun blocked(blocker: String) {
         if (blocker.isBlank()) return
         val safe =
