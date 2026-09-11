@@ -11,9 +11,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * uses AF_UNIX/SOCK_SEQPACKET. The token is per-session and the native accept
  * path also checks SO_PEERCRED against the PID claimed by the guest handshake.
  *
- * This is transport/authentication infrastructure only. Creating a session is
- * not evidence that Wine imported an image, synchronized a GPU queue, produced
- * a visible frame, or ran Roblox.
+ * This is transport/authentication infrastructure only. Creating a session or
+ * receiving import acknowledgements is not evidence of GPU queue ordering,
+ * visible presentation, DXVK Present, or Roblox gameplay.
  */
 object GraphicsSeqpacketSessionHost {
     const val PROTOCOL_VERSION = 1
@@ -21,6 +21,7 @@ object GraphicsSeqpacketSessionHost {
     const val MIN_AUTH_TIMEOUT_MILLIS = 100L
     const val MAX_AUTH_TIMEOUT_MILLIS = 120_000L
     const val DEFAULT_AUTH_TIMEOUT_MILLIS = 8_000L
+    const val IMPORT_ACK_READY_MASK = 0x0f
     private const val SOCKET_PREFIX = "pocketpc-gfx-"
 
     private val secureRandom = SecureRandom()
@@ -52,11 +53,32 @@ object GraphicsSeqpacketSessionHost {
         ownershipState: Int,
     ): Boolean
 
+    private external fun nativeAwaitImportAcks(
+        fd: Int,
+        resourceId: Long,
+        generation: Long,
+        sequence: Long,
+        timeoutMillis: Int,
+    ): Int
+
     private external fun nativeCloseAcceptedFd(fd: Int)
     private external fun nativeCloseServer(sessionId: Long)
 
     val nativeHostLoaded: Boolean
         get() = loadResult.isSuccess
+
+    data class ImportAcknowledgements internal constructor(
+        val mask: Int,
+    ) {
+        val resourceOfferReceived: Boolean
+            get() = mask and 0x01 != 0
+        val imageImported: Boolean
+            get() = mask and 0x02 != 0
+        val synchronizationObjectImported: Boolean
+            get() = mask and 0x04 != 0
+        val ready: Boolean
+            get() = mask and 0x08 != 0 && mask == IMPORT_ACK_READY_MASK
+    }
 
     data class LaunchEnvironment internal constructor(
         val socketName: String,
@@ -114,6 +136,41 @@ object GraphicsSeqpacketSessionHost {
                     ownershipState = ownership.state.wireValue(),
                 )
             }.getOrDefault(false)
+        }
+
+        /**
+         * Waits for the complete PGA1 import acknowledgement chain:
+         * RESOURCE_OFFER_RECEIVED -> IMAGE_IMPORTED -> SYNC_IMPORTED -> READY.
+         *
+         * The native implementation uses one total monotonic deadline and
+         * validates exact resource identity, sequence, status and packet order.
+         * READY proves only guest-side receive/import code reached that point.
+         * It does not prove GPU queue synchronization or visible presentation.
+         */
+        fun awaitImportAcknowledgements(
+            resourceId: Long,
+            generation: Long,
+            sequence: Long,
+            timeoutMillis: Long = DEFAULT_AUTH_TIMEOUT_MILLIS,
+        ): ImportAcknowledgements? {
+            if (!valid) return null
+            if (resourceId <= 0L || generation <= 0L || sequence <= 0L) return null
+            if (timeoutMillis !in MIN_AUTH_TIMEOUT_MILLIS..MAX_AUTH_TIMEOUT_MILLIS) return null
+
+            val mask =
+                runCatching {
+                    GraphicsSeqpacketSessionHost.nativeAwaitImportAcks(
+                        fd = fd,
+                        resourceId = resourceId,
+                        generation = generation,
+                        sequence = sequence,
+                        timeoutMillis = timeoutMillis.toInt(),
+                    )
+                }.getOrNull() ?: return null
+
+            return mask.takeIf { it == IMPORT_ACK_READY_MASK }
+                ?.let(::ImportAcknowledgements)
+                ?.takeIf { it.ready }
         }
 
         override fun close() {
