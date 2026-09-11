@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""Static policy lock for the PocketPC Wine v51 pre-Present copy package."""
+from __future__ import annotations
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def text(path: str) -> str:
+    candidate = ROOT / path
+    if not candidate.is_file():
+        raise SystemExit(f"WINE_V51_INTEGRATION_FILE_MISSING:{path}")
+    return candidate.read_text(encoding="utf-8")
+
+
+def require(source: str, needle: str, label: str) -> None:
+    if needle not in source:
+        raise SystemExit(f"WINE_V51_INTEGRATION_MISSING:{label}")
+
+
+def main() -> int:
+    helper_h = text(
+        "third_party/wine/pocketpc-display-bridge/pocketpc_guest_present_copy.h"
+    )
+    helper_c = text(
+        "third_party/wine/pocketpc-display-bridge/pocketpc_guest_present_copy.c"
+    )
+    stage = text("scripts/prepare-wine-pocketpc-pre-present-copy.py")
+    composite = text("scripts/prepare-wine-pocketpc-driver-v51.py")
+    build = text("scripts/build-wine-x86_64-v51.py")
+    workflow = text(".github/workflows/wine-x86_64-build.yml")
+    runtime = text(
+        "app/src/main/java/dev/pocketpc/core/runtime/"
+        "PocketPcWinePresentBridgeContract.kt"
+    )
+    roblox = text(
+        "app/src/main/java/dev/pocketpc/core/runtime/RobloxGraphicsPreflight.kt"
+    )
+
+    require(helper_h, "original semaphores a second time", "semaphore_consumption_contract")
+    require(helper_c, "VK_IMAGE_LAYOUT_PRESENT_SRC_KHR", "source_present_layout")
+    require(helper_c, "VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL", "source_transfer_layout")
+    require(helper_c, "VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL", "destination_transfer_layout")
+    require(helper_c, "VK_QUEUE_FAMILY_EXTERNAL", "external_queue_family")
+    require(helper_c, "device->p_vkCmdCopyImage", "gpu_copy")
+    require(helper_c, "submit_info.pWaitSemaphores = wait_semaphores", "original_waits")
+    require(
+        helper_c,
+        "submit_info.pSignalSemaphores = &submission->present_wait_semaphore",
+        "replacement_signal",
+    )
+
+    require(stage, "#define WINE_VULKAN_DRIVER_VERSION 51", "abi_51")
+    require(stage, "VK_IMAGE_USAGE_TRANSFER_SRC_BIT", "swapchain_transfer_source")
+    require(stage, "present_info->pWaitSemaphores = &pocketpc_present_wait", "present_wait_replacement")
+    require(stage, "POCKETPC_VULKAN_PRESENT_COPY_DIAGNOSTIC=1", "diagnostic_gate")
+    require(stage, '"pixelCopyImplemented": True', "copy_source_implemented")
+    require(stage, '"pixelCopyExecuted": False', "copy_execution_fail_closed")
+    require(stage, '"hostVisiblePresentImplemented": False', "visible_fail_closed")
+    require(stage, '"robloxExecuted": False', "roblox_fail_closed")
+
+    require(composite, "prepare-wine-pocketpc-driver-v50.py", "v50_stage")
+    require(composite, "prepare-wine-pocketpc-pre-present-copy.py", "v51_stage")
+    require(build, "module.DRIVER_PREPARER = V51_PREPARER", "build_preparer_override")
+    require(workflow, "python3 scripts/build-wine-x86_64-v51.py", "workflow_v51_build")
+    require(workflow, "python3 scripts/test-wine-x86_64-v51-integration.py", "workflow_v51_policy")
+
+    require(runtime, "const val privateWineVulkanAbi = 51", "runtime_abi_51")
+    require(runtime, "const val pixelCopyImplemented = true", "runtime_copy_implemented")
+    require(runtime, "const val pixelCopyExecuted = false", "runtime_copy_not_executed")
+    require(runtime, "const val androidVisiblePresentImplemented = false", "runtime_visible_false")
+    require(runtime, "const val robloxExecuted = false", "runtime_roblox_false")
+    require(roblox, "PocketPcWinePresentBridgeContract.pixelCopyExecuted", "roblox_copy_execution_gate")
+    require(roblox, "PocketPcWinePresentBridgeContract.readyForRobloxGraphics()", "roblox_readiness_gate")
+
+    print("WINE_X86_64_V51_INTEGRATION_POLICY_OK_NOT_EXECUTED")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
