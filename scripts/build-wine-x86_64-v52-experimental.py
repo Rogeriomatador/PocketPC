@@ -13,7 +13,9 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
+import re
 import sys
 import zipfile
 
@@ -23,6 +25,7 @@ V52_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver-v52.py"
 EVIDENCE_NAME = "wine-v52-experimental-build-evidence.json"
 CAPABILITY_RELATIVE = Path("share/pocketpc/runtime-graphics-capabilities.json")
 CAPABILITY_ID = "pocketpc.vulkan.continuous-present.v52"
+POCKETPC_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def sha256(path: Path) -> str:
@@ -38,6 +41,14 @@ def requested_work_dir() -> Path:
     parser.add_argument("--work", type=Path, required=True)
     args, _ = parser.parse_known_args(sys.argv[1:])
     return args.work.resolve()
+
+
+def pinned_pocketpc_source_revision() -> str:
+    raw = os.environ.get("GITHUB_SHA") or os.environ.get("POCKETPC_SOURCE_REVISION") or ""
+    revision = raw.strip().lower()
+    if POCKETPC_COMMIT_RE.fullmatch(revision) is None:
+        raise SystemExit("WINE_V52_POCKETPC_SOURCE_REVISION_NOT_PINNED")
+    return revision
 
 
 def load_base_build():
@@ -57,9 +68,8 @@ def require_bool_false(mapping: dict[str, object], key: str, label: str) -> None
         raise SystemExit(f"WINE_V52_EVIDENCE_NOT_FAIL_CLOSED:{label}:{key}")
 
 
-
-
-def attach_verified_v52_capability(work: Path) -> None:
+def attach_verified_v52_capability(work: Path) -> str:
+    pocketpc_source_revision = pinned_pocketpc_source_revision()
     package_root = work / "guest-package"
     manifest_path = package_root / "guest-tool-manifest.json"
     package_path = work / "guest-package.zip"
@@ -74,6 +84,7 @@ def attach_verified_v52_capability(work: Path) -> None:
         "schemaVersion": 1,
         "wineVulkanAbi": 52,
         "capabilities": [CAPABILITY_ID],
+        "pocketPcSourceRevision": pocketpc_source_revision,
         "experimental": True,
         "officialBuildSelected": False,
         "runtimeExecuted": False,
@@ -142,9 +153,10 @@ def attach_verified_v52_capability(work: Path) -> None:
         json.dumps(base, indent=2) + "\n",
         encoding="utf-8",
     )
+    return pocketpc_source_revision
 
 
-def emit_post_build_evidence(work: Path) -> None:
+def emit_post_build_evidence(work: Path, pocketpc_source_revision: str) -> None:
     base_path = work / "wine-build-evidence.json"
     overlay_path = work / "wine-pocketpc-driver-overlay-evidence.json"
     package_path = work / "guest-package.zip"
@@ -179,6 +191,7 @@ def emit_post_build_evidence(work: Path) -> None:
         "packageCompiled": True,
         "baseBuildEvidenceStatus": base["status"],
         "sourceCommit": base.get("sourceCommit"),
+        "pocketPcSourceRevision": pocketpc_source_revision,
         "package": {
             "path": package_path.name,
             "bytes": package_path.stat().st_size,
@@ -189,6 +202,7 @@ def emit_post_build_evidence(work: Path) -> None:
             "sha256": sha256(work / "guest-package" / CAPABILITY_RELATIVE),
             "wineVulkanAbi": 52,
             "capabilities": [CAPABILITY_ID],
+            "pocketPcSourceRevision": pocketpc_source_revision,
         },
         "evidenceInputs": {
             "wineBuildEvidenceSha256": sha256(base_path),
@@ -217,6 +231,7 @@ def emit_post_build_evidence(work: Path) -> None:
     output = work / EVIDENCE_NAME
     output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     print(f"POCKETPC_WINE_V52_EXPERIMENTAL_BUILD_EVIDENCE={output}")
+    print(f"POCKETPC_SOURCE_REVISION={pocketpc_source_revision}")
     print("V52_BUILD_EXECUTED=1")
     print("V52_RUNTIME_EXECUTED=0")
     print("V52_PHYSICAL_VISIBLE_FRAME=0")
@@ -235,8 +250,8 @@ def main() -> int:
     result = int(module.main() or 0)
     if result != 0:
         return result
-    attach_verified_v52_capability(work)
-    emit_post_build_evidence(work)
+    pocketpc_source_revision = attach_verified_v52_capability(work)
+    emit_post_build_evidence(work, pocketpc_source_revision)
     return 0
 
 
