@@ -13,8 +13,11 @@ CONTRACT = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTran
 PLANNER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/GuestGraphicsTransportPlanner.kt"
 PVI_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_external_image_fd_protocol.h"
 PVI_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_external_image_fd_protocol.c"
+OWNERSHIP_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_external_image_ownership.h"
+OWNERSHIP_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_external_image_ownership.c"
 MAKEFILE = ROOT / "third_party/wine/pocketpc-driver/Makefile.in"
 PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver.py"
+PRESENT_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-present-image.py"
 
 
 def require(failures: list[str], label: str, text: str, markers: tuple[str, ...]) -> None:
@@ -27,7 +30,8 @@ def main() -> int:
     failures: list[str] = []
     paths = (
         NATIVE, KOTLIN, TEST, CMAKE, CONTRACT, PLANNER,
-        PVI_HEADER, PVI_SOURCE, MAKEFILE, PREPARER,
+        PVI_HEADER, PVI_SOURCE, OWNERSHIP_HEADER, OWNERSHIP_SOURCE,
+        MAKEFILE, PREPARER, PRESENT_PREPARER,
     )
     for path in paths:
         if not path.is_file():
@@ -46,8 +50,11 @@ def main() -> int:
     planner = PLANNER.read_text(encoding="utf-8")
     pvi_header = PVI_HEADER.read_text(encoding="utf-8")
     pvi_source = PVI_SOURCE.read_text(encoding="utf-8")
+    ownership_header = OWNERSHIP_HEADER.read_text(encoding="utf-8")
+    ownership_source = OWNERSHIP_SOURCE.read_text(encoding="utf-8")
     makefile = MAKEFILE.read_text(encoding="utf-8")
     preparer = PREPARER.read_text(encoding="utf-8")
+    present_preparer = PRESENT_PREPARER.read_text(encoding="utf-8")
 
     require(
         failures,
@@ -75,6 +82,19 @@ def main() -> int:
             "SOCK_SEQPACKET",
             "close(exported_fd);",
             "stale-or-unknown-resource",
+            "VkQueue queue = VK_NULL_HANDLE",
+            "uint32_t queue_family = UINT32_MAX",
+            "VkCommandPool command_pool = VK_NULL_HANDLE",
+            "kExternalBoundaryLayout = VK_IMAGE_LAYOUT_GENERAL",
+            "ReleaseImageToExternal",
+            "VK_QUEUE_FAMILY_EXTERNAL",
+            "vkCmdPipelineBarrier",
+            "vkQueueSubmit",
+            "vkQueueWaitIdle",
+            "released_to_external = true",
+            "external-release-not-ready",
+            '";external_owner="',
+            '";boundary_layout="',
         ),
     )
 
@@ -89,8 +109,14 @@ def main() -> int:
             "val allocationSize: Long",
             "val memoryTypeBits: Long",
             "val memoryTypeIndex: Int",
+            "val externalOwner: Boolean",
+            "val boundaryLayout: Int",
             "const val FORMAT_R8G8B8A8_UNORM = 37",
             "const val IMAGE_USAGE_FLAGS = 0x17L",
+            "const val EXTERNAL_BOUNDARY_LAYOUT_GENERAL = 1",
+            "externalOwner &&",
+            "boundaryLayout == VulkanExternalImageFdBroker.EXTERNAL_BOUNDARY_LAYOUT_GENERAL",
+            'fields["external_owner"] == "1"',
             "usage = VulkanExternalImageFdBroker.IMAGE_USAGE_FLAGS",
             "private external fun nativeSend(",
             "internal fun parseLease(",
@@ -111,8 +137,11 @@ def main() -> int:
         (
             "memoryTypeIndexMustBeIncludedInMemoryTypeBits",
             "wrongFormatCannotBecomeLease",
+            "leaseRequiresExternalOwnershipAndGeneralBoundaryLayout",
             "duplicateUnknownOrMissingFieldsAreRejected",
             "leaseContainsNoProcessLocalFileDescriptor",
+            "external_owner=1",
+            "boundary_layout=1",
             "VulkanExternalImageFdBroker.IMAGE_USAGE_FLAGS",
         ),
     )
@@ -153,6 +182,33 @@ def main() -> int:
 
     require(
         failures,
+        "guest ownership header",
+        ownership_header,
+        (
+            "POCKETPC_EXTERNAL_IMAGE_BOUNDARY_LAYOUT VK_IMAGE_LAYOUT_GENERAL",
+            "pocketpc_guest_external_image_acquire(",
+            "pocketpc_guest_external_image_release(",
+            "VK_QUEUE_FAMILY_EXTERNAL",
+        ),
+    )
+    require(
+        failures,
+        "guest ownership source",
+        ownership_source,
+        (
+            "VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER",
+            "p_vkCmdPipelineBarrier",
+            "p_vkQueueSubmit",
+            "p_vkQueueWaitIdle",
+            "VK_QUEUE_FAMILY_EXTERNAL",
+            "queue->info.queueFamilyIndex",
+            "VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL",
+            "POCKETPC_EXTERNAL_IMAGE_BOUNDARY_LAYOUT",
+        ),
+    )
+
+    require(
+        failures,
         "native CMake integration",
         cmake,
         ("vulkan_external_image_fd_broker.cpp",),
@@ -161,17 +217,32 @@ def main() -> int:
         failures,
         "Wine build integration",
         makefile,
-        ("\tpocketpc_external_image_fd_protocol.c \\",),
+        (
+            "\tpocketpc_external_image_fd_protocol.c \\",
+            "\tpocketpc_guest_external_image_ownership.c \\",
+        ),
     )
     require(
         failures,
-        "Wine overlay integration",
+        "Wine base overlay integration",
         preparer,
         (
             '"pocketpc_external_image_fd_protocol.h",',
             '"pocketpc_external_image_fd_protocol.c",',
             '"externalImageFdProtocol": "PVI1"',
             '"externalImagePvi1ProtocolImplemented": True',
+        ),
+    )
+    require(
+        failures,
+        "Wine v50 ownership carry integration",
+        present_preparer,
+        (
+            '"pocketpc_guest_external_image_ownership.h"',
+            '"pocketpc_guest_external_image_ownership.c"',
+            '"guestAcquireReleasePrimitiveImplemented": True',
+            '"androidInitialReleaseImplemented": False',
+            '"guestPrimitiveActivated": False',
         ),
     )
 
@@ -208,6 +279,8 @@ def main() -> int:
     print("VULKAN_EXTERNAL_IMAGE_FD_BROKER_POLICY_OK")
     print("external_image_fd_protocol=PVI1")
     print("host_opaque_fd_image_broker_implemented=true")
+    print("host_initial_external_queue_release_source_integrated=true")
+    print("guest_external_queue_acquire_release_primitive=true")
     print("host_dma_buf_image_broker_implemented=false")
     print("guest_receive_runtime_integrated=false")
     print("guest_vulkan_import_implemented=false")
