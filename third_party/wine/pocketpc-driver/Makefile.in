@@ -13,6 +13,7 @@ SOURCES = \
 	pocketpc_display_bridge.c \
 	pocketpc_graphics_session_client.c \
 	pocketpc_graphics_transport.c \
+	pocketpc_graphics_ack.c \
 	pocketpc_fd_transport.c \
 	pocketpc_graphics_handle_binding.c \
 	pocketpc_guest_graphics_receive.c \
