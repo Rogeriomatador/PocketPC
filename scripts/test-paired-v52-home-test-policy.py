@@ -9,6 +9,8 @@ NORMAL_OTA = ROOT / ".github/workflows/publish-home-test-update.yml"
 FEED = ROOT / "scripts/prepare-update-feed.py"
 CATALOG = ROOT / "app/src/main/java/dev/pocketpc/core/update/PocketPcExperimentalRuntimeCatalog.kt"
 INSTALLER = ROOT / "app/src/main/java/dev/pocketpc/core/update/PocketPcExperimentalRuntimeInstaller.kt"
+PROMPT = ROOT / "app/src/main/java/dev/pocketpc/core/update/PocketPcPairedV52Prompt.kt"
+MAIN_ACTIVITY = ROOT / "app/src/main/java/dev/pocketpc/core/MainActivity.kt"
 
 
 def require(source: str, needle: str, label: str) -> None:
@@ -27,6 +29,8 @@ def main() -> int:
     feed = FEED.read_text(encoding="utf-8")
     catalog = CATALOG.read_text(encoding="utf-8")
     installer = INSTALLER.read_text(encoding="utf-8")
+    prompt = PROMPT.read_text(encoding="utf-8")
+    main_activity = MAIN_ACTIVITY.read_text(encoding="utf-8")
 
     for needle, label in (
         ("PocketPC Paired v52 Home Test", "paired-workflow-name"),
@@ -74,6 +78,23 @@ def main() -> int:
     ):
         require(installer, needle, label)
 
+    for needle, label in (
+        ("PocketPcExperimentalRuntimeCatalog", "prompt-catalog"),
+        ("PocketPcExperimentalRuntimeInstaller", "prompt-installer"),
+        ("Instalar Wine v52", "prompt-explicit-install"),
+        ("Agora não", "prompt-explicit-dismiss"),
+        ("A instalação não ativa o Vulkan Present v52 automaticamente", "prompt-no-auto-activation"),
+        ("NOT_EXECUTED", "prompt-evidence-label"),
+        ("KEY_DISMISSED_RUNTIME_SHA256", "prompt-offer-specific-dismissal"),
+    ):
+        require(prompt, needle, label)
+
+    require(
+        main_activity,
+        "PocketPcPairedV52Prompt()",
+        "main-activity-surfaces-paired-runtime-offer",
+    )
+
     # Normal push OTA remains APK-only. Experimental Wine is not silently
     # rebuilt/published on every development commit.
     forbid(
@@ -87,13 +108,17 @@ def main() -> int:
         "normal-ota-must-remain-apk-only",
     )
 
-    # Publication source must not claim runtime/physical/Roblox validation.
+    # Neither publication nor UI source may claim runtime/physical/Roblox proof.
     forbid(workflow, "RUNTIME_EXECUTED=1", "runtime-proof-not-earned")
     forbid(workflow, "PHYSICAL_VISIBLE_FRAME=1", "physical-proof-not-earned")
     forbid(workflow, "ROBLOX_EXECUTED=1", "roblox-proof-not-earned")
+    forbid(prompt, "RUNTIME_EXECUTED=1", "prompt-runtime-proof-not-earned")
+    forbid(prompt, "PHYSICAL_VISIBLE_FRAME=1", "prompt-physical-proof-not-earned")
+    forbid(prompt, "ROBLOX_EXECUTED=1", "prompt-roblox-proof-not-earned")
 
     print("POCKETPC_PAIRED_V52_HOME_TEST_POLICY_OK")
     print("PAIRED_BUILD_PATH_IMPLEMENTED=1")
+    print("PAIRED_IN_APP_OFFER_IMPLEMENTED=1")
     print("NORMAL_OTA_REMAINS_APK_ONLY=1")
     print("RUNTIME_EXECUTED=0")
     print("PHYSICAL_VISIBLE_FRAME=0")
