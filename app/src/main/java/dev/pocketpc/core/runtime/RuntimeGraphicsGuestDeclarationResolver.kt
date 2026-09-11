@@ -1,5 +1,6 @@
 package dev.pocketpc.core.runtime
 
+import dev.pocketpc.core.BuildConfig
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -24,8 +25,10 @@ object RuntimeGraphicsGuestDeclarationResolver {
         expectedRuntimeIdentity: String,
         wineTool: InstalledGuestTool?,
         requestContinuousPresentV52: Boolean,
-        expectedPocketPcSourceRevision: String = "",
-        expectedPocketPcSourceRevisionPinned: Boolean = false,
+        expectedPocketPcSourceRevision: String =
+            BuildConfig.POCKETPC_SOURCE_REVISION,
+        expectedPocketPcSourceRevisionPinned: Boolean =
+            BuildConfig.POCKETPC_SOURCE_REVISION_PINNED,
     ): RuntimeGraphicsGuestDeclaration? {
         if (!requestContinuousPresentV52) return null
 
