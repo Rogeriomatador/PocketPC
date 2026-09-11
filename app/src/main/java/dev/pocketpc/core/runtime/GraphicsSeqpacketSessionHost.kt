@@ -12,8 +12,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * path also checks SO_PEERCRED against the PID claimed by the guest handshake.
  *
  * This is transport/authentication infrastructure only. Creating a session or
- * receiving import acknowledgements is not evidence of GPU queue ordering,
- * visible presentation, DXVK Present, or Roblox gameplay.
+ * receiving import/queue acknowledgements is not evidence of visible
+ * presentation, DXVK Present ordering, or Roblox gameplay.
  */
 object GraphicsSeqpacketSessionHost {
     const val PROTOCOL_VERSION = 1
@@ -61,6 +61,14 @@ object GraphicsSeqpacketSessionHost {
         timeoutMillis: Int,
     ): Int
 
+    private external fun nativeAwaitGpuSignalAck(
+        fd: Int,
+        resourceId: Long,
+        generation: Long,
+        sequence: Long,
+        timeoutMillis: Int,
+    ): Int
+
     private external fun nativeCloseAcceptedFd(fd: Int)
     private external fun nativeCloseServer(sessionId: Long)
 
@@ -78,6 +86,20 @@ object GraphicsSeqpacketSessionHost {
             get() = mask and 0x04 != 0
         val ready: Boolean
             get() = mask and 0x08 != 0 && mask == IMPORT_ACK_READY_MASK
+    }
+
+    /**
+     * PGA1 stage 5 proves only that the guest submitted a timeline-semaphore
+     * signal through a real Wine Vulkan queue and the host received the matching
+     * acknowledgement. It is deliberately not treated as Present ordering.
+     */
+    data class GpuQueueSignalAcknowledgement internal constructor(
+        val queueFamilyIndex: Int,
+    ) {
+        val submitted: Boolean
+            get() = queueFamilyIndex >= 0
+        val presentOrdered: Boolean
+            get() = false
     }
 
     data class LaunchEnvironment internal constructor(
@@ -171,6 +193,36 @@ object GraphicsSeqpacketSessionHost {
             return mask.takeIf { it == IMPORT_ACK_READY_MASK }
                 ?.let(::ImportAcknowledgements)
                 ?.takeIf { it.ready }
+        }
+
+        /**
+         * Waits only for PGA1 GPU_SIGNAL_SUBMITTED (stage 5). Import readiness
+         * remains stages 1..4 and is never promoted by this diagnostic ACK.
+         */
+        fun awaitGpuQueueSignalAcknowledgement(
+            resourceId: Long,
+            generation: Long,
+            sequence: Long,
+            timeoutMillis: Long = DEFAULT_AUTH_TIMEOUT_MILLIS,
+        ): GpuQueueSignalAcknowledgement? {
+            if (!valid) return null
+            if (resourceId <= 0L || generation <= 0L || sequence <= 0L) return null
+            if (timeoutMillis !in MIN_AUTH_TIMEOUT_MILLIS..MAX_AUTH_TIMEOUT_MILLIS) return null
+
+            val queueFamilyIndex =
+                runCatching {
+                    GraphicsSeqpacketSessionHost.nativeAwaitGpuSignalAck(
+                        fd = fd,
+                        resourceId = resourceId,
+                        generation = generation,
+                        sequence = sequence,
+                        timeoutMillis = timeoutMillis.toInt(),
+                    )
+                }.getOrNull() ?: return null
+
+            return queueFamilyIndex.takeIf { it >= 0 }
+                ?.let(::GpuQueueSignalAcknowledgement)
+                ?.takeIf { it.submitted && !it.presentOrdered }
         }
 
         override fun close() {
