@@ -135,6 +135,7 @@ object RobloxGraphicsPreflightCoordinator {
             blockers += BLOCKER_AHB_EXTERNAL_MEMORY
         }
         blockers += guestTransportPlan.blockers
+        blockers += PocketPcWinePresentBridgeContract.blockers()
         if (!surfaceBackendRunnable) {
             blockers += BLOCKER_SURFACE_BACKEND
             blockers += surfaceBackend.selected.blocker
@@ -155,6 +156,10 @@ object RobloxGraphicsPreflightCoordinator {
                 anySurfaceRoute &&
                 surfaceBackendRunnable
 
+        val readyForRobloxGraphics =
+            canEnterWsiTest &&
+                PocketPcWinePresentBridgeContract.readyForRobloxGraphics()
+
         val detail =
             when {
                 !foundation.guestGraphicsTransportReady ->
@@ -172,6 +177,15 @@ object RobloxGraphicsPreflightCoordinator {
                 !guestTransportPlan.guestTransportReady ->
                     "Há uma rota candidata de recurso externo, mas receive/import/synchronization do guest ainda não estão integrados e comprovados."
 
+                !PocketPcWinePresentBridgeContract.pixelCopyImplemented ->
+                    "O Wine v50 já possui identidade exata da imagem apresentada e contrato de ownership externo em source, porém os pixels da swapchain ainda não são copiados para a imagem compartilhada do PocketPC."
+
+                !PocketPcWinePresentBridgeContract.androidVisiblePresentImplemented ->
+                    "A ponte de Present avançou, mas o frame compartilhado ainda não possui apresentação Android visível implementada."
+
+                !PocketPcWinePresentBridgeContract.runtimeExecuted ->
+                    "A ponte gráfica existe em source, porém ainda não há execução real registrada do caminho de Present v50."
+
                 !anySurfaceRoute ->
                     "O probe Vulkan respondeu, mas não anunciou uma rota de surface + swapchain para o experimento atual."
 
@@ -187,8 +201,11 @@ object RobloxGraphicsPreflightCoordinator {
                 !canEnterWsiTest ->
                     "O backend visível existe, mas os gates para o teste de integração ainda não estão completos."
 
+                !PocketPcWinePresentBridgeContract.robloxExecuted ->
+                    "A pilha gráfica atingiu os gates intermediários, mas o Roblox Desktop ainda não foi executado e validado nesse runtime."
+
                 else ->
-                    "Fundação, transporte, surface visível e WSI podem entrar no teste de integração; isso ainda não é prova de Present nem de Roblox."
+                    "Fundação, transporte, surface visível e WSI podem entrar no teste de integração; a prontidão do Roblox depende de evidência real do runtime."
             }
 
         return RobloxGraphicsPreflight(
@@ -210,7 +227,7 @@ object RobloxGraphicsPreflightCoordinator {
             surfaceBackendRunnable = surfaceBackendRunnable,
             wsiImplemented = PocketPcVulkanWsiContract.implemented,
             readyForWsiIntegrationTest = canEnterWsiTest,
-            readyForRobloxGraphics = false,
+            readyForRobloxGraphics = readyForRobloxGraphics,
             blockers = blockers.distinct(),
             detail = detail,
         )
