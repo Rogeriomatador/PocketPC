@@ -53,6 +53,46 @@ object RuntimeGraphicsEvidenceLog {
                 " host_visible_frame=0",
         )
 
+    fun presentCopyCompleted(
+        resourceId: Long,
+        generation: Long,
+        sequence: Long,
+        queueFamilyIndex: Int,
+    ) =
+        emit(
+            "PRESENT_COPY_COMPLETED" +
+                " resource_id=" + resourceId +
+                " generation=" + generation +
+                " sequence=" + sequence +
+                " queue_family=" + queueFamilyIndex +
+                " returned_external_general=1" +
+                " host_visible_frame=0" +
+                " roblox_validated=0",
+        )
+
+    fun androidHostReadbackCompleted(
+        resourceId: Long,
+        generation: Long,
+        sequence: Long,
+        timelineValue: Long,
+        bytes: Long,
+        nonzeroBytes: Long,
+        fnv1a64: ULong,
+    ) =
+        emit(
+            "ANDROID_HOST_READBACK_COMPLETED" +
+                " resource_id=" + resourceId +
+                " generation=" + generation +
+                " sequence=" + sequence +
+                " timeline_value=" + timelineValue +
+                " bytes=" + bytes +
+                " nonzero_bytes=" + nonzeroBytes +
+                " fnv1a64=" + fnv1a64 +
+                " returned_external_general=1" +
+                " host_visible_frame=0" +
+                " roblox_validated=0",
+        )
+
     fun blocked(blocker: String) {
         if (blocker.isBlank()) return
         val safe =
