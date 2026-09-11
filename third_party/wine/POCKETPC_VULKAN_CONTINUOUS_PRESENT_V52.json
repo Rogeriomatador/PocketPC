@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "PocketPC Vulkan Continuous Present v52",
-  "status": "DESIGN_WITH_PARTIAL_HOST_AND_GUEST_SOURCE_NOT_RUNTIME_INTEGRATED_NOT_EXECUTED",
+  "status": "DESIGN_WITH_HOST_GUEST_AND_EXPERIMENTAL_RUNTIME_SOURCE_IMPLEMENTED_NOT_EXECUTED",
   "targetPrivateWineVulkanAbi": 52,
   "officialBuildSelected": false,
   "runtimeIntegrated": false,
@@ -19,11 +19,7 @@
     "jniNumericBoundary": "Kotlin/JNI transport uses Long/jlong, so v52 intentionally stays within signed 64-bit positive values even though Vulkan timeline counters are uint64_t."
   },
   "identity": {
-    "resourceIdentity": [
-      "resourceId",
-      "generation",
-      "offerSequence"
-    ],
+    "resourceIdentity": ["resourceId", "generation", "offerSequence"],
     "offerSequenceMeaning": "Immutable descriptor/FD-offer identity. It is not the continuous frame number.",
     "frameSequenceSource": "Derived from the shared PVS1 timeline value.",
     "generationRule": "Resize, resource recreation, device loss, incompatible format/extent, or timeline exhaustion creates a new generation and a fresh timeline initialized to zero."
@@ -39,21 +35,9 @@
     "hostConsumedParity": "even",
     "monotonic": true,
     "overflowPolicy": "Fail closed before multiplication/addition can exceed Long.MAX_VALUE/jlong positive range. Recreate the resource/generation instead of wrapping or crossing into negative Kotlin values.",
-    "firstFrame": {
-      "previousHostConsumedValue": 0,
-      "guestReadyValue": 1,
-      "hostConsumedValue": 2
-    },
-    "secondFrame": {
-      "previousHostConsumedValue": 2,
-      "guestReadyValue": 3,
-      "hostConsumedValue": 4
-    },
-    "lastRepresentableFrame": {
-      "frameSequence": 4611686018427387903,
-      "guestReadyValue": 9223372036854775805,
-      "hostConsumedValue": 9223372036854775806
-    }
+    "firstFrame": {"previousHostConsumedValue": 0, "guestReadyValue": 1, "hostConsumedValue": 2},
+    "secondFrame": {"previousHostConsumedValue": 2, "guestReadyValue": 3, "hostConsumedValue": 4},
+    "lastRepresentableFrame": {"frameSequence": 4611686018427387903, "guestReadyValue": 9223372036854775805, "hostConsumedValue": 9223372036854775806}
   },
   "guestPerFrameOrder": [
     "For frame 1, treat timeline value 0 as the initial host-consumed release. For frame N>1, wait until timeline >= hostConsumed(N-1).",
@@ -104,7 +88,10 @@
     "guestPostPresentEvenSignalSuppressed": true,
     "guestV52Preparer": true,
     "v51FallbackRetained": true,
-    "activeRuntimeWiring": false
+    "activeRuntimeWiring": true,
+    "runtimeSelectionFailClosed": true,
+    "requiresVerifiedAbi52Artifact": true,
+    "requiresContinuousPresentV52Capability": true
   },
   "requiredImplementationGates": {
     "guestWaitPreviousHostConsumed": false,
@@ -123,7 +110,7 @@
   },
   "evidenceClassification": {
     "contract": "DESIGN",
-    "sourceRuntime": "PARTIALLY_IMPLEMENTED_SOURCE_ONLY",
+    "sourceRuntime": "IMPLEMENTED_NOT_EXECUTED",
     "nativeHostSource": "IMPLEMENTED_NOT_EXECUTED",
     "guestWineSource": "IMPLEMENTED_NOT_EXECUTED",
     "software": "NOT_EXECUTED",
