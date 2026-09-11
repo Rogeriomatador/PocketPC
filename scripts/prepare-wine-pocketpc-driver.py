@@ -98,13 +98,14 @@ CONFIGURE_LINE = (
 )
 
 VULKAN_DRIVER_VERSION_47 = "#define WINE_VULKAN_DRIVER_VERSION 47"
-VULKAN_DRIVER_VERSION_48 = "#define WINE_VULKAN_DRIVER_VERSION 48"
+VULKAN_DRIVER_VERSION_49 = "#define WINE_VULKAN_DRIVER_VERSION 49"
 VULKAN_DRIVER_FUNCS_ANCHOR = (
     "    void (*p_map_device_extensions)( struct vulkan_device_extensions *extensions );"
 )
-VULKAN_DRIVER_DEVICE_CALLBACKS = """    /* PocketPC pinned-Wine extension: exact host VkDevice lifecycle. */
+VULKAN_DRIVER_DEVICE_CALLBACKS = """    /* PocketPC pinned-Wine extension: exact host VkDevice/Present lifecycle. */
     void (*p_vulkan_device_created)( struct vulkan_device *device );
-    void (*p_vulkan_device_destroyed)( struct vulkan_device *device );"""
+    void (*p_vulkan_device_destroyed)( struct vulkan_device *device );
+    void (*p_vulkan_queue_presented)( struct vulkan_queue *queue, VkResult result );"""
 
 WIN32U_VULKAN_INCLUDE_ANCHOR = "#include <unistd.h>"
 WIN32U_VULKAN_EXTRA_INCLUDES = "#include <stdlib.h>\n#include <string.h>"
@@ -131,6 +132,8 @@ WIN32U_PRESENT_OBSERVER = r'''    {
         }
     }
 '''
+WIN32U_PRESENT_CALLBACK = """    if (driver_funcs->p_vulkan_queue_presented)
+        driver_funcs->p_vulkan_queue_presented( queue, res );"""
 
 
 def digest(path: Path) -> str:
@@ -263,7 +266,7 @@ def main() -> int:
     vulkan_version_changed = replace_once(
         vulkan_driver_header,
         VULKAN_DRIVER_VERSION_47,
-        VULKAN_DRIVER_VERSION_48,
+        VULKAN_DRIVER_VERSION_49,
     )
     vulkan_callbacks_changed = patch_after_once(
         vulkan_driver_header,
@@ -294,9 +297,14 @@ def main() -> int:
         WIN32U_PRESENT_ANCHOR,
         WIN32U_PRESENT_OBSERVER,
     )
+    win32u_present_callback_changed = patch_after_once(
+        win32u_vulkan,
+        WIN32U_PRESENT_ANCHOR,
+        WIN32U_PRESENT_CALLBACK,
+    )
 
     evidence = {
-        "schemaVersion": 9,
+        "schemaVersion": 10,
         "status": "WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT_NOT_RUNTIME_TESTED",
         "wineVersion": lock["version"],
         "wineCommit": lock["commit"],
@@ -315,13 +323,15 @@ def main() -> int:
         "externalTimelineSemaphoreFdProtocolVersion": 1,
         "wineVulkanAbiPatch": {
             "upstreamPinnedVersion": 47,
-            "pocketPcVersion": 48,
+            "pocketPcVersion": 49,
             "versionPatchChanged": vulkan_version_changed,
             "driverCallbacksPatchChanged": vulkan_callbacks_changed,
             "deviceCreatedPatchChanged": win32u_device_created_changed,
             "deviceDestroyedPatchChanged": win32u_device_destroyed_changed,
+            "presentQueueCallbackPatchChanged": win32u_present_callback_changed,
             "deviceCreatedCallback": "p_vulkan_device_created",
             "deviceDestroyedCallback": "p_vulkan_device_destroyed",
+            "presentQueueCallback": "p_vulkan_queue_presented",
             "compiled": False,
             "runtimeExecuted": False,
         },
@@ -334,6 +344,16 @@ def main() -> int:
             "visiblePresent": False,
             "includePatchChanged": win32u_include_changed,
             "observerPatchChanged": win32u_present_observer_changed,
+        },
+        "presentQueueTimelineSignal": {
+            "sourceIntegrated": True,
+            "callback": "p_vulkan_queue_presented",
+            "callbackPosition": "immediately_after_host_vkQueuePresentKHR",
+            "signalsPvs1OnExactPresentQueue": True,
+            "pgaStage": 5,
+            "copiesSwapchainImage": False,
+            "hostVisibleFrame": False,
+            "execution": "NOT_EXECUTED",
         },
         "graphicsSelection": {
             "registryPath": r"HKCU\Software\Wine\Drivers",
@@ -348,15 +368,19 @@ def main() -> int:
             "pCreateWindowSurface",
             "pWindowPosChanging",
             "pWindowPosChanged",
-            "pVulkanInit_v48_fail_closed_visible_headless_diagnostic",
+            "pVulkanInit_v49_fail_closed_visible_headless_diagnostic",
             "p_vulkan_device_created",
             "p_vulkan_device_destroyed",
+            "p_vulkan_queue_presented",
         ],
         "surfaceCallbackImplemented": True,
         "inputInjectionImplemented": True,
         "vulkanAbiEntryPointImplemented": True,
-        "vulkanAbiDriverVersion": 48,
+        "vulkanAbiDriverVersion": 49,
         "vulkanDeviceLifecycleCallbacksImplemented": True,
+        "vulkanPresentQueueCallbackImplemented": True,
+        "presentQueueTimelineSignalSourceIntegrated": True,
+        "presentQueueTimelineSignalExecuted": False,
         "vulkanHeadlessDiagnosticImplemented": True,
         "vulkanHeadlessPresentObserverImplemented": True,
         "vulkanExternalFdExtensionMappingImplemented": True,
@@ -416,14 +440,17 @@ def main() -> int:
             "Wine configure",
             "winepocketpc.drv compilation",
             "winepocketpc.so compilation",
-            "patched Vulkan ABI v48 compilation",
+            "patched Vulkan ABI v49 compilation",
             "patched win32u compilation",
             "pVulkanInit through Wine",
             "p_vulkan_device_created through Wine",
             "p_vulkan_device_destroyed through Wine",
+            "p_vulkan_queue_presented through Wine",
+            "Present-queue PVS1 timeline signal through Wine",
             "PGH1 guest session client through Box64/Wine",
             "PGT resource offer receive through Box64/Wine",
             "PGA1 ordered import acknowledgements through Box64/Wine",
+            "PGA1 stage 5 Present-queue acknowledgement through Box64/Wine",
             "headless diagnostic Vulkan surface through Wine",
             "headless Present observer through Wine",
             "win32u Present context observer through Wine",
@@ -456,8 +483,11 @@ def main() -> int:
     print("WINE_POCKETPC_DRIVER_OVERLAY_PREPARED_NOT_BUILT")
     print(f"wine_commit={lock['commit']}")
     print("graphics_driver=winepocketpc.drv")
-    print("vulkan_abi_driver_version=48")
+    print("vulkan_abi_driver_version=49")
     print("vulkan_device_lifecycle_callbacks=true")
+    print("vulkan_present_queue_callback=true")
+    print("present_queue_timeline_signal_source_integrated=true")
+    print("present_queue_timeline_signal_executed=false")
     print("vulkan_abi_entrypoint=true")
     print("vulkan_headless_diagnostic=true")
     print("vulkan_headless_present_observer=true")
