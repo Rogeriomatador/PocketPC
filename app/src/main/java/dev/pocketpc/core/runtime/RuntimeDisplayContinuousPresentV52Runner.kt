@@ -42,6 +42,7 @@ object RuntimeDisplayContinuousPresentV52Runner {
         windowId: Long,
         desktopBridge: RuntimeDesktopBridge,
         timeoutMillis: Long = VulkanContinuousPresentHostCoordinator.DEFAULT_TIMEOUT_MILLIS,
+        onHostStep: (VulkanContinuousPresentHostStep) -> Unit = {},
     ): TerminalState? {
         require(selection.continuousV52Selected) {
             BLOCKER_SELECTION_REQUIRED
@@ -91,6 +92,7 @@ object RuntimeDisplayContinuousPresentV52Runner {
             while (true) {
                 currentCoroutineContext().ensureActive()
                 val step = coordinator.consumeNextFrame(timeoutMillis)
+                onHostStep(step)
                 when (step.status) {
                     VulkanContinuousPresentHostStepStatus.MODEL_DELIVERED_GUEST_RELEASED -> {
                         delivered += 1L
