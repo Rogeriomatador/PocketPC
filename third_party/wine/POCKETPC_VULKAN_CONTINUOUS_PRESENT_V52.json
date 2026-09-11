@@ -64,12 +64,12 @@
     "Do not reacquire or overwrite the exported image for frame N+1 until hostConsumed(N) is observed."
   ],
   "hostPerFrameOrder": [
-    "Wait until PVS1 >= guestReady(N).",
+    "Wait until PVS1 >= guestReady(N), then require the observed timeline value to equal guestReady(N) exactly.",
     "Reject a frame if resourceId/generation no longer match the active resource or if the derived frame sequence is stale/non-monotonic.",
-    "Acquire the exported image from external ownership on the Android Vulkan device used by the host consumer.",
+    "Acquire the exported image from external ownership on the Android Vulkan device used by the persistent host consumer.",
     "Copy/read back the frame and publish it to the exact desktop window owner.",
     "Return the image to VK_QUEUE_FAMILY_EXTERNAL.",
-    "Signal PVS1 to hostConsumed(N) only after host consumption and the external ownership return complete.",
+    "Signal PVS1 to hostConsumed(N) only after host consumption, external ownership return, and desktop-model delivery complete.",
     "Do not promote model delivery to physical-visible evidence."
   ],
   "failClosedRules": [
@@ -80,6 +80,7 @@
     "Never accept a lower or equal frame sequence after a newer frame was already committed for the same generation.",
     "Never pass a timeline value greater than Long.MAX_VALUE through Kotlin/JNI.",
     "Never advance to frame N+1 while hostConsumed(N) still has a pending signal.",
+    "Never recreate/import PVI1 and PVS1 for every frame in the proposed v52 native host path; keep one persistent native import per resource generation.",
     "Never infer host-visible presentation from successful Vulkan readback or Compose model delivery.",
     "Never infer Roblox execution, rendering, playability, input, audio, network, or stability from this contract."
   ],
@@ -89,10 +90,13 @@
     "hostCoordinator": true,
     "hostPendingConsumedSignalRecovery": true,
     "exactDesktopWindowDeliveryContract": true,
+    "persistentNativeHostSession": true,
+    "nativeTimelineWait": true,
+    "nativePerFrameReadback": true,
+    "nativeHostConsumedSignal": true,
+    "kotlinNativePort": true,
+    "cmakeSourceIncluded": true,
     "activeRuntimeWiring": false,
-    "nativeTimelineWait": false,
-    "nativePerFrameReadback": false,
-    "nativeHostConsumedSignal": false,
     "guestWineV52CopyLoop": false
   },
   "requiredImplementationGates": {
@@ -113,6 +117,7 @@
   "evidenceClassification": {
     "contract": "DESIGN",
     "sourceRuntime": "PARTIALLY_IMPLEMENTED_SOURCE_ONLY",
+    "nativeHostSource": "IMPLEMENTED_NOT_EXECUTED",
     "software": "NOT_EXECUTED",
     "integration": "NOT_EXECUTED",
     "physical": "NOT_EXECUTED",
