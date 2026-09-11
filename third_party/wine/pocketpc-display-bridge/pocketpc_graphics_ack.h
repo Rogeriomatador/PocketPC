@@ -16,6 +16,7 @@ extern "C" {
 #define PGA_STAGE_SYNC_IMPORTED 3u
 #define PGA_STAGE_READY 4u
 #define PGA_STAGE_GPU_SIGNAL_SUBMITTED 5u
+#define PGA_STAGE_PRESENT_COPY_COMPLETED 6u
 
 #define PGA_STATUS_OK 0
 
@@ -33,6 +34,11 @@ struct pocketpc_graphics_ack {
  * connection. This packet carries identity and stage only; it never carries a
  * pointer or file descriptor. Successful send is not proof the host received
  * or persisted the acknowledgement.
+ *
+ * Stage 6 is reserved for the v51 pre-Present path and means only that the
+ * exact-image copy command completed on the Present queue and the shared PVI1
+ * image was released back to VK_QUEUE_FAMILY_EXTERNAL/GENERAL. It is not an
+ * Android-visible-frame or Roblox-gameplay claim.
  */
 int pocketpc_graphics_ack_send(
     int socket_fd,
