@@ -49,23 +49,46 @@ jobs:
           from pathlib import Path
 
           root = Path(os.environ["RUNNER_TEMP"]) / "pocketpc-wine-v52-experimental"
-          evidence = json.loads(
+          overlay = json.loads(
               (root / "wine-pocketpc-driver-overlay-evidence.json").read_text(encoding="utf-8")
           )
-          assert evidence["privateWineVulkanAbi"] == 52
-          assert evidence["derivedFromPrivateAbi"] == 51
-          assert evidence["officialBuildSelected"] is False
-          assert evidence["continuousPresentSourceImplemented"] is True
-          assert evidence["compiled"] is False
-          assert evidence["runtimeExecuted"] is False
-          assert evidence["integrationExecuted"] is False
-          assert evidence["physicalVisibleFrame"] is False
-          assert evidence["robloxExecuted"] is False
-          assert evidence["robloxRendered"] is False
-          assert evidence["robloxPlayable"] is False
-          assert evidence["timelineOwnership"]["guestSignalsHostConsumedEven"] is False
-          print("POCKETPC_WINE_V52_EXPERIMENTAL_SOURCE_EVIDENCE_OK")
+          build = json.loads(
+              (root / "wine-v52-experimental-build-evidence.json").read_text(encoding="utf-8")
+          )
+
+          assert overlay["privateWineVulkanAbi"] == 52
+          assert overlay["derivedFromPrivateAbi"] == 51
+          assert overlay["officialBuildSelected"] is False
+          assert overlay["continuousPresentSourceImplemented"] is True
+          assert overlay["compiled"] is False
+          assert overlay["runtimeExecuted"] is False
+          assert overlay["integrationExecuted"] is False
+          assert overlay["physicalVisibleFrame"] is False
+          assert overlay["robloxExecuted"] is False
+          assert overlay["robloxRendered"] is False
+          assert overlay["robloxPlayable"] is False
+          assert overlay["timelineOwnership"]["guestSignalsHostConsumedEven"] is False
+
+          assert build["targetPrivateWineVulkanAbi"] == 52
+          assert build["derivedFromPrivateWineVulkanAbi"] == 51
+          assert build["officialBuildSelected"] is False
+          assert build["buildExecuted"] is True
+          assert build["packageCompiled"] is True
+          assert build["runtimeExecuted"] is False
+          assert build["integrationExecuted"] is False
+          assert build["physicalVisibleFrame"] is False
+          assert build["robloxExecuted"] is False
+          assert build["robloxRendered"] is False
+          assert build["robloxPlayable"] is False
+          assert build["classification"]["build"] == "SOFTWARE_BUILD_EXECUTED"
+          assert build["classification"]["runtime"] == "NOT_EXECUTED"
+          assert build["classification"]["integration"] == "NOT_EXECUTED"
+          assert build["classification"]["physical"] == "NOT_EXECUTED"
+          assert build["classification"]["roblox"] == "NOT_EXECUTED"
+
+          print("POCKETPC_WINE_V52_EXPERIMENTAL_BUILD_EVIDENCE_OK")
           print("OFFICIAL_BUILD_SELECTED=0")
+          print("BUILD_EXECUTED=1")
           print("RUNTIME_EXECUTED=0")
           print("PHYSICAL_VISIBLE_FRAME=0")
           print("ROBLOX_EXECUTED=0")
@@ -80,6 +103,7 @@ jobs:
             ${{ runner.temp }}/pocketpc-wine-v52-experimental/guest-package.zip
             ${{ runner.temp }}/pocketpc-wine-v52-experimental/wine-build-evidence.json
             ${{ runner.temp }}/pocketpc-wine-v52-experimental/wine-pocketpc-driver-overlay-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/wine-v52-experimental-build-evidence.json
             ${{ runner.temp }}/pocketpc-wine-v52-experimental/*.log
           if-no-files-found: warn
 
