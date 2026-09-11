@@ -29,6 +29,15 @@ def main() -> int:
         ("p_vkGetSwapchainImagesKHR", "host-swapchain-image-enumeration"),
         ("present_info->pImageIndices", "exact-present-image-index"),
         ("pocketpc_image_index >= pocketpc_swapchain->pocketpc_host_image_count", "index-bounds-check"),
+        ('#include "pocketpc_guest_external_image_ownership.h"', "ownership-helper-include"),
+        ("pocketpc_guest_external_image_acquire(", "external-acquire"),
+        ("pocketpc_guest_external_image_release(", "external-release"),
+        ("stage=roundtrip_completed", "ownership-roundtrip-marker"),
+        ("pocketpc_external_ownership_roundtrip_done", "one-shot-roundtrip-gate"),
+        ('"androidInitialReleaseImplemented": True', "android-release-source-integrated"),
+        ('"guestPrimitiveActivated": True', "guest-ownership-source-activated"),
+        ('"roundTripSourceIntegrated": True', "ownership-roundtrip-source-integrated"),
+        ('"executed": False', "ownership-not-executed"),
         ("pixels_copied=0", "no-copy-classification"),
         ('"pixelCopyImplemented": False', "evidence-copy-false"),
         ('"hostVisiblePresentImplemented": False', "evidence-visible-false"),
@@ -48,6 +57,8 @@ def main() -> int:
 
     print("POCKETPC_PRESENT_IMAGE_POLICY_OK")
     print("exact_host_swapchain_image_identity_source_integrated=true")
+    print("external_ownership_roundtrip_source_integrated=true")
+    print("external_ownership_roundtrip_executed=false")
     print("pixel_copy=false")
     print("visible_present=false")
     print("execution_evidence=false")
