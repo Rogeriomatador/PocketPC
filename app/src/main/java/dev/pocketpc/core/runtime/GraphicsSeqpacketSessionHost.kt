@@ -88,7 +88,7 @@ object GraphicsSeqpacketSessionHost {
             descriptor: GuestGraphicsResourceDescriptor,
             ownership: GuestGraphicsOwnershipToken,
         ): Boolean {
-            if (!valid || !descriptor.valid || !ownership.validIdentity) return false
+            if (!valid || !descriptor.structurallyValid || !ownership.validIdentity) return false
             if (
                 descriptor.resourceId != ownership.resourceId ||
                 descriptor.generation != ownership.generation ||
