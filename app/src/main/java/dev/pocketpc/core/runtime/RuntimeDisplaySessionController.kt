@@ -62,6 +62,10 @@ class RuntimeDisplaySessionController(
                     )
                 }
             },
+            externalVulkanFrameSender = {
+                value ->
+                applyExternalVulkanFrame(value)
+            },
         )
 
     private val mutableWindows =
@@ -94,14 +98,7 @@ class RuntimeDisplaySessionController(
 
                     compositor.apply(step)
                         .getOrThrow()
-                    val snapshot =
-                        compositor.snapshot()
-                    mutableWindows.value =
-                        snapshot
-                    desktopBinding
-                        ?.publish(
-                            snapshot,
-                        )
+                    publishSnapshot()
 
                     if (
                         step.presentedFrame !=
@@ -119,6 +116,38 @@ class RuntimeDisplaySessionController(
                     throw it
                 }
             }
+        }
+
+    /**
+     * Accepts one exact-window Vulkan readback routed by [RuntimeDesktopBridge].
+     * The compositor keeps PVI1 identity separate from the legacy bridge frame
+     * namespace. Publishing this snapshot updates the desktop model only; it is
+     * not physical evidence that Android drew the pixels to the screen.
+     */
+    internal fun applyExternalVulkanFrame(
+        value: RuntimeDesktopExternalVulkanFrame,
+    ): Result<Unit> =
+        runCatching {
+            check(!closed.get()) {
+                "DISPLAY_SESSION_CLOSED"
+            }
+            require(value.structurallyValid) {
+                "DISPLAY_SESSION_EXTERNAL_VULKAN_FRAME_INVALID"
+            }
+            require(
+                windows.value.any {
+                    it.windowId == value.windowId
+                },
+            ) {
+                "DISPLAY_SESSION_WINDOW_MISSING"
+            }
+
+            compositor.applyExternalVulkanFrame(
+                windowId = value.windowId,
+                identity = value.identity,
+                frame = value.frame,
+            ).getOrThrow()
+            publishSnapshot()
         }
 
     fun sendPointer(
@@ -232,5 +261,16 @@ class RuntimeDisplaySessionController(
                 }
             }
         }
+    }
+
+    private fun publishSnapshot() {
+        val snapshot =
+            compositor.snapshot()
+        mutableWindows.value =
+            snapshot
+        desktopBinding
+            ?.publish(
+                snapshot,
+            )
     }
 }
