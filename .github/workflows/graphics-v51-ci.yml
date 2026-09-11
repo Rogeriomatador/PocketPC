@@ -11,6 +11,7 @@ on:
       - 'app/src/test/java/dev/pocketpc/core/runtime/**'
       - 'scripts/prepare-wine-pocketpc-continuous-present-v52.py'
       - 'scripts/prepare-wine-pocketpc-driver-v52.py'
+      - 'scripts/test-runtime-v52-present-selection-policy.py'
       - 'scripts/test-wine-x86_64-v51-integration.py'
       - 'scripts/test-wine-x86_64-v52-source-integration.py'
       - 'scripts/test-vulkan-host-consumer-policy.py'
@@ -41,6 +42,7 @@ jobs:
           python3 -m py_compile
           scripts/prepare-wine-pocketpc-continuous-present-v52.py
           scripts/prepare-wine-pocketpc-driver-v52.py
+          scripts/test-runtime-v52-present-selection-policy.py
           scripts/test-wine-x86_64-v51-integration.py
           scripts/test-wine-x86_64-v52-source-integration.py
           scripts/test-vulkan-host-consumer-policy.py
@@ -51,6 +53,9 @@ jobs:
 
       - name: Wine v52 source integration lock
         run: python3 scripts/test-wine-x86_64-v52-source-integration.py
+
+      - name: Runtime v52 selection and wiring lock
+        run: python3 scripts/test-runtime-v52-present-selection-policy.py
 
       - name: Vulkan v51 host consumer policy
         run: python3 scripts/test-vulkan-host-consumer-policy.py
