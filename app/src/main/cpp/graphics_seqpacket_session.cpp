@@ -28,6 +28,15 @@ constexpr size_t kMaxSocketNameBytes = 80;
 constexpr int kMinTimeoutMillis = 100;
 constexpr int kMaxTimeoutMillis = 120000;
 
+constexpr uint32_t kPgtMagic = 0x31544750u;  // PGT1 little-endian.
+constexpr uint16_t kPgtVersion = 1;
+constexpr uint16_t kPgtResourceOfferType = 1;
+constexpr uint32_t kPgtResourceOfferPayloadBytes = 96;
+constexpr size_t kPgtResourceOfferFrameBytes = 120;
+constexpr uint32_t kPgtOfferedToGuestState = 2;
+constexpr uint32_t kPgtMaxDimension = 16384;
+constexpr uint32_t kPgtMaxLayers = 256;
+
 using Clock = std::chrono::steady_clock;
 
 struct Session {
@@ -52,6 +61,24 @@ uint32_t GetU32Le(const uint8_t* p) {
         (static_cast<uint32_t>(p[3]) << 24u);
 }
 
+void PutU16Le(uint8_t* p, uint16_t value) {
+    p[0] = static_cast<uint8_t>(value & 0xffu);
+    p[1] = static_cast<uint8_t>((value >> 8u) & 0xffu);
+}
+
+void PutU32Le(uint8_t* p, uint32_t value) {
+    p[0] = static_cast<uint8_t>(value & 0xffu);
+    p[1] = static_cast<uint8_t>((value >> 8u) & 0xffu);
+    p[2] = static_cast<uint8_t>((value >> 16u) & 0xffu);
+    p[3] = static_cast<uint8_t>((value >> 24u) & 0xffu);
+}
+
+void PutU64Le(uint8_t* p, uint64_t value) {
+    for (unsigned int index = 0; index < 8u; ++index) {
+        p[index] = static_cast<uint8_t>((value >> (index * 8u)) & 0xffu);
+    }
+}
+
 bool ConstantTimeEqual(const uint8_t* a, const uint8_t* b, size_t size) {
     uint8_t diff = 0;
     for (size_t i = 0; i < size; ++i) diff |= static_cast<uint8_t>(a[i] ^ b[i]);
@@ -63,6 +90,23 @@ void CloseFd(int* fd) {
         close(*fd);
         *fd = -1;
     }
+}
+
+bool IsSeqpacket(int fd) {
+    int socket_type = 0;
+    socklen_t length = sizeof(socket_type);
+    return fd >= 0 &&
+        getsockopt(fd, SOL_SOCKET, SO_TYPE, &socket_type, &length) == 0 &&
+        socket_type == SOCK_SEQPACKET;
+}
+
+bool SendPacketExact(int fd, const uint8_t* payload, size_t payload_size) {
+    if (!IsSeqpacket(fd) || !payload || payload_size == 0) return false;
+    ssize_t sent;
+    do {
+        sent = send(fd, payload, payload_size, MSG_NOSIGNAL);
+    } while (sent < 0 && errno == EINTR);
+    return sent == static_cast<ssize_t>(payload_size);
 }
 
 int RemainingMillis(const Clock::time_point& deadline) {
@@ -125,7 +169,7 @@ int AcceptAuthenticated(const Session& session, int timeout_millis) {
     const auto deadline = Clock::now() + std::chrono::milliseconds(timeout_millis);
 
     const int listen_ready = WaitReadable(session.listen_fd, deadline);
-    if (listen_ready == 0) return -11;  // timed out before a peer connected.
+    if (listen_ready == 0) return -11;
     if (listen_ready < 0) return -12;
 
     int accepted;
@@ -137,7 +181,7 @@ int AcceptAuthenticated(const Session& session, int timeout_millis) {
     const int peer_ready = WaitReadable(accepted, deadline);
     if (peer_ready == 0) {
         close(accepted);
-        return -13;  // peer connected but did not finish PGH1 before deadline.
+        return -13;
     }
     if (peer_ready < 0) {
         close(accepted);
@@ -178,6 +222,59 @@ int AcceptAuthenticated(const Session& session, int timeout_millis) {
     }
 
     return accepted;
+}
+
+bool SendResourceOffer(
+        int fd,
+        uint64_t resource_id,
+        uint64_t generation,
+        uint32_t width,
+        uint32_t height,
+        uint32_t layers,
+        uint32_t pixel_format,
+        uint64_t usage,
+        uint32_t producer_pid,
+        uint64_t process_namespace,
+        uint64_t sequence,
+        uint32_t ownership_state) {
+    if (fd < 0 || resource_id == 0 || generation == 0 || sequence == 0 ||
+        width == 0 || width > kPgtMaxDimension ||
+        height == 0 || height > kPgtMaxDimension ||
+        layers == 0 || layers > kPgtMaxLayers || pixel_format == 0 || usage == 0 ||
+        producer_pid == 0 || process_namespace == 0 ||
+        ownership_state != kPgtOfferedToGuestState) {
+        return false;
+    }
+
+    std::array<uint8_t, kPgtResourceOfferFrameBytes> packet {};
+    PutU32Le(packet.data() + 0, kPgtMagic);
+    PutU16Le(packet.data() + 4, kPgtVersion);
+    PutU16Le(packet.data() + 6, kPgtResourceOfferType);
+    PutU32Le(packet.data() + 8, kPgtResourceOfferPayloadBytes);
+    PutU32Le(packet.data() + 12, 0u);
+    PutU64Le(packet.data() + 16, sequence);
+
+    uint8_t* descriptor = packet.data() + 24;
+    PutU64Le(descriptor + 0, resource_id);
+    PutU64Le(descriptor + 8, generation);
+    PutU32Le(descriptor + 16, width);
+    PutU32Le(descriptor + 20, height);
+    PutU32Le(descriptor + 24, layers);
+    PutU32Le(descriptor + 28, pixel_format);
+    PutU64Le(descriptor + 32, usage);
+    PutU32Le(descriptor + 40, producer_pid);
+    PutU32Le(descriptor + 44, 0u);
+    PutU64Le(descriptor + 48, process_namespace);
+    PutU64Le(descriptor + 56, sequence);
+
+    uint8_t* ownership = descriptor + 64;
+    PutU64Le(ownership + 0, resource_id);
+    PutU64Le(ownership + 8, generation);
+    PutU64Le(ownership + 16, sequence);
+    PutU32Le(ownership + 24, ownership_state);
+    PutU32Le(ownership + 28, 0u);
+
+    return SendPacketExact(fd, packet.data(), packet.size());
 }
 
 }  // namespace
@@ -238,6 +335,33 @@ Java_dev_pocketpc_core_runtime_GraphicsSeqpacketSessionHost_nativeAcceptAuthenti
     const int accepted = AcceptAuthenticated(snapshot, timeout_millis);
     CloseFd(&snapshot.listen_fd);
     return accepted;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_pocketpc_core_runtime_GraphicsSeqpacketSessionHost_nativeSendResourceOffer(
+        JNIEnv*, jobject, jint fd, jlong resource_id, jlong generation,
+        jint width, jint height, jint layers, jint pixel_format, jlong usage,
+        jint producer_pid, jlong process_namespace, jlong sequence,
+        jint ownership_state) {
+    if (resource_id <= 0 || generation <= 0 || width <= 0 || height <= 0 ||
+        layers <= 0 || pixel_format <= 0 || usage <= 0 || producer_pid <= 0 ||
+        process_namespace <= 0 || sequence <= 0) {
+        return JNI_FALSE;
+    }
+
+    return SendResourceOffer(
+        fd,
+        static_cast<uint64_t>(resource_id),
+        static_cast<uint64_t>(generation),
+        static_cast<uint32_t>(width),
+        static_cast<uint32_t>(height),
+        static_cast<uint32_t>(layers),
+        static_cast<uint32_t>(pixel_format),
+        static_cast<uint64_t>(usage),
+        static_cast<uint32_t>(producer_pid),
+        static_cast<uint64_t>(process_namespace),
+        static_cast<uint64_t>(sequence),
+        static_cast<uint32_t>(ownership_state)) ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT void JNICALL
