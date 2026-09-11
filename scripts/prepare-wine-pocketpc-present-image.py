@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""Extend the prepared PocketPC Wine overlay with exact presented-image identity.
+
+Input must already have been prepared by prepare-wine-pocketpc-driver.py. This
+patch bumps the private PocketPC Vulkan driver ABI from v49 to v50, caches the
+host VkImage handles belonging to every host swapchain and reports the exact
+image selected by VkPresentInfoKHR::pImageIndices back to winepocketpc.drv.
+
+This is source integration only. It does NOT copy pixels, alter presentation,
+prove GPU execution, produce an Android-visible frame or prove Roblox works.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+
+V49 = "#define WINE_VULKAN_DRIVER_VERSION 49"
+V50 = "#define WINE_VULKAN_DRIVER_VERSION 50"
+
+DRIVER_CALLBACK_ANCHOR = (
+    "    void (*p_vulkan_queue_presented)( struct vulkan_queue *queue, VkResult result );"
+)
+DRIVER_IMAGE_CALLBACK = (
+    "    void (*p_vulkan_image_presented)( struct vulkan_queue *queue, VkImage image, "
+    "VkFormat format, VkExtent2D extent, uint32_t image_index, VkResult result );"
+)
+
+SWAPCHAIN_STRUCT_OLD = """struct swapchain
+{
+    struct vulkan_swapchain obj;
+    struct surface *surface;
+    VkExtent2D extents;
+};"""
+SWAPCHAIN_STRUCT_NEW = """struct swapchain
+{
+    struct vulkan_swapchain obj;
+    struct surface *surface;
+    VkExtent2D extents;
+
+    /* PocketPC v50: exact host images for VkPresentInfoKHR image-index mapping. */
+    VkImage *pocketpc_host_images;
+    uint32_t pocketpc_host_image_count;
+    VkFormat pocketpc_host_image_format;
+    VkExtent2D pocketpc_host_extents;
+};"""
+
+SWAPCHAIN_INSERT_ANCHOR = "    instance->p_insert_object( instance, &swapchain->obj.obj );"
+SWAPCHAIN_IMAGE_CACHE = r'''    /*
+     * PocketPC v50 source integration: retain the host swapchain image list so
+     * pImageIndices can later resolve to the exact host VkImage. Failure to
+     * cache is non-fatal for Wine; PocketPC simply withholds image evidence.
+     */
+    swapchain->pocketpc_host_image_format = create_info_host.imageFormat;
+    swapchain->pocketpc_host_extents = create_info_host.imageExtent;
+    if (device->p_vkGetSwapchainImagesKHR)
+    {
+        uint32_t pocketpc_image_count = 0;
+        if (device->p_vkGetSwapchainImagesKHR( device->host.device, host_swapchain,
+                                               &pocketpc_image_count, NULL ) == VK_SUCCESS &&
+            pocketpc_image_count &&
+            (swapchain->pocketpc_host_images = calloc( pocketpc_image_count, sizeof(VkImage) )))
+        {
+            uint32_t pocketpc_capacity = pocketpc_image_count;
+            if (device->p_vkGetSwapchainImagesKHR( device->host.device, host_swapchain,
+                                                   &pocketpc_capacity,
+                                                   swapchain->pocketpc_host_images ) == VK_SUCCESS &&
+                pocketpc_capacity)
+                swapchain->pocketpc_host_image_count = pocketpc_capacity;
+            else
+            {
+                free( swapchain->pocketpc_host_images );
+                swapchain->pocketpc_host_images = NULL;
+            }
+        }
+    }'''
+
+SWAPCHAIN_DESTROY_ANCHOR = "    instance->p_remove_object( instance, &swapchain->obj.obj );"
+SWAPCHAIN_IMAGE_RELEASE = """    free( swapchain->pocketpc_host_images );
+    swapchain->pocketpc_host_images = NULL;
+    swapchain->pocketpc_host_image_count = 0;"""
+
+PRESENT_QUEUE_CALLBACK = """    if (driver_funcs->p_vulkan_queue_presented)
+        driver_funcs->p_vulkan_queue_presented( queue, res );"""
+PRESENT_IMAGE_CALLBACK = r'''    if (driver_funcs->p_vulkan_image_presented && present_info->pImageIndices)
+    {
+        for (uint32_t pocketpc_i = 0; pocketpc_i < present_info->swapchainCount; pocketpc_i++)
+        {
+            struct swapchain *pocketpc_swapchain = swapchain_from_handle( client_swapchains[pocketpc_i] );
+            uint32_t pocketpc_image_index = present_info->pImageIndices[pocketpc_i];
+            VkResult pocketpc_present_result = present_info->pResults ? present_info->pResults[pocketpc_i] : res;
+
+            if (!pocketpc_swapchain->pocketpc_host_images ||
+                pocketpc_image_index >= pocketpc_swapchain->pocketpc_host_image_count)
+                continue;
+
+            driver_funcs->p_vulkan_image_presented(
+                queue,
+                pocketpc_swapchain->pocketpc_host_images[pocketpc_image_index],
+                pocketpc_swapchain->pocketpc_host_image_format,
+                pocketpc_swapchain->pocketpc_host_extents,
+                pocketpc_image_index,
+                pocketpc_present_result );
+        }
+    }'''
+
+POCKETPC_DRIVER_FUNCTION_ANCHOR = "static void pocketpc_headless_client_surface_destroy("
+POCKETPC_DRIVER_IMAGE_FUNCTION = r'''static void pocketpc_vulkan_image_presented(
+    struct vulkan_queue *queue,
+    VkImage image,
+    VkFormat format,
+    VkExtent2D extent,
+    uint32_t image_index,
+    VkResult present_result)
+{
+    struct vulkan_device *device;
+
+    if (!queue || !queue->device || image == VK_NULL_HANDLE ||
+        !extent.width || !extent.height)
+        return;
+    if (present_result != VK_SUCCESS && present_result != VK_SUBOPTIMAL_KHR)
+        return;
+
+    device = queue->device;
+    pthread_mutex_lock(&pocketpc_guest_resource.mutex);
+    if (pocketpc_guest_resource.device == device &&
+        !pocketpc_guest_resource.stopping &&
+        pocketpc_guest_resource.image_imported &&
+        pocketpc_guest_resource.timeline_imported)
+    {
+        TRACE("POCKETPC_VULKAN_PRESENT_IMAGE stage=exact_swapchain_image_observed execution_evidence=0 pixels_copied=0 visible_present=0 image=%p format=%u width=%u height=%u image_index=%u queue_family=%u\n",
+              (void *)(uintptr_t)image,
+              (unsigned int)format,
+              extent.width,
+              extent.height,
+              image_index,
+              queue->info.queueFamilyIndex);
+    }
+    pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+}
+
+'''
+
+POCKETPC_TABLE_ANCHOR = "    .p_vulkan_queue_presented = pocketpc_vulkan_queue_presented,"
+POCKETPC_TABLE_IMAGE_ENTRY = "    .p_vulkan_image_presented = pocketpc_vulkan_image_presented,"
+
+
+def digest(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def replace_once(path: Path, old: str, new: str) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if new in text and old not in text:
+        return False
+    if text.count(old) != 1:
+        raise RuntimeError(f"PRESENT_IMAGE_REPLACE_ANCHOR_INVALID:{path}:{text.count(old)}")
+    path.write_text(text.replace(old, new, 1), encoding="utf-8")
+    return True
+
+
+def after_once(path: Path, anchor: str, insertion: str) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if insertion in text:
+        return False
+    if text.count(anchor) != 1:
+        raise RuntimeError(f"PRESENT_IMAGE_AFTER_ANCHOR_INVALID:{path}:{text.count(anchor)}")
+    path.write_text(text.replace(anchor, anchor + "\n" + insertion, 1), encoding="utf-8")
+    return True
+
+
+def before_once(path: Path, anchor: str, insertion: str) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if insertion in text:
+        return False
+    if text.count(anchor) != 1:
+        raise RuntimeError(f"PRESENT_IMAGE_BEFORE_ANCHOR_INVALID:{path}:{text.count(anchor)}")
+    path.write_text(text.replace(anchor, insertion + "\n" + anchor, 1), encoding="utf-8")
+    return True
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--wine-source", type=Path, required=True)
+    parser.add_argument("--evidence", type=Path, required=True)
+    args = parser.parse_args()
+
+    source = args.wine_source.resolve()
+    header = source / "include/wine/vulkan_driver.h"
+    win32u = source / "dlls/win32u/vulkan.c"
+    driver = source / "dlls/winepocketpc.drv/vulkan.c"
+    for required in (header, win32u, driver):
+        if not required.is_file():
+            raise SystemExit(f"PRESENT_IMAGE_REQUIRED_FILE_MISSING:{required}")
+
+    version_changed = replace_once(header, V49, V50)
+    callback_changed = after_once(header, DRIVER_CALLBACK_ANCHOR, DRIVER_IMAGE_CALLBACK)
+    swapchain_changed = replace_once(win32u, SWAPCHAIN_STRUCT_OLD, SWAPCHAIN_STRUCT_NEW)
+    cache_changed = after_once(win32u, SWAPCHAIN_INSERT_ANCHOR, SWAPCHAIN_IMAGE_CACHE)
+    release_changed = after_once(win32u, SWAPCHAIN_DESTROY_ANCHOR, SWAPCHAIN_IMAGE_RELEASE)
+    present_changed = after_once(win32u, PRESENT_QUEUE_CALLBACK, PRESENT_IMAGE_CALLBACK)
+    driver_function_changed = before_once(
+        driver,
+        POCKETPC_DRIVER_FUNCTION_ANCHOR,
+        POCKETPC_DRIVER_IMAGE_FUNCTION,
+    )
+    driver_table_changed = after_once(driver, POCKETPC_TABLE_ANCHOR, POCKETPC_TABLE_IMAGE_ENTRY)
+
+    evidence = {
+        "schemaVersion": 1,
+        "status": "POCKETPC_EXACT_PRESENTED_IMAGE_SOURCE_INTEGRATED_NOT_BUILT_NOT_EXECUTED",
+        "privateWineVulkanAbi": 50,
+        "upstreamPinnedAbi": 47,
+        "sourceIntegration": {
+            "versionPatchChanged": version_changed,
+            "driverCallbackPatchChanged": callback_changed,
+            "swapchainStatePatchChanged": swapchain_changed,
+            "swapchainImageCachePatchChanged": cache_changed,
+            "swapchainImageReleasePatchChanged": release_changed,
+            "presentImageDispatchPatchChanged": present_changed,
+            "pocketpcDriverCallbackPatchChanged": driver_function_changed,
+            "pocketpcDriverTablePatchChanged": driver_table_changed,
+        },
+        "exactIdentity": {
+            "usesVkGetSwapchainImagesKHR": True,
+            "usesVkPresentInfoImageIndex": True,
+            "passesExactHostVkImage": True,
+            "passesHostFormat": True,
+            "passesHostExtent": True,
+            "passesQueueFamily": True,
+        },
+        "pixelCopyImplemented": False,
+        "gpuSynchronizationExecuted": False,
+        "hostVisiblePresentImplemented": False,
+        "robloxExecuted": False,
+        "files": {
+            "vulkanDriverHeaderSha256": digest(header),
+            "win32uVulkanSha256": digest(win32u),
+            "pocketPcVulkanSha256": digest(driver),
+        },
+        "notExecuted": [
+            "Wine compilation after v50 patch",
+            "win32u compilation after swapchain cache patch",
+            "winepocketpc.so compilation after exact-image callback patch",
+            "VkGetSwapchainImagesKHR cache path",
+            "exact presented VkImage callback",
+            "swapchain pixel copy",
+            "Android-visible frame",
+            "DXVK Present physical test",
+            "Roblox",
+        ],
+    }
+    args.evidence.parent.mkdir(parents=True, exist_ok=True)
+    args.evidence.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+
+    print("POCKETPC_EXACT_PRESENTED_IMAGE_SOURCE_INTEGRATED_NOT_EXECUTED")
+    print("private_wine_vulkan_abi=50")
+    print("exact_host_swapchain_image_identity=true")
+    print("pixel_copy=false")
+    print("host_visible_present=false")
+    print("runtime_execution_evidence=false")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
