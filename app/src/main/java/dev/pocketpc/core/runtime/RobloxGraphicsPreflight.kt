@@ -178,13 +178,16 @@ object RobloxGraphicsPreflightCoordinator {
                     "Há uma rota candidata de recurso externo, mas receive/import/synchronization do guest ainda não estão integrados e comprovados."
 
                 !PocketPcWinePresentBridgeContract.pixelCopyImplemented ->
-                    "O Wine v50 já possui identidade exata da imagem apresentada e contrato de ownership externo em source, porém os pixels da swapchain ainda não são copiados para a imagem compartilhada do PocketPC."
+                    "A identidade exata do frame e o ownership externo existem em source, mas a cópia GPU pré-Present ainda não foi implementada."
+
+                !PocketPcWinePresentBridgeContract.pixelCopyExecuted ->
+                    "O Wine v51 já possui a cópia GPU pré-Present em source, encadeada aos semáforos do Present, mas essa cópia ainda não foi executada e comprovada no runtime real."
 
                 !PocketPcWinePresentBridgeContract.androidVisiblePresentImplemented ->
-                    "A ponte de Present avançou, mas o frame compartilhado ainda não possui apresentação Android visível implementada."
+                    "A cópia para o recurso compartilhado avançou em source, mas o Android ainda não possui o consumidor visível que adquira e apresente esse frame."
 
                 !PocketPcWinePresentBridgeContract.runtimeExecuted ->
-                    "A ponte gráfica existe em source, porém ainda não há execução real registrada do caminho de Present v50."
+                    "A ponte gráfica v51 existe em source, porém ainda não há execução real registrada do caminho completo de Present."
 
                 !anySurfaceRoute ->
                     "O probe Vulkan respondeu, mas não anunciou uma rota de surface + swapchain para o experimento atual."
