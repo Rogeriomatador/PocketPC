@@ -271,6 +271,38 @@ static void *pocketpc_vulkan_guest_resource_worker(void *argument)
         goto failed;
     }
 
+    result = pocketpc_guest_vulkan_timeline_probe_first_queue(
+        device,
+        &pocketpc_guest_resource.timeline);
+    if (result == POCKETPC_GUEST_VULKAN_TIMELINE_OK)
+    {
+        uint32_t queue_family = 0u;
+        if (device->queue_count > 0u)
+            queue_family = device->queues[0].info.queueFamilyIndex;
+
+        result = pocketpc_send_guest_ack(
+            session_fd,
+            PGA_STAGE_GPU_SIGNAL_SUBMITTED,
+            PGA_STATUS_OK,
+            &descriptor,
+            &ownership,
+            queue_family);
+        if (result != 0)
+        {
+            ERR("POCKETPC_VULKAN_GUEST stage=pga_gpu_signal_ack_failed result=%d\n", result);
+            goto failed;
+        }
+
+        TRACE("POCKETPC_VULKAN_GUEST stage=gpu_queue_signal_submitted execution_evidence=0 present_ordered=0 queue_family=%u value=%llu\n",
+              queue_family,
+              (unsigned long long)pocketpc_guest_resource.timeline.queue_signal_value);
+    }
+    else
+    {
+        WARN("POCKETPC_VULKAN_GUEST stage=gpu_queue_signal_probe_failed result=%d execution_evidence=0 present_ordered=0\n",
+             result);
+    }
+
     TRACE("POCKETPC_VULKAN_GUEST stage=resource_import_source_path_ready execution_evidence=0 gpu_sync=0 visible_present=0 resource=%llu generation=%llu sequence=%llu\n",
           (unsigned long long)descriptor.resource_id,
           (unsigned long long)descriptor.generation,
