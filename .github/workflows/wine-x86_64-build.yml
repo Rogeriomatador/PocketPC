@@ -6,6 +6,10 @@ on:
     paths:
       - 'third_party/wine/**'
       - 'scripts/build-wine-x86_64.py'
+      - 'scripts/build-wine-x86_64-v50.py'
+      - 'scripts/prepare-wine-pocketpc-driver-v50.py'
+      - 'scripts/prepare-wine-pocketpc-present-image.py'
+      - 'scripts/test-wine-x86_64-v50-integration.py'
       - 'scripts/pocketpc_pe.py'
       - 'scripts/verify-wine-x86_64-driver-package.py'
       - 'scripts/test-wine-x86_64-driver-package.py'
@@ -54,6 +58,7 @@ jobs:
           python3 scripts/test-wine-pocketpc-driver-policy.py
           python3 scripts/test-wine-pocketpc-driver-load-policy.py
           python3 scripts/test-wine-pocketpc-window-surface-policy.py
+          python3 scripts/test-wine-x86_64-v50-integration.py
 
       - name: Validate PocketPC Wine driver ABI and package verifier
         run: |
@@ -68,10 +73,30 @@ jobs:
       - name: Validate display bridge protocol
         run: python3 scripts/test-display-bridge-protocol-lock.py
 
-      - name: Build pinned Wine 11 x86_64 package with PocketPC driver
+      - name: Build pinned Wine 11 x86_64 package with PocketPC v50 driver
         run: |
-          python3 scripts/build-wine-x86_64.py \
+          python3 scripts/build-wine-x86_64-v50.py \
             --work "$RUNNER_TEMP/pocketpc-wine-build"
+
+      - name: Verify v50 overlay evidence stayed fail-closed
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          evidence = json.loads(
+              Path("${{ runner.temp }}/pocketpc-wine-build/wine-pocketpc-driver-overlay-evidence.json")
+              .read_text(encoding="utf-8")
+          )
+          assert evidence["privateWineVulkanAbi"] == 50
+          assert evidence["exactPresentedImage"]["passesExactHostVkImage"] is True
+          assert evidence["externalOwnership"]["androidInitialReleaseImplemented"] is True
+          assert evidence["externalOwnership"]["guestAcquireReleasePrimitiveImplemented"] is True
+          assert evidence["externalOwnership"]["executed"] is False
+          assert evidence["pixelCopyImplemented"] is False
+          assert evidence["hostVisiblePresentImplemented"] is False
+          assert evidence["robloxExecuted"] is False
+          print("POCKETPC_WINE_V50_OVERLAY_EVIDENCE_OK_NOT_EXECUTED")
+          PY
 
       - name: Verify installed PocketPC driver pair
         run: |
