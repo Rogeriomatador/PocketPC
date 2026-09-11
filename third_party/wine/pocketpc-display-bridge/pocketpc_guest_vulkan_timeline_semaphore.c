@@ -85,7 +85,6 @@ int pocketpc_guest_vulkan_timeline_import(
         return POCKETPC_GUEST_VULKAN_TIMELINE_IMPORT_FAILED;
     }
 
-    /* Successful OPAQUE_FD import transfers FD ownership to Vulkan. */
     received->semaphore_fd = -1;
     timeline->resource_id = received->metadata.resource_id;
     timeline->generation = received->metadata.generation;
@@ -192,6 +191,58 @@ int pocketpc_guest_vulkan_timeline_wait_cpu(
 
     if (value > timeline->last_known_value)
         timeline->last_known_value = value;
+    return POCKETPC_GUEST_VULKAN_TIMELINE_OK;
+}
+
+int pocketpc_guest_vulkan_timeline_signal_queue(
+    struct vulkan_device *device,
+    struct vulkan_queue *queue,
+    struct pocketpc_guest_vulkan_timeline *timeline,
+    uint64_t value
+) {
+    VkTimelineSemaphoreSubmitInfo timeline_info;
+    VkSubmitInfo submit_info;
+    VkSemaphore semaphore;
+    VkResult result;
+    uint64_t current = 0u;
+    int counter_result;
+
+    if (!pocketpc_guest_vulkan_timeline_runtime_ready(device, timeline) ||
+        !queue || queue->device != device || value == 0u)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_INVALID_ARGUMENT;
+    if (!queue->host.queue)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_QUEUE_UNAVAILABLE;
+    if (!device->p_vkQueueSubmit)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_FUNCTION_NOT_READY;
+
+    counter_result = pocketpc_guest_vulkan_timeline_get_counter(device, timeline, &current);
+    if (counter_result != POCKETPC_GUEST_VULKAN_TIMELINE_OK)
+        return counter_result;
+    if (value <= current)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_NON_MONOTONIC;
+
+    semaphore = timeline->semaphore;
+    memset(&timeline_info, 0, sizeof(timeline_info));
+    timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+    timeline_info.signalSemaphoreValueCount = 1u;
+    timeline_info.pSignalSemaphoreValues = &value;
+
+    memset(&submit_info, 0, sizeof(submit_info));
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.pNext = &timeline_info;
+    submit_info.signalSemaphoreCount = 1u;
+    submit_info.pSignalSemaphores = &semaphore;
+
+    result = device->p_vkQueueSubmit(
+        queue->host.queue,
+        1u,
+        &submit_info,
+        VK_NULL_HANDLE
+    );
+    if (result != VK_SUCCESS)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_QUEUE_SUBMIT_FAILED;
+
+    timeline->last_known_value = value;
     return POCKETPC_GUEST_VULKAN_TIMELINE_OK;
 }
 
