@@ -32,6 +32,14 @@ data class RuntimeDisplayExecutionResult(
     val graphicsError: String? = null,
 )
 
+private data class RuntimeDisplayGraphicsState(
+    val authenticated: Boolean,
+    val hostResourceOffered: Boolean,
+    val resourceId: Long?,
+    val generation: Long?,
+    val error: String?,
+)
+
 private sealed interface RuntimeDisplayStartup {
     data class Peer(
         val result: Result<RuntimeDisplayBridgePeer>,
@@ -158,6 +166,17 @@ class RuntimeDisplayExecutionController(
                     GuestGraphicsSessionOrchestrator.BLOCKER_SESSION_CREATE_FAILED
                 } else {
                     null
+                }
+
+            fun graphicsSnapshot(): RuntimeDisplayGraphicsState =
+                synchronized(stateLock) {
+                    RuntimeDisplayGraphicsState(
+                        authenticated = graphicsAuthenticated,
+                        hostResourceOffered = graphicsHostResourceOffered,
+                        resourceId = graphicsResourceId,
+                        generation = graphicsGeneration,
+                        error = graphicsError,
+                    )
                 }
 
             val windowCollector = launch {
@@ -367,17 +386,18 @@ class RuntimeDisplayExecutionController(
                 } catch (failure: Throwable) {
                     executionController.stopActive()
                     val process = processDeferred.await()
+                    val graphics = graphicsSnapshot()
                     return@coroutineScope RuntimeDisplayExecutionResult(
                         process = process,
                         bridgeAuthenticated = false,
                         bridgeError =
                             "DISPLAY_BRIDGE_HANDSHAKE_TIMEOUT_OR_FAILURE:" +
                                 (failure.message ?: failure.javaClass.simpleName),
-                        graphicsAuthenticated = synchronized(stateLock) { graphicsAuthenticated },
-                        graphicsHostResourceOffered = synchronized(stateLock) { graphicsHostResourceOffered },
-                        graphicsResourceId = synchronized(stateLock) { graphicsResourceId },
-                        graphicsGeneration = synchronized(stateLock) { graphicsGeneration },
-                        graphicsError = synchronized(stateLock) { graphicsError },
+                        graphicsAuthenticated = graphics.authenticated,
+                        graphicsHostResourceOffered = graphics.hostResourceOffered,
+                        graphicsResourceId = graphics.resourceId,
+                        graphicsGeneration = graphics.generation,
+                        graphicsError = graphics.error,
                     )
                 }
 
@@ -407,6 +427,7 @@ class RuntimeDisplayExecutionController(
                 val firstPeer = firstPeerResult.getOrElse { failure ->
                     if (processDeferred.isActive) executionController.stopActive()
                     val process = rootProcessResult ?: processDeferred.await()
+                    val graphics = graphicsSnapshot()
                     return@coroutineScope RuntimeDisplayExecutionResult(
                         process = process,
                         bridgeAuthenticated = false,
@@ -418,11 +439,11 @@ class RuntimeDisplayExecutionController(
                                 "DISPLAY_BRIDGE_HANDSHAKE_FAILED:" +
                                     (failure.message ?: failure.javaClass.simpleName)
                             },
-                        graphicsAuthenticated = synchronized(stateLock) { graphicsAuthenticated },
-                        graphicsHostResourceOffered = synchronized(stateLock) { graphicsHostResourceOffered },
-                        graphicsResourceId = synchronized(stateLock) { graphicsResourceId },
-                        graphicsGeneration = synchronized(stateLock) { graphicsGeneration },
-                        graphicsError = synchronized(stateLock) { graphicsError },
+                        graphicsAuthenticated = graphics.authenticated,
+                        graphicsHostResourceOffered = graphics.hostResourceOffered,
+                        graphicsResourceId = graphics.resourceId,
+                        graphicsGeneration = graphics.generation,
+                        graphicsError = graphics.error,
                     )
                 }
 
@@ -472,15 +493,7 @@ class RuntimeDisplayExecutionController(
 
                 val peers = synchronized(stateLock) { authenticatedPeerCount }
                 val failures = synchronized(stateLock) { peerFailures.toList() }
-                val graphicsSnapshot = synchronized(stateLock) {
-                    listOf(
-                        graphicsAuthenticated,
-                        graphicsHostResourceOffered,
-                        graphicsResourceId,
-                        graphicsGeneration,
-                        graphicsError,
-                    )
-                }
+                val graphics = graphicsSnapshot()
 
                 RuntimeDisplayExecutionResult(
                     process = process,
@@ -489,18 +502,18 @@ class RuntimeDisplayExecutionController(
                         failures.takeIf { it.isNotEmpty() }
                             ?.joinToString(separator = " | "),
                     authenticatedPeerCount = peers,
-                    graphicsAuthenticated = graphicsSnapshot[0] as Boolean,
-                    graphicsHostResourceOffered = graphicsSnapshot[1] as Boolean,
-                    graphicsResourceId = graphicsSnapshot[2] as Long?,
-                    graphicsGeneration = graphicsSnapshot[3] as Long?,
-                    graphicsError = graphicsSnapshot[4] as String?,
+                    graphicsAuthenticated = graphics.authenticated,
+                    graphicsHostResourceOffered = graphics.hostResourceOffered,
+                    graphicsResourceId = graphics.resourceId,
+                    graphicsGeneration = graphics.generation,
+                    graphicsError = graphics.error,
                 )
             } finally {
                 host.close()
 
                 if (!acceptDeferred.isCompleted) acceptDeferred.cancel()
-                if (graphicsAcceptDeferred?.isCompleted == false) {
-                    graphicsAcceptDeferred.cancel()
+                graphicsAcceptDeferred?.let { deferred ->
+                    if (!deferred.isCompleted) deferred.cancel()
                 }
 
                 acceptLoop?.cancelAndJoin()
