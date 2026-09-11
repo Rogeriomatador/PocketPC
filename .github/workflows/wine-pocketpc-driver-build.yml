@@ -66,6 +66,7 @@ on:
       - 'scripts/test-vulkan-external-image-fd-broker-policy.py'
       - 'scripts/test-guest-vulkan-import-policy.py'
       - 'scripts/test-guest-vulkan-timeline-policy.py'
+      - 'scripts/test-guest-vulkan-gpu-queue-sync-policy.py'
       - 'scripts/test-roblox-browser-launch-policy.py'
       - 'scripts/test-display-bridge-protocol-lock.py'
       - 'scripts/test-display-multipeer-policy.py'
@@ -117,6 +118,7 @@ jobs:
           python3 scripts/test-vulkan-external-image-fd-broker-policy.py
           python3 scripts/test-guest-vulkan-import-policy.py
           python3 scripts/test-guest-vulkan-timeline-policy.py
+          python3 scripts/test-guest-vulkan-gpu-queue-sync-policy.py
           python3 scripts/test-graphics-session-auth-policy.py
           python3 scripts/test-roblox-browser-launch-policy.py
           python3 scripts/test-wine-pocketpc-build-target-discovery.py
