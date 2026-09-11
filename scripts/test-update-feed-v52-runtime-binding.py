@@ -21,7 +21,12 @@ def sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def make_runtime(path: Path, pocketpc_revision: str) -> None:
+def make_runtime(
+    path: Path,
+    pocketpc_revision: str,
+    *,
+    tamper_wine_hash: bool = False,
+) -> None:
     capability = {
         "schemaVersion": 1,
         "wineVulkanAbi": 52,
@@ -37,6 +42,12 @@ def make_runtime(path: Path, pocketpc_revision: str) -> None:
     capability_payload = (
         json.dumps(capability, indent=2) + "\n"
     ).encode("utf-8")
+    wine_payload = b"synthetic-wine-x86_64-entrypoint\n"
+    wine_sha = (
+        "0" * 64
+        if tamper_wine_hash
+        else sha256(wine_payload)
+    )
     manifest = {
         "schemaVersion": 1,
         "id": "wine",
@@ -49,11 +60,17 @@ def make_runtime(path: Path, pocketpc_revision: str) -> None:
         "executionMode": "box64-x86_64",
         "files": [
             {
+                "path": "bin/wine",
+                "sha256": wine_sha,
+                "bytes": len(wine_payload),
+                "executable": True,
+            },
+            {
                 "path": CAPABILITY_PATH,
                 "sha256": sha256(capability_payload),
                 "bytes": len(capability_payload),
                 "executable": False,
-            }
+            },
         ],
     }
     with zipfile.ZipFile(
@@ -65,6 +82,7 @@ def make_runtime(path: Path, pocketpc_revision: str) -> None:
             "guest-tool-manifest.json",
             json.dumps(manifest, indent=2) + "\n",
         )
+        archive.writestr("bin/wine", wine_payload)
         archive.writestr(CAPABILITY_PATH, capability_payload)
 
 
@@ -130,6 +148,7 @@ def main() -> int:
         assert feed["schemaVersion"] == 1
         assert offer["kind"] == "wine"
         assert offer["experimental"] is True
+        assert offer["guestToolVersion"] == "11-v52-test"
         assert offer["pocketPcSourceRevision"] == REVISION
         assert offer["pocketPcSourceRevision"] == feed["sourceRevision"]
         assert offer["wineVulkanAbi"] == 52
@@ -146,9 +165,23 @@ def main() -> int:
         assert "source revision does not match APK" in result.stderr
         assert not rejected.exists()
 
+        tampered = work / "wine-v52-tampered.zip"
+        make_runtime(
+            tampered,
+            REVISION,
+            tamper_wine_hash=True,
+        )
+        rejected_tampered = work / "rejected-tampered.json"
+        result = run_prepare(apk, rejected_tampered, tampered)
+        assert result.returncode != 0
+        assert "file SHA-256 mismatch: bin/wine" in result.stderr
+        assert not rejected_tampered.exists()
+
     print("POCKETPC_UPDATE_FEED_V52_RUNTIME_BINDING_OK")
     print("SCHEMA_V1_APK_ONLY_COMPATIBLE=1")
     print("V52_RUNTIME_PAIRING_FAIL_CLOSED=1")
+    print("FULL_GUEST_PACKAGE_ATTESTATION=1")
+    print("TAMPERED_GUEST_FILE_REJECTED=1")
     print("RUNTIME_EXECUTED=0")
     print("PHYSICAL_VISIBLE_FRAME=0")
     return 0
