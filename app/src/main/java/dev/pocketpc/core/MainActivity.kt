@@ -19,6 +19,7 @@ import dev.pocketpc.core.desktop.DesktopPointerCommandBridge
 import dev.pocketpc.core.ui.PocketFileOpenOverlay
 import dev.pocketpc.core.ui.PocketPcApp
 import dev.pocketpc.core.ui.PocketPcForegroundUpdateFlow
+import dev.pocketpc.core.update.PocketPcPairedV52Prompt
 import dev.pocketpc.core.update.PocketPcUpdateScheduler
 import dev.pocketpc.core.update.clearPostUpdateNotification
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -87,6 +88,7 @@ class MainActivity : ComponentActivity() {
             PocketPcApp(commandFlow = desktopCommands)
             PocketFileOpenOverlay()
             PocketPcForegroundUpdateFlow()
+            PocketPcPairedV52Prompt()
         }
     }
 
