@@ -15,6 +15,7 @@
 #include "pocketpcdrv.h"
 #include "pocketpc_graphics_session_client.h"
 #include "pocketpc_graphics_transport.h"
+#include "pocketpc_graphics_ack.h"
 #include "pocketpc_external_image_fd_protocol.h"
 #include "pocketpc_guest_vulkan_import.h"
 #include "pocketpc_external_timeline_semaphore_fd_protocol.h"
@@ -58,6 +59,33 @@ static BOOL pocketpc_graphics_session_requested(void)
 {
     const char *protocol = getenv("POCKETPC_GRAPHICS_SESSION_PROTOCOL");
     return protocol && !strcmp(protocol, "1");
+}
+
+static int pocketpc_send_guest_ack(
+    int session_fd,
+    uint16_t stage,
+    int32_t status,
+    const struct pgt_resource_descriptor *descriptor,
+    const struct pgt_ownership_record *ownership,
+    uint32_t detail)
+{
+    struct pocketpc_graphics_ack ack;
+
+    if (session_fd < 0 || !descriptor || !ownership)
+        return -1;
+    if (descriptor->resource_id != ownership->resource_id ||
+        descriptor->generation != ownership->generation ||
+        descriptor->sync_sequence != ownership->sequence)
+        return -2;
+
+    memset(&ack, 0, sizeof(ack));
+    ack.stage = stage;
+    ack.status = status;
+    ack.resource_id = descriptor->resource_id;
+    ack.generation = descriptor->generation;
+    ack.sequence = ownership->sequence;
+    ack.detail = detail;
+    return pocketpc_graphics_ack_send(session_fd, &ack);
 }
 
 static void pocketpc_guest_resource_reset_records(void)
@@ -127,6 +155,19 @@ static void *pocketpc_vulkan_guest_resource_worker(void *argument)
         goto failed;
     }
 
+    result = pocketpc_send_guest_ack(
+        session_fd,
+        PGA_STAGE_RESOURCE_OFFER_RECEIVED,
+        PGA_STATUS_OK,
+        &descriptor,
+        &ownership,
+        0u);
+    if (result != 0)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pga_offer_ack_failed result=%d\n", result);
+        goto failed;
+    }
+
     result = pocketpc_external_image_fd_receive(
         session_fd, &descriptor, &ownership, &image_received);
     if (result != POCKETPC_EXTERNAL_IMAGE_FD_OK)
@@ -143,6 +184,19 @@ static void *pocketpc_vulkan_guest_resource_worker(void *argument)
         goto failed;
     }
     image_imported = TRUE;
+
+    result = pocketpc_send_guest_ack(
+        session_fd,
+        PGA_STAGE_IMAGE_IMPORTED,
+        PGA_STATUS_OK,
+        &descriptor,
+        &ownership,
+        image.memory_type_index);
+    if (result != 0)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pga_image_ack_failed result=%d\n", result);
+        goto failed;
+    }
 
     result = pocketpc_external_timeline_semaphore_fd_receive(
         session_fd, &descriptor, &ownership, &timeline_received);
@@ -170,6 +224,19 @@ static void *pocketpc_vulkan_guest_resource_worker(void *argument)
         goto failed;
     }
 
+    result = pocketpc_send_guest_ack(
+        session_fd,
+        PGA_STAGE_SYNC_IMPORTED,
+        PGA_STATUS_OK,
+        &descriptor,
+        &ownership,
+        0u);
+    if (result != 0)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pga_sync_ack_failed result=%d\n", result);
+        goto failed;
+    }
+
     pthread_mutex_lock(&pocketpc_guest_resource.mutex);
     if (pocketpc_guest_resource.device != device || pocketpc_guest_resource.stopping)
     {
@@ -185,12 +252,29 @@ static void *pocketpc_vulkan_guest_resource_worker(void *argument)
     pocketpc_guest_resource.timeline_imported = TRUE;
     image_imported = FALSE;
     timeline_imported = FALSE;
-
-    TRACE("POCKETPC_VULKAN_GUEST stage=resource_import_primitives_completed runtime_evidence=0 gpu_sync=0 visible_present=0 resource=%s generation=%s sequence=%s\n",
-          wine_dbgstr_longlong(descriptor.resource_id),
-          wine_dbgstr_longlong(descriptor.generation),
-          wine_dbgstr_longlong(ownership.sequence));
     pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+
+    result = pocketpc_send_guest_ack(
+        session_fd,
+        PGA_STAGE_READY,
+        PGA_STATUS_OK,
+        &descriptor,
+        &ownership,
+        0u);
+    if (result != 0)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pga_ready_ack_failed result=%d\n", result);
+        pthread_mutex_lock(&pocketpc_guest_resource.mutex);
+        if (pocketpc_guest_resource.device == device)
+            pocketpc_guest_resource_release_imports_locked(device);
+        pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+        goto failed;
+    }
+
+    TRACE("POCKETPC_VULKAN_GUEST stage=resource_import_source_path_ready execution_evidence=0 gpu_sync=0 visible_present=0 resource=%llu generation=%llu sequence=%llu\n",
+          (unsigned long long)descriptor.resource_id,
+          (unsigned long long)descriptor.generation,
+          (unsigned long long)ownership.sequence);
     return NULL;
 
 failed:
@@ -261,7 +345,7 @@ static void pocketpc_vulkan_device_created(struct vulkan_device *device)
     }
     pocketpc_guest_resource.worker_started = TRUE;
 
-    TRACE("POCKETPC_VULKAN_GUEST stage=pgh1_connected_worker_started device=%p runtime_evidence=0\n", device);
+    TRACE("POCKETPC_VULKAN_GUEST stage=pgh1_connected_worker_started device=%p execution_evidence=0\n", device);
     pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
 }
 
