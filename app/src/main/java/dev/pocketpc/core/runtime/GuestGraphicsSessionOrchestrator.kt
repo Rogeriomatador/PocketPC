@@ -10,9 +10,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * [acceptAuthenticated] from an IO thread. No Vulkan handle is offered until
  * PGH1 authentication (session token + SO_PEERCRED PID) succeeds.
  *
- * A successful host offer means only that PVI1/PVS1 were sent over the
- * authenticated SOCK_SEQPACKET connection. It is not proof that Wine/DXVK
- * imported them, submitted GPU work, presented a visible frame, or ran Roblox.
+ * A successful host offer means only that PGT RESOURCE_OFFER + PVI1 + PVS1
+ * were sent over the authenticated SOCK_SEQPACKET connection. It is not proof
+ * that Wine/DXVK imported them, submitted GPU work, presented a visible frame,
+ * or ran Roblox.
  */
 class GuestGraphicsSessionOrchestrator private constructor(
     private val session: GraphicsSeqpacketSessionHost.Session,
@@ -31,12 +32,14 @@ class GuestGraphicsSessionOrchestrator private constructor(
         val height: Int,
         val descriptor: GuestGraphicsResourceDescriptor,
         val ownership: GuestGraphicsOwnershipToken,
+        val pgtOfferSent: Boolean,
         val pvi1Sent: Boolean,
         val pvs1Sent: Boolean,
     ) {
         val hostOfferComplete: Boolean
             get() =
-                pvi1Sent &&
+                pgtOfferSent &&
+                    pvi1Sent &&
                     pvs1Sent &&
                     ownership.state == GuestGraphicsOwnershipState.OFFERED_TO_GUEST
     }
@@ -62,6 +65,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
             "GUEST_GRAPHICS_RESOURCE_CREATE_FAILED"
         const val BLOCKER_OWNERSHIP_OFFER_FAILED =
             "GUEST_GRAPHICS_OWNERSHIP_OFFER_FAILED"
+        const val BLOCKER_PGT_OFFER_SEND_FAILED =
+            "GUEST_GRAPHICS_PGT_OFFER_SEND_FAILED"
         const val BLOCKER_PVI1_SEND_FAILED =
             "GUEST_GRAPHICS_PVI1_SEND_FAILED"
         const val BLOCKER_PVS1_SEND_FAILED =
@@ -89,14 +94,9 @@ class GuestGraphicsSessionOrchestrator private constructor(
     @Volatile
     private var lastBlocker: String? = null
 
-    /** Environment that must be injected into the exact guest process. */
     val launchEnvironment: Map<String, String>
         get() = session.launchEnvironment.variables.toMap()
 
-    /**
-     * Blocking but bounded in native code. Must run on the runtime IO executor.
-     * Only one authenticated peer is allowed for an orchestrator instance.
-     */
     fun acceptAuthenticated(
         timeoutMillis: Long = GraphicsSeqpacketSessionHost.DEFAULT_AUTH_TIMEOUT_MILLIS,
     ): Boolean {
@@ -118,12 +118,13 @@ class GuestGraphicsSessionOrchestrator private constructor(
     }
 
     /**
-     * Creates one host OPAQUE_FD image and offers its image FD (PVI1) and
-     * timeline semaphore FD (PVS1) over the already authenticated connection.
+     * Canonical host send order:
+     *   1. PGT RESOURCE_OFFER: descriptor + OFFERED_TO_GUEST ownership
+     *   2. PVI1: external VkImage allocation FD + immutable import metadata
+     *   3. PVS1: external timeline semaphore FD for that exact resource
      *
-     * The initial logical ownership sequence is always 1 for a new resource,
-     * matching HOST_AVAILABLE -> OFFERED_TO_GUEST. Later ownership transitions
-     * require guest acknowledgements and are intentionally not invented here.
+     * Later guest acknowledgement/ownership transitions are separate and must
+     * be observed before any guest integration gate can be promoted.
      */
     fun createAndOfferExternalImage(
         width: Int,
@@ -147,10 +148,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
                 VulkanExternalImageFdBroker.create(width, height)
                     .getOrElse {
                         lastBlocker = BLOCKER_RESOURCE_CREATE_FAILED
-                        throw IllegalStateException(
-                            BLOCKER_RESOURCE_CREATE_FAILED,
-                            it,
-                        )
+                        throw IllegalStateException(BLOCKER_RESOURCE_CREATE_FAILED, it)
                     }
 
             var keepLease = false
@@ -178,6 +176,11 @@ class GuestGraphicsSessionOrchestrator private constructor(
                         syncSequence = transition.current.sequence,
                     )
 
+                if (!connection.sendResourceOffer(descriptor, transition.current)) {
+                    lastBlocker = BLOCKER_PGT_OFFER_SEND_FAILED
+                    throw IllegalStateException(BLOCKER_PGT_OFFER_SEND_FAILED)
+                }
+
                 VulkanExternalImageFdBroker.send(
                     lease = lease,
                     socketFd = connection.fd,
@@ -203,12 +206,11 @@ class GuestGraphicsSessionOrchestrator private constructor(
                         height = lease.height,
                         descriptor = descriptor,
                         ownership = transition.current,
+                        pgtOfferSent = true,
                         pvi1Sent = true,
                         pvs1Sent = true,
                     )
-                check(offer.hostOfferComplete) {
-                    BLOCKER_OWNERSHIP_OFFER_FAILED
-                }
+                check(offer.hostOfferComplete) { BLOCKER_OWNERSHIP_OFFER_FAILED }
 
                 activeLease = lease
                 activeOffer = offer
@@ -230,10 +232,6 @@ class GuestGraphicsSessionOrchestrator private constructor(
 
     fun activeOffer(): ResourceOffer? = activeOffer
 
-    /**
-     * Host-side retirement only. This does not claim guest/GPU completion.
-     * It is primarily used during teardown or a failed integration attempt.
-     */
     fun releaseActiveResource(): Boolean {
         val lease = activeLease ?: return true
         val released = VulkanExternalImageFdBroker.release(lease).isSuccess
