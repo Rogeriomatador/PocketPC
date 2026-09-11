@@ -26,7 +26,14 @@ def main() -> int:
     helper_c = text(
         "third_party/wine/pocketpc-display-bridge/pocketpc_guest_present_copy.c"
     )
+    ack_h = text(
+        "third_party/wine/pocketpc-display-bridge/pocketpc_graphics_ack.h"
+    )
+    ack_c = text(
+        "third_party/wine/pocketpc-display-bridge/pocketpc_graphics_ack.c"
+    )
     stage = text("scripts/prepare-wine-pocketpc-pre-present-copy.py")
+    copy_ack_stage = text("scripts/prepare-wine-pocketpc-present-copy-ack.py")
     composite = text("scripts/prepare-wine-pocketpc-driver-v51.py")
     build = text("scripts/build-wine-x86_64-v51.py")
     workflow = text(".github/workflows/wine-x86_64-build.yml")
@@ -44,6 +51,11 @@ def main() -> int:
     roblox_launch = text(
         "app/src/main/java/dev/pocketpc/core/runtime/RobloxInstalledLaunchPlan.kt"
     )
+    copy_ack_host = text(
+        "app/src/main/java/dev/pocketpc/core/runtime/GraphicsPresentCopyAckHost.kt"
+    )
+    copy_ack_native = text("app/src/main/cpp/graphics_present_copy_ack.cpp")
+    cmake = text("app/src/main/cpp/CMakeLists.txt")
     physical_capture = text("scripts/capture-graphics-runtime-evidence-windows.ps1")
 
     require(helper_h, "original semaphores a second time", "semaphore_consumption_contract")
@@ -59,6 +71,9 @@ def main() -> int:
         "replacement_signal",
     )
 
+    require(ack_h, "PGA_STAGE_PRESENT_COPY_COMPLETED 6u", "pga_stage6_header")
+    require(ack_c, "stage <= PGA_STAGE_PRESENT_COPY_COMPLETED", "pga_stage6_sender_range")
+
     require(stage, "#define WINE_VULKAN_DRIVER_VERSION 51", "abi_51")
     require(stage, "VK_IMAGE_USAGE_TRANSFER_SRC_BIT", "swapchain_transfer_source")
     require(stage, "present_info->pWaitSemaphores = &pocketpc_present_wait", "present_wait_replacement")
@@ -68,8 +83,14 @@ def main() -> int:
     require(stage, '"hostVisiblePresentImplemented": False', "visible_fail_closed")
     require(stage, '"robloxExecuted": False', "roblox_fail_closed")
 
+    require(copy_ack_stage, "PGA_STAGE_PRESENT_COPY_COMPLETED", "stage6_dispatch")
+    require(copy_ack_stage, "stage5MustSucceedBeforeStage6", "stage6_after_stage5_contract")
+    require(copy_ack_stage, '"copyCompletedAckExecuted": False', "stage6_execution_fail_closed")
+
     require(composite, "prepare-wine-pocketpc-driver-v50.py", "v50_stage")
     require(composite, "prepare-wine-pocketpc-pre-present-copy.py", "v51_stage")
+    require(composite, "prepare-wine-pocketpc-present-copy-ack.py", "stage6_composite_stage")
+    require(composite, '"presentCopyCompletedAck"', "stage6_combined_evidence")
     require(build, "module.DRIVER_PREPARER = V51_PREPARER", "build_preparer_override")
     require(workflow, "python3 scripts/build-wine-x86_64-v51.py", "workflow_v51_build")
     require(workflow, "python3 scripts/test-wine-x86_64-v51-integration.py", "workflow_v51_policy")
@@ -107,6 +128,17 @@ def main() -> int:
         "RobloxGraphicsDiagnosticEnvironment",
         "roblox_environment_wiring",
     )
+
+    require(copy_ack_native, "kPgaPresentCopyCompletedStage = 6", "android_native_stage6")
+    require(copy_ack_native, "SOCK_SEQPACKET", "android_native_stage6_seqpacket")
+    require(copy_ack_native, "had_control", "android_native_stage6_no_ancillary")
+    require(copy_ack_native, "ack_resource_id != resource_id", "android_native_stage6_identity")
+    require(cmake, "graphics_present_copy_ack.cpp", "android_stage6_compiled")
+    require(copy_ack_host, "const val STAGE = 6", "android_kotlin_stage6")
+    require(copy_ack_host, "exactSwapchainPixelsCopied", "android_copy_evidence")
+    require(copy_ack_host, "returnedToExternalGeneral", "android_external_evidence")
+    require(copy_ack_host, "androidVisibleFrame", "android_visible_nonclaim")
+    require(copy_ack_host, "robloxGameplayValidated", "roblox_nonclaim")
 
     require(physical_capture, "schemaVersion = 3", "physical_evidence_schema_v3")
     require(
