@@ -100,6 +100,7 @@ class RuntimeDisplayExecutionController(
         handshakeTimeoutMillis: Long = 15_000L,
         desktopBridge: RuntimeDesktopBridge? = null,
         graphicsGuestDeclaration: RuntimeGraphicsGuestDeclaration? = null,
+        requestContinuousPresentV52: Boolean = false,
     ): RuntimeDisplayExecutionResult =
         coroutineScope {
             check(!closed.get()) { "DISPLAY_EXECUTION_CONTROLLER_CLOSED" }
@@ -134,10 +135,17 @@ class RuntimeDisplayExecutionController(
                     )
 
             val identity = RuntimeExecutionIdentity.of(runtime, tools, layers)
+            val resolvedGraphicsDeclaration =
+                graphicsGuestDeclaration
+                    ?: RuntimeGraphicsGuestDeclarationResolver.resolve(
+                        expectedRuntimeIdentity = identity,
+                        wineTool = tools.singleOrNull { it.manifest.id == "wine" },
+                        requestContinuousPresentV52 = requestContinuousPresentV52,
+                    )
             val graphicsSelection =
                 RuntimeGraphicsPresentPolicy.select(
                     expectedRuntimeIdentity = identity,
-                    declaration = graphicsGuestDeclaration,
+                    declaration = resolvedGraphicsDeclaration,
                 )
             val displaySession = RuntimeDisplayBridgeSessionFactory.create(identity)
             val graphicsSession =
