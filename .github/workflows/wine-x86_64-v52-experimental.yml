@@ -32,7 +32,9 @@ jobs:
             scripts/prepare-wine-pocketpc-continuous-present-v52.py \
             scripts/test-vulkan-continuous-present-v52-policy.py \
             scripts/test-wine-x86_64-v52-source-integration.py \
-            scripts/test-runtime-v52-present-selection-policy.py
+            scripts/test-runtime-v52-present-selection-policy.py \
+            scripts/validate-v52-continuous-present-integration.py \
+            scripts/test-v52-continuous-present-integration-validator.py
           python3 scripts/test-vulkan-continuous-present-v52-policy.py
           python3 scripts/test-wine-x86_64-v52-source-integration.py
           python3 scripts/test-runtime-v52-present-selection-policy.py
