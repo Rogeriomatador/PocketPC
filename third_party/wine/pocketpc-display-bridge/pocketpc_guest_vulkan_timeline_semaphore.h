@@ -32,6 +32,8 @@ struct pocketpc_guest_vulkan_timeline {
     uint64_t resource_id;
     uint64_t generation;
     uint64_t last_known_value;
+    uint64_t queue_signal_value;
+    uint32_t queue_signal_submitted;
 };
 
 int pocketpc_guest_vulkan_timeline_import(
@@ -72,6 +74,16 @@ int pocketpc_guest_vulkan_timeline_signal_queue(
     struct vulkan_queue *queue,
     struct pocketpc_guest_vulkan_timeline *timeline,
     uint64_t value
+);
+
+/*
+ * Source-level integration precursor: choose the first wrapped Wine queue and
+ * submit value 1. This is deliberately NOT a Present-ordering proof because
+ * the selected queue has not yet been correlated with vkQueuePresentKHR.
+ */
+int pocketpc_guest_vulkan_timeline_probe_first_queue(
+    struct vulkan_device *device,
+    struct pocketpc_guest_vulkan_timeline *timeline
 );
 
 void pocketpc_guest_vulkan_timeline_release(
