@@ -15,11 +15,14 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE_BUILD = ROOT / "scripts/build-wine-x86_64.py"
 V52_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver-v52.py"
 EVIDENCE_NAME = "wine-v52-experimental-build-evidence.json"
+CAPABILITY_RELATIVE = Path("share/pocketpc/runtime-graphics-capabilities.json")
+CAPABILITY_ID = "pocketpc.vulkan.continuous-present.v52"
 
 
 def sha256(path: Path) -> str:
@@ -52,6 +55,93 @@ def load_base_build():
 def require_bool_false(mapping: dict[str, object], key: str, label: str) -> None:
     if mapping.get(key) is not False:
         raise SystemExit(f"WINE_V52_EVIDENCE_NOT_FAIL_CLOSED:{label}:{key}")
+
+
+
+
+def attach_verified_v52_capability(work: Path) -> None:
+    package_root = work / "guest-package"
+    manifest_path = package_root / "guest-tool-manifest.json"
+    package_path = work / "guest-package.zip"
+    base_path = work / "wine-build-evidence.json"
+    for path in (package_root, manifest_path, package_path, base_path):
+        if not path.exists():
+            raise SystemExit(f"WINE_V52_CAPABILITY_INPUT_MISSING:{path.name}")
+
+    capability_path = package_root / CAPABILITY_RELATIVE
+    capability_path.parent.mkdir(parents=True, exist_ok=True)
+    capability = {
+        "schemaVersion": 1,
+        "wineVulkanAbi": 52,
+        "capabilities": [CAPABILITY_ID],
+        "experimental": True,
+        "officialBuildSelected": False,
+        "runtimeExecuted": False,
+        "integrationExecuted": False,
+        "physicalVisibleFrame": False,
+        "robloxExecuted": False,
+    }
+    capability_path.write_text(
+        json.dumps(capability, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    files = [
+        item
+        for item in manifest.get("files", [])
+        if item.get("path") != CAPABILITY_RELATIVE.as_posix()
+    ]
+    files.append(
+        {
+            "path": CAPABILITY_RELATIVE.as_posix(),
+            "bytes": capability_path.stat().st_size,
+            "sha256": sha256(capability_path),
+            "executable": False,
+        }
+    )
+    files.sort(key=lambda item: str(item["path"]))
+    manifest["files"] = files
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    with zipfile.ZipFile(
+        package_path,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+        compresslevel=9,
+    ) as archive:
+        ordered = [
+            ("guest-tool-manifest.json", False),
+            *[
+                (str(item["path"]), bool(item["executable"]))
+                for item in files
+            ],
+        ]
+        for relative, executable in ordered:
+            source = package_root / relative
+            if not source.is_file():
+                raise SystemExit(f"WINE_V52_PACKAGE_FILE_MISSING:{relative}")
+            info = zipfile.ZipInfo(relative, (1980, 1, 1, 0, 0, 0))
+            info.create_system = 3
+            info.external_attr = (
+                (0o100755 if executable else 0o100644) << 16
+            )
+            info.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(info, source.read_bytes())
+
+    base = json.loads(base_path.read_text(encoding="utf-8"))
+    package = base.setdefault("package", {})
+    package["fileCount"] = len(files)
+    package["manifestSha256"] = sha256(manifest_path)
+    package["zipBytes"] = package_path.stat().st_size
+    package["zipSha256"] = sha256(package_path)
+    base_path.write_text(
+        json.dumps(base, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def emit_post_build_evidence(work: Path) -> None:
@@ -93,6 +183,12 @@ def emit_post_build_evidence(work: Path) -> None:
             "path": package_path.name,
             "bytes": package_path.stat().st_size,
             "sha256": sha256(package_path),
+        },
+        "verifiedRuntimeGraphicsCapability": {
+            "path": CAPABILITY_RELATIVE.as_posix(),
+            "sha256": sha256(work / "guest-package" / CAPABILITY_RELATIVE),
+            "wineVulkanAbi": 52,
+            "capabilities": [CAPABILITY_ID],
         },
         "evidenceInputs": {
             "wineBuildEvidenceSha256": sha256(base_path),
@@ -139,6 +235,7 @@ def main() -> int:
     result = int(module.main() or 0)
     if result != 0:
         return result
+    attach_verified_v52_capability(work)
     emit_post_build_evidence(work)
     return 0
 
