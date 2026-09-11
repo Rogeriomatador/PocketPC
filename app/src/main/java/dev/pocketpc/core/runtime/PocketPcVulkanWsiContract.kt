@@ -10,16 +10,27 @@ package dev.pocketpc.core.runtime
  * path on Android.
  */
 object PocketPcVulkanWsiContract {
+    /**
+     * PocketPC patches the pinned Wine 11 internal ABI from upstream v47 to v48
+     * by appending exact VkDevice lifecycle callbacks. The bump prevents a
+     * shorter pre-patch vulkan_driver_funcs layout from being consumed as if it
+     * contained the new callback slots.
+     */
     const val WINE_VULKAN_DRIVER_VERSION =
+        48
+    const val PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION =
         47
     const val PINNED_WINE_VERSION =
         "11.0"
     const val PINNED_WINE_COMMIT =
         "db11d0fe6a169c457e23d007e20404643d067aa8"
 
-    // The v47 pVulkanInit ABI is represented by the driver.
     const val abiEntryPointImplemented =
         true
+    const val deviceLifecycleCallbacksImplemented =
+        true
+    const val deviceLifecycleCallbacksSoftwareTestExecuted =
+        false
     const val abiEntryPointSoftwareTestExecuted =
         false
 
@@ -81,6 +92,8 @@ object PocketPcVulkanWsiContract {
             "p_get_physical_device_presentation_support",
             "p_map_instance_extensions",
             "p_map_device_extensions",
+            "p_vulkan_device_created",
+            "p_vulkan_device_destroyed",
         )
 
     val requiredTransportProofs:
