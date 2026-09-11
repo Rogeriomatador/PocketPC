@@ -1,11 +1,12 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "status": "VULKAN_TRANSPORT_PRIMITIVES_IMPLEMENTED_VISIBLE_WSI_NOT_IMPLEMENTED_NOT_EXECUTED",
   "wine": {
     "version": "11.0",
     "commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
     "upstreamVulkanDriverVersion": 47,
-    "vulkanDriverVersion": 49,
+    "basePocketPcVulkanDriverVersion": 49,
+    "vulkanDriverVersion": 50,
     "driver": "winepocketpc.drv",
     "requiredEntryPoint": "user_driver_funcs.pVulkanInit",
     "abiEntryPointImplemented": true,
@@ -15,6 +16,8 @@
     "presentQueueCallbackExecuted": false,
     "presentQueueTimelineSignalSourceIntegrated": true,
     "presentQueueTimelineSignalExecuted": false,
+    "exactPresentedImageIdentitySourceIntegrated": true,
+    "exactPresentedImageIdentityExecuted": false,
     "externalHandleFdMappingImplemented": true,
     "headlessDiagnosticSurfaceImplemented": true,
     "headlessDiagnosticPresentationSupportImplemented": true,
@@ -82,6 +85,8 @@
     "presentQueueTimelineSignalSourceIntegrated": true,
     "presentQueueTimelineSignalExecuted": false,
     "presentQueueTimelineSignalCompletionObserved": false,
+    "exactPresentedImageIdentitySourceIntegrated": true,
+    "exactPresentedImageIdentityExecuted": false,
     "activeWineDeviceImportSourceIntegrated": true,
     "authenticatedRuntimeReceiveIntegrated": false,
     "activeWineDeviceImageImportIntegrated": false,
@@ -176,12 +181,14 @@
     }
   },
   "presentCapture": {
-    "wineObservation": "win32u_vkQueuePresentKHR knows the exact Wine queue, presented swapchain and image index; PocketPC v49 now calls p_vulkan_queue_presented immediately after host vkQueuePresentKHR",
+    "wineObservation": "win32u_vkQueuePresentKHR knows the exact Wine queue, presented swapchain and pImageIndices; PocketPC v50 additionally caches host swapchain VkImage handles and maps the presented index to the exact host VkImage.",
     "clientSurfaceHeadlessPresentObserverImplemented": true,
     "presentQueueCallbackSourceIntegrated": true,
     "presentQueueTimelineSignalSourceIntegrated": true,
     "presentQueueTimelineSignalExecuted": false,
     "samePresentQueueOrderingObserved": false,
+    "exactSwapchainImageIdentitySourceIntegrated": true,
+    "exactSwapchainImageIdentityExecuted": false,
     "swapchainImageCaptureHookImplemented": false,
     "copyPresentedImageToPocketPcResourceImplemented": false,
     "hostVisibleFrameImplemented": false,
@@ -198,6 +205,7 @@
     "requiresObservedGuestImportAcknowledgement": true,
     "requiresActiveWineDeviceImport": true,
     "requiresObservedPresentQueueOrdering": true,
+    "requiresExactPresentedSwapchainImageIdentity": true,
     "requiresGpuQueueSynchronization": true,
     "requiresSwapchainImageCapture": true,
     "requiresRunnableVisibleSurfaceBackend": true,
@@ -237,11 +245,19 @@
     },
     {
       "route": "treat first available Vulkan queue as the Present queue",
-      "reason": "PocketPC v49 receives the exact struct vulkan_queue from win32u after host vkQueuePresentKHR instead of guessing queue identity."
+      "reason": "PocketPC receives the exact struct vulkan_queue from win32u after host vkQueuePresentKHR instead of guessing queue identity."
     },
     {
       "route": "treat same-Present-queue timeline signal as swapchain capture",
       "reason": "Queue ordering alone does not copy the presented VkImage into the PocketPC exported image."
+    },
+    {
+      "route": "infer presented VkImage from swapchain order",
+      "reason": "PocketPC v50 maps VkPresentInfoKHR::pImageIndices to the cached host VkImage list instead of guessing image identity."
+    },
+    {
+      "route": "treat exact VkImage identity as pixel capture",
+      "reason": "Knowing the exact host VkImage does not copy pixels or establish layouts, barriers or visibility."
     },
     {
       "route": "treat CPU timeline signal/wait as GPU synchronization",
@@ -249,11 +265,11 @@
     },
     {
       "route": "treat headless Present observer as visible presentation",
-      "reason": "client_surface_present proves control flow only and does not expose the presented VkImage."
+      "reason": "client_surface_present proves control flow only and does not expose the presented pixels."
     },
     {
       "route": "promote transport primitives to Roblox readiness",
-      "reason": "Roblox requires executed Wine/DXVK import, observed queue ordering, swapchain capture and a host-visible frame."
+      "reason": "Roblox requires executed Wine/DXVK import, observed queue ordering, exact image identity, swapchain capture and a host-visible frame."
     }
   ],
   "targetArchitecture": {
@@ -264,11 +280,12 @@
     "phase5": "Export/import a timeline semaphore for the same resource/device using PVS1.",
     "phase6": "Return and validate the ordered PGA1 import acknowledgement chain, then promote host logical ownership only to GUEST_IMPORTED.",
     "phase7": "Execute the authenticated PGH1/PGT/PVI1/PVS1/PGA1 path through real Box64/Wine and record observed import evidence.",
-    "phase8": "Use PocketPC Wine v49 p_vulkan_queue_presented to signal PVS1 on the exact queue that completed host vkQueuePresentKHR and observe PGA1 stage 5.",
-    "phase9": "Capture the exact presented swapchain image at the Wine win32u Present boundary and copy it into the exported PocketPC image resource with correct layouts and synchronization.",
-    "phase10": "Present the synchronized exported resource in Android and require a host-visible frame.",
-    "phase11": "Run D3D11 Present end-to-end and only then enable a controlled Roblox attempt.",
-    "phase12": "Record Roblox process/window/Present/network/audio/input/stability separately from generic runtime evidence."
+    "phase8": "Use the exact Present queue callback to signal PVS1 on the queue that completed host vkQueuePresentKHR and observe PGA1 stage 5.",
+    "phase9": "Resolve VkPresentInfoKHR::pImageIndices to the exact cached host swapchain VkImage. Source integrated in PocketPC v50; execution still required.",
+    "phase10": "Before presentation ownership leaves the application, copy or blit the exact swapchain image into the exported PocketPC image with explicit layouts, barriers and replacement Present synchronization.",
+    "phase11": "Present the synchronized exported resource in Android and require a host-visible frame.",
+    "phase12": "Run D3D11 Present end-to-end and only then enable a controlled Roblox attempt.",
+    "phase13": "Record Roblox process/window/Present/network/audio/input/stability separately from generic runtime evidence."
   },
   "gates": {
     "wineVulkanAbiEntryPointImplemented": true,
@@ -279,6 +296,8 @@
     "presentQueueTimelineSignalSourceIntegrated": true,
     "presentQueueTimelineSignalExecuted": false,
     "samePresentQueueOrderingObserved": false,
+    "exactPresentedImageIdentitySourceIntegrated": true,
+    "exactPresentedImageIdentityExecuted": false,
     "wineExternalHandleFdMappingImplemented": true,
     "wineHeadlessDiagnosticImplemented": true,
     "wineHeadlessPresentObserverImplemented": true,
