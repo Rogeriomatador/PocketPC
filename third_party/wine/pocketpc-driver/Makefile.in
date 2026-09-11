@@ -19,6 +19,7 @@ SOURCES = \
 	pocketpc_guest_graphics_receive.c \
 	pocketpc_external_image_fd_protocol.c \
 	pocketpc_guest_vulkan_import.c \
+	pocketpc_guest_external_image_ownership.c \
 	pocketpc_external_timeline_semaphore_fd_protocol.c \
 	pocketpc_guest_vulkan_timeline_semaphore.c \
 	pocketpc_surface_writer.c \
