@@ -45,6 +45,8 @@
     "imageAndTimelineShareSameVkDevice": true,
     "authenticatedSeqpacketSessionHostImplemented": true,
     "pgtResourceOfferSenderImplemented": true,
+    "pga1OrderedImportAckValidatorImplemented": true,
+    "guestImportOwnershipPromotionSourceIntegrated": true,
     "pvi1ImageProtocolImplemented": true,
     "pvs1TimelineProtocolImplemented": true,
     "softwareTestExecuted": false,
@@ -56,6 +58,8 @@
     "ownershipProtocolImplemented": true,
     "authenticatedSessionClientImplemented": true,
     "resourceOfferReceiverImplemented": true,
+    "pga1ImportAcknowledgementSenderImplemented": true,
+    "pga1ImportAcknowledgementExecuted": false,
     "ancillaryFdTransportPrimitiveImplemented": true,
     "handleBindingImplemented": true,
     "receivePrimitiveImplemented": true,
@@ -93,6 +97,22 @@
       "identity": ["resourceId", "generation", "sequence"],
       "resourceOfferPayloadBytes": 96,
       "resourceOfferFrameBytes": 120
+    },
+    "guestImportAcknowledgement": {
+      "name": "PGA1",
+      "version": 1,
+      "packetBytes": 48,
+      "transport": "AF_UNIX/SOCK_SEQPACKET",
+      "orderedStages": [
+        "RESOURCE_OFFER_RECEIVED",
+        "IMAGE_IMPORTED",
+        "SYNC_IMPORTED",
+        "READY"
+      ],
+      "identity": ["resourceId", "generation", "sequence"],
+      "carriesFileDescriptors": false,
+      "readyProvesGpuSynchronization": false,
+      "readyProvesVisiblePresent": false
     },
     "externalImage": {
       "name": "PVI1",
@@ -155,6 +175,7 @@
     "runtimeEvidenceCollectorImplemented": true,
     "graphicsPreflightImplemented": true,
     "requiresAuthenticatedGuestGraphicsTransport": true,
+    "requiresObservedGuestImportAcknowledgement": true,
     "requiresActiveWineDeviceImport": true,
     "requiresGpuQueueSynchronization": true,
     "requiresRunnableVisibleSurfaceBackend": true,
@@ -185,6 +206,14 @@
       "reason": "The host sends a canonical PGT RESOURCE_OFFER before PVI1/PVS1 so identity and ownership are not invented by the guest."
     },
     {
+      "route": "treat PGA1 source code or host offer as executed guest import",
+      "reason": "Only an observed ordered PGA1 chain from the launched guest can promote the runtime import observation; source integration alone cannot."
+    },
+    {
+      "route": "treat PGA1 READY as GPU synchronization",
+      "reason": "PGA1 READY confirms source-level receive/import completion only; GPU synchronization requires timeline participation in actual queue submissions."
+    },
+    {
       "route": "treat CPU timeline signal/wait as GPU synchronization",
       "reason": "GPU synchronization requires queue work to signal/wait the shared timeline semaphore."
     },
@@ -203,13 +232,14 @@
     "phase3": "Export a real OPAQUE_FD VkImage on the Android host and carry its immutable import metadata in PVI1.",
     "phase4": "Receive PGT/PVI1 on the exact Wine VkDevice lifecycle callback and import after re-querying vkGetMemoryFdPropertiesKHR.",
     "phase5": "Export/import a timeline semaphore for the same resource/device using PVS1.",
-    "phase6": "Execute the authenticated PGT/PVI1/PVS1 path through real Box64/Wine and record guest acknowledgements.",
-    "phase7": "Insert the PVS1 timeline into actual GPU queue submissions and prove image ownership transitions end-to-end.",
-    "phase8": "Use headless WSI to prove DXVK surface/swapchain/Present control flow without claiming visibility.",
-    "phase9": "Capture the exact presented swapchain image at the Wine win32u Present boundary and copy it into the exported PocketPC image resource.",
-    "phase10": "Present the synchronized resource in Android and require a host-visible frame.",
-    "phase11": "Run D3D11 Present end-to-end and only then enable a controlled Roblox attempt.",
-    "phase12": "Record Roblox process/window/Present/network/audio/input/stability separately from generic runtime evidence."
+    "phase6": "Return and validate the ordered PGA1 import acknowledgement chain, then promote host logical ownership only to GUEST_IMPORTED.",
+    "phase7": "Execute the authenticated PGH1/PGT/PVI1/PVS1/PGA1 path through real Box64/Wine and record observed import evidence.",
+    "phase8": "Insert the PVS1 timeline into actual GPU queue submissions and prove image ownership transitions end-to-end.",
+    "phase9": "Use headless WSI to prove DXVK surface/swapchain/Present control flow without claiming visibility.",
+    "phase10": "Capture the exact presented swapchain image at the Wine win32u Present boundary and copy it into the exported PocketPC image resource.",
+    "phase11": "Present the synchronized resource in Android and require a host-visible frame.",
+    "phase12": "Run D3D11 Present end-to-end and only then enable a controlled Roblox attempt.",
+    "phase13": "Record Roblox process/window/Present/network/audio/input/stability separately from generic runtime evidence."
   },
   "gates": {
     "wineVulkanAbiEntryPointImplemented": true,
@@ -220,6 +250,9 @@
     "wineHeadlessPresentObserverImplemented": true,
     "hostAuthenticatedGraphicsSessionImplemented": true,
     "pgtResourceOfferImplemented": true,
+    "pga1ImportAcknowledgementImplemented": true,
+    "pga1ImportAcknowledgementExecuted": false,
+    "guestImportOwnershipPromotionSourceIntegrated": true,
     "hostOpaqueFdImageBrokerImplemented": true,
     "pvi1ProtocolImplemented": true,
     "guestVulkanImageImportPrimitiveImplemented": true,
