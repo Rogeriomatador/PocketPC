@@ -7,11 +7,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import dev.pocketpc.core.runtime.RuntimeDisplayExternalFrameIdentity
 import dev.pocketpc.core.runtime.RuntimeDisplayFramePixels
 
 @Composable
 internal fun RuntimeDisplayFramePreview(
     frame: RuntimeDisplayFramePixels,
+    frameId: Long = 0L,
+    externalFrameIdentity:
+        RuntimeDisplayExternalFrameIdentity? = null,
     modifier: Modifier = Modifier,
     contentScale: ContentScale =
         ContentScale.Fit,
@@ -21,6 +25,8 @@ internal fun RuntimeDisplayFramePreview(
             frame.width,
             frame.height,
             frame.argb,
+            frameId,
+            externalFrameIdentity,
         ) {
             Bitmap.createBitmap(
                 frame.argb,
