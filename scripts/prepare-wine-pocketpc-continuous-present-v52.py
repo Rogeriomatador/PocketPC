@@ -151,9 +151,6 @@ CONTINUOUS_SUBMIT_BRANCH = r'''
     }
 '''
 
-CLEANUP_LOCK_ANCHOR = "    pthread_mutex_lock(&pocketpc_guest_resource.mutex);"
-# This anchor occurs in several functions, so insertion uses the unique old
-# submission check immediately following the lock in the cleanup callback.
 OLD_CLEANUP_CHECK = r'''    if (pocketpc_guest_resource.device != device ||
         !pocketpc_pre_present_copy_submission.active)
     {
@@ -271,8 +268,9 @@ V52_POST_PRESENT_BRANCH = r'''    if (pocketpc_continuous_present_v52_enabled())
 
 '''
 
-MAKEFILE_COPY_LINE = "\tpocketpc_guest_present_copy.c \\\n"
-MAKEFILE_CONTINUOUS_LINE = "\tpocketpc_guest_continuous_present.c \\\n"
+# Build these strings without a trailing escape in the Python source itself.
+MAKEFILE_COPY_LINE = "\tpocketpc_guest_present_copy.c " + "\\"
+MAKEFILE_CONTINUOUS_LINE = "\tpocketpc_guest_continuous_present.c " + "\\"
 
 
 def digest(path: Path) -> str:
@@ -391,8 +389,8 @@ def main() -> int:
     )
     makefile_changed = after_once(
         makefile,
-        MAKEFILE_COPY_LINE.rstrip("\n"),
-        MAKEFILE_CONTINUOUS_LINE.rstrip("\n"),
+        MAKEFILE_COPY_LINE,
+        MAKEFILE_CONTINUOUS_LINE,
     )
 
     evidence = {
