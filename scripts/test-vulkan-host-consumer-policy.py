@@ -65,6 +65,17 @@ def main() -> int:
             "SetReceiveTimeout(",
             "vulkan-external-image-fd-send=ok;",
             "vulkan-external-timeline-fd-send=ok;",
+            "jintArray output_argb",
+            "GetIntArrayElements(output_argb",
+            "ReleaseIntArrayElements(output_argb, argb, 0)",
+            "ReleaseIntArrayElements(output_argb, argb, JNI_ABORT)",
+            "const uint32_t r = bytes[offset + 0u]",
+            "const uint32_t g = bytes[offset + 1u]",
+            "const uint32_t b = bytes[offset + 2u]",
+            "const uint32_t a = bytes[offset + 3u]",
+            "(a << 24u)",
+            "(r << 16u)",
+            "(g << 8u)",
             "returned_external=1;visible_frame=0",
             "acquired=0;returned_external=0;visible_frame=0",
             "kFirstGuestSignalValue = 1u",
@@ -93,6 +104,12 @@ def main() -> int:
     ):
         failures.append("internal FD receive path must arm timeout before PVI1/PVS1 recvmsg")
 
+    rgba_index = native.find("const uint32_t r = bytes[offset + 0u]")
+    packed_index = native.find("const uint32_t packed =")
+    output_index = native.find("std::memcpy(&output_argb[pixel]")
+    if not (0 <= rgba_index < packed_index < output_index):
+        failures.append("native consumer must convert RGBA8 into ARGB before JNI output")
+
     require(
         failures,
         "CMake",
@@ -106,11 +123,16 @@ def main() -> int:
         texts["kotlin"],
         (
             "data class VulkanExternalImageHostReadback",
+            "val frame: RuntimeDisplayFramePixels",
             "val androidAcquireExecuted: Boolean",
             "val androidVisibleFrame: Boolean",
             "get() = false",
+            "outputArgb: IntArray",
+            "val argb = IntArray(pixelCount)",
+            "RuntimeDisplayFramePixels(",
+            "argb = argb",
+            "frame.argb.size == expectedPixels",
             "!visibleFrame",
-            "it.bytes == expectedBytes",
             'fields["visible_frame"] == "1"',
             "VULKAN_HOST_CONSUMER_FAILED",
         ),
@@ -171,11 +193,13 @@ def main() -> int:
         "unit test",
         texts["unit"],
         (
-            "successfulReadbackProvesAcquireButNotVisibleFrame",
+            "successfulReadbackProvesAcquireAndCarriesPixelsButNotVisibleFrame",
             "visibleFrameClaimIsRejectedByReadbackGate",
-            "mismatchedIdentityOrByteCountIsRejected",
+            "mismatchedIdentityByteCountOrPixelPayloadIsRejected",
             "assertFalse(result.androidVisibleFrame)",
+            "assertSame(pixels, result.frame.argb)",
             "visible_frame=1",
+            "IntArray(pixels.size - 1)",
             "assertNull(",
         ),
     )
@@ -200,6 +224,8 @@ def main() -> int:
     print("external_acquire_required=true")
     print("socket_receive_timeout_required=true")
     print("map_before_invalidate=true")
+    print("rgba8_to_argb_payload_required=true")
+    print("compositor_frame_payload=true")
     print("host_readback_gate=true")
     print("visible_frame=false")
     print("roblox_validated=false")
