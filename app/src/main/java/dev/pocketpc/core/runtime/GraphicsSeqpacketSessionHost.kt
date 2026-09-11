@@ -12,8 +12,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * path also checks SO_PEERCRED against the PID claimed by the guest handshake.
  *
  * This is transport/authentication infrastructure only. Creating a session or
- * receiving import/queue acknowledgements is not evidence of visible
- * presentation, DXVK Present ordering, or Roblox gameplay.
+ * receiving import/queue acknowledgements is not evidence of a host-visible
+ * frame, swapchain capture, or Roblox gameplay.
  */
 object GraphicsSeqpacketSessionHost {
     const val PROTOCOL_VERSION = 1
@@ -89,16 +89,20 @@ object GraphicsSeqpacketSessionHost {
     }
 
     /**
-     * PGA1 stage 5 proves only that the guest submitted a timeline-semaphore
-     * signal through a real Wine Vulkan queue and the host received the matching
-     * acknowledgement. It is deliberately not treated as Present ordering.
+     * PGA1 stage 5 is emitted only from the PocketPC Wine callback invoked
+     * immediately after host vkQueuePresentKHR. The timeline signal is submitted
+     * to that exact struct vulkan_queue. Receiving this acknowledgement can
+     * therefore prove same-Present-queue ordering in a real run. It still does
+     * not prove swapchain image capture, Android-visible presentation or gameplay.
      */
     data class GpuQueueSignalAcknowledgement internal constructor(
         val queueFamilyIndex: Int,
     ) {
         val submitted: Boolean
             get() = queueFamilyIndex >= 0
-        val presentOrdered: Boolean
+        val presentQueueOrdered: Boolean
+            get() = submitted
+        val hostVisibleFrame: Boolean
             get() = false
     }
 
@@ -123,11 +127,6 @@ object GraphicsSeqpacketSessionHost {
         val valid: Boolean
             get() = fd >= 0 && !closed.get()
 
-        /**
-         * Sends descriptor + ownership in the canonical PGT RESOURCE_OFFER
-         * packet. No FD is serialized here; PVI1/PVS1 follow separately via
-         * SCM_RIGHTS on this same authenticated socket.
-         */
         fun sendResourceOffer(
             descriptor: GuestGraphicsResourceDescriptor,
             ownership: GuestGraphicsOwnershipToken,
@@ -163,11 +162,6 @@ object GraphicsSeqpacketSessionHost {
         /**
          * Waits for the complete PGA1 import acknowledgement chain:
          * RESOURCE_OFFER_RECEIVED -> IMAGE_IMPORTED -> SYNC_IMPORTED -> READY.
-         *
-         * The native implementation uses one total monotonic deadline and
-         * validates exact resource identity, sequence, status and packet order.
-         * READY proves only guest-side receive/import code reached that point.
-         * It does not prove GPU queue synchronization or visible presentation.
          */
         fun awaitImportAcknowledgements(
             resourceId: Long,
@@ -197,7 +191,8 @@ object GraphicsSeqpacketSessionHost {
 
         /**
          * Waits only for PGA1 GPU_SIGNAL_SUBMITTED (stage 5). Import readiness
-         * remains stages 1..4 and is never promoted by this diagnostic ACK.
+         * remains stages 1..4. Stage 5 is valid only after the patched Wine
+         * Present callback has submitted PVS1 on that exact Present queue.
          */
         fun awaitGpuQueueSignalAcknowledgement(
             resourceId: Long,
@@ -222,7 +217,7 @@ object GraphicsSeqpacketSessionHost {
 
             return queueFamilyIndex.takeIf { it >= 0 }
                 ?.let(::GpuQueueSignalAcknowledgement)
-                ?.takeIf { it.submitted && !it.presentOrdered }
+                ?.takeIf { it.submitted && it.presentQueueOrdered && !it.hostVisibleFrame }
         }
 
         override fun close() {
@@ -238,10 +233,6 @@ object GraphicsSeqpacketSessionHost {
     ) : AutoCloseable {
         private val closed = AtomicBoolean(false)
 
-        /**
-         * Blocking, but bounded in native code with poll() and a monotonic
-         * deadline. Call from the runtime IO executor, never the Compose thread.
-         */
         fun acceptAuthenticated(
             timeoutMillis: Long = DEFAULT_AUTH_TIMEOUT_MILLIS,
         ): AcceptedConnection? {
