@@ -467,6 +467,12 @@ class RuntimeDisplayExecutionController(
                     )
 
                     if (graphicsSelection.continuousV52Selected) {
+                        RuntimeV52IntegrationEvidenceStore.reset(
+                            resourceId = imported.resourceId,
+                            generation = imported.generation,
+                            windowId = target.windowId,
+                            reason = "V52_SESSION_STARTED",
+                        )
                         val terminal =
                             RuntimeDisplayContinuousPresentV52Runner.runUntilCancelled(
                                 selection = graphicsSelection,
@@ -479,6 +485,7 @@ class RuntimeDisplayExecutionController(
                                         VulkanContinuousPresentHostCoordinator.MAX_TIMEOUT_MILLIS,
                                     ),
                                 onHostStep = { step ->
+                                    RuntimeV52IntegrationEvidenceStore.record(step)
                                     if (
                                         step.status ==
                                             VulkanContinuousPresentHostStepStatus.MODEL_DELIVERED_GUEST_RELEASED
