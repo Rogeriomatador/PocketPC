@@ -59,8 +59,12 @@ def main() -> int:
             "VK_ACCESS_HOST_READ_BIT",
             "vkQueueSubmit(",
             "vkQueueWaitIdle(",
-            "vkInvalidateMappedMemoryRanges(",
             "vkMapMemory(",
+            "vkInvalidateMappedMemoryRanges(",
+            "SO_RCVTIMEO",
+            "SetReceiveTimeout(",
+            "vulkan-external-image-fd-send=ok;",
+            "vulkan-external-timeline-fd-send=ok;",
             "returned_external=1;visible_frame=0",
             "acquired=0;returned_external=0;visible_frame=0",
             "kFirstGuestSignalValue = 1u",
@@ -73,6 +77,21 @@ def main() -> int:
     release_index = native.find("release.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL")
     if not (0 <= acquire_index < copy_index < release_index):
         failures.append("native consumer must acquire EXTERNAL before copy and release after copy")
+
+    map_index = native.find("result = vkMapMemory(")
+    invalidate_index = native.find("result = vkInvalidateMappedMemoryRanges(")
+    unmap_index = native.find("vkUnmapMemory(consumer->device, consumer->staging_memory);")
+    if not (0 <= map_index < invalidate_index < unmap_index):
+        failures.append("non-coherent readback must map before invalidate and unmap afterwards")
+
+    timeout_index = native.find("SetReceiveTimeout(sockets[1]")
+    image_receive_index = native.find("ReceiveSingleFd(sockets[1], kPviBytes")
+    timeline_receive_index = native.find("ReceiveSingleFd(sockets[1], kPvsBytes")
+    if not (
+        0 <= timeout_index < image_receive_index and
+        0 <= timeout_index < timeline_receive_index
+    ):
+        failures.append("internal FD receive path must arm timeout before PVI1/PVS1 recvmsg")
 
     require(
         failures,
@@ -179,6 +198,8 @@ def main() -> int:
     print("VULKAN_HOST_CONSUMER_POLICY_OK")
     print("stage6_required=true")
     print("external_acquire_required=true")
+    print("socket_receive_timeout_required=true")
+    print("map_before_invalidate=true")
     print("host_readback_gate=true")
     print("visible_frame=false")
     print("roblox_validated=false")
