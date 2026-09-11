@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard the PocketPC Wine Vulkan v47 ABI and its fail-closed visible path."""
+"""Guard the PocketPC Wine Vulkan v48 ABI and its fail-closed visible path."""
 from __future__ import annotations
 
 import json
@@ -40,12 +40,16 @@ def main() -> int:
 
     need(main_source, ".pVulkanInit =\n        POCKETPC_VulkanInit,", "user-driver-vulkan-init")
     need(makefile, "\tvulkan.c \\", "vulkan-source-build")
-    need(preparer, '"vulkan.c",', "overlay-vulkan-source")
-    need(preparer, '"vulkanAbiDriverVersion": 47', "overlay-vulkan-version")
-    need(contract, "WINE_VULKAN_DRIVER_VERSION =", "contract-driver-version")
-    need(contract, "47", "contract-version-47")
-    need(contract, "const val abiEntryPointImplemented =", "contract-abi-entrypoint")
-    need(contract, "const val implemented =", "contract-visible-wsi-state")
+    need(makefile, "\tpocketpc_graphics_session_client.c \\", "graphics-session-client-build")
+    need(preparer, 'VULKAN_DRIVER_VERSION_47 = "#define WINE_VULKAN_DRIVER_VERSION 47"', "upstream-version-lock")
+    need(preparer, 'VULKAN_DRIVER_VERSION_48 = "#define WINE_VULKAN_DRIVER_VERSION 48"', "pocketpc-version-patch")
+    need(preparer, "p_vulkan_device_created", "overlay-device-created-patch")
+    need(preparer, "p_vulkan_device_destroyed", "overlay-device-destroyed-patch")
+    need(preparer, '"vulkanAbiDriverVersion": 48', "overlay-vulkan-version")
+    need(contract, "WINE_VULKAN_DRIVER_VERSION =\n        48", "contract-version-48")
+    need(contract, "PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION =\n        47", "contract-upstream-version-47")
+    need(contract, "const val deviceLifecycleCallbacksImplemented =\n        true", "contract-device-lifecycle")
+    need(contract, "const val implemented =\n        false", "contract-visible-wsi-state")
     need(contract, '"VULKAN_WSI_NOT_IMPLEMENTED"', "contract-visible-wsi-blocker")
 
     for marker, label in (
@@ -53,6 +57,14 @@ def main() -> int:
         (".p_get_physical_device_presentation_support =", "presentation-callback"),
         (".p_map_instance_extensions = pocketpc_map_instance_extensions,", "instance-map-callback"),
         (".p_map_device_extensions = pocketpc_map_device_extensions,", "device-map-callback"),
+        (".p_vulkan_device_created = pocketpc_vulkan_device_created,", "device-created-callback"),
+        (".p_vulkan_device_destroyed = pocketpc_vulkan_device_destroyed,", "device-destroyed-callback"),
+        ("pocketpc_graphics_session_connect_from_environment", "live-pgh1-client"),
+        ("pgt_receive_resource_offer", "pgt-resource-offer-receive"),
+        ("pocketpc_external_image_fd_receive", "pvi1-receive"),
+        ("pocketpc_guest_vulkan_import_external_image", "pvi1-active-device-import"),
+        ("pocketpc_external_timeline_semaphore_fd_receive", "pvs1-receive"),
+        ("pocketpc_guest_vulkan_timeline_import", "pvs1-active-device-import"),
         ('getenv("POCKETPC_VULKAN_HEADLESS_DIAGNOSTIC")', "headless-env-gate"),
         ('strcmp(value, "1")', "headless-strict-value"),
         ("return VK_ERROR_INCOMPATIBLE_DRIVER;", "production-surface-fail-closed"),
@@ -87,8 +99,14 @@ def main() -> int:
         raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_HEADLESS_GUARD_ORDER_INVALID")
 
     wine = arch.get("wine") or {}
+    if wine.get("upstreamVulkanDriverVersion") != 47:
+        raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_UPSTREAM_VERSION_MISMATCH")
+    if wine.get("vulkanDriverVersion") != 48:
+        raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_VERSION_MISMATCH")
+
     required_true = (
         "abiEntryPointImplemented",
+        "deviceLifecycleCallbacksImplemented",
         "externalHandleFdMappingImplemented",
         "headlessDiagnosticSurfaceImplemented",
         "headlessDiagnosticPresentationSupportImplemented",
@@ -96,6 +114,7 @@ def main() -> int:
         "headlessPresentObserverImplemented",
     )
     required_false = (
+        "deviceLifecycleCallbacksExecuted",
         "visibleSurfaceCreateImplemented",
         "visiblePresentationSupportImplemented",
         "visibleSurfaceExtensionMappingImplemented",
@@ -112,8 +131,30 @@ def main() -> int:
         if wine.get(key) is not False:
             raise SystemExit(f"POCKETPC_VULKAN_ABI_POLICY_STATE_MISMATCH:{key}")
 
+    guest = arch.get("guestGraphics") or {}
+    for key in (
+        "authenticatedSessionClientImplemented",
+        "resourceOfferReceiverImplemented",
+        "activeWineDeviceImportSourceIntegrated",
+    ):
+        if guest.get(key) is not True:
+            raise SystemExit(f"POCKETPC_VULKAN_ABI_POLICY_MISSING:guest-{key}")
+    for key in (
+        "authenticatedRuntimeReceiveIntegrated",
+        "activeWineDeviceImageImportIntegrated",
+        "gpuQueueSynchronizationImplemented",
+        "integrationTestExecuted",
+        "physicalTestExecuted",
+    ):
+        if guest.get(key) is not False:
+            raise SystemExit(f"POCKETPC_VULKAN_ABI_POLICY_STATE_MISMATCH:guest-{key}")
+
     gates = arch.get("gates") or {}
     for key in (
+        "wineVulkanDeviceLifecycleCallbacksExecuted",
+        "authenticatedGuestGraphicsReceiveIntegrated",
+        "guestVulkanImageImportIntegrated",
+        "guestGraphicsGpuSynchronizationImplemented",
         "swapchainImageCaptureHookImplemented",
         "hostVisiblePresentImplemented",
         "visibleVulkanSurfaceBackendRunnable",
@@ -126,9 +167,11 @@ def main() -> int:
             raise SystemExit(f"POCKETPC_VULKAN_ABI_POLICY_STATE_MISMATCH:{key}")
 
     print("POCKETPC_VULKAN_ABI_POLICY_OK")
-    print("wine_vulkan_driver_version=47")
+    print("wine_vulkan_upstream_driver_version=47")
+    print("wine_vulkan_pocketpc_driver_version=48")
+    print("device_lifecycle_callbacks_source_integrated=true")
+    print("active_wine_device_import_source_integrated=true")
     print("headless_diagnostic_implemented=true")
-    print("headless_present_observer_implemented=true")
     print("external_handle_fd_mapping=true")
     print("visible_wsi_implemented=false")
     print("host_visible_present=false")
