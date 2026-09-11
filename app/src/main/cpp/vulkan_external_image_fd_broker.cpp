@@ -27,6 +27,7 @@ constexpr uint32_t kTimelineRoleFrameOwnership = 1;
 constexpr uint32_t kMaxDimension = 4096;
 constexpr size_t kMaxResources = 16;
 constexpr VkFormat kFormat = VK_FORMAT_R8G8B8A8_UNORM;
+constexpr VkImageLayout kExternalBoundaryLayout = VK_IMAGE_LAYOUT_GENERAL;
 constexpr VkImageUsageFlags kImageUsage =
     VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
     VK_IMAGE_USAGE_TRANSFER_DST_BIT |
@@ -40,12 +41,16 @@ struct Resource {
     VkInstance instance = VK_NULL_HANDLE;
     VkPhysicalDevice physical = VK_NULL_HANDLE;
     VkDevice device = VK_NULL_HANDLE;
+    VkQueue queue = VK_NULL_HANDLE;
+    uint32_t queue_family = UINT32_MAX;
+    VkCommandPool command_pool = VK_NULL_HANDLE;
     VkImage image = VK_NULL_HANDLE;
     VkDeviceMemory memory = VK_NULL_HANDLE;
     VkSemaphore timeline = VK_NULL_HANDLE;
     VkDeviceSize allocation_size = 0;
     uint32_t memory_type_bits = 0;
     uint32_t memory_type_index = 0;
+    bool released_to_external = false;
     PFN_vkGetMemoryFdKHR get_memory_fd = nullptr;
     PFN_vkGetSemaphoreFdKHR get_semaphore_fd = nullptr;
 };
@@ -168,7 +173,7 @@ int SendExternalImageFd(
     if (resource_id == 0 || resource.generation == 0 || sequence == 0 ||
         resource.width == 0 || resource.height == 0 ||
         resource.allocation_size == 0 || resource.memory_type_bits == 0 ||
-        resource.memory_type_index >= 32 ||
+        resource.memory_type_index >= 32 || !resource.released_to_external ||
         (resource.memory_type_bits & (1u << resource.memory_type_index)) == 0) {
         return -1;
     }
@@ -198,6 +203,10 @@ void Destroy(Resource* resource) {
         if (resource->timeline != VK_NULL_HANDLE) {
             vkDestroySemaphore(resource->device, resource->timeline, nullptr);
             resource->timeline = VK_NULL_HANDLE;
+        }
+        if (resource->command_pool != VK_NULL_HANDLE) {
+            vkDestroyCommandPool(resource->device, resource->command_pool, nullptr);
+            resource->command_pool = VK_NULL_HANDLE;
         }
         if (resource->image != VK_NULL_HANDLE) {
             vkDestroyImage(resource->device, resource->image, nullptr);
@@ -300,6 +309,93 @@ bool TimelineSemaphoreSupported(
     features.pNext = &timeline_features;
     vkGetPhysicalDeviceFeatures2(physical, &features);
     return timeline_features.timelineSemaphore == VK_TRUE;
+}
+
+int ReleaseImageToExternal(Resource* resource, std::string* reason) {
+    if (resource == nullptr || reason == nullptr ||
+        resource->device == VK_NULL_HANDLE || resource->queue == VK_NULL_HANDLE ||
+        resource->command_pool == VK_NULL_HANDLE || resource->image == VK_NULL_HANDLE ||
+        resource->queue_family == UINT32_MAX) {
+        return -1;
+    }
+
+    VkCommandBufferAllocateInfo allocate_info {};
+    allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocate_info.commandPool = resource->command_pool;
+    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocate_info.commandBufferCount = 1;
+
+    VkCommandBuffer command = VK_NULL_HANDLE;
+    VkResult result = vkAllocateCommandBuffers(resource->device, &allocate_info, &command);
+    if (result != VK_SUCCESS) {
+        *reason = "external-release-command-allocate-failed:" + std::to_string(result);
+        return -2;
+    }
+
+    VkCommandBufferBeginInfo begin_info {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    result = vkBeginCommandBuffer(command, &begin_info);
+    if (result != VK_SUCCESS) {
+        vkFreeCommandBuffers(resource->device, resource->command_pool, 1, &command);
+        *reason = "external-release-command-begin-failed:" + std::to_string(result);
+        return -3;
+    }
+
+    VkImageMemoryBarrier barrier {};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = 0;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = kExternalBoundaryLayout;
+    barrier.srcQueueFamilyIndex = resource->queue_family;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
+    barrier.image = resource->image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    vkCmdPipelineBarrier(
+        command,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &barrier);
+
+    result = vkEndCommandBuffer(command);
+    if (result != VK_SUCCESS) {
+        vkFreeCommandBuffers(resource->device, resource->command_pool, 1, &command);
+        *reason = "external-release-command-end-failed:" + std::to_string(result);
+        return -4;
+    }
+
+    VkSubmitInfo submit_info {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command;
+    result = vkQueueSubmit(resource->queue, 1, &submit_info, VK_NULL_HANDLE);
+    if (result != VK_SUCCESS) {
+        vkFreeCommandBuffers(resource->device, resource->command_pool, 1, &command);
+        *reason = "external-release-submit-failed:" + std::to_string(result);
+        return -5;
+    }
+
+    result = vkQueueWaitIdle(resource->queue);
+    vkFreeCommandBuffers(resource->device, resource->command_pool, 1, &command);
+    if (result != VK_SUCCESS) {
+        *reason = "external-release-wait-failed:" + std::to_string(result);
+        return -6;
+    }
+
+    resource->released_to_external = true;
+    return 0;
 }
 
 int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* reason) {
@@ -409,17 +505,34 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
         return -10;
     }
 
+    out->queue_family = queue_family;
+    vkGetDeviceQueue(out->device, queue_family, 0, &out->queue);
+    if (out->queue == VK_NULL_HANDLE) {
+        *reason = "graphics-queue-get-failed";
+        return -11;
+    }
+
+    VkCommandPoolCreateInfo command_pool_info {};
+    command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    command_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    command_pool_info.queueFamilyIndex = queue_family;
+    result = vkCreateCommandPool(out->device, &command_pool_info, nullptr, &out->command_pool);
+    if (result != VK_SUCCESS) {
+        *reason = "command-pool-create-failed:" + std::to_string(result);
+        return -12;
+    }
+
     out->get_memory_fd = reinterpret_cast<PFN_vkGetMemoryFdKHR>(
         vkGetDeviceProcAddr(out->device, "vkGetMemoryFdKHR"));
     out->get_semaphore_fd = reinterpret_cast<PFN_vkGetSemaphoreFdKHR>(
         vkGetDeviceProcAddr(out->device, "vkGetSemaphoreFdKHR"));
     if (out->get_memory_fd == nullptr) {
         *reason = "vkGetMemoryFdKHR-missing";
-        return -11;
+        return -13;
     }
     if (out->get_semaphore_fd == nullptr) {
         *reason = "vkGetSemaphoreFdKHR-missing";
-        return -12;
+        return -14;
     }
 
     VkPhysicalDeviceExternalImageFormatInfo external_format_info {};
@@ -445,7 +558,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
         out->physical, &format_info, &format_properties);
     if (result != VK_SUCCESS) {
         *reason = "external-image-format-unsupported:" + std::to_string(result);
-        return -13;
+        return -15;
     }
     const VkExternalMemoryProperties& external_memory =
         external_properties.externalMemoryProperties;
@@ -455,7 +568,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
         (features & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) == 0 ||
         (features & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) == 0) {
         *reason = "external-image-not-import-export-compatible";
-        return -14;
+        return -16;
     }
 
     VkExternalMemoryImageCreateInfo external_image {};
@@ -478,14 +591,14 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     result = vkCreateImage(out->device, &image_info, nullptr, &out->image);
     if (result != VK_SUCCESS) {
         *reason = "image-create-failed:" + std::to_string(result);
-        return -15;
+        return -17;
     }
 
     VkMemoryRequirements requirements {};
     vkGetImageMemoryRequirements(out->device, out->image, &requirements);
     if (requirements.size == 0 || requirements.memoryTypeBits == 0) {
         *reason = "image-memory-requirements-invalid";
-        return -16;
+        return -18;
     }
     out->memory_type_bits = requirements.memoryTypeBits;
 
@@ -494,7 +607,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
             requirements.memoryTypeBits,
             &out->memory_type_index) != 0) {
         *reason = "compatible-memory-type-missing";
-        return -17;
+        return -19;
     }
 
     VkExportMemoryAllocateInfo export_info {};
@@ -515,14 +628,19 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     result = vkAllocateMemory(out->device, &allocation_info, nullptr, &out->memory);
     if (result != VK_SUCCESS) {
         *reason = "memory-allocate-failed:" + std::to_string(result);
-        return -18;
+        return -20;
     }
     out->allocation_size = requirements.size;
 
     result = vkBindImageMemory(out->device, out->image, out->memory, 0);
     if (result != VK_SUCCESS) {
         *reason = "image-bind-failed:" + std::to_string(result);
-        return -19;
+        return -21;
+    }
+
+    const int release_result = ReleaseImageToExternal(out, reason);
+    if (release_result != 0) {
+        return -22;
     }
 
     VkExportSemaphoreCreateInfo export_semaphore {};
@@ -541,7 +659,7 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     result = vkCreateSemaphore(out->device, &semaphore_info, nullptr, &out->timeline);
     if (result != VK_SUCCESS) {
         *reason = "timeline-semaphore-create-failed:" + std::to_string(result);
-        return -20;
+        return -23;
     }
 
     out->width = width;
@@ -565,7 +683,9 @@ std::string LeaseRecord(
             << ";format=" << static_cast<int>(kFormat)
             << ";allocation_size=" << resource->allocation_size
             << ";memory_type_bits=" << resource->memory_type_bits
-            << ";memory_type_index=" << resource->memory_type_index;
+            << ";memory_type_index=" << resource->memory_type_index
+            << ";external_owner=" << (resource->released_to_external ? 1 : 0)
+            << ";boundary_layout=" << static_cast<int>(kExternalBoundaryLayout);
     }
     if (!reason.empty()) out << ";reason=" << reason;
     return out.str();
@@ -658,6 +778,12 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSend(
     }
 
     Resource& resource = found->second;
+    if (!resource.released_to_external) {
+        return ToJString(
+            env,
+            "vulkan-external-image-fd-send=external-release-not-ready;protocol=1");
+    }
+
     VkMemoryGetFdInfoKHR get_fd_info {};
     get_fd_info.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
     get_fd_info.memory = resource.memory;
@@ -687,6 +813,8 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSend(
         << ";resource_id=" << resource_id
         << ";generation=" << generation
         << ";sequence=" << sequence
+        << ";external_owner=1"
+        << ";boundary_layout=" << static_cast<int>(kExternalBoundaryLayout)
         << ";send_result=" << send_result;
     return ToJString(env, out.str());
 }
