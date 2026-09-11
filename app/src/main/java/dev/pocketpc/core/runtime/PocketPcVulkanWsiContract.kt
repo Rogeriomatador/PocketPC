@@ -11,13 +11,14 @@ package dev.pocketpc.core.runtime
  */
 object PocketPcVulkanWsiContract {
     /**
-     * PocketPC patches the pinned Wine 11 internal ABI from upstream v47 to v48
-     * by appending exact VkDevice lifecycle callbacks. The bump prevents a
-     * shorter pre-patch vulkan_driver_funcs layout from being consumed as if it
-     * contained the new callback slots.
+     * PocketPC patches the pinned Wine 11 internal ABI from upstream v47 to v49
+     * by appending exact VkDevice lifecycle callbacks plus a callback that is
+     * invoked with the exact Wine vulkan_queue immediately after host
+     * vkQueuePresentKHR. The bump prevents a shorter pre-patch
+     * vulkan_driver_funcs layout from being consumed as if those slots existed.
      */
     const val WINE_VULKAN_DRIVER_VERSION =
-        48
+        49
     const val PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION =
         47
     const val PINNED_WINE_VERSION =
@@ -29,7 +30,16 @@ object PocketPcVulkanWsiContract {
         true
     const val deviceLifecycleCallbacksImplemented =
         true
+    const val presentQueueCallbackImplemented =
+        true
+    const val presentQueueTimelineSignalSourceIntegrated =
+        true
+
     const val deviceLifecycleCallbacksSoftwareTestExecuted =
+        false
+    const val presentQueueCallbackSoftwareTestExecuted =
+        false
+    const val presentQueueTimelineSignalExecuted =
         false
     const val abiEntryPointSoftwareTestExecuted =
         false
@@ -70,6 +80,10 @@ object PocketPcVulkanWsiContract {
         false
     const val swapchainPresentationImplemented =
         false
+    const val swapchainImageCaptureImplemented =
+        false
+    const val hostVisibleFrameImplemented =
+        false
 
     const val extensionMappingImplemented =
         externalHandleExtensionMappingImplemented &&
@@ -94,6 +108,7 @@ object PocketPcVulkanWsiContract {
             "p_map_device_extensions",
             "p_vulkan_device_created",
             "p_vulkan_device_destroyed",
+            "p_vulkan_queue_presented",
         )
 
     val requiredTransportProofs:
@@ -105,7 +120,10 @@ object PocketPcVulkanWsiContract {
             "distinct-sender-receiver-processes",
             "guest-graphics-handle-receive",
             "guest-graphics-resource-import",
+            "guest-present-queue-timeline-signal",
             "guest-graphics-synchronization",
+            "swapchain-image-capture",
+            "host-visible-frame",
         )
 
     fun canEnterWsiIntegrationTest(
@@ -116,6 +134,8 @@ object PocketPcVulkanWsiContract {
             presentationSupportImplemented &&
             surfaceExtensionMappingImplemented &&
             swapchainPresentationImplemented &&
+            swapchainImageCaptureImplemented &&
+            hostVisibleFrameImplemented &&
             foundation.readyForWsiImplementation &&
             foundation.guestGraphicsTransportReady
 }
