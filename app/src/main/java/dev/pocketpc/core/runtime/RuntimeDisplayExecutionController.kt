@@ -46,6 +46,18 @@ private data class RuntimeDisplayGraphicsState(
     val error: String?,
 )
 
+/**
+ * Binds the one-shot external Vulkan resource to the exact Win32 window whose
+ * geometry selected the resource extent. Keeping the window id with the extent
+ * prevents a later readback from being guessed onto whichever window happens
+ * to be first when the copy completes.
+ */
+private data class RuntimeDisplayGraphicsTarget(
+    val windowId: Long,
+    val width: Int,
+    val height: Int,
+)
+
 private sealed interface RuntimeDisplayStartup {
     data class Peer(
         val result: Result<RuntimeDisplayBridgePeer>,
@@ -63,9 +75,10 @@ private sealed interface RuntimeDisplayStartup {
  * Display Bridge and graphics transport intentionally share the same PRoot /
  * Box64 / Wine process family. A graphics transport failure is recorded but
  * does not silently turn a generic Win32 display test into a Vulkan PASS.
- * Host resource offer, guest import acknowledgement and GPU queue-submit
- * acknowledgement are three distinct results. The last one is not Present
- * ordering and therefore cannot promote visible WSI or Roblox readiness.
+ * Host resource offer, guest import acknowledgement, Present-queue signal,
+ * exact-image stage-6 copy, Android-host readback and desktop-model delivery
+ * are distinct gates. Even successful desktop-model delivery is not evidence
+ * that Android physically presented the frame or that Roblox is playable.
  */
 class RuntimeDisplayExecutionController(
     private val executionController: ProotExecutionController,
@@ -158,7 +171,8 @@ class RuntimeDisplayExecutionController(
             val activeSessions = LinkedHashMap<Int, RuntimeDisplaySessionController>()
             val activeJobs = LinkedHashMap<Int, Job>()
             val peerFailures = mutableListOf<String>()
-            val firstGraphicsExtent = CompletableDeferred<Pair<Int, Int>>()
+            val firstGraphicsTarget =
+                CompletableDeferred<RuntimeDisplayGraphicsTarget>()
 
             var nextPeerId = 1
             var authenticatedPeerCount = 0
@@ -203,17 +217,29 @@ class RuntimeDisplayExecutionController(
                         }
                     }
 
-                    if (!firstGraphicsExtent.isCompleted) {
+                    if (!firstGraphicsTarget.isCompleted) {
                         currentWindows.asSequence()
-                            .mapNotNull { it.geometry }
-                            .firstOrNull { geometry ->
-                                geometry.width in 1..VulkanExternalImageFdBroker.MAX_DIMENSION &&
-                                    geometry.height in 1..VulkanExternalImageFdBroker.MAX_DIMENSION
-                            }
-                            ?.let { geometry ->
-                                firstGraphicsExtent.complete(
-                                    geometry.width to geometry.height,
+                            .mapNotNull { window ->
+                                val geometry =
+                                    window.geometry
+                                        ?: return@mapNotNull null
+                                if (
+                                    geometry.width !in
+                                        1..VulkanExternalImageFdBroker.MAX_DIMENSION ||
+                                    geometry.height !in
+                                        1..VulkanExternalImageFdBroker.MAX_DIMENSION
+                                ) {
+                                    return@mapNotNull null
+                                }
+                                RuntimeDisplayGraphicsTarget(
+                                    windowId = window.windowId,
+                                    width = geometry.width,
+                                    height = geometry.height,
                                 )
+                            }
+                            .firstOrNull()
+                            ?.let { target ->
+                                firstGraphicsTarget.complete(target)
                             }
                     }
 
@@ -361,17 +387,17 @@ class RuntimeDisplayExecutionController(
                         clearError = true,
                     )
 
-                    val extent = withTimeoutOrNull(GRAPHICS_EXTENT_WAIT_MILLIS) {
-                        firstGraphicsExtent.await()
+                    val target = withTimeoutOrNull(GRAPHICS_EXTENT_WAIT_MILLIS) {
+                        firstGraphicsTarget.await()
                     }
-                    if (extent == null) {
+                    if (target == null) {
                         updateGraphicsState(error = "GUEST_GRAPHICS_DISPLAY_EXTENT_NOT_OBSERVED")
                         return@launch
                     }
 
                     val offer = graphics.createAndOfferExternalImage(
-                        width = extent.first,
-                        height = extent.second,
+                        width = target.width,
+                        height = target.height,
                     )
                     val offered = offer.getOrNull()
                     if (offered == null || !offered.hostOfferComplete) {
@@ -447,6 +473,94 @@ class RuntimeDisplayExecutionController(
                             queueSignalled.gpuQueueSignalAcknowledgement?.queueFamilyIndex,
                         resourceId = queueSignalled.resourceId,
                         generation = queueSignalled.generation,
+                        clearError = true,
+                    )
+
+                    val presentCopyResult =
+                        graphics.awaitPresentCopyCompletion(
+                            timeoutMillis =
+                                handshakeTimeoutMillis.coerceIn(
+                                    GraphicsSeqpacketSessionHost.MIN_AUTH_TIMEOUT_MILLIS,
+                                    GraphicsSeqpacketSessionHost.MAX_AUTH_TIMEOUT_MILLIS,
+                                ),
+                        )
+                    val presentCopied = presentCopyResult.getOrNull()
+                    if (presentCopied == null || !presentCopied.presentCopyCompleted) {
+                        updateGraphicsState(
+                            error =
+                                graphics.snapshot().blocker
+                                    ?: presentCopyResult.exceptionOrNull()?.message
+                                    ?: GuestGraphicsSessionOrchestrator.BLOCKER_PRESENT_COPY_ACK_FAILED,
+                        )
+                        return@launch
+                    }
+
+                    val hostReadbackResult =
+                        graphics.consumePresentCopyOnAndroidHost(
+                            timeoutMillis =
+                                handshakeTimeoutMillis.coerceIn(
+                                    1L,
+                                    VulkanExternalImageHostConsumer.MAX_TIMEOUT_MILLIS,
+                                ),
+                        )
+                    val hostReadbackOffer = hostReadbackResult.getOrNull()
+                    if (
+                        hostReadbackOffer == null ||
+                        !hostReadbackOffer.androidHostReadbackCompleted
+                    ) {
+                        updateGraphicsState(
+                            error =
+                                graphics.snapshot().blocker
+                                    ?: hostReadbackResult.exceptionOrNull()?.message
+                                    ?: GuestGraphicsSessionOrchestrator.BLOCKER_ANDROID_HOST_READBACK_FAILED,
+                        )
+                        return@launch
+                    }
+
+                    val readback =
+                        hostReadbackOffer.androidHostReadback
+                            ?: run {
+                                updateGraphicsState(
+                                    error =
+                                        GuestGraphicsSessionOrchestrator
+                                            .BLOCKER_ANDROID_HOST_READBACK_FAILED,
+                                )
+                                return@launch
+                            }
+
+                    val desktopDelivery =
+                        desktopMultiplexer.presentExternalVulkanFrame(
+                            RuntimeDesktopExternalVulkanFrame(
+                                windowId = target.windowId,
+                                identity =
+                                    RuntimeDisplayExternalFrameIdentity(
+                                        resourceId = readback.resourceId,
+                                        generation = readback.generation,
+                                        sequence = readback.sequence,
+                                    ),
+                                frame = readback.frame,
+                            ),
+                        )
+                    val desktopDeliveryFailure =
+                        desktopDelivery.exceptionOrNull()
+                    if (desktopDeliveryFailure != null) {
+                        updateGraphicsState(
+                            error =
+                                "GUEST_GRAPHICS_DESKTOP_FRAME_DELIVERY_FAILED:" +
+                                    (
+                                        desktopDeliveryFailure.message
+                                            ?: desktopDeliveryFailure.javaClass.simpleName
+                                    ),
+                        )
+                        return@launch
+                    }
+
+                    // This means model delivery only. RuntimeDisplaySessionController
+                    // publishes a new compositor snapshot and Compose may consume it,
+                    // but no physical Surface/display validation is promoted here.
+                    updateGraphicsState(
+                        resourceId = hostReadbackOffer.resourceId,
+                        generation = hostReadbackOffer.generation,
                         clearError = true,
                     )
                 }
@@ -572,7 +686,7 @@ class RuntimeDisplayExecutionController(
 
                 if (graphicsOfferJob?.isActive == true) {
                     updateGraphicsState(
-                        error = "GUEST_GRAPHICS_QUEUE_SIGNAL_NOT_COMPLETED_BEFORE_PROCESS_EXIT",
+                        error = "GUEST_GRAPHICS_PRESENT_PIPELINE_NOT_COMPLETED_BEFORE_PROCESS_EXIT",
                     )
                 }
 
