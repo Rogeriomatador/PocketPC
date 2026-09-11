@@ -31,7 +31,8 @@ static void pga_put_u64_le(unsigned char *out, uint64_t value)
 
 static int pga_stage_valid(uint16_t stage)
 {
-    return stage >= PGA_STAGE_RESOURCE_OFFER_RECEIVED && stage <= PGA_STAGE_READY;
+    return stage >= PGA_STAGE_RESOURCE_OFFER_RECEIVED &&
+        stage <= PGA_STAGE_GPU_SIGNAL_SUBMITTED;
 }
 
 static int pga_socket_is_seqpacket(int socket_fd)
