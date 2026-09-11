@@ -1,5 +1,17 @@
 package dev.pocketpc.core.runtime
 
+data class RuntimeDisplayExternalFrameIdentity(
+    val resourceId: Long,
+    val generation: Long,
+    val sequence: Long,
+) {
+    val structurallyValid: Boolean
+        get() =
+            resourceId > 0L &&
+                generation > 0L &&
+                sequence > 0L
+}
+
 data class RuntimeDisplayCompositorWindow(
     val windowId: Long,
     val parentId: Long,
@@ -13,6 +25,8 @@ data class RuntimeDisplayCompositorWindow(
         RuntimeDisplayFramePixels?,
     val topmost: Boolean = false,
     val zIndex: Int = 0,
+    val externalFrameIdentity:
+        RuntimeDisplayExternalFrameIdentity? = null,
 )
 
 class RuntimeDisplayCompositorModel {
@@ -67,6 +81,7 @@ class RuntimeDisplayCompositorModel {
                             frame = null,
                             topmost = false,
                             zIndex = 0,
+                            externalFrameIdentity = null,
                         )
                     insertAtTopOfGroup(
                         event.window.windowId,
@@ -141,6 +156,7 @@ class RuntimeDisplayCompositorModel {
                                     .frameId,
                             frame =
                                 presented.pixels,
+                            externalFrameIdentity = null,
                         )
                 }
 
@@ -171,6 +187,67 @@ class RuntimeDisplayCompositorModel {
                         "DISPLAY_COMPOSITOR_HOST_EVENT_DIRECTION_INVALID",
                     )
             }
+        }
+
+    /**
+     * Injects pixels produced by the v51 PVI1 host consumer into one exact
+     * compositor window. The PVI1 identity is intentionally kept separate from
+     * the legacy/shared-memory surfaceId/generation/frameId namespace.
+     *
+     * Success here means only that the compositor model accepted the pixels.
+     * It is not physical evidence that Android rendered them to a Surface.
+     */
+    @Synchronized
+    fun applyExternalVulkanFrame(
+        windowId: Long,
+        identity: RuntimeDisplayExternalFrameIdentity,
+        frame: RuntimeDisplayFramePixels,
+    ): Result<Unit> =
+        runCatching {
+            require(windowId > 0L) {
+                "DISPLAY_COMPOSITOR_EXTERNAL_WINDOW_INVALID"
+            }
+            require(identity.structurallyValid) {
+                "DISPLAY_COMPOSITOR_EXTERNAL_IDENTITY_INVALID"
+            }
+            require(frame.width > 0 && frame.height > 0) {
+                "DISPLAY_COMPOSITOR_EXTERNAL_FRAME_DIMENSION_INVALID"
+            }
+            val expectedPixels =
+                Math.multiplyExact(
+                    frame.width,
+                    frame.height,
+                )
+            require(
+                frame.argb.size == expectedPixels,
+            ) {
+                "DISPLAY_COMPOSITOR_EXTERNAL_FRAME_SIZE_INVALID"
+            }
+
+            val previous =
+                windows[windowId]
+                    ?: error(
+                        "DISPLAY_COMPOSITOR_WINDOW_MISSING",
+                    )
+            val previousIdentity =
+                previous.externalFrameIdentity
+            if (
+                previousIdentity != null &&
+                previousIdentity.resourceId == identity.resourceId &&
+                previousIdentity.generation == identity.generation
+            ) {
+                require(
+                    identity.sequence > previousIdentity.sequence,
+                ) {
+                    "DISPLAY_COMPOSITOR_EXTERNAL_FRAME_STALE"
+                }
+            }
+
+            windows[windowId] =
+                previous.copy(
+                    frame = frame,
+                    externalFrameIdentity = identity,
+                )
         }
 
     @Synchronized
