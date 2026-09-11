@@ -6,6 +6,10 @@ patch bumps the private PocketPC Vulkan driver ABI from v49 to v50, caches the
 host VkImage handles belonging to every host swapchain and reports the exact
 image selected by VkPresentInfoKHR::pImageIndices back to winepocketpc.drv.
 
+It also carries the guest queue-family ownership helper needed by the next
+capture stage. That helper remains unused until the Android exporter performs
+the matching VK_QUEUE_FAMILY_EXTERNAL release.
+
 This is source integration only. It does NOT copy pixels, alter presentation,
 prove GPU execution, produce an Android-visible frame or prove Roblox works.
 """
@@ -15,6 +19,19 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parents[1]
+BRIDGE = ROOT / "third_party/wine/pocketpc-display-bridge"
+OWNERSHIP_FILES = (
+    "pocketpc_guest_external_image_ownership.h",
+    "pocketpc_guest_external_image_ownership.c",
+)
+UNIX_MAKEDEP_PREAMBLE = """#if 0
+#pragma makedep unix
+#endif
+
+"""
 
 V49 = "#define WINE_VULKAN_DRIVER_VERSION 49"
 V50 = "#define WINE_VULKAN_DRIVER_VERSION 50"
@@ -184,6 +201,34 @@ def before_once(path: Path, anchor: str, insertion: str) -> bool:
     return True
 
 
+def copy_ownership_files(destination: Path) -> list[dict[str, object]]:
+    copied: list[dict[str, object]] = []
+    for name in OWNERSHIP_FILES:
+        source_file = BRIDGE / name
+        if not source_file.is_file():
+            raise SystemExit(f"PRESENT_IMAGE_OWNERSHIP_SOURCE_MISSING:{name}")
+        destination_file = destination / name
+        if destination_file.exists():
+            if digest(destination_file) != digest(source_file):
+                raise SystemExit(f"PRESENT_IMAGE_OWNERSHIP_DESTINATION_MISMATCH:{name}")
+        else:
+            shutil.copyfile(source_file, destination_file)
+            if name.endswith(".c"):
+                original = destination_file.read_text(encoding="utf-8")
+                destination_file.write_text(
+                    UNIX_MAKEDEP_PREAMBLE + original,
+                    encoding="utf-8",
+                )
+        copied.append(
+            {
+                "path": f"dlls/winepocketpc.drv/{name}",
+                "sha256": digest(destination_file),
+                "source": "PocketPC external image ownership helper",
+            }
+        )
+    return copied
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wine-source", type=Path, required=True)
@@ -193,10 +238,13 @@ def main() -> int:
     source = args.wine_source.resolve()
     header = source / "include/wine/vulkan_driver.h"
     win32u = source / "dlls/win32u/vulkan.c"
-    driver = source / "dlls/winepocketpc.drv/vulkan.c"
+    driver_dir = source / "dlls/winepocketpc.drv"
+    driver = driver_dir / "vulkan.c"
     for required in (header, win32u, driver):
         if not required.is_file():
             raise SystemExit(f"PRESENT_IMAGE_REQUIRED_FILE_MISSING:{required}")
+
+    ownership_files = copy_ownership_files(driver_dir)
 
     version_changed = replace_once(header, V49, V50)
     callback_changed = after_once(header, DRIVER_CALLBACK_ANCHOR, DRIVER_IMAGE_CALLBACK)
@@ -212,7 +260,7 @@ def main() -> int:
     driver_table_changed = after_once(driver, POCKETPC_TABLE_ANCHOR, POCKETPC_TABLE_IMAGE_ENTRY)
 
     evidence = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "status": "POCKETPC_EXACT_PRESENTED_IMAGE_SOURCE_INTEGRATED_NOT_BUILT_NOT_EXECUTED",
         "privateWineVulkanAbi": 50,
         "upstreamPinnedAbi": 47,
@@ -225,6 +273,7 @@ def main() -> int:
             "presentImageDispatchPatchChanged": present_changed,
             "pocketpcDriverCallbackPatchChanged": driver_function_changed,
             "pocketpcDriverTablePatchChanged": driver_table_changed,
+            "guestExternalOwnershipHelperCarried": True,
         },
         "exactIdentity": {
             "usesVkGetSwapchainImagesKHR": True,
@@ -234,10 +283,19 @@ def main() -> int:
             "passesHostExtent": True,
             "passesQueueFamily": True,
         },
+        "externalOwnership": {
+            "guestAcquireReleasePrimitiveImplemented": True,
+            "boundaryLayout": "VK_IMAGE_LAYOUT_GENERAL",
+            "externalQueueFamily": "VK_QUEUE_FAMILY_EXTERNAL",
+            "androidInitialReleaseImplemented": False,
+            "guestPrimitiveActivated": False,
+            "executed": False,
+        },
         "pixelCopyImplemented": False,
         "gpuSynchronizationExecuted": False,
         "hostVisiblePresentImplemented": False,
         "robloxExecuted": False,
+        "ownershipFiles": ownership_files,
         "files": {
             "vulkanDriverHeaderSha256": digest(header),
             "win32uVulkanSha256": digest(win32u),
@@ -245,10 +303,13 @@ def main() -> int:
         },
         "notExecuted": [
             "Wine compilation after v50 patch",
+            "guest external ownership helper compilation",
             "win32u compilation after swapchain cache patch",
             "winepocketpc.so compilation after exact-image callback patch",
             "VkGetSwapchainImagesKHR cache path",
             "exact presented VkImage callback",
+            "guest external queue-family acquire/release",
+            "Android initial queue-family release",
             "swapchain pixel copy",
             "Android-visible frame",
             "DXVK Present physical test",
@@ -261,6 +322,8 @@ def main() -> int:
     print("POCKETPC_EXACT_PRESENTED_IMAGE_SOURCE_INTEGRATED_NOT_EXECUTED")
     print("private_wine_vulkan_abi=50")
     print("exact_host_swapchain_image_identity=true")
+    print("guest_external_ownership_primitive=true")
+    print("android_initial_external_release=false")
     print("pixel_copy=false")
     print("host_visible_present=false")
     print("runtime_execution_evidence=false")
