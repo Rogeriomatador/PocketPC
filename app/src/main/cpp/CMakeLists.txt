@@ -13,6 +13,7 @@ add_library(
     vulkan_ahardwarebuffer_import_probe.cpp
     vulkan_external_image_fd_broker.cpp
     graphics_seqpacket_session.cpp
+    graphics_present_copy_ack.cpp
 )
 
 find_library(vulkan_lib vulkan)
