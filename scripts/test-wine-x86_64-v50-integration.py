@@ -23,6 +23,13 @@ def main() -> int:
     preparer = text("scripts/prepare-wine-pocketpc-driver-v50.py")
     build = text("scripts/build-wine-x86_64-v50.py")
     workflow = text(".github/workflows/wine-x86_64-build.yml")
+    runtime_contract = text(
+        "app/src/main/java/dev/pocketpc/core/runtime/"
+        "PocketPcWinePresentBridgeContract.kt"
+    )
+    roblox_preflight = text(
+        "app/src/main/java/dev/pocketpc/core/runtime/RobloxGraphicsPreflight.kt"
+    )
 
     require(preparer, "prepare-wine-pocketpc-driver.py", "base_preparer")
     require(preparer, "prepare-wine-pocketpc-present-image.py", "present_preparer")
@@ -37,6 +44,48 @@ def main() -> int:
     require(workflow, "python3 scripts/build-wine-x86_64-v50.py", "workflow_v50_build")
     require(workflow, "python3 scripts/test-wine-x86_64-v50-integration.py", "workflow_policy")
     require(workflow, "wine-pocketpc-driver-overlay-evidence.json", "overlay_evidence_retained")
+
+    require(runtime_contract, "const val privateWineVulkanAbi = 50", "runtime_abi_50")
+    require(
+        runtime_contract,
+        "const val exactPresentedImageSourceIntegrated = true",
+        "runtime_exact_image_source",
+    )
+    require(
+        runtime_contract,
+        "const val externalOwnershipSourceIntegrated = true",
+        "runtime_external_ownership_source",
+    )
+    require(
+        runtime_contract,
+        "const val pixelCopyImplemented = false",
+        "runtime_pixel_copy_fail_closed",
+    )
+    require(
+        runtime_contract,
+        "const val androidVisiblePresentImplemented = false",
+        "runtime_visible_present_fail_closed",
+    )
+    require(
+        runtime_contract,
+        "const val runtimeExecuted = false",
+        "runtime_execution_fail_closed",
+    )
+    require(
+        runtime_contract,
+        "const val robloxExecuted = false",
+        "runtime_roblox_fail_closed",
+    )
+    require(
+        roblox_preflight,
+        "PocketPcWinePresentBridgeContract.blockers()",
+        "roblox_preflight_present_blockers",
+    )
+    require(
+        roblox_preflight,
+        "PocketPcWinePresentBridgeContract.readyForRobloxGraphics()",
+        "roblox_preflight_fail_closed_readiness",
+    )
 
     print("WINE_X86_64_V50_INTEGRATION_POLICY_OK")
     return 0
