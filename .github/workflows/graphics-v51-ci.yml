@@ -9,7 +9,10 @@ on:
       - 'app/src/main/cpp/**'
       - 'app/src/main/java/dev/pocketpc/core/runtime/**'
       - 'app/src/test/java/dev/pocketpc/core/runtime/**'
+      - 'scripts/prepare-wine-pocketpc-continuous-present-v52.py'
+      - 'scripts/prepare-wine-pocketpc-driver-v52.py'
       - 'scripts/test-wine-x86_64-v51-integration.py'
+      - 'scripts/test-wine-x86_64-v52-source-integration.py'
       - 'scripts/test-vulkan-host-consumer-policy.py'
       - 'scripts/test-vulkan-continuous-present-v52-policy.py'
       - 'third_party/wine/POCKETPC_VULKAN_CONTINUOUS_PRESENT_V52.json'
@@ -36,12 +39,18 @@ jobs:
       - name: Python syntax
         run: >-
           python3 -m py_compile
+          scripts/prepare-wine-pocketpc-continuous-present-v52.py
+          scripts/prepare-wine-pocketpc-driver-v52.py
           scripts/test-wine-x86_64-v51-integration.py
+          scripts/test-wine-x86_64-v52-source-integration.py
           scripts/test-vulkan-host-consumer-policy.py
           scripts/test-vulkan-continuous-present-v52-policy.py
 
       - name: Wine v51 integration lock
         run: python3 scripts/test-wine-x86_64-v51-integration.py
+
+      - name: Wine v52 source integration lock
+        run: python3 scripts/test-wine-x86_64-v52-source-integration.py
 
       - name: Vulkan v51 host consumer policy
         run: python3 scripts/test-vulkan-host-consumer-policy.py
