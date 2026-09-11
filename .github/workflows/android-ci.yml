@@ -210,6 +210,11 @@ jobs:
       - name: Kotlin source regression guards
         run: python3 scripts/test-kotlin-source-regressions.py
 
+      - name: Vulkan desktop source guards
+        run: |
+          python3 scripts/test-runtime-vulkan-compose-refresh-policy.py
+          python3 scripts/test-runtime-vulkan-present-readback-desktop-wiring.py
+
       - name: Termux AAPT2 source policy
         run: python3 scripts/test-termux-aapt2-policy.py
 
