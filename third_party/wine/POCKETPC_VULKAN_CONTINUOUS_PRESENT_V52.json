@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "name": "PocketPC Vulkan Continuous Present v52",
+  "status": "DESIGN_SOURCE_CONTRACT_NOT_RUNTIME_INTEGRATED_NOT_EXECUTED",
+  "targetPrivateWineVulkanAbi": 52,
+  "officialBuildSelected": false,
+  "runtimeIntegrated": false,
+  "softwareTestExecuted": false,
+  "integrationTestExecuted": false,
+  "physicalTestExecuted": false,
+  "robloxExecuted": false,
+  "purpose": "Evolve the v51 one-shot diagnostic copy into a continuous, ownership-safe frame stream without allowing the Wine guest to overwrite the exported image while the Android host is consuming it.",
+  "compatibility": {
+    "baseline": "v51 remains the official one-shot path until v52 implementation and executed evidence exist.",
+    "graphicsSession": "PGH1 v1 remains the authenticated SOCK_SEQPACKET transport.",
+    "resourceOffer": "PGT1/PVI1 offer identity remains immutable for one resource generation.",
+    "ownershipSemaphore": "PVS1 role FRAME_OWNERSHIP is reused instead of inventing an unsynchronized second ownership channel.",
+    "pga1": "PGA1 stages 1-6 remain lifecycle/diagnostic acknowledgements; continuous frame ownership is not inferred from repeated PGA1 packets."
+  },
+  "identity": {
+    "resourceIdentity": [
+      "resourceId",
+      "generation",
+      "offerSequence"
+    ],
+    "offerSequenceMeaning": "Immutable descriptor/FD-offer identity. It is not the continuous frame number.",
+    "frameSequenceSource": "Derived from the shared PVS1 timeline value.",
+    "generationRule": "Resize, resource recreation, device loss, or incompatible format/extent creates a new generation and a fresh timeline initialized to zero."
+  },
+  "timelineOwnership": {
+    "initialValue": 0,
+    "guestReadyFormula": "2 * frameSequence - 1",
+    "hostConsumedFormula": "2 * frameSequence",
+    "frameSequenceMinimum": 1,
+    "guestReadyParity": "odd",
+    "hostConsumedParity": "even",
+    "monotonic": true,
+    "overflowPolicy": "Fail closed before multiplication/addition can exceed UINT64_MAX. Recreate the resource/generation instead of wrapping.",
+    "firstFrame": {
+      "previousHostConsumedValue": 0,
+      "guestReadyValue": 1,
+      "hostConsumedValue": 2
+    },
+    "secondFrame": {
+      "previousHostConsumedValue": 2,
+      "guestReadyValue": 3,
+      "hostConsumedValue": 4
+    }
+  },
+  "guestPerFrameOrder": [
+    "For frame 1, treat timeline value 0 as the initial host-consumed release. For frame N>1, wait until timeline >= hostConsumed(N-1).",
+    "Acquire the exported image from VK_QUEUE_FAMILY_EXTERNAL onto the exact Wine Present queue/device path.",
+    "Copy the exact presented swapchain VkImage into the exported image with explicit layouts/barriers and Present synchronization.",
+    "Release the exported image back to VK_QUEUE_FAMILY_EXTERNAL.",
+    "Signal PVS1 to guestReady(N) only after the copy and external release are ordered/completed.",
+    "Do not reacquire or overwrite the exported image for frame N+1 until hostConsumed(N) is observed."
+  ],
+  "hostPerFrameOrder": [
+    "Wait until PVS1 >= guestReady(N).",
+    "Reject a frame if resourceId/generation no longer match the active resource or if the derived frame sequence is stale/non-monotonic.",
+    "Acquire the exported image from external ownership on the Android Vulkan device used by the host consumer.",
+    "Copy/read back the frame and publish it to the exact desktop window owner.",
+    "Return the image to VK_QUEUE_FAMILY_EXTERNAL.",
+    "Signal PVS1 to hostConsumed(N) only after host consumption and the external ownership return complete.",
+    "Do not promote model delivery to physical-visible evidence."
+  ],
+  "failClosedRules": [
+    "Never write while the opposite side owns the image.",
+    "Never derive continuous frame number from the immutable PVI1 offer sequence.",
+    "Never reuse frameSequence after a generation change.",
+    "Never accept an even value as guest-ready or an odd value as host-consumed.",
+    "Never accept a lower or equal frame sequence after a newer frame was already committed for the same generation.",
+    "Never infer host-visible presentation from successful Vulkan readback or Compose model delivery.",
+    "Never infer Roblox execution, rendering, playability, input, audio, network, or stability from this contract."
+  ],
+  "requiredImplementationGates": {
+    "guestWaitPreviousHostConsumed": false,
+    "guestPerPresentSequence": false,
+    "guestPerPresentCopy": false,
+    "guestSignalReadyOddValue": false,
+    "hostLoopWaitGuestReady": false,
+    "hostPerFrameReadback": false,
+    "hostSignalConsumedEvenValue": false,
+    "generationResetAndResize": false,
+    "staleFrameRejection": false,
+    "runtimeDiagnostics": false,
+    "softwareTests": false,
+    "integrationTests": false,
+    "physicalVisibleFrame": false
+  },
+  "evidenceClassification": {
+    "contract": "DESIGN",
+    "sourceRuntime": "NOT_IMPLEMENTED",
+    "software": "NOT_EXECUTED",
+    "integration": "NOT_EXECUTED",
+    "physical": "NOT_EXECUTED",
+    "roblox": "NOT_EXECUTED"
+  }
+}
