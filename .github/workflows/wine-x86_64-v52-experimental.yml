@@ -103,6 +103,12 @@ jobs:
           assert overlay["robloxPlayable"] is False
           assert overlay["timelineOwnership"]["guestSignalsHostConsumedEven"] is False
 
+          capability = build["verifiedRuntimeGraphicsCapability"]
+          assert capability["wineVulkanAbi"] == 52
+          assert capability["capabilities"] == ["pocketpc.vulkan.continuous-present.v52"]
+          capability_path = root / "guest-package" / capability["path"]
+          assert capability_path.is_file()
+
           assert build["targetPrivateWineVulkanAbi"] == 52
           assert build["derivedFromPrivateWineVulkanAbi"] == 51
           assert build["officialBuildSelected"] is False
