@@ -6,12 +6,13 @@ patch bumps the private PocketPC Vulkan driver ABI from v49 to v50, caches the
 host VkImage handles belonging to every host swapchain and reports the exact
 image selected by VkPresentInfoKHR::pImageIndices back to winepocketpc.drv.
 
-It also carries the guest queue-family ownership helper needed by the next
-capture stage. That helper remains unused until the Android exporter performs
-the matching VK_QUEUE_FAMILY_EXTERNAL release.
+It also carries the guest queue-family ownership helper and wires a one-shot
+correctness diagnostic. The Android broker performs the matching initial
+release to VK_QUEUE_FAMILY_EXTERNAL before PVI1 is sent; the diagnostic then
+acquires and releases the imported image on the exact Wine Present queue.
 
-This is source integration only. It does NOT copy pixels, alter presentation,
-prove GPU execution, produce an Android-visible frame or prove Roblox works.
+This is source integration only. It does NOT copy pixels, prove execution,
+produce an Android-visible frame or prove Roblox works.
 """
 from __future__ import annotations
 
@@ -122,8 +123,12 @@ PRESENT_IMAGE_CALLBACK = r'''    if (driver_funcs->p_vulkan_image_presented && p
         }
     }'''
 
+POCKETPC_DRIVER_INCLUDE_ANCHOR = '#include "pocketpc_guest_vulkan_import.h"'
+POCKETPC_DRIVER_OWNERSHIP_INCLUDE = '#include "pocketpc_guest_external_image_ownership.h"'
 POCKETPC_DRIVER_FUNCTION_ANCHOR = "static void pocketpc_headless_client_surface_destroy("
-POCKETPC_DRIVER_IMAGE_FUNCTION = r'''static void pocketpc_vulkan_image_presented(
+POCKETPC_DRIVER_IMAGE_FUNCTION = r'''static LONG pocketpc_external_ownership_roundtrip_done;
+
+static void pocketpc_vulkan_image_presented(
     struct vulkan_queue *queue,
     VkImage image,
     VkFormat format,
@@ -153,6 +158,38 @@ POCKETPC_DRIVER_IMAGE_FUNCTION = r'''static void pocketpc_vulkan_image_presented
               extent.height,
               image_index,
               queue->info.queueFamilyIndex);
+
+        if (InterlockedCompareExchange(&pocketpc_external_ownership_roundtrip_done, 1, 0) == 0)
+        {
+            int acquire_result = pocketpc_guest_external_image_acquire(
+                device,
+                queue,
+                &pocketpc_guest_resource.image,
+                VK_IMAGE_LAYOUT_GENERAL);
+            if (acquire_result == POCKETPC_GUEST_EXTERNAL_IMAGE_OWNERSHIP_OK)
+            {
+                int release_result = pocketpc_guest_external_image_release(
+                    device,
+                    queue,
+                    &pocketpc_guest_resource.image,
+                    VK_IMAGE_LAYOUT_GENERAL);
+                if (release_result == POCKETPC_GUEST_EXTERNAL_IMAGE_OWNERSHIP_OK)
+                {
+                    TRACE("POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=roundtrip_completed execution_evidence=0 pixels_copied=0 visible_present=0 queue_family=%u\n",
+                          queue->info.queueFamilyIndex);
+                }
+                else
+                {
+                    ERR("POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=release_failed result=%d\n", release_result);
+                    InterlockedExchange(&pocketpc_external_ownership_roundtrip_done, 0);
+                }
+            }
+            else
+            {
+                ERR("POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=acquire_failed result=%d\n", acquire_result);
+                InterlockedExchange(&pocketpc_external_ownership_roundtrip_done, 0);
+            }
+        }
     }
     pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
 }
@@ -209,7 +246,10 @@ def copy_ownership_files(destination: Path) -> list[dict[str, object]]:
             raise SystemExit(f"PRESENT_IMAGE_OWNERSHIP_SOURCE_MISSING:{name}")
         destination_file = destination / name
         if destination_file.exists():
-            if digest(destination_file) != digest(source_file):
+            expected = source_file.read_text(encoding="utf-8")
+            if name.endswith(".c"):
+                expected = UNIX_MAKEDEP_PREAMBLE + expected
+            if destination_file.read_text(encoding="utf-8") != expected:
                 raise SystemExit(f"PRESENT_IMAGE_OWNERSHIP_DESTINATION_MISMATCH:{name}")
         else:
             shutil.copyfile(source_file, destination_file)
@@ -252,6 +292,11 @@ def main() -> int:
     cache_changed = after_once(win32u, SWAPCHAIN_INSERT_ANCHOR, SWAPCHAIN_IMAGE_CACHE)
     release_changed = after_once(win32u, SWAPCHAIN_DESTROY_ANCHOR, SWAPCHAIN_IMAGE_RELEASE)
     present_changed = after_once(win32u, PRESENT_QUEUE_CALLBACK, PRESENT_IMAGE_CALLBACK)
+    ownership_include_changed = after_once(
+        driver,
+        POCKETPC_DRIVER_INCLUDE_ANCHOR,
+        POCKETPC_DRIVER_OWNERSHIP_INCLUDE,
+    )
     driver_function_changed = before_once(
         driver,
         POCKETPC_DRIVER_FUNCTION_ANCHOR,
@@ -260,7 +305,7 @@ def main() -> int:
     driver_table_changed = after_once(driver, POCKETPC_TABLE_ANCHOR, POCKETPC_TABLE_IMAGE_ENTRY)
 
     evidence = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "status": "POCKETPC_EXACT_PRESENTED_IMAGE_SOURCE_INTEGRATED_NOT_BUILT_NOT_EXECUTED",
         "privateWineVulkanAbi": 50,
         "upstreamPinnedAbi": 47,
@@ -271,9 +316,11 @@ def main() -> int:
             "swapchainImageCachePatchChanged": cache_changed,
             "swapchainImageReleasePatchChanged": release_changed,
             "presentImageDispatchPatchChanged": present_changed,
+            "pocketpcDriverOwnershipIncludePatchChanged": ownership_include_changed,
             "pocketpcDriverCallbackPatchChanged": driver_function_changed,
             "pocketpcDriverTablePatchChanged": driver_table_changed,
             "guestExternalOwnershipHelperCarried": True,
+            "guestExternalOwnershipRoundTripSourceIntegrated": True,
         },
         "exactIdentity": {
             "usesVkGetSwapchainImagesKHR": True,
@@ -287,8 +334,9 @@ def main() -> int:
             "guestAcquireReleasePrimitiveImplemented": True,
             "boundaryLayout": "VK_IMAGE_LAYOUT_GENERAL",
             "externalQueueFamily": "VK_QUEUE_FAMILY_EXTERNAL",
-            "androidInitialReleaseImplemented": False,
-            "guestPrimitiveActivated": False,
+            "androidInitialReleaseImplemented": True,
+            "guestPrimitiveActivated": True,
+            "roundTripSourceIntegrated": True,
             "executed": False,
         },
         "pixelCopyImplemented": False,
@@ -308,8 +356,8 @@ def main() -> int:
             "winepocketpc.so compilation after exact-image callback patch",
             "VkGetSwapchainImagesKHR cache path",
             "exact presented VkImage callback",
-            "guest external queue-family acquire/release",
-            "Android initial queue-family release",
+            "guest external queue-family acquire/release round-trip",
+            "Android initial queue-family release physical execution",
             "swapchain pixel copy",
             "Android-visible frame",
             "DXVK Present physical test",
@@ -323,7 +371,9 @@ def main() -> int:
     print("private_wine_vulkan_abi=50")
     print("exact_host_swapchain_image_identity=true")
     print("guest_external_ownership_primitive=true")
-    print("android_initial_external_release=false")
+    print("android_initial_external_release_source_integrated=true")
+    print("guest_external_ownership_roundtrip_source_integrated=true")
+    print("external_ownership_roundtrip_executed=false")
     print("pixel_copy=false")
     print("host_visible_present=false")
     print("runtime_execution_evidence=false")
