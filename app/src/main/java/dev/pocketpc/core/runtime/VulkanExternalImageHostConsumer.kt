@@ -5,7 +5,8 @@ package dev.pocketpc.core.runtime
  *
  * A successful result proves that the host re-imported the exact exported image,
  * waited for PVS1, acquired the image from VK_QUEUE_FAMILY_EXTERNAL, copied its
- * RGBA8 bytes into host-visible Vulkan memory, and released the image back to
+ * RGBA8 bytes into host-visible Vulkan memory, converted those bytes to the
+ * compositor's ARGB frame model, and released the image back to
  * VK_QUEUE_FAMILY_EXTERNAL / GENERAL.
  *
  * It deliberately does NOT claim Surface/compositor presentation or a visible
@@ -23,20 +24,39 @@ data class VulkanExternalImageHostReadback(
     val acquired: Boolean,
     val returnedExternal: Boolean,
     val visibleFrame: Boolean,
+    val frame: RuntimeDisplayFramePixels,
     val raw: String,
 ) {
     val structurallyValid: Boolean
-        get() =
-            protocol == VulkanExternalImageFdBroker.PROTOCOL_VERSION &&
-                resourceId > 0L &&
-                generation > 0L &&
-                sequence > 0L &&
-                timelineValue >= 1L &&
-                bytes > 0L &&
-                nonzeroBytes in 0L..bytes &&
-                acquired &&
-                returnedExternal &&
-                !visibleFrame
+        get() {
+            if (
+                protocol != VulkanExternalImageFdBroker.PROTOCOL_VERSION ||
+                resourceId <= 0L ||
+                generation <= 0L ||
+                sequence <= 0L ||
+                timelineValue < 1L ||
+                bytes <= 0L ||
+                nonzeroBytes !in 0L..bytes ||
+                !acquired ||
+                !returnedExternal ||
+                visibleFrame ||
+                frame.width <= 0 ||
+                frame.height <= 0
+            ) {
+                return false
+            }
+
+            val expectedPixels =
+                runCatching {
+                    Math.multiplyExact(frame.width, frame.height)
+                }.getOrNull() ?: return false
+            val expectedBytes =
+                runCatching {
+                    Math.multiplyExact(expectedPixels.toLong(), 4L)
+                }.getOrNull() ?: return false
+
+            return frame.argb.size == expectedPixels && bytes == expectedBytes
+        }
 
     /** Runtime evidence only when this object came from [consume] successfully. */
     val androidAcquireExecuted: Boolean
@@ -62,6 +82,7 @@ object VulkanExternalImageHostConsumer {
         memoryTypeBits: Long,
         memoryTypeIndex: Int,
         timeoutNanos: Long,
+        outputArgb: IntArray,
     ): String
 
     fun consume(
@@ -83,6 +104,13 @@ object VulkanExternalImageHostConsumer {
                 "VULKAN_HOST_CONSUMER_TIMEOUT_INVALID"
             }
 
+            val pixelCount =
+                Math.multiplyExact(lease.width, lease.height)
+            require(pixelCount > 0) {
+                "VULKAN_HOST_CONSUMER_PIXEL_COUNT_INVALID"
+            }
+            val argb = IntArray(pixelCount)
+
             val raw =
                 nativeConsume(
                     resourceId = lease.resourceId,
@@ -95,9 +123,10 @@ object VulkanExternalImageHostConsumer {
                     memoryTypeBits = lease.memoryTypeBits,
                     memoryTypeIndex = lease.memoryTypeIndex,
                     timeoutNanos = timeoutMillis * 1_000_000L,
+                    outputArgb = argb,
                 )
 
-            parseReadback(raw, lease, sequence)
+            parseReadback(raw, lease, sequence, argb)
                 ?: error("VULKAN_HOST_CONSUMER_FAILED:${safeStatus(raw)}")
         }
 
@@ -105,8 +134,15 @@ object VulkanExternalImageHostConsumer {
         raw: String,
         lease: VulkanExternalImageFdLease,
         expectedSequence: Long,
+        argb: IntArray,
     ): VulkanExternalImageHostReadback? {
         if (!lease.structurallyValid || expectedSequence <= 0L) return null
+        val expectedPixels =
+            runCatching {
+                Math.multiplyExact(lease.width, lease.height)
+            }.getOrNull() ?: return null
+        if (argb.size != expectedPixels) return null
+
         val fields = parseFields(raw) ?: return null
         if (fields.keys != SUCCESS_FIELDS) return null
         if (fields["vulkan-external-image-host-consume"] != "ok") return null
@@ -124,6 +160,12 @@ object VulkanExternalImageHostConsumer {
                 acquired = fields["acquired"] == "1",
                 returnedExternal = fields["returned_external"] == "1",
                 visibleFrame = fields["visible_frame"] == "1",
+                frame =
+                    RuntimeDisplayFramePixels(
+                        width = lease.width,
+                        height = lease.height,
+                        argb = argb,
+                    ),
                 raw = raw,
             )
 
@@ -133,7 +175,10 @@ object VulkanExternalImageHostConsumer {
                 it.resourceId == lease.resourceId &&
                 it.generation == lease.generation &&
                 it.sequence == expectedSequence &&
-                it.bytes == expectedBytes
+                it.bytes == expectedBytes &&
+                it.frame.width == lease.width &&
+                it.frame.height == lease.height &&
+                it.frame.argb.size == expectedPixels
         }
     }
 
