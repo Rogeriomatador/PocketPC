@@ -24,10 +24,10 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageFdBroker_nativeSendTimeline(
 namespace {
 
 constexpr uint32_t kProtocol = 1;
-constexpr uint32_t kPviMagic = 0x31495650u;  // PVI1 little-endian.
+constexpr uint32_t kPviMagic = 0x31495650u;
 constexpr uint16_t kPviVersion = 1;
 constexpr size_t kPviBytes = 64;
-constexpr uint32_t kPvsMagic = 0x31535650u;  // PVS1 little-endian.
+constexpr uint32_t kPvsMagic = 0x31535650u;
 constexpr uint16_t kPvsVersion = 1;
 constexpr size_t kPvsBytes = 40;
 constexpr uint32_t kTimelineRoleFrameOwnership = 1;
@@ -278,6 +278,8 @@ bool FindHostVisibleMemoryType(
 void DestroyConsumer(VulkanConsumer* consumer) {
     if (!consumer) return;
     if (consumer->device != VK_NULL_HANDLE) {
+        if (consumer->command_pool != VK_NULL_HANDLE)
+            vkDestroyCommandPool(consumer->device, consumer->command_pool, nullptr);
         if (consumer->staging != VK_NULL_HANDLE)
             vkDestroyBuffer(consumer->device, consumer->staging, nullptr);
         if (consumer->staging_memory != VK_NULL_HANDLE)
@@ -288,8 +290,6 @@ void DestroyConsumer(VulkanConsumer* consumer) {
             vkDestroyImage(consumer->device, consumer->image, nullptr);
         if (consumer->image_memory != VK_NULL_HANDLE)
             vkFreeMemory(consumer->device, consumer->image_memory, nullptr);
-        if (consumer->command_pool != VK_NULL_HANDLE)
-            vkDestroyCommandPool(consumer->device, consumer->command_pool, nullptr);
         vkDestroyDevice(consumer->device, nullptr);
     }
     if (consumer->instance != VK_NULL_HANDLE)
@@ -617,10 +617,18 @@ int ReadbackAndReturnExternal(
         VulkanConsumer* consumer,
         uint32_t width,
         uint32_t height,
+        jint* output_argb,
+        size_t output_pixels,
         uint64_t* checksum,
         uint64_t* nonzero_bytes,
         std::string* reason) {
-    if (!consumer || !checksum || !nonzero_bytes || !reason) return -1;
+    if (!consumer || !output_argb || !checksum || !nonzero_bytes || !reason) return -1;
+    const uint64_t expected_pixels =
+        static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
+    if (expected_pixels == 0 || expected_pixels != static_cast<uint64_t>(output_pixels)) {
+        *reason = "argb-size";
+        return -2;
+    }
 
     VkCommandBufferAllocateInfo allocate_info {};
     allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -769,8 +777,23 @@ int ReadbackAndReturnExternal(
         hash *= kFnvPrime;
         if (bytes[i] != 0) ++nonzero;
     }
-    vkUnmapMemory(consumer->device, consumer->staging_memory);
 
+    for (size_t pixel = 0; pixel < output_pixels; ++pixel) {
+        const size_t offset = pixel * 4u;
+        const uint32_t r = bytes[offset + 0u];
+        const uint32_t g = bytes[offset + 1u];
+        const uint32_t b = bytes[offset + 2u];
+        const uint32_t a = bytes[offset + 3u];
+        const uint32_t packed =
+            (a << 24u) |
+            (r << 16u) |
+            (g << 8u) |
+            b;
+        static_assert(sizeof(jint) == sizeof(uint32_t));
+        std::memcpy(&output_argb[pixel], &packed, sizeof(packed));
+    }
+
+    vkUnmapMemory(consumer->device, consumer->staging_memory);
     *checksum = hash;
     *nonzero_bytes = nonzero;
     return 0;
@@ -791,16 +814,25 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageHostConsumer_nativeConsume(
         jlong allocation_size,
         jlong memory_type_bits,
         jint memory_type_index,
-        jlong timeout_nanos) {
+        jlong timeout_nanos,
+        jintArray output_argb) {
     const uint64_t rid = resource_id > 0 ? static_cast<uint64_t>(resource_id) : 0u;
     const uint64_t gen = generation > 0 ? static_cast<uint64_t>(generation) : 0u;
     const uint64_t seq = sequence > 0 ? static_cast<uint64_t>(sequence) : 0u;
+    const uint64_t expected_pixels =
+        width > 0 && height > 0
+            ? static_cast<uint64_t>(width) * static_cast<uint64_t>(height)
+            : 0u;
+
     if (rid == 0 || gen == 0 || seq == 0 || width <= 0 || height <= 0 ||
         static_cast<uint32_t>(width) > kMaxDimension ||
         static_cast<uint32_t>(height) > kMaxDimension ||
         format != static_cast<jint>(VK_FORMAT_R8G8B8A8_UNORM) ||
         allocation_size <= 0 || memory_type_bits <= 0 ||
-        memory_type_index < 0 || memory_type_index >= 32 || timeout_nanos <= 0) {
+        memory_type_index < 0 || memory_type_index >= 32 || timeout_nanos <= 0 ||
+        !output_argb || expected_pixels == 0 ||
+        expected_pixels > static_cast<uint64_t>(std::numeric_limits<jsize>::max()) ||
+        env->GetArrayLength(output_argb) != static_cast<jsize>(expected_pixels)) {
         return ToJString(env, Fail(rid, gen, seq, "invalid-argument"));
     }
 
@@ -891,19 +923,29 @@ Java_dev_pocketpc_core_runtime_VulkanExternalImageHostConsumer_nativeConsume(
             goto done;
         }
 
+        jint* argb = env->GetIntArrayElements(output_argb, nullptr);
+        if (!argb) {
+            response = Fail(rid, gen, seq, "argb-map");
+            goto done;
+        }
+
         uint64_t checksum = 0;
         uint64_t nonzero_bytes = 0;
         const int readback_result = ReadbackAndReturnExternal(
             &consumer,
             static_cast<uint32_t>(width),
             static_cast<uint32_t>(height),
+            argb,
+            static_cast<size_t>(expected_pixels),
             &checksum,
             &nonzero_bytes,
             &reason);
         if (readback_result != 0) {
+            env->ReleaseIntArrayElements(output_argb, argb, JNI_ABORT);
             response = Fail(rid, gen, seq, reason.c_str(), readback_result);
             goto done;
         }
+        env->ReleaseIntArrayElements(output_argb, argb, 0);
 
         std::ostringstream out;
         out << "vulkan-external-image-host-consume=ok"
