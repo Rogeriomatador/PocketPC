@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "PocketPC Vulkan Continuous Present v52",
-  "status": "DESIGN_WITH_PARTIAL_HOST_SOURCE_NOT_RUNTIME_INTEGRATED_NOT_EXECUTED",
+  "status": "DESIGN_WITH_PARTIAL_HOST_AND_GUEST_SOURCE_NOT_RUNTIME_INTEGRATED_NOT_EXECUTED",
   "targetPrivateWineVulkanAbi": 52,
   "officialBuildSelected": false,
   "runtimeIntegrated": false,
@@ -77,11 +77,13 @@
     "Never derive continuous frame number from the immutable PVI1 offer sequence.",
     "Never reuse frameSequence after a generation change.",
     "Never accept an even value as guest-ready or an odd value as host-consumed.",
+    "Never let the Wine guest signal hostConsumed(N); even ownership values belong to the Android host.",
     "Never accept a lower or equal frame sequence after a newer frame was already committed for the same generation.",
     "Never pass a timeline value greater than Long.MAX_VALUE through Kotlin/JNI.",
     "Never advance to frame N+1 while hostConsumed(N) still has a pending signal.",
     "Never recreate/import PVI1 and PVS1 for every frame in the proposed v52 native host path; keep one persistent native import per resource generation.",
     "Never infer host-visible presentation from successful Vulkan readback or Compose model delivery.",
+    "Never select v52 as the official Wine build merely because its source overlay exists.",
     "Never infer Roblox execution, rendering, playability, input, audio, network, or stability from this contract."
   ],
   "sourceImplementation": {
@@ -96,8 +98,13 @@
     "nativeHostConsumedSignal": true,
     "kotlinNativePort": true,
     "cmakeSourceIncluded": true,
-    "activeRuntimeWiring": false,
-    "guestWineV52CopyLoop": false
+    "guestWineV52CopyLoop": true,
+    "guestExactPreviousEvenWait": true,
+    "guestOddReadySignalSameCopySubmit": true,
+    "guestPostPresentEvenSignalSuppressed": true,
+    "guestV52Preparer": true,
+    "v51FallbackRetained": true,
+    "activeRuntimeWiring": false
   },
   "requiredImplementationGates": {
     "guestWaitPreviousHostConsumed": false,
@@ -118,6 +125,7 @@
     "contract": "DESIGN",
     "sourceRuntime": "PARTIALLY_IMPLEMENTED_SOURCE_ONLY",
     "nativeHostSource": "IMPLEMENTED_NOT_EXECUTED",
+    "guestWineSource": "IMPLEMENTED_NOT_EXECUTED",
     "software": "NOT_EXECUTED",
     "integration": "NOT_EXECUTED",
     "physical": "NOT_EXECUTED",
