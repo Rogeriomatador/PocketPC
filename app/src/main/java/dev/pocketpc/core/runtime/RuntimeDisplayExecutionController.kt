@@ -47,10 +47,9 @@ private data class RuntimeDisplayGraphicsState(
 )
 
 /**
- * Binds the one-shot external Vulkan resource to the exact Win32 window whose
- * geometry selected the resource extent. Keeping the window id with the extent
- * prevents a later readback from being guessed onto whichever window happens
- * to be first when the copy completes.
+ * Binds the external Vulkan resource to the exact Win32 window whose geometry
+ * selected the resource extent. Keeping the window id with the extent prevents
+ * a later frame from being guessed onto whichever window happens to be first.
  */
 private data class RuntimeDisplayGraphicsTarget(
     val windowId: Long,
@@ -75,10 +74,9 @@ private sealed interface RuntimeDisplayStartup {
  * Display Bridge and graphics transport intentionally share the same PRoot /
  * Box64 / Wine process family. A graphics transport failure is recorded but
  * does not silently turn a generic Win32 display test into a Vulkan PASS.
- * Host resource offer, guest import acknowledgement, Present-queue signal,
- * exact-image stage-6 copy, Android-host readback and desktop-model delivery
- * are distinct gates. Even successful desktop-model delivery is not evidence
- * that Android physically presented the frame or that Roblox is playable.
+ * v51 remains the default one-shot path. Experimental v52 is selected only by
+ * [RuntimeGraphicsPresentPolicy] after verified artifact metadata is bound to
+ * the exact runtime identity. Model delivery is never physical-display proof.
  */
 class RuntimeDisplayExecutionController(
     private val executionController: ProotExecutionController,
@@ -99,6 +97,7 @@ class RuntimeDisplayExecutionController(
         userApproved: Boolean,
         handshakeTimeoutMillis: Long = 15_000L,
         desktopBridge: RuntimeDesktopBridge? = null,
+        graphicsGuestDeclaration: RuntimeGraphicsGuestDeclaration? = null,
     ): RuntimeDisplayExecutionResult =
         coroutineScope {
             check(!closed.get()) { "DISPLAY_EXECUTION_CONTROLLER_CLOSED" }
@@ -133,12 +132,26 @@ class RuntimeDisplayExecutionController(
                     )
 
             val identity = RuntimeExecutionIdentity.of(runtime, tools, layers)
+            val graphicsSelection =
+                RuntimeGraphicsPresentPolicy.select(
+                    expectedRuntimeIdentity = identity,
+                    declaration = graphicsGuestDeclaration,
+                )
             val displaySession = RuntimeDisplayBridgeSessionFactory.create(identity)
-            val graphicsSession = GuestGraphicsSessionOrchestrator.create()
+            val graphicsSession =
+                if (graphicsSelection.usable) {
+                    GuestGraphicsSessionOrchestrator.create()
+                } else {
+                    null
+                }
 
             val environment = LinkedHashMap(basePlan.environment).apply {
+                // Never allow an arbitrary base plan to activate v52. The guest
+                // flag is owned exclusively by the verified selection above.
+                remove(RuntimeGraphicsPresentPolicy.ENV_CONTINUOUS_PRESENT_V52)
                 putAll(displaySession.environment())
                 graphicsSession?.let { putAll(it.launchEnvironment) }
+                putAll(RuntimeGraphicsPresentPolicy.launchEnvironment(graphicsSelection))
             }
             val environmentErrors = RuntimeEnvironment.validate(environment)
             if (environmentErrors.isNotEmpty()) {
@@ -156,11 +169,12 @@ class RuntimeDisplayExecutionController(
                     bridgeAuthenticated = false,
                     bridgeError = "DISPLAY_BRIDGE_ENVIRONMENT_INVALID",
                     graphicsError =
-                        if (graphicsSession == null) {
-                            GuestGraphicsSessionOrchestrator.BLOCKER_SESSION_CREATE_FAILED
-                        } else {
-                            null
-                        },
+                        graphicsSelection.blocker
+                            ?: if (graphicsSession == null) {
+                                GuestGraphicsSessionOrchestrator.BLOCKER_SESSION_CREATE_FAILED
+                            } else {
+                                null
+                            },
                 )
             }
 
@@ -188,11 +202,12 @@ class RuntimeDisplayExecutionController(
             var graphicsResourceId: Long? = null
             var graphicsGeneration: Long? = null
             var graphicsError: String? =
-                if (graphicsSession == null) {
-                    GuestGraphicsSessionOrchestrator.BLOCKER_SESSION_CREATE_FAILED
-                } else {
-                    null
-                }
+                graphicsSelection.blocker
+                    ?: if (graphicsSession == null) {
+                        GuestGraphicsSessionOrchestrator.BLOCKER_SESSION_CREATE_FAILED
+                    } else {
+                        null
+                    }
 
             fun graphicsSnapshot(): RuntimeDisplayGraphicsState =
                 synchronized(stateLock) {
@@ -447,6 +462,29 @@ class RuntimeDisplayExecutionController(
                         clearError = true,
                     )
 
+                    if (graphicsSelection.continuousV52Selected) {
+                        val terminal =
+                            RuntimeDisplayContinuousPresentV52Runner.runUntilCancelled(
+                                selection = graphicsSelection,
+                                importedOffer = imported,
+                                windowId = target.windowId,
+                                desktopBridge = desktopMultiplexer,
+                                timeoutMillis =
+                                    handshakeTimeoutMillis.coerceIn(
+                                        1L,
+                                        VulkanContinuousPresentHostCoordinator.MAX_TIMEOUT_MILLIS,
+                                    ),
+                            )
+                        if (terminal != null) {
+                            updateGraphicsState(
+                                resourceId = terminal.resourceId,
+                                generation = terminal.generation,
+                                error = terminal.blocker,
+                            )
+                        }
+                        return@launch
+                    }
+
                     val queueSignalResult =
                         graphics.awaitGpuQueueSignalProbe(
                             timeoutMillis =
@@ -684,7 +722,10 @@ class RuntimeDisplayExecutionController(
                     delay(minOf(PEER_DRAIN_POLL_MILLIS, remainingMillis))
                 }
 
-                if (graphicsOfferJob?.isActive == true) {
+                if (
+                    graphicsOfferJob?.isActive == true &&
+                    !graphicsSelection.continuousV52Selected
+                ) {
                     updateGraphicsState(
                         error = "GUEST_GRAPHICS_PRESENT_PIPELINE_NOT_COMPLETED_BEFORE_PROCESS_EXIT",
                     )
