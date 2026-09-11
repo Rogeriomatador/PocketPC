@@ -8,15 +8,24 @@ import java.security.MessageDigest
  * Resolves v52 graphics metadata only from an already-installed, manifest-
  * verified Wine guest tool. The capability sidecar itself must be listed in the
  * verified guest-tool manifest and its current SHA-256 must still match.
+ *
+ * Experimental v52 is additionally pinned to the exact PocketPC source
+ * revision embedded in the running APK. A local/unpinned APK or a Wine package
+ * produced from another PocketPC revision fails closed instead of silently
+ * enabling the experimental protocol.
  */
 object RuntimeGraphicsGuestDeclarationResolver {
     const val CAPABILITY_PATH =
         "share/pocketpc/runtime-graphics-capabilities.json"
 
+    private val sourceRevisionRegex = Regex("^[0-9a-f]{40}$")
+
     fun resolve(
         expectedRuntimeIdentity: String,
         wineTool: InstalledGuestTool?,
         requestContinuousPresentV52: Boolean,
+        expectedPocketPcSourceRevision: String = "",
+        expectedPocketPcSourceRevisionPinned: Boolean = false,
     ): RuntimeGraphicsGuestDeclaration? {
         if (!requestContinuousPresentV52) return null
 
@@ -28,6 +37,16 @@ object RuntimeGraphicsGuestDeclarationResolver {
                 verifiedArtifactMetadata = false,
                 requestContinuousPresentV52 = true,
             )
+
+        val normalizedPocketPcRevision =
+            expectedPocketPcSourceRevision.trim().lowercase()
+        if (
+            !expectedPocketPcSourceRevisionPinned ||
+            !sourceRevisionRegex.matches(normalizedPocketPcRevision)
+        ) {
+            return failed
+        }
+
         val tool = wineTool ?: return failed
         if (tool.manifest.id != "wine") return failed
 
@@ -55,10 +74,16 @@ object RuntimeGraphicsGuestDeclarationResolver {
         val json = runCatching {
             JSONObject(file.readText(Charsets.UTF_8))
         }.getOrNull() ?: return failed
+        val declaredPocketPcRevision =
+            json.optString("pocketPcSourceRevision", "")
+                .trim()
+                .lowercase()
         if (
             json.optInt("schemaVersion", 0) != 1 ||
             json.optInt("wineVulkanAbi", 0) !=
                 RuntimeGraphicsPresentPolicy.WINE_VULKAN_ABI_V52 ||
+            !sourceRevisionRegex.matches(declaredPocketPcRevision) ||
+            declaredPocketPcRevision != normalizedPocketPcRevision ||
             !json.optBoolean("experimental", false) ||
             json.optBoolean("officialBuildSelected", true) ||
             json.optBoolean("runtimeExecuted", true) ||
@@ -71,11 +96,15 @@ object RuntimeGraphicsGuestDeclarationResolver {
 
         val rawCapabilities = json.optJSONArray("capabilities")
             ?: return failed
-        val capabilities = buildSet {
-            for (index in 0 until rawCapabilities.length()) {
-                val value = rawCapabilities.optString(index, "")
-                if (value.isBlank() || value.length > 128) return failed
-                add(value)
+        val capabilities = mutableSetOf<String>()
+        for (index in 0 until rawCapabilities.length()) {
+            val value = rawCapabilities.optString(index, "")
+            if (
+                value.isBlank() ||
+                value.length > 128 ||
+                !capabilities.add(value)
+            ) {
+                return failed
             }
         }
         if (
