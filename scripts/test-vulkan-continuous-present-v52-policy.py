@@ -24,6 +24,13 @@ TIMELINE = (
     ROOT
     / "app/src/main/java/dev/pocketpc/core/runtime/VulkanContinuousPresentTimeline.kt"
 )
+NATIVE_KOTLIN = (
+    ROOT
+    / "app/src/main/java/dev/pocketpc/core/runtime/VulkanContinuousPresentNativeSession.kt"
+)
+NATIVE_CPP = ROOT / "app/src/main/cpp/vulkan_continuous_present_host.cpp"
+NATIVE_CONTRACT = ROOT / "app/src/main/cpp/vulkan_continuous_present_contract.h"
+CMAKE = ROOT / "app/src/main/cpp/CMakeLists.txt"
 LONG_MAX = (1 << 63) - 1
 MAX_FRAME_SEQUENCE = LONG_MAX // 2
 
@@ -59,6 +66,10 @@ def main() -> None:
     coordinator = COORDINATOR.read_text(encoding="utf-8")
     ownership = OWNERSHIP.read_text(encoding="utf-8")
     timeline_source = TIMELINE.read_text(encoding="utf-8")
+    native_kotlin = NATIVE_KOTLIN.read_text(encoding="utf-8")
+    native_cpp = NATIVE_CPP.read_text(encoding="utf-8")
+    native_contract = NATIVE_CONTRACT.read_text(encoding="utf-8")
+    cmake = CMAKE.read_text(encoding="utf-8")
 
     if data.get("schemaVersion") != 1:
         fail("schemaVersion must remain 1")
@@ -152,23 +163,26 @@ def main() -> None:
         "hostCoordinator",
         "hostPendingConsumedSignalRecovery",
         "exactDesktopWindowDeliveryContract",
-    }
-    expected_false = {
-        "activeRuntimeWiring",
+        "persistentNativeHostSession",
         "nativeTimelineWait",
         "nativePerFrameReadback",
         "nativeHostConsumedSignal",
+        "kotlinNativePort",
+        "cmakeSourceIncluded",
+    }
+    expected_false = {
+        "activeRuntimeWiring",
         "guestWineV52CopyLoop",
     }
     if set(source) != expected_true | expected_false:
         fail("sourceImplementation keys changed unexpectedly")
     if any(source.get(key) is not True for key in expected_true):
-        fail("implemented source scaffolding was demoted")
+        fail("implemented v52 host source was demoted")
     if any(source.get(key) is not False for key in expected_false):
-        fail("non-integrated/native v52 source was promoted without evidence")
+        fail("active/guest v52 source was promoted without implementation evidence")
 
-    # Full implementation gates remain false until the source is actually wired
-    # to native Vulkan/Wine and the relevant test stages are executed.
+    # Full implementation gates remain false until the host source is actively
+    # wired to a v52 Wine guest and the relevant test stages are executed.
     gates = data.get("requiredImplementationGates") or {}
     if not gates or any(value is not False for value in gates.values()):
         fail("full implementation gates were promoted prematurely")
@@ -177,15 +191,15 @@ def main() -> None:
     if evidence != {
         "contract": "DESIGN",
         "sourceRuntime": "PARTIALLY_IMPLEMENTED_SOURCE_ONLY",
+        "nativeHostSource": "IMPLEMENTED_NOT_EXECUTED",
         "software": "NOT_EXECUTED",
         "integration": "NOT_EXECUTED",
         "physical": "NOT_EXECUTED",
         "roblox": "NOT_EXECUTED",
     }:
-        fail("evidence classification does not match partial source-only state")
+        fail("evidence classification does not match source-only state")
 
-    # Lock the host-side ordering and retry semantics in source without claiming
-    # that the port has a native implementation yet.
+    # Host coordinator ordering: do not accept N+1 until even(N) was signalled.
     require(coordinator, "interface VulkanContinuousPresentHostPort", "host port boundary")
     require(coordinator, "awaitGuestReady(", "guest-ready wait")
     require(coordinator, "ownership.beginHostConsume(", "ownership begin")
@@ -199,15 +213,49 @@ def main() -> None:
     require(coordinator, "hostVisibleFrameValidated", "physical fail-closed flag")
     require(coordinator, "get() = false", "fail-closed evidence getters")
 
+    # Kotlin/JNI adapter must preserve immutable offer identity separately from
+    # the frame sequence and must not advertise visible-frame proof.
+    require(native_kotlin, "object VulkanContinuousPresentNativeSession", "native Kotlin bridge")
+    require(native_kotlin, "offerSequence = resource.offerSequence", "immutable offer sequence")
+    require(native_kotlin, "nativeAwaitGuestReady(", "native odd wait")
+    require(native_kotlin, "nativeReadback(", "native frame readback")
+    require(native_kotlin, "nativeSignalHostConsumed(", "native even signal")
+    require(native_kotlin, "class VulkanContinuousPresentNativePort", "native host port")
+    require(native_kotlin, "fields[\"visible_frame\"] == \"0\"", "visible-frame fail closed")
+
+    # Native session must import PVI1/PVS1 once, keep frame sequence separate
+    # from offer_sequence, enforce exact timeline values, and return the image to
+    # VK_QUEUE_FAMILY_EXTERNAL before the host-consumed signal can be emitted.
+    require(native_cpp, '#include "vulkan_continuous_present_contract.h"', "native contract include")
+    require(native_cpp, "offer_sequence", "native immutable offer identity")
+    require(native_cpp, "expected_frame_sequence", "native frame sequence state")
+    require(native_cpp, "SessionPhase::WAITING_GUEST", "native waiting phase")
+    require(native_cpp, "SessionPhase::GUEST_READY", "native guest-ready phase")
+    require(native_cpp, "SessionPhase::READBACK_RETURNED_EXTERNAL", "native readback phase")
+    require(native_cpp, "SessionPhase::POISONED", "native poison phase")
+    require(native_cpp, "WaitExactGuestReady(", "native exact odd wait")
+    require(native_cpp, "*observed != target", "native skipped/stale timeline rejection")
+    require(native_cpp, "ReadbackAndReturnExternal(", "native per-frame readback")
+    require(native_cpp, "VK_QUEUE_FAMILY_EXTERNAL", "native external ownership transfer")
+    require(native_cpp, "*returned_external = true", "native external return proof")
+    require(native_cpp, "SignalExactHostConsumed(", "native even signal")
+    require(native_cpp, "observed != expected_current", "native pre-signal exact counter")
+    require(native_cpp, "v52::IsExactOwnershipPair", "native odd/even pair validation")
+    require(native_cpp, ";visible_frame=0", "native visible-frame fail closed")
+
     require(ownership, "VULKAN_CONTINUOUS_PRESENT_STALE_FRAME", "stale frame rejection")
     require(ownership, "VULKAN_CONTINUOUS_PRESENT_SKIPPED_FRAME", "skipped frame rejection")
     require(ownership, "replaceGeneration(", "generation replacement")
     require(timeline_source, "Long.MAX_VALUE / 2L", "signed timeline ceiling")
+    require(native_contract, "kMaximumFrameSequence", "native signed timeline ceiling")
+    require(cmake, "vulkan_continuous_present_host.cpp", "CMake v52 native source")
 
     for text, label in (
         (coordinator, "coordinator"),
         (ownership, "ownership"),
         (timeline_source, "timeline"),
+        (native_kotlin, "native Kotlin"),
+        (native_cpp, "native C++"),
     ):
         forbid(text, "hostVisiblePresentValidated = true", label)
         forbid(text, "robloxExecuted = true", label)
@@ -216,6 +264,7 @@ def main() -> None:
 
     print("PASS static Vulkan v52 partial host-source policy")
     print("CLASSIFICATION=PARTIALLY_IMPLEMENTED_SOURCE_ONLY")
+    print("NATIVE_HOST_SOURCE=IMPLEMENTED_NOT_EXECUTED")
     print("RUNTIME_INTEGRATED=0")
     print("SOFTWARE=NOT_EXECUTED")
     print("PHYSICAL=NOT_EXECUTED")
