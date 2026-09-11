@@ -10,7 +10,7 @@ class VulkanExternalImageFdBrokerTest {
     private val valid =
         "vulkan-external-image-fd=ok;protocol=1;resource_id=41;generation=7;" +
             "width=64;height=64;format=37;allocation_size=16384;" +
-            "memory_type_bits=5;memory_type_index=2"
+            "memory_type_bits=5;memory_type_index=2;external_owner=1;boundary_layout=1"
 
     @Test
     fun validLeaseParsesAndBuildsGuestDescriptor() {
@@ -21,6 +21,11 @@ class VulkanExternalImageFdBrokerTest {
         assertEquals(7L, lease?.generation)
         assertEquals(5L, lease?.memoryTypeBits)
         assertEquals(2, lease?.memoryTypeIndex)
+        assertTrue(lease?.externalOwner == true)
+        assertEquals(
+            VulkanExternalImageFdBroker.EXTERNAL_BOUNDARY_LAYOUT_GENERAL,
+            lease?.boundaryLayout,
+        )
 
         val descriptor =
             requireNotNull(lease).toGuestDescriptor(
@@ -52,6 +57,30 @@ class VulkanExternalImageFdBrokerTest {
         assertNull(
             VulkanExternalImageFdBroker.parseLease(
                 valid.replace("format=37", "format=44"),
+            ),
+        )
+    }
+
+    @Test
+    fun leaseRequiresExternalOwnershipAndGeneralBoundaryLayout() {
+        assertNull(
+            VulkanExternalImageFdBroker.parseLease(
+                valid.replace("external_owner=1", "external_owner=0"),
+            ),
+        )
+        assertNull(
+            VulkanExternalImageFdBroker.parseLease(
+                valid.replace("boundary_layout=1", "boundary_layout=7"),
+            ),
+        )
+        assertNull(
+            VulkanExternalImageFdBroker.parseLease(
+                valid.replace(";external_owner=1", ""),
+            ),
+        )
+        assertNull(
+            VulkanExternalImageFdBroker.parseLease(
+                valid.replace(";boundary_layout=1", ""),
             ),
         )
     }
