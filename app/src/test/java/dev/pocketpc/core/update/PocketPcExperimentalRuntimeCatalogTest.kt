@@ -33,6 +33,7 @@ class PocketPcExperimentalRuntimeCatalogTest {
                 )
             )
         assertEquals("wine", parsed.kind)
+        assertEquals("11-v52-test", parsed.guestToolVersion)
         assertEquals(52, parsed.wineVulkanAbi)
         assertEquals(revision, parsed.pocketPcSourceRevision)
         assertEquals(
@@ -58,6 +59,22 @@ class PocketPcExperimentalRuntimeCatalogTest {
         expectFailure("EXPERIMENTAL_RUNTIME_REVISION_MISMATCH") {
             parsePocketPcExperimentalRuntimeOffer(
                 raw = feed(runtime = runtimeOffer("b".repeat(40))),
+                expectedPackageName = "dev.pocketpc.core",
+                installedPocketPcSourceRevision = revision,
+                installedPocketPcSourceRevisionPinned = true,
+            )
+        }
+    }
+
+    @Test
+    fun missingGuestToolVersionRejectsExperimentalRuntime() {
+        val runtime = runtimeOffer(revision).replace(
+            "\"guestToolVersion\":\"11-v52-test\",",
+            "",
+        )
+        expectFailure("EXPERIMENTAL_RUNTIME_GUEST_TOOL_VERSION_INVALID") {
+            parsePocketPcExperimentalRuntimeOffer(
+                raw = feed(runtime = runtime),
                 expectedPackageName = "dev.pocketpc.core",
                 installedPocketPcSourceRevision = revision,
                 installedPocketPcSourceRevisionPinned = true,
@@ -137,6 +154,7 @@ class PocketPcExperimentalRuntimeCatalogTest {
         """{
             "kind":"wine",
             "experimental":true,
+            "guestToolVersion":"11-v52-test",
             "pocketPcSourceRevision":"$runtimeRevision",
             "url":"https://updates.example/PocketPC-Wine-v52.zip",
             "sha256":"${"2".repeat(64)}",
