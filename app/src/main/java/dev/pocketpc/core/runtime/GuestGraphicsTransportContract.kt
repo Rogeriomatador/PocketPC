@@ -43,21 +43,26 @@ object GuestGraphicsTransportContract {
     const val hostTimelineSemaphoreExporterImplemented = true
     const val guestVulkanTimelineImportPrimitiveImplemented = true
     const val guestGpuQueueSignalPrimitiveImplemented = true
+
+    /* Reusable diagnostic helper; no longer used to classify Present ordering. */
     const val guestGpuFirstQueueSignalProbeImplemented = true
-    const val wineVulkanAbiV48DeviceLifecycleSourceIntegrated = true
+
+    const val wineVulkanAbiV49DeviceLifecycleSourceIntegrated = true
+    const val wineVulkanAbiV49PresentQueueCallbackSourceIntegrated = true
+    const val presentQueueTimelineSignalSourceIntegrated = true
     const val activeWineDeviceImportSourceIntegrated = true
     const val asynchronousWineDeviceResourceWorkerImplemented = true
 
     /*
-     * The queue signal primitive submits a real timeline semaphore signal to a
-     * Wine Vulkan queue and PGA1 stage 5 can carry that source-path result back
-     * to Android. Source presence is not execution evidence and this first-queue
-     * probe is deliberately not tied to the queue/presented frame selected by
-     * DXVK.
+     * The v49 Present callback receives the exact struct vulkan_queue used by
+     * win32u_vkQueuePresentKHR and submits the PVS1 signal on that same queue.
+     * PGA1 stage 5 can carry that source-path result back to Android.
+     * Source presence is not execution evidence.
      */
     const val guestGpuQueueSignalExecuted = false
     const val guestGpuQueueSignalCompletionObserved = false
     const val guestGpuQueueSignalPresentOrdered = false
+    const val guestGpuQueueSignalHostVisibleFrame = false
 
     /*
      * The pinned Box64 source has not provided verified evidence that a direct
@@ -71,7 +76,8 @@ object GuestGraphicsTransportContract {
      * the existence of source code, host sendmsg(), PGA1 source handling, or a
      * queue-submit helper. They remain false until a launched Box64/Wine guest
      * actually receives/imports the canonical resources and synchronization is
-     * proven through real GPU work associated with the presentation path.
+     * proven through executed GPU work. A visible frame additionally requires
+     * swapchain image capture/copy and Android presentation.
      */
     const val guestReceiveImplemented = false
     const val guestImportImplemented = false
@@ -104,8 +110,9 @@ object GuestGraphicsTransportContract {
             externalImagePvi1ProtocolImplemented &&
             externalTimelineSemaphorePvs1ProtocolImplemented &&
             guestGpuQueueSignalPrimitiveImplemented &&
-            guestGpuFirstQueueSignalProbeImplemented &&
-            wineVulkanAbiV48DeviceLifecycleSourceIntegrated &&
+            wineVulkanAbiV49DeviceLifecycleSourceIntegrated &&
+            wineVulkanAbiV49PresentQueueCallbackSourceIntegrated &&
+            presentQueueTimelineSignalSourceIntegrated &&
             activeWineDeviceImportSourceIntegrated &&
             guestReceiveImplemented &&
             guestImportImplemented &&
