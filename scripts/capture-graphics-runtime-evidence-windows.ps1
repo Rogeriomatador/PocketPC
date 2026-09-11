@@ -150,6 +150,8 @@ $markers = [ordered]@{
     presentQueueSignalSubmitted = "POCKETPC_VULKAN_GUEST stage=present_queue_signal_submitted"
     exactPresentedImageObserved = "POCKETPC_VULKAN_PRESENT_IMAGE stage=exact_swapchain_image_observed"
     externalOwnershipRoundTrip = "POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=roundtrip_completed"
+    prePresentCopySubmitted = "POCKETPC_VULKAN_PRESENT_COPY stage=copy_submitted"
+    prePresentCopyCompleted = "POCKETPC_VULKAN_PRESENT_COPY stage=copy_queue_completed"
     headlessPresentObserved = "POCKETPC_VULKAN_WSI stage=headless_present_observed"
 }
 
@@ -168,33 +170,47 @@ $failureMarkers = @(
     "stage=present_queue_signal_failed",
     "stage=pga_present_queue_signal_ack_failed",
     "POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=acquire_failed",
-    "POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=release_failed"
+    "POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=release_failed",
+    "POCKETPC_VULKAN_PRESENT_COPY stage=pre_present_copy_rejected",
+    "POCKETPC_VULKAN_PRESENT_COPY stage=copy_cleanup_failed"
 )
 $observedFailures = @($failureMarkers | Where-Object { Test-Marker -Text $logcat.Text -Marker $_ })
 
+$copyPixelsEvidence = [bool]$observed.prePresentCopyCompleted
+$explicitNonClaims = @(
+    "Android-visible Vulkan frame",
+    "Roblox gameplay validated",
+    "stable gameplay session"
+)
+if (-not $copyPixelsEvidence) {
+    $explicitNonClaims = @("swapchain pixels copied") + $explicitNonClaims
+}
+
 $evidence = [ordered]@{
-    schemaVersion = 2
+    schemaVersion = 3
     classification = "PHYSICAL_EVIDENCE_CAPTURED_NOT_AUTOMATIC_PASS"
     capturedAtUtc = [DateTime]::UtcNow.ToString("o")
     repositoryCommit = $gitCommit
     deviceSerial = $DeviceSerial
     package = $package
     observed = $observed
+    derived = [ordered]@{
+        exactSwapchainPixelCopyEvidence = $copyPixelsEvidence
+        androidVisibleFrameEvidence = $false
+        robloxGameplayEvidence = $false
+    }
     failureMarkers = $observedFailures
     interpretation = [ordered]@{
         pgh1Connected = "Only proves the live Wine process emitted the PGH1-connected source marker."
         importReady = "Only proves the guest source path reported PGT/PVI1/PVS1 import completion; correlate with host PGA1 evidence before promotion."
         presentQueueSignalSubmitted = "Can support same-Present-queue ordering evidence when emitted by the patched Wine path. It does not prove pixel capture."
-        exactPresentedImageObserved = "Proves the v50 callback identified one exact host swapchain VkImage in that run. It does not prove pixels were copied."
+        exactPresentedImageObserved = "Proves the exact host swapchain VkImage was identified for that Present. It does not by itself prove a copy."
         externalOwnershipRoundTrip = "Proves one observed guest acquire/release round-trip between VK_QUEUE_FAMILY_EXTERNAL and the exact Wine queue. It does not prove a copied frame."
+        prePresentCopySubmitted = "Proves the v51 copy submit was queued after consuming the original Present waits and before the real Present. Submission alone is not completion evidence."
+        prePresentCopyCompleted = "With the v51 source contract, this marker is emitted only after the exact-image copy submit and the Present queue reached idle, with the PVI1 destination released back to VK_QUEUE_FAMILY_EXTERNAL/GENERAL. It still does not prove Android displayed the frame."
         headlessPresentObserved = "Headless control-flow evidence only; never a visible-frame proof."
     }
-    explicitNonClaims = @(
-        "swapchain pixels copied",
-        "Android-visible Vulkan frame",
-        "Roblox gameplay validated",
-        "stable gameplay session"
-    )
+    explicitNonClaims = $explicitNonClaims
     rawLog = $rawLogPath
 }
 
@@ -210,10 +226,11 @@ Write-Host "Observed:" -ForegroundColor Cyan
 $observed.GetEnumerator() | ForEach-Object {
     Write-Host ("  {0} = {1}" -f $_.Key, $_.Value)
 }
+Write-Host ("  exactSwapchainPixelCopyEvidence = {0}" -f $copyPixelsEvidence)
 if ($observedFailures.Count -gt 0) {
     Write-Host "Failure markers:" -ForegroundColor Red
     $observedFailures | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
 }
 
 Write-Host ""
-Write-Host "This script captures evidence; it does not promote Roblox/visible-Present gates by itself." -ForegroundColor Yellow
+Write-Host "This script captures evidence; it never promotes Android-visible Present or Roblox gameplay by itself." -ForegroundColor Yellow
