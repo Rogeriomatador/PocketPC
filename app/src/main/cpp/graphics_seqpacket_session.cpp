@@ -1,5 +1,6 @@
 #include <jni.h>
 
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -7,6 +8,7 @@
 #include <array>
 #include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -23,6 +25,10 @@ constexpr size_t kTokenBytes = 32;
 constexpr size_t kHandshakeBytes = 48;
 constexpr size_t kMaxSessions = 8;
 constexpr size_t kMaxSocketNameBytes = 80;
+constexpr int kMinTimeoutMillis = 100;
+constexpr int kMaxTimeoutMillis = 120000;
+
+using Clock = std::chrono::steady_clock;
 
 struct Session {
     int listen_fd = -1;
@@ -59,6 +65,37 @@ void CloseFd(int* fd) {
     }
 }
 
+int RemainingMillis(const Clock::time_point& deadline) {
+    const auto now = Clock::now();
+    if (now >= deadline) return 0;
+    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
+    const auto value = remaining.count();
+    if (value <= 0) return 1;
+    if (value > kMaxTimeoutMillis) return kMaxTimeoutMillis;
+    return static_cast<int>(value);
+}
+
+int WaitReadable(int fd, const Clock::time_point& deadline) {
+    if (fd < 0) return -1;
+    for (;;) {
+        const int timeout_ms = RemainingMillis(deadline);
+        if (timeout_ms <= 0) return 0;
+
+        pollfd descriptor {};
+        descriptor.fd = fd;
+        descriptor.events = POLLIN;
+        const int result = poll(&descriptor, 1, timeout_ms);
+        if (result > 0) {
+            if ((descriptor.revents & POLLIN) != 0) return 1;
+            if ((descriptor.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) return -1;
+            continue;
+        }
+        if (result == 0) return 0;
+        if (errno == EINTR) continue;
+        return -1;
+    }
+}
+
 int CreateAbstractSeqpacketServer(const std::string& name) {
     if (name.empty() || name.size() > kMaxSocketNameBytes) return -1;
 
@@ -83,17 +120,34 @@ int CreateAbstractSeqpacketServer(const std::string& name) {
     return fd;
 }
 
-int AcceptAuthenticated(const Session& session) {
+int AcceptAuthenticated(const Session& session, int timeout_millis) {
+    if (timeout_millis < kMinTimeoutMillis || timeout_millis > kMaxTimeoutMillis) return -10;
+    const auto deadline = Clock::now() + std::chrono::milliseconds(timeout_millis);
+
+    const int listen_ready = WaitReadable(session.listen_fd, deadline);
+    if (listen_ready == 0) return -11;  // timed out before a peer connected.
+    if (listen_ready < 0) return -12;
+
     int accepted;
     do {
         accepted = accept4(session.listen_fd, nullptr, nullptr, SOCK_CLOEXEC);
     } while (accepted < 0 && errno == EINTR);
     if (accepted < 0) return -1;
 
+    const int peer_ready = WaitReadable(accepted, deadline);
+    if (peer_ready == 0) {
+        close(accepted);
+        return -13;  // peer connected but did not finish PGH1 before deadline.
+    }
+    if (peer_ready < 0) {
+        close(accepted);
+        return -14;
+    }
+
     uint8_t payload[kHandshakeBytes] {};
     ssize_t read_bytes;
     do {
-        read_bytes = recv(accepted, payload, sizeof(payload), 0);
+        read_bytes = recv(accepted, payload, sizeof(payload), MSG_TRUNC);
     } while (read_bytes < 0 && errno == EINTR);
     if (read_bytes != static_cast<ssize_t>(sizeof(payload))) {
         close(accepted);
@@ -166,8 +220,10 @@ Java_dev_pocketpc_core_runtime_GraphicsSeqpacketSessionHost_nativeCreateServer(
 
 extern "C" JNIEXPORT jint JNICALL
 Java_dev_pocketpc_core_runtime_GraphicsSeqpacketSessionHost_nativeAcceptAuthenticated(
-        JNIEnv*, jobject, jlong session_id) {
+        JNIEnv*, jobject, jlong session_id, jint timeout_millis) {
     if (session_id <= 0) return -1;
+    if (timeout_millis < kMinTimeoutMillis || timeout_millis > kMaxTimeoutMillis) return -10;
+
     Session snapshot;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
@@ -178,7 +234,8 @@ Java_dev_pocketpc_core_runtime_GraphicsSeqpacketSessionHost_nativeAcceptAuthenti
         snapshot.listen_fd = dup(found->second.listen_fd);
     }
     if (snapshot.listen_fd < 0) return -1;
-    const int accepted = AcceptAuthenticated(snapshot);
+
+    const int accepted = AcceptAuthenticated(snapshot, timeout_millis);
     CloseFd(&snapshot.listen_fd);
     return accepted;
 }
