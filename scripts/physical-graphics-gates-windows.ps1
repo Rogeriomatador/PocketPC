@@ -200,7 +200,8 @@ Write-Host "Swapchain pixel copy:               NOT_IMPLEMENTED"
 Write-Host "Host-visible frame:                 NOT_IMPLEMENTED"
 Write-Host "Classification: $classification"
 Write-Host "Evidence: $outputPath"
-Write-Host "====================================================="n
+Write-Host "====================================================="
+
 if ($blockedLines.Count -gt 0) {
     Write-Host "Observed blockers:"
     $blockedLines | ForEach-Object { Write-Host "  $_" }
