@@ -17,6 +17,7 @@ private const val V52_CAPABILITY =
 data class PocketPcExperimentalRuntimeOffer(
     val kind: String,
     val experimental: Boolean,
+    val guestToolVersion: String,
     val pocketPcSourceRevision: String,
     val url: String,
     val sha256: String,
@@ -58,6 +59,14 @@ class PocketPcExperimentalRuntimeCatalog {
             val status = connection.responseCode
             require(status in 200..299) {
                 "Servidor de atualização respondeu $status."
+            }
+            require(
+                connection.url.protocol.equals(
+                    "https",
+                    ignoreCase = true,
+                )
+            ) {
+                "EXPERIMENTAL_RUNTIME_FEED_REDIRECT_DOWNGRADE"
             }
             val bytes =
                 connection.inputStream.use { input ->
@@ -139,6 +148,9 @@ internal fun parsePocketPcExperimentalRuntimeOffer(
         "EXPERIMENTAL_RUNTIME_REVISION_MISMATCH"
     }
 
+    val guestToolVersion =
+        offer.optString("guestToolVersion", "")
+            .trim()
     val url = offer.optString("url", "")
     val sha256 =
         offer.optString("sha256", "")
@@ -149,6 +161,12 @@ internal fun parsePocketPcExperimentalRuntimeOffer(
     }
     require(offer.optBoolean("experimental", false)) {
         "EXPERIMENTAL_RUNTIME_FLAG_MISSING"
+    }
+    require(
+        Regex("^[A-Za-z0-9._+-]{1,128}$")
+            .matches(guestToolVersion)
+    ) {
+        "EXPERIMENTAL_RUNTIME_GUEST_TOOL_VERSION_INVALID"
     }
     require(url.startsWith("https://")) {
         "EXPERIMENTAL_RUNTIME_URL_INVALID"
@@ -183,6 +201,7 @@ internal fun parsePocketPcExperimentalRuntimeOffer(
     return PocketPcExperimentalRuntimeOffer(
         kind = "wine",
         experimental = true,
+        guestToolVersion = guestToolVersion,
         pocketPcSourceRevision = offerRevision,
         url = url,
         sha256 = sha256,
