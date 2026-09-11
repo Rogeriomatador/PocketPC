@@ -5,6 +5,32 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+data class RuntimeDesktopExternalVulkanFrame(
+    val windowId: Long,
+    val identity: RuntimeDisplayExternalFrameIdentity,
+    val frame: RuntimeDisplayFramePixels,
+) {
+    val structurallyValid: Boolean
+        get() {
+            if (
+                windowId <= 0L ||
+                !identity.structurallyValid ||
+                frame.width <= 0 ||
+                frame.height <= 0
+            ) {
+                return false
+            }
+            val expectedPixels =
+                runCatching {
+                    Math.multiplyExact(
+                        frame.width,
+                        frame.height,
+                    )
+                }.getOrNull() ?: return false
+            return frame.argb.size == expectedPixels
+        }
+}
+
 class RuntimeDesktopBridge {
     private data class BindingState(
         val id: Long,
@@ -19,6 +45,10 @@ class RuntimeDesktopBridge {
         val keySender:
             ((
                 RuntimeBridgeKeyEvent,
+            ) -> Result<Unit>)?,
+        val externalVulkanFrameSender:
+            ((
+                RuntimeDesktopExternalVulkanFrame,
             ) -> Result<Unit>)?,
         var windows:
             List<
@@ -61,6 +91,7 @@ class RuntimeDesktopBridge {
             commandSender = sender,
             pointerSender = null,
             keySender = null,
+            externalVulkanFrameSender = null,
         )
 
     fun bind(
@@ -76,6 +107,10 @@ class RuntimeDesktopBridge {
             ((
                 RuntimeBridgeKeyEvent,
             ) -> Result<Unit>)?,
+        externalVulkanFrameSender:
+            ((
+                RuntimeDesktopExternalVulkanFrame,
+            ) -> Result<Unit>)? = null,
     ): RuntimeDesktopBinding {
         val id =
             synchronized(lock) {
@@ -108,6 +143,8 @@ class RuntimeDesktopBridge {
                             pointerSender,
                         keySender =
                             keySender,
+                        externalVulkanFrameSender =
+                            externalVulkanFrameSender,
                     )
                 allocated
             }
@@ -225,6 +262,34 @@ class RuntimeDesktopBridge {
             RuntimeDisplayBridgePayloadCodec
                 .encodeKeyEvent(event)
             sender(event).getOrThrow()
+        }
+
+    /**
+     * Routes a v51 PVI1 readback frame only to the session that already owns
+     * [RuntimeDesktopExternalVulkanFrame.windowId]. The callback is selected
+     * under the bridge lock, but invoked outside it to avoid lock inversion
+     * with the per-session compositor.
+     *
+     * A successful return means model delivery only. It is not proof of a
+     * Surface/compositor draw reaching the physical Android display.
+     */
+    fun presentExternalVulkanFrame(
+        value: RuntimeDesktopExternalVulkanFrame,
+    ): Result<Unit> =
+        runCatching {
+            require(value.structurallyValid) {
+                "RUNTIME_DESKTOP_EXTERNAL_VULKAN_FRAME_INVALID"
+            }
+            val sender =
+                synchronized(lock) {
+                    ownerForLocked(
+                        value.windowId,
+                    ).externalVulkanFrameSender
+                        ?: error(
+                            "RUNTIME_DESKTOP_EXTERNAL_VULKAN_CHANNEL_MISSING",
+                        )
+                }
+            sender(value).getOrThrow()
         }
 
     internal fun publish(
