@@ -1,0 +1,88 @@
+name: Experimental Wine 11 x86_64 PocketPC v52 Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-v52-experimental:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Wine build toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential flex bison git \
+            gcc-mingw-w64-x86-64 libvulkan-dev
+
+      - name: Validate v52 source policy before experimental build
+        run: |
+          python3 -m py_compile \
+            scripts/build-wine-x86_64-v52-experimental.py \
+            scripts/prepare-wine-pocketpc-driver-v52.py \
+            scripts/prepare-wine-pocketpc-continuous-present-v52.py \
+            scripts/test-vulkan-continuous-present-v52-policy.py \
+            scripts/test-wine-x86_64-v52-source-integration.py \
+            scripts/test-runtime-v52-present-selection-policy.py
+          python3 scripts/test-vulkan-continuous-present-v52-policy.py
+          python3 scripts/test-wine-x86_64-v52-source-integration.py
+          python3 scripts/test-runtime-v52-present-selection-policy.py
+
+      - name: Build pinned Wine 11 x86_64 package with experimental PocketPC v52 driver
+        run: |
+          python3 scripts/build-wine-x86_64-v52-experimental.py \
+            --work "$RUNNER_TEMP/pocketpc-wine-v52-experimental"
+
+      - name: Verify v52 build evidence remains experimental
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "pocketpc-wine-v52-experimental"
+          evidence = json.loads(
+              (root / "wine-pocketpc-driver-overlay-evidence.json").read_text(encoding="utf-8")
+          )
+          assert evidence["privateWineVulkanAbi"] == 52
+          assert evidence["derivedFromPrivateAbi"] == 51
+          assert evidence["officialBuildSelected"] is False
+          assert evidence["continuousPresentSourceImplemented"] is True
+          assert evidence["compiled"] is False
+          assert evidence["runtimeExecuted"] is False
+          assert evidence["integrationExecuted"] is False
+          assert evidence["physicalVisibleFrame"] is False
+          assert evidence["robloxExecuted"] is False
+          assert evidence["robloxRendered"] is False
+          assert evidence["robloxPlayable"] is False
+          assert evidence["timelineOwnership"]["guestSignalsHostConsumedEven"] is False
+          print("POCKETPC_WINE_V52_EXPERIMENTAL_SOURCE_EVIDENCE_OK")
+          print("OFFICIAL_BUILD_SELECTED=0")
+          print("RUNTIME_EXECUTED=0")
+          print("PHYSICAL_VISIBLE_FRAME=0")
+          print("ROBLOX_EXECUTED=0")
+          PY
+
+      - name: Retain experimental v52 review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Wine11-x86_64-v52-experimental-review
+          path: |
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/guest-package.zip
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/wine-build-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/wine-pocketpc-driver-overlay-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/*.log
+          if-no-files-found: warn
+
+      - name: Prove experimental build did not modify tracked source
+        if: always()
+        run: git diff --exit-code -- app third_party scripts .github
