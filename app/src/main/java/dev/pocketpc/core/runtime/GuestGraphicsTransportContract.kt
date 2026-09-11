@@ -35,20 +35,25 @@ object GuestGraphicsTransportContract {
     const val guestImportAcknowledgementHostValidationImplemented = true
     const val guestImportOwnershipPromotionImplemented = true
     const val guestGpuQueueSignalAcknowledgementStageImplemented = true
+    const val guestGpuQueueSignalAcknowledgementHostValidationImplemented = true
+    const val runtimeDisplayGpuQueueSignalObservationImplemented = true
     const val externalImagePvi1ProtocolImplemented = true
     const val guestVulkanImportPrimitiveImplemented = true
     const val externalTimelineSemaphorePvs1ProtocolImplemented = true
     const val hostTimelineSemaphoreExporterImplemented = true
     const val guestVulkanTimelineImportPrimitiveImplemented = true
     const val guestGpuQueueSignalPrimitiveImplemented = true
+    const val guestGpuFirstQueueSignalProbeImplemented = true
     const val wineVulkanAbiV48DeviceLifecycleSourceIntegrated = true
     const val activeWineDeviceImportSourceIntegrated = true
     const val asynchronousWineDeviceResourceWorkerImplemented = true
 
     /*
      * The queue signal primitive submits a real timeline semaphore signal to a
-     * Wine Vulkan queue, but source presence is not execution evidence and is
-     * not yet tied to the queue/presented frame selected by DXVK.
+     * Wine Vulkan queue and PGA1 stage 5 can carry that source-path result back
+     * to Android. Source presence is not execution evidence and this first-queue
+     * probe is deliberately not tied to the queue/presented frame selected by
+     * DXVK.
      */
     const val guestGpuQueueSignalExecuted = false
     const val guestGpuQueueSignalCompletionObserved = false
@@ -94,9 +99,12 @@ object GuestGraphicsTransportContract {
             guestImportAcknowledgementProtocolImplemented &&
             guestImportAcknowledgementHostValidationImplemented &&
             guestImportOwnershipPromotionImplemented &&
+            guestGpuQueueSignalAcknowledgementHostValidationImplemented &&
+            runtimeDisplayGpuQueueSignalObservationImplemented &&
             externalImagePvi1ProtocolImplemented &&
             externalTimelineSemaphorePvs1ProtocolImplemented &&
             guestGpuQueueSignalPrimitiveImplemented &&
+            guestGpuFirstQueueSignalProbeImplemented &&
             wineVulkanAbiV48DeviceLifecycleSourceIntegrated &&
             activeWineDeviceImportSourceIntegrated &&
             guestReceiveImplemented &&
