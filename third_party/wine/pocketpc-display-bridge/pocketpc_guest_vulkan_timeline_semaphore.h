@@ -23,6 +23,8 @@ enum pocketpc_guest_vulkan_timeline_result {
     POCKETPC_GUEST_VULKAN_TIMELINE_WAIT_FAILED = -7,
     POCKETPC_GUEST_VULKAN_TIMELINE_COUNTER_FAILED = -8,
     POCKETPC_GUEST_VULKAN_TIMELINE_NON_MONOTONIC = -9,
+    POCKETPC_GUEST_VULKAN_TIMELINE_QUEUE_UNAVAILABLE = -10,
+    POCKETPC_GUEST_VULKAN_TIMELINE_QUEUE_SUBMIT_FAILED = -11,
 };
 
 struct pocketpc_guest_vulkan_timeline {
@@ -57,6 +59,19 @@ int pocketpc_guest_vulkan_timeline_wait_cpu(
     struct pocketpc_guest_vulkan_timeline *timeline,
     uint64_t value,
     uint64_t timeout_ns
+);
+
+/*
+ * Submit an empty ordered GPU operation on one real Wine Vulkan queue and
+ * signal the imported PVS1 timeline semaphore to [value]. A successful return
+ * proves only that vkQueueSubmit accepted the timeline signal. It does not
+ * prove completion, Present ordering, swapchain capture, or Android visibility.
+ */
+int pocketpc_guest_vulkan_timeline_signal_queue(
+    struct vulkan_device *device,
+    struct vulkan_queue *queue,
+    struct pocketpc_guest_vulkan_timeline *timeline,
+    uint64_t value
 );
 
 void pocketpc_guest_vulkan_timeline_release(
