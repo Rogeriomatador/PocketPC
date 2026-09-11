@@ -31,6 +31,9 @@ object GuestGraphicsTransportContract {
     const val canonicalPgtResourceOfferImplemented = true
     const val authenticatedHostPgtPvi1Pvs1OfferImplemented = true
     const val authenticatedHostPvi1Pvs1OfferImplemented = true
+    const val guestImportAcknowledgementProtocolImplemented = true
+    const val guestImportAcknowledgementHostValidationImplemented = true
+    const val guestImportOwnershipPromotionImplemented = true
     const val externalImagePvi1ProtocolImplemented = true
     const val guestVulkanImportPrimitiveImplemented = true
     const val externalTimelineSemaphorePvs1ProtocolImplemented = true
@@ -49,10 +52,11 @@ object GuestGraphicsTransportContract {
 
     /*
      * These three gates describe OBSERVED integration in the real guest, not
-     * the existence of source code or the host successfully calling sendmsg().
+     * the existence of source code, host sendmsg(), or PGA1 source handling.
      * They remain false until a launched Box64/Wine guest actually receives the
-     * canonical PGT/PVI1/PVS1 sequence, imports it into the active DXVK device,
-     * and exercises ownership through real GPU queue work end-to-end.
+     * canonical PGT/PVI1/PVS1 sequence, returns ordered PGA1 acknowledgements,
+     * imports the resources into the active DXVK device, and exercises
+     * ownership through real GPU queue work end-to-end.
      */
     const val guestReceiveImplemented = false
     const val guestImportImplemented = false
@@ -77,6 +81,9 @@ object GuestGraphicsTransportContract {
             runtimeDisplayGraphicsEnvironmentInjectionImplemented &&
             canonicalPgtResourceOfferImplemented &&
             authenticatedHostPgtPvi1Pvs1OfferImplemented &&
+            guestImportAcknowledgementProtocolImplemented &&
+            guestImportAcknowledgementHostValidationImplemented &&
+            guestImportOwnershipPromotionImplemented &&
             externalImagePvi1ProtocolImplemented &&
             externalTimelineSemaphorePvs1ProtocolImplemented &&
             wineVulkanAbiV48DeviceLifecycleSourceIntegrated &&
