@@ -33,11 +33,13 @@ jobs:
             scripts/test-vulkan-continuous-present-v52-policy.py \
             scripts/test-wine-x86_64-v52-source-integration.py \
             scripts/test-runtime-v52-present-selection-policy.py \
+            scripts/test-v52-package-revision-binding.py \
             scripts/validate-v52-continuous-present-integration.py \
             scripts/test-v52-continuous-present-integration-validator.py
           python3 scripts/test-vulkan-continuous-present-v52-policy.py
           python3 scripts/test-wine-x86_64-v52-source-integration.py
           python3 scripts/test-runtime-v52-present-selection-policy.py
+          python3 scripts/test-v52-package-revision-binding.py
 
       - name: Build deterministic Win64 v52 multi-present smoke
         run: |
@@ -89,6 +91,9 @@ jobs:
           build = json.loads(
               (root / "wine-v52-experimental-build-evidence.json").read_text(encoding="utf-8")
           )
+          expected_pocketpc_revision = os.environ["GITHUB_SHA"].strip().lower()
+          assert len(expected_pocketpc_revision) == 40
+          assert all(ch in "0123456789abcdef" for ch in expected_pocketpc_revision)
 
           assert overlay["privateWineVulkanAbi"] == 52
           assert overlay["derivedFromPrivateAbi"] == 51
@@ -106,14 +111,20 @@ jobs:
           capability = build["verifiedRuntimeGraphicsCapability"]
           assert capability["wineVulkanAbi"] == 52
           assert capability["capabilities"] == ["pocketpc.vulkan.continuous-present.v52"]
+          assert capability["pocketPcSourceRevision"] == expected_pocketpc_revision
           capability_path = root / "guest-package" / capability["path"]
           assert capability_path.is_file()
+          capability_json = json.loads(capability_path.read_text(encoding="utf-8"))
+          assert capability_json["pocketPcSourceRevision"] == expected_pocketpc_revision
+          assert capability_json["wineVulkanAbi"] == 52
+          assert capability_json["capabilities"] == ["pocketpc.vulkan.continuous-present.v52"]
 
           assert build["targetPrivateWineVulkanAbi"] == 52
           assert build["derivedFromPrivateWineVulkanAbi"] == 51
           assert build["officialBuildSelected"] is False
           assert build["buildExecuted"] is True
           assert build["packageCompiled"] is True
+          assert build["pocketPcSourceRevision"] == expected_pocketpc_revision
           assert build["runtimeExecuted"] is False
           assert build["integrationExecuted"] is False
           assert build["physicalVisibleFrame"] is False
@@ -127,6 +138,7 @@ jobs:
           assert build["classification"]["roblox"] == "NOT_EXECUTED"
 
           print("POCKETPC_WINE_V52_EXPERIMENTAL_BUILD_EVIDENCE_OK")
+          print(f"POCKETPC_SOURCE_REVISION={expected_pocketpc_revision}")
           print("OFFICIAL_BUILD_SELECTED=0")
           print("BUILD_EXECUTED=1")
           print("RUNTIME_EXECUTED=0")
