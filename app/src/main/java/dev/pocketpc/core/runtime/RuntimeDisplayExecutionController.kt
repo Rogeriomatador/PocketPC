@@ -28,6 +28,8 @@ data class RuntimeDisplayExecutionResult(
     val graphicsAuthenticated: Boolean = false,
     val graphicsHostResourceOffered: Boolean = false,
     val graphicsGuestImportConfirmed: Boolean = false,
+    val graphicsGpuQueueSignalObserved: Boolean = false,
+    val graphicsGpuQueueFamilyIndex: Int? = null,
     val graphicsResourceId: Long? = null,
     val graphicsGeneration: Long? = null,
     val graphicsError: String? = null,
@@ -37,6 +39,8 @@ private data class RuntimeDisplayGraphicsState(
     val authenticated: Boolean,
     val hostResourceOffered: Boolean,
     val guestImportConfirmed: Boolean,
+    val gpuQueueSignalObserved: Boolean,
+    val gpuQueueFamilyIndex: Int?,
     val resourceId: Long?,
     val generation: Long?,
     val error: String?,
@@ -59,7 +63,9 @@ private sealed interface RuntimeDisplayStartup {
  * Display Bridge and graphics transport intentionally share the same PRoot /
  * Box64 / Wine process family. A graphics transport failure is recorded but
  * does not silently turn a generic Win32 display test into a Vulkan PASS.
- * Host resource offer and guest import acknowledgement are separate results.
+ * Host resource offer, guest import acknowledgement and GPU queue-submit
+ * acknowledgement are three distinct results. The last one is not Present
+ * ordering and therefore cannot promote visible WSI or Roblox readiness.
  */
 class RuntimeDisplayExecutionController(
     private val executionController: ProotExecutionController,
@@ -163,6 +169,8 @@ class RuntimeDisplayExecutionController(
             var graphicsAuthenticated = false
             var graphicsHostResourceOffered = false
             var graphicsGuestImportConfirmed = false
+            var graphicsGpuQueueSignalObserved = false
+            var graphicsGpuQueueFamilyIndex: Int? = null
             var graphicsResourceId: Long? = null
             var graphicsGeneration: Long? = null
             var graphicsError: String? =
@@ -178,6 +186,8 @@ class RuntimeDisplayExecutionController(
                         authenticated = graphicsAuthenticated,
                         hostResourceOffered = graphicsHostResourceOffered,
                         guestImportConfirmed = graphicsGuestImportConfirmed,
+                        gpuQueueSignalObserved = graphicsGpuQueueSignalObserved,
+                        gpuQueueFamilyIndex = graphicsGpuQueueFamilyIndex,
                         resourceId = graphicsResourceId,
                         generation = graphicsGeneration,
                         error = graphicsError,
@@ -223,6 +233,8 @@ class RuntimeDisplayExecutionController(
                 authenticated: Boolean? = null,
                 offered: Boolean? = null,
                 guestImportConfirmed: Boolean? = null,
+                gpuQueueSignalObserved: Boolean? = null,
+                gpuQueueFamilyIndex: Int? = null,
                 resourceId: Long? = null,
                 generation: Long? = null,
                 error: String? = null,
@@ -232,6 +244,8 @@ class RuntimeDisplayExecutionController(
                     authenticated?.let { graphicsAuthenticated = it }
                     offered?.let { graphicsHostResourceOffered = it }
                     guestImportConfirmed?.let { graphicsGuestImportConfirmed = it }
+                    gpuQueueSignalObserved?.let { graphicsGpuQueueSignalObserved = it }
+                    gpuQueueFamilyIndex?.let { graphicsGpuQueueFamilyIndex = it }
                     resourceId?.let { graphicsResourceId = it }
                     generation?.let { graphicsGeneration = it }
                     if (clearError) graphicsError = null
@@ -374,6 +388,7 @@ class RuntimeDisplayExecutionController(
                     updateGraphicsState(
                         offered = true,
                         guestImportConfirmed = false,
+                        gpuQueueSignalObserved = false,
                         resourceId = offered.resourceId,
                         generation = offered.generation,
                         clearError = true,
@@ -405,6 +420,35 @@ class RuntimeDisplayExecutionController(
                         generation = imported.generation,
                         clearError = true,
                     )
+
+                    val queueSignalResult =
+                        graphics.awaitGpuQueueSignalProbe(
+                            timeoutMillis =
+                                handshakeTimeoutMillis.coerceIn(
+                                    GraphicsSeqpacketSessionHost.MIN_AUTH_TIMEOUT_MILLIS,
+                                    GraphicsSeqpacketSessionHost.MAX_AUTH_TIMEOUT_MILLIS,
+                                ),
+                        )
+                    val queueSignalled = queueSignalResult.getOrNull()
+                    if (queueSignalled == null || !queueSignalled.gpuQueueSignalObserved) {
+                        updateGraphicsState(
+                            gpuQueueSignalObserved = false,
+                            error =
+                                graphics.snapshot().blocker
+                                    ?: queueSignalResult.exceptionOrNull()?.message
+                                    ?: GuestGraphicsSessionOrchestrator.BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED,
+                        )
+                        return@launch
+                    }
+
+                    updateGraphicsState(
+                        gpuQueueSignalObserved = true,
+                        gpuQueueFamilyIndex =
+                            queueSignalled.gpuQueueSignalAcknowledgement?.queueFamilyIndex,
+                        resourceId = queueSignalled.resourceId,
+                        generation = queueSignalled.generation,
+                        clearError = true,
+                    )
                 }
             }
 
@@ -431,6 +475,8 @@ class RuntimeDisplayExecutionController(
                         graphicsAuthenticated = graphics.authenticated,
                         graphicsHostResourceOffered = graphics.hostResourceOffered,
                         graphicsGuestImportConfirmed = graphics.guestImportConfirmed,
+                        graphicsGpuQueueSignalObserved = graphics.gpuQueueSignalObserved,
+                        graphicsGpuQueueFamilyIndex = graphics.gpuQueueFamilyIndex,
                         graphicsResourceId = graphics.resourceId,
                         graphicsGeneration = graphics.generation,
                         graphicsError = graphics.error,
@@ -478,6 +524,8 @@ class RuntimeDisplayExecutionController(
                         graphicsAuthenticated = graphics.authenticated,
                         graphicsHostResourceOffered = graphics.hostResourceOffered,
                         graphicsGuestImportConfirmed = graphics.guestImportConfirmed,
+                        graphicsGpuQueueSignalObserved = graphics.gpuQueueSignalObserved,
+                        graphicsGpuQueueFamilyIndex = graphics.gpuQueueFamilyIndex,
                         graphicsResourceId = graphics.resourceId,
                         graphicsGeneration = graphics.generation,
                         graphicsError = graphics.error,
@@ -524,7 +572,7 @@ class RuntimeDisplayExecutionController(
 
                 if (graphicsOfferJob?.isActive == true) {
                     updateGraphicsState(
-                        error = "GUEST_GRAPHICS_IMPORT_NOT_COMPLETED_BEFORE_PROCESS_EXIT",
+                        error = "GUEST_GRAPHICS_QUEUE_SIGNAL_NOT_COMPLETED_BEFORE_PROCESS_EXIT",
                     )
                 }
 
@@ -542,6 +590,8 @@ class RuntimeDisplayExecutionController(
                     graphicsAuthenticated = graphics.authenticated,
                     graphicsHostResourceOffered = graphics.hostResourceOffered,
                     graphicsGuestImportConfirmed = graphics.guestImportConfirmed,
+                    graphicsGpuQueueSignalObserved = graphics.gpuQueueSignalObserved,
+                    graphicsGpuQueueFamilyIndex = graphics.gpuQueueFamilyIndex,
                     graphicsResourceId = graphics.resourceId,
                     graphicsGeneration = graphics.generation,
                     graphicsError = graphics.error,
