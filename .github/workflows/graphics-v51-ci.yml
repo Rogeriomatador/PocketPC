@@ -1,0 +1,104 @@
+name: Graphics v51 CI
+
+on:
+  push:
+    branches:
+      - improve/alpha22-desktop-continuity
+    paths:
+      - '.github/workflows/graphics-v51-ci.yml'
+      - 'app/src/main/cpp/**'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/**'
+      - 'app/src/test/java/dev/pocketpc/core/runtime/**'
+      - 'scripts/test-wine-x86_64-v51-integration.py'
+      - 'scripts/test-vulkan-host-consumer-policy.py'
+      - 'third_party/wine/pocketpc-display-bridge/**'
+      - 'third_party/wine/pocketpc-driver/**'
+      - 'toolchains/android-build-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: graphics-v51-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python syntax
+        run: python3 -m py_compile scripts/test-wine-x86_64-v51-integration.py scripts/test-vulkan-host-consumer-policy.py
+
+      - name: Wine v51 integration lock
+        run: python3 scripts/test-wine-x86_64-v51-integration.py
+
+      - name: Vulkan host consumer policy
+        run: python3 scripts/test-vulkan-host-consumer-policy.py
+
+  android-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs: source-policy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read pinned build toolchain
+        id: build_lock
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          lock = json.loads(Path('toolchains/android-build-lock.json').read_text(encoding='utf-8'))
+          android = lock['android']
+          values = {
+              'jdk': str(lock['jdk']['major']),
+              'gradle': str(lock['gradle']['version']),
+              'platform': str(android['platformPackage']),
+              'build_tools': str(android['buildTools']),
+              'ndk': str(android['ndk']),
+              'cmake': str(android['cmake']),
+          }
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              for key, value in values.items():
+                  out.write(f'{key}={value}\n')
+          PY
+
+      - name: Set up pinned Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.build_lock.outputs.jdk }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install pinned Android SDK, NDK, and CMake
+        run: |
+          sdkmanager \
+            "platform-tools" \
+            "${{ steps.build_lock.outputs.platform }}" \
+            "build-tools;${{ steps.build_lock.outputs.build_tools }}" \
+            "ndk;${{ steps.build_lock.outputs.ndk }}" \
+            "cmake;${{ steps.build_lock.outputs.cmake }}"
+
+      - name: Set up pinned Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ steps.build_lock.outputs.gradle }}
+
+      - name: Compile native host, unit tests, and debug APK
+        run: >-
+          gradle --no-daemon --stacktrace
+          :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Verify native runtime is packaged
+        run: |
+          unzip -l app/build/outputs/apk/debug/app-debug.apk |
+            grep -E 'lib/(arm64-v8a|x86_64)/libpocketpc_runtime\.so'
