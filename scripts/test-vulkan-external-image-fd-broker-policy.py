@@ -241,8 +241,12 @@ def main() -> int:
             '"pocketpc_guest_external_image_ownership.h"',
             '"pocketpc_guest_external_image_ownership.c"',
             '"guestAcquireReleasePrimitiveImplemented": True',
-            '"androidInitialReleaseImplemented": False',
-            '"guestPrimitiveActivated": False',
+            '"androidInitialReleaseImplemented": True',
+            '"guestPrimitiveActivated": True',
+            '"roundTripSourceIntegrated": True',
+            "pocketpc_guest_external_image_acquire(",
+            "pocketpc_guest_external_image_release(",
+            "stage=roundtrip_completed",
         ),
     )
 
@@ -252,6 +256,11 @@ def main() -> int:
         contract,
         (
             "const val hostOpaqueFdImageBrokerImplemented =\n        true",
+            "const val hostOpaqueFdInitialExternalReleaseSourceIntegrated = true",
+            "const val guestExternalImageAcquireReleasePrimitiveImplemented = true",
+            "const val hostOpaqueFdInitialExternalReleaseExecuted = false",
+            "const val guestExternalImageAcquireExecuted = false",
+            "const val guestExternalImageReleaseExecuted = false",
             "const val hostDmaBufImageBrokerImplemented =\n        false",
             "const val guestReceiveImplemented =\n        false",
             "const val guestImportImplemented =\n        false",
@@ -281,6 +290,8 @@ def main() -> int:
     print("host_opaque_fd_image_broker_implemented=true")
     print("host_initial_external_queue_release_source_integrated=true")
     print("guest_external_queue_acquire_release_primitive=true")
+    print("guest_external_queue_roundtrip_source_integrated=true")
+    print("external_queue_roundtrip_executed=false")
     print("host_dma_buf_image_broker_implemented=false")
     print("guest_receive_runtime_integrated=false")
     print("guest_vulkan_import_implemented=false")
