@@ -37,6 +37,14 @@ def main() -> int:
     roblox = text(
         "app/src/main/java/dev/pocketpc/core/runtime/RobloxGraphicsPreflight.kt"
     )
+    roblox_environment = text(
+        "app/src/main/java/dev/pocketpc/core/runtime/"
+        "RobloxGraphicsDiagnosticEnvironment.kt"
+    )
+    roblox_launch = text(
+        "app/src/main/java/dev/pocketpc/core/runtime/RobloxInstalledLaunchPlan.kt"
+    )
+    physical_capture = text("scripts/capture-graphics-runtime-evidence-windows.ps1")
 
     require(helper_h, "original semaphores a second time", "semaphore_consumption_contract")
     require(helper_c, "VK_IMAGE_LAYOUT_PRESENT_SRC_KHR", "source_present_layout")
@@ -73,6 +81,59 @@ def main() -> int:
     require(runtime, "const val robloxExecuted = false", "runtime_roblox_false")
     require(roblox, "PocketPcWinePresentBridgeContract.pixelCopyExecuted", "roblox_copy_execution_gate")
     require(roblox, "PocketPcWinePresentBridgeContract.readyForRobloxGraphics()", "roblox_readiness_gate")
+
+    require(
+        roblox_environment,
+        'PRESENT_COPY_DIAGNOSTIC =\n        "POCKETPC_VULKAN_PRESENT_COPY_DIAGNOSTIC"',
+        "roblox_copy_diagnostic_environment",
+    )
+    require(
+        roblox_environment,
+        'put(PRESENT_COPY_DIAGNOSTIC, "1")',
+        "roblox_copy_diagnostic_enabled",
+    )
+    require(
+        roblox_launch,
+        "enableRobloxGraphicsDiagnostics = false",
+        "winecfg_diagnostics_disabled",
+    )
+    require(
+        roblox_launch,
+        "enableRobloxGraphicsDiagnostics = true",
+        "roblox_diagnostics_enabled",
+    )
+    require(
+        roblox_launch,
+        "RobloxGraphicsDiagnosticEnvironment",
+        "roblox_environment_wiring",
+    )
+
+    require(physical_capture, "schemaVersion = 3", "physical_evidence_schema_v3")
+    require(
+        physical_capture,
+        'prePresentCopySubmitted = "POCKETPC_VULKAN_PRESENT_COPY stage=copy_submitted"',
+        "copy_submitted_marker",
+    )
+    require(
+        physical_capture,
+        'prePresentCopyCompleted = "POCKETPC_VULKAN_PRESENT_COPY stage=copy_queue_completed"',
+        "copy_completed_marker",
+    )
+    require(
+        physical_capture,
+        "exactSwapchainPixelCopyEvidence = $copyPixelsEvidence",
+        "copy_completion_derived_evidence",
+    )
+    require(
+        physical_capture,
+        "androidVisibleFrameEvidence = $false",
+        "visible_frame_stays_fail_closed",
+    )
+    require(
+        physical_capture,
+        "robloxGameplayEvidence = $false",
+        "roblox_gameplay_stays_fail_closed",
+    )
 
     print("WINE_X86_64_V51_INTEGRATION_POLICY_OK_NOT_EXECUTED")
     return 0
