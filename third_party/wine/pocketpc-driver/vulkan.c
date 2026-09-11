@@ -4,6 +4,7 @@
 
 #include "config.h"
 
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -11,6 +12,12 @@
 #define WIN32_NO_STATUS
 
 #include "pocketpcdrv.h"
+#include "pocketpc_graphics_session_client.h"
+#include "pocketpc_graphics_transport.h"
+#include "pocketpc_external_image_fd_protocol.h"
+#include "pocketpc_guest_vulkan_import.h"
+#include "pocketpc_external_timeline_semaphore_fd_protocol.h"
+#include "pocketpc_guest_vulkan_timeline_semaphore.h"
 #include "wine/vulkan.h"
 #include "wine/vulkan_driver.h"
 
@@ -18,10 +25,202 @@ WINE_DEFAULT_DEBUG_CHANNEL(pocketpcdrv);
 
 static LONG pocketpc_headless_present_count;
 
+struct pocketpc_vulkan_guest_resource_state
+{
+    pthread_mutex_t mutex;
+    struct vulkan_device *device;
+    struct pocketpc_graphics_session session;
+    struct pgt_resource_descriptor descriptor;
+    struct pgt_ownership_record ownership;
+    struct pocketpc_guest_vulkan_image image;
+    struct pocketpc_guest_vulkan_timeline timeline;
+    BOOL image_imported;
+    BOOL timeline_imported;
+};
+
+static struct pocketpc_vulkan_guest_resource_state pocketpc_guest_resource =
+{
+    .mutex = PTHREAD_MUTEX_INITIALIZER,
+    .session = {.fd = -1},
+};
+
 static BOOL pocketpc_headless_diagnostic_enabled(void)
 {
     const char *value = getenv("POCKETPC_VULKAN_HEADLESS_DIAGNOSTIC");
     return value && !strcmp(value, "1");
+}
+
+static BOOL pocketpc_graphics_session_requested(void)
+{
+    const char *protocol = getenv("POCKETPC_GRAPHICS_SESSION_PROTOCOL");
+    return protocol && !strcmp(protocol, "1");
+}
+
+static void pocketpc_guest_resource_reset_records(void)
+{
+    memset(&pocketpc_guest_resource.descriptor, 0, sizeof(pocketpc_guest_resource.descriptor));
+    memset(&pocketpc_guest_resource.ownership, 0, sizeof(pocketpc_guest_resource.ownership));
+    memset(&pocketpc_guest_resource.image, 0, sizeof(pocketpc_guest_resource.image));
+    memset(&pocketpc_guest_resource.timeline, 0, sizeof(pocketpc_guest_resource.timeline));
+    pocketpc_guest_resource.image.image = VK_NULL_HANDLE;
+    pocketpc_guest_resource.image.memory = VK_NULL_HANDLE;
+    pocketpc_guest_resource.timeline.semaphore = VK_NULL_HANDLE;
+    pocketpc_guest_resource.image_imported = FALSE;
+    pocketpc_guest_resource.timeline_imported = FALSE;
+}
+
+static void pocketpc_guest_resource_release_locked(struct vulkan_device *device)
+{
+    if (!device || pocketpc_guest_resource.device != device)
+        return;
+
+    if (pocketpc_guest_resource.timeline_imported)
+        pocketpc_guest_vulkan_timeline_release(device, &pocketpc_guest_resource.timeline);
+    if (pocketpc_guest_resource.image_imported)
+        pocketpc_guest_vulkan_import_release(device, &pocketpc_guest_resource.image);
+
+    pocketpc_graphics_session_close(&pocketpc_guest_resource.session);
+    pocketpc_guest_resource.device = NULL;
+    pocketpc_guest_resource_reset_records();
+}
+
+static void pocketpc_vulkan_device_created(struct vulkan_device *device)
+{
+    struct pocketpc_external_image_fd_received image_received;
+    struct pocketpc_external_timeline_semaphore_fd_received timeline_received;
+    char session_error[128] = {0};
+    int result;
+
+    if (!device || !pocketpc_graphics_session_requested())
+        return;
+
+    memset(&image_received, 0, sizeof(image_received));
+    image_received.resource_fd = -1;
+    memset(&timeline_received, 0, sizeof(timeline_received));
+    timeline_received.semaphore_fd = -1;
+
+    pthread_mutex_lock(&pocketpc_guest_resource.mutex);
+
+    if (pocketpc_guest_resource.device)
+    {
+        WARN("POCKETPC_VULKAN_GUEST stage=device_created_rejected reason=active_device_exists active=%p new=%p\n",
+             pocketpc_guest_resource.device, device);
+        pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+        return;
+    }
+
+    pocketpc_guest_resource_reset_records();
+    pocketpc_guest_resource.session.fd = -1;
+
+    result = pocketpc_graphics_session_connect_from_environment(
+        &pocketpc_guest_resource.session,
+        PGS_DEFAULT_TIMEOUT_MILLIS,
+        session_error,
+        sizeof(session_error));
+    if (result != PGS_OK)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pgh1_connect_failed result=%d error=%s\n",
+            result, session_error);
+        goto failed;
+    }
+
+    result = pgt_receive_resource_offer(
+        pocketpc_guest_resource.session.fd,
+        &pocketpc_guest_resource.descriptor,
+        &pocketpc_guest_resource.ownership);
+    if (result != 0)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pgt_offer_receive_failed result=%d\n", result);
+        goto failed;
+    }
+
+    result = pocketpc_external_image_fd_receive(
+        pocketpc_guest_resource.session.fd,
+        &pocketpc_guest_resource.descriptor,
+        &pocketpc_guest_resource.ownership,
+        &image_received);
+    if (result != POCKETPC_EXTERNAL_IMAGE_FD_OK)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pvi1_receive_failed result=%d\n", result);
+        goto failed;
+    }
+
+    result = pocketpc_guest_vulkan_import_external_image(
+        device,
+        &image_received,
+        &pocketpc_guest_resource.image);
+    pocketpc_external_image_fd_received_release(&image_received);
+    if (result != POCKETPC_GUEST_VULKAN_IMPORT_OK)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pvi1_import_failed result=%d\n", result);
+        goto failed;
+    }
+    pocketpc_guest_resource.image_imported = TRUE;
+
+    result = pocketpc_external_timeline_semaphore_fd_receive(
+        pocketpc_guest_resource.session.fd,
+        &pocketpc_guest_resource.descriptor,
+        &pocketpc_guest_resource.ownership,
+        &timeline_received);
+    if (result != POCKETPC_EXTERNAL_TIMELINE_SEMAPHORE_FD_OK)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pvs1_receive_failed result=%d\n", result);
+        goto failed;
+    }
+
+    result = pocketpc_guest_vulkan_timeline_import(
+        device,
+        &timeline_received,
+        &pocketpc_guest_resource.timeline);
+    pocketpc_external_timeline_semaphore_fd_received_release(&timeline_received);
+    if (result != POCKETPC_GUEST_VULKAN_TIMELINE_OK)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pvs1_import_failed result=%d\n", result);
+        goto failed;
+    }
+    pocketpc_guest_resource.timeline_imported = TRUE;
+
+    if (pocketpc_guest_resource.image.resource_id != pocketpc_guest_resource.descriptor.resource_id ||
+        pocketpc_guest_resource.image.generation != pocketpc_guest_resource.descriptor.generation ||
+        pocketpc_guest_resource.timeline.resource_id != pocketpc_guest_resource.descriptor.resource_id ||
+        pocketpc_guest_resource.timeline.generation != pocketpc_guest_resource.descriptor.generation)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=import_identity_mismatch\n");
+        goto failed;
+    }
+
+    pocketpc_guest_resource.device = device;
+    TRACE("POCKETPC_VULKAN_GUEST stage=resource_import_primitives_completed runtime_evidence=0 gpu_sync=0 visible_present=0 resource=%s generation=%s sequence=%s\n",
+          wine_dbgstr_longlong(pocketpc_guest_resource.descriptor.resource_id),
+          wine_dbgstr_longlong(pocketpc_guest_resource.descriptor.generation),
+          wine_dbgstr_longlong(pocketpc_guest_resource.ownership.sequence));
+    pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+    return;
+
+failed:
+    pocketpc_external_image_fd_received_release(&image_received);
+    pocketpc_external_timeline_semaphore_fd_received_release(&timeline_received);
+    if (pocketpc_guest_resource.timeline_imported)
+        pocketpc_guest_vulkan_timeline_release(device, &pocketpc_guest_resource.timeline);
+    if (pocketpc_guest_resource.image_imported)
+        pocketpc_guest_vulkan_import_release(device, &pocketpc_guest_resource.image);
+    pocketpc_graphics_session_close(&pocketpc_guest_resource.session);
+    pocketpc_guest_resource.device = NULL;
+    pocketpc_guest_resource_reset_records();
+    pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+}
+
+static void pocketpc_vulkan_device_destroyed(struct vulkan_device *device)
+{
+    if (!device) return;
+
+    pthread_mutex_lock(&pocketpc_guest_resource.mutex);
+    if (pocketpc_guest_resource.device == device)
+    {
+        TRACE("POCKETPC_VULKAN_GUEST stage=device_resource_cleanup device=%p\n", device);
+        pocketpc_guest_resource_release_locked(device);
+    }
+    pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
 }
 
 static void pocketpc_headless_client_surface_destroy(
@@ -206,6 +405,8 @@ static const struct vulkan_driver_funcs pocketpc_vulkan_driver_funcs =
         pocketpc_get_physical_device_presentation_support,
     .p_map_instance_extensions = pocketpc_map_instance_extensions,
     .p_map_device_extensions = pocketpc_map_device_extensions,
+    .p_vulkan_device_created = pocketpc_vulkan_device_created,
+    .p_vulkan_device_destroyed = pocketpc_vulkan_device_destroyed,
 };
 
 UINT POCKETPC_VulkanInit(
@@ -231,7 +432,7 @@ UINT POCKETPC_VulkanInit(
     *driver_funcs = &pocketpc_vulkan_driver_funcs;
 
     TRACE(
-        "POCKETPC_VULKAN_WSI stage=abi_initialized version=%u visible_surface_backend=blocked headless_diagnostic=%u external_handle_mapping=ready\n",
+        "POCKETPC_VULKAN_WSI stage=abi_initialized version=%u visible_surface_backend=blocked headless_diagnostic=%u external_handle_mapping=ready device_lifecycle_callbacks=ready\n",
         WINE_VULKAN_DRIVER_VERSION,
         pocketpc_headless_diagnostic_enabled()
     );
