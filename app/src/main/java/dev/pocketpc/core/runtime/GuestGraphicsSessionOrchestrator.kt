@@ -11,9 +11,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * PGH1 authentication (session token + SO_PEERCRED PID) succeeds.
  *
  * A successful host offer means only that PGT RESOURCE_OFFER + PVI1 + PVS1
- * were sent over the authenticated SOCK_SEQPACKET connection. It is not proof
- * that Wine/DXVK imported them, submitted GPU work, presented a visible frame,
- * or ran Roblox.
+ * were sent over the authenticated SOCK_SEQPACKET connection. Guest import is
+ * confirmed separately through the ordered PGA1 acknowledgement chain. Neither
+ * condition proves GPU queue synchronization, visible Present, or Roblox.
  */
 class GuestGraphicsSessionOrchestrator private constructor(
     private val session: GraphicsSeqpacketSessionHost.Session,
@@ -22,6 +22,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
         CREATED,
         AUTHENTICATED,
         RESOURCE_OFFERED,
+        GUEST_IMPORT_CONFIRMED,
         CLOSED,
     }
 
@@ -35,6 +36,9 @@ class GuestGraphicsSessionOrchestrator private constructor(
         val pgtOfferSent: Boolean,
         val pvi1Sent: Boolean,
         val pvs1Sent: Boolean,
+        val guestImportAcknowledgements:
+            GraphicsSeqpacketSessionHost.ImportAcknowledgements? = null,
+        val guestImportedOwnership: GuestGraphicsOwnershipToken? = null,
     ) {
         val hostOfferComplete: Boolean
             get() =
@@ -42,6 +46,15 @@ class GuestGraphicsSessionOrchestrator private constructor(
                     pvi1Sent &&
                     pvs1Sent &&
                     ownership.state == GuestGraphicsOwnershipState.OFFERED_TO_GUEST
+
+        val guestImportConfirmed: Boolean
+            get() =
+                hostOfferComplete &&
+                    guestImportAcknowledgements?.ready == true &&
+                    guestImportedOwnership?.state == GuestGraphicsOwnershipState.GUEST_IMPORTED &&
+                    guestImportedOwnership.resourceId == resourceId &&
+                    guestImportedOwnership.generation == generation &&
+                    guestImportedOwnership.sequence == ownership.sequence + 1L
     }
 
     data class Snapshot(
@@ -49,6 +62,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
         val authenticated: Boolean,
         val activeResourceId: Long?,
         val activeGeneration: Long?,
+        val hostResourceOffered: Boolean,
+        val guestImportConfirmed: Boolean,
         val blocker: String?,
     )
 
@@ -71,6 +86,10 @@ class GuestGraphicsSessionOrchestrator private constructor(
             "GUEST_GRAPHICS_PVI1_SEND_FAILED"
         const val BLOCKER_PVS1_SEND_FAILED =
             "GUEST_GRAPHICS_PVS1_SEND_FAILED"
+        const val BLOCKER_IMPORT_ACK_FAILED =
+            "GUEST_GRAPHICS_IMPORT_ACK_FAILED"
+        const val BLOCKER_IMPORT_OWNERSHIP_CONFIRM_FAILED =
+            "GUEST_GRAPHICS_IMPORT_OWNERSHIP_CONFIRM_FAILED"
         const val BLOCKER_CLOSED =
             "GUEST_GRAPHICS_SESSION_CLOSED"
 
@@ -123,8 +142,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
      *   2. PVI1: external VkImage allocation FD + immutable import metadata
      *   3. PVS1: external timeline semaphore FD for that exact resource
      *
-     * Later guest acknowledgement/ownership transitions are separate and must
-     * be observed before any guest integration gate can be promoted.
+     * Guest acknowledgement and ownership promotion are separate and must be
+     * observed through [awaitGuestImportConfirmation].
      */
     fun createAndOfferExternalImage(
         width: Int,
@@ -230,6 +249,76 @@ class GuestGraphicsSessionOrchestrator private constructor(
             }
         }
 
+    /**
+     * Wait for PGA1 stages 1..4 and only then promote logical ownership from
+     * OFFERED_TO_GUEST(sequence=1) to GUEST_IMPORTED(sequence=2).
+     *
+     * This is an import acknowledgement boundary only. No transition to
+     * GUEST_RENDERING occurs here because that requires real GPU queue work.
+     */
+    fun awaitGuestImportConfirmation(
+        timeoutMillis: Long = GraphicsSeqpacketSessionHost.DEFAULT_AUTH_TIMEOUT_MILLIS,
+    ): Result<ResourceOffer> =
+        runCatching {
+            check(!closed.get()) { BLOCKER_CLOSED }
+            check(authenticated.get()) { BLOCKER_NOT_AUTHENTICATED }
+
+            val connection = acceptedConnection
+            check(connection != null && connection.valid) {
+                BLOCKER_NOT_AUTHENTICATED
+            }
+
+            val offer = activeOffer
+                ?: throw IllegalStateException(BLOCKER_IMPORT_ACK_FAILED)
+            check(offer.hostOfferComplete) { BLOCKER_IMPORT_ACK_FAILED }
+            if (offer.guestImportConfirmed) return@runCatching offer
+
+            val acknowledgements =
+                connection.awaitImportAcknowledgements(
+                    resourceId = offer.resourceId,
+                    generation = offer.generation,
+                    sequence = offer.ownership.sequence,
+                    timeoutMillis = timeoutMillis,
+                ) ?: run {
+                    lastBlocker = BLOCKER_IMPORT_ACK_FAILED
+                    throw IllegalStateException(BLOCKER_IMPORT_ACK_FAILED)
+                }
+
+            val transition =
+                GuestGraphicsOwnershipProtocol.transition(
+                    token = offer.ownership,
+                    event = GuestGraphicsOwnershipEvent.CONFIRM_GUEST_IMPORT,
+                    sequence = offer.ownership.sequence + 1L,
+                )
+            if (!transition.accepted ||
+                transition.current.state != GuestGraphicsOwnershipState.GUEST_IMPORTED
+            ) {
+                lastBlocker = BLOCKER_IMPORT_OWNERSHIP_CONFIRM_FAILED
+                throw IllegalStateException(
+                    transition.blocker ?: BLOCKER_IMPORT_OWNERSHIP_CONFIRM_FAILED,
+                )
+            }
+
+            val confirmed =
+                offer.copy(
+                    guestImportAcknowledgements = acknowledgements,
+                    guestImportedOwnership = transition.current,
+                )
+            check(confirmed.guestImportConfirmed) {
+                BLOCKER_IMPORT_OWNERSHIP_CONFIRM_FAILED
+            }
+
+            activeOffer = confirmed
+            lastBlocker = null
+            confirmed
+        }.onFailure {
+            if (lastBlocker == null) {
+                lastBlocker =
+                    it.message?.takeIf(String::isNotBlank)
+                        ?: BLOCKER_IMPORT_ACK_FAILED
+            }
+        }
+
     fun activeOffer(): ResourceOffer? = activeOffer
 
     fun releaseActiveResource(): Boolean {
@@ -251,6 +340,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
             state =
                 when {
                     isClosed -> State.CLOSED
+                    offer?.guestImportConfirmed == true -> State.GUEST_IMPORT_CONFIRMED
                     offer?.hostOfferComplete == true -> State.RESOURCE_OFFERED
                     isAuthenticated -> State.AUTHENTICATED
                     else -> State.CREATED
@@ -258,6 +348,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
             authenticated = isAuthenticated,
             activeResourceId = offer?.resourceId,
             activeGeneration = offer?.generation,
+            hostResourceOffered = offer?.hostOfferComplete == true,
+            guestImportConfirmed = offer?.guestImportConfirmed == true,
             blocker = lastBlocker,
         )
     }
