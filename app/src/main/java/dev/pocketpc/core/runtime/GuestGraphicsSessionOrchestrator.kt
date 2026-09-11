@@ -151,18 +151,10 @@ class GuestGraphicsSessionOrchestrator private constructor(
 
         acceptedConnection = connection
         lastBlocker = null
+        RuntimeGraphicsEvidenceLog.authenticated()
         return true
     }
 
-    /**
-     * Canonical host send order:
-     *   1. PGT RESOURCE_OFFER: descriptor + OFFERED_TO_GUEST ownership
-     *   2. PVI1: external VkImage allocation FD + immutable import metadata
-     *   3. PVS1: external timeline semaphore FD for that exact resource
-     *
-     * Guest acknowledgement and ownership promotion are separate and must be
-     * observed through [awaitGuestImportConfirmation].
-     */
     fun createAndOfferExternalImage(
         width: Int,
         height: Int,
@@ -253,6 +245,12 @@ class GuestGraphicsSessionOrchestrator private constructor(
                 activeOffer = offer
                 lastBlocker = null
                 keepLease = true
+                RuntimeGraphicsEvidenceLog.resourceOffered(
+                    resourceId = offer.resourceId,
+                    generation = offer.generation,
+                    width = offer.width,
+                    height = offer.height,
+                )
                 offer
             } finally {
                 if (!keepLease) {
@@ -265,6 +263,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
                     it.message?.takeIf(String::isNotBlank)
                         ?: BLOCKER_RESOURCE_CREATE_FAILED
             }
+            RuntimeGraphicsEvidenceLog.blocked(lastBlocker ?: BLOCKER_RESOURCE_CREATE_FAILED)
         }
 
     fun awaitGuestImportConfirmation(
@@ -321,6 +320,10 @@ class GuestGraphicsSessionOrchestrator private constructor(
 
             activeOffer = confirmed
             lastBlocker = null
+            RuntimeGraphicsEvidenceLog.guestImportConfirmed(
+                resourceId = confirmed.resourceId,
+                generation = confirmed.generation,
+            )
             confirmed
         }.onFailure {
             if (lastBlocker == null) {
@@ -328,6 +331,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
                     it.message?.takeIf(String::isNotBlank)
                         ?: BLOCKER_IMPORT_ACK_FAILED
             }
+            RuntimeGraphicsEvidenceLog.blocked(lastBlocker ?: BLOCKER_IMPORT_ACK_FAILED)
         }
 
     /**
@@ -385,6 +389,11 @@ class GuestGraphicsSessionOrchestrator private constructor(
 
             activeOffer = updated
             lastBlocker = null
+            RuntimeGraphicsEvidenceLog.presentQueueSignalObserved(
+                resourceId = updated.resourceId,
+                generation = updated.generation,
+                queueFamilyIndex = acknowledgement.queueFamilyIndex,
+            )
             updated
         }.onFailure {
             if (lastBlocker == null) {
@@ -392,6 +401,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
                     it.message?.takeIf(String::isNotBlank)
                         ?: BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED
             }
+            RuntimeGraphicsEvidenceLog.blocked(lastBlocker ?: BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED)
         }
 
     fun activeOffer(): ResourceOffer? = activeOffer
@@ -446,6 +456,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
 
     private fun fail(blocker: String): Boolean {
         lastBlocker = blocker
+        RuntimeGraphicsEvidenceLog.blocked(blocker)
         return false
     }
 }
