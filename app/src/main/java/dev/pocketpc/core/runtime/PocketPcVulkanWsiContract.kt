@@ -11,13 +11,16 @@ package dev.pocketpc.core.runtime
  */
 object PocketPcVulkanWsiContract {
     /**
-     * PocketPC patches the pinned Wine 11 internal ABI from upstream v47 to v49
-     * by appending exact VkDevice lifecycle callbacks plus a callback that is
-     * invoked with the exact Wine vulkan_queue immediately after host
-     * vkQueuePresentKHR. The bump prevents a shorter pre-patch
-     * vulkan_driver_funcs layout from being consumed as if those slots existed.
+     * PocketPC applies staged private ABI patches to the pinned Wine 11 source.
+     * Upstream is v47. The base PocketPC overlay reaches v49 for exact VkDevice
+     * lifecycle + Present-queue callbacks; the presented-image patch advances
+     * that prepared source to v50 and appends the exact host VkImage callback.
+     *
+     * These are source-layout guards, not runtime PASS evidence.
      */
     const val WINE_VULKAN_DRIVER_VERSION =
+        50
+    const val BASE_OVERLAY_VULKAN_DRIVER_VERSION =
         49
     const val PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION =
         47
@@ -34,12 +37,16 @@ object PocketPcVulkanWsiContract {
         true
     const val presentQueueTimelineSignalSourceIntegrated =
         true
+    const val exactPresentedImageIdentitySourceIntegrated =
+        true
 
     const val deviceLifecycleCallbacksSoftwareTestExecuted =
         false
     const val presentQueueCallbackSoftwareTestExecuted =
         false
     const val presentQueueTimelineSignalExecuted =
+        false
+    const val exactPresentedImageIdentityExecuted =
         false
     const val abiEntryPointSoftwareTestExecuted =
         false
@@ -80,6 +87,12 @@ object PocketPcVulkanWsiContract {
         false
     const val swapchainPresentationImplemented =
         false
+
+    /**
+     * We can now identify the exact host swapchain VkImage in source, but no
+     * pixel copy is performed yet. Keep image capture false until a real
+     * pre-Present GPU copy into the exported PVI1 image is implemented.
+     */
     const val swapchainImageCaptureImplemented =
         false
     const val hostVisibleFrameImplemented =
@@ -109,6 +122,7 @@ object PocketPcVulkanWsiContract {
             "p_vulkan_device_created",
             "p_vulkan_device_destroyed",
             "p_vulkan_queue_presented",
+            "p_vulkan_image_presented",
         )
 
     val requiredTransportProofs:
@@ -121,6 +135,7 @@ object PocketPcVulkanWsiContract {
             "guest-graphics-handle-receive",
             "guest-graphics-resource-import",
             "guest-present-queue-timeline-signal",
+            "exact-presented-swapchain-image-identity",
             "guest-graphics-synchronization",
             "swapchain-image-capture",
             "host-visible-frame",
