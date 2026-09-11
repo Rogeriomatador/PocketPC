@@ -4,9 +4,9 @@ package dev.pocketpc.core.runtime
  * Fail-closed contract for graphics-handle transport from the Android host
  * into the actual guest/Wine execution side.
  *
- * Foundations may be implemented before they are wired into a real runtime
- * session. These flags deliberately distinguish reusable primitives from an
- * authenticated, executed Box64/Wine/DXVK path.
+ * Foundations may be implemented before they are executed in a real runtime
+ * session. These flags deliberately distinguish reusable/integrated host code
+ * from an observed Box64/Wine/DXVK receive/import/synchronization path.
  */
 object GuestGraphicsTransportContract {
     const val PROTOCOL_VERSION = 1
@@ -23,6 +23,10 @@ object GuestGraphicsTransportContract {
     const val guestReceivePrimitiveImplemented = true
     const val authenticatedSessionHandshakePrimitiveImplemented = true
     const val androidSeqpacketSessionHostImplemented = true
+    const val nativeAuthenticationDeadlineImplemented = true
+    const val graphicsSessionOrchestratorImplemented = true
+    const val prootGraphicsEnvironmentInjectionImplemented = true
+    const val authenticatedHostPvi1Pvs1OfferImplemented = true
     const val externalImagePvi1ProtocolImplemented = true
     const val guestVulkanImportPrimitiveImplemented = true
     const val externalTimelineSemaphorePvs1ProtocolImplemented = true
@@ -37,11 +41,11 @@ object GuestGraphicsTransportContract {
     const val box64DirectAhardwareBufferBridgeVerified = false
 
     /*
-     * These three gates describe the real session, not the existence of helper
-     * functions. They remain false until the authenticated graphics broker is
-     * injected into a launched Wine/Box64 process, a PVI1 resource plus PVS1
-     * semaphore are imported into the Vulkan device actually used by Wine/DXVK,
-     * and monotonic GPU signal/wait ownership is exercised end-to-end.
+     * These three gates describe observed integration in the real guest, not
+     * the existence of helper functions or the host successfully calling
+     * sendmsg(). They stay false until a launched Box64/Wine guest actually
+     * receives PVI1/PVS1, imports both into the Vulkan objects used by DXVK and
+     * exercises the ownership timeline on GPU work end-to-end.
      */
     const val guestReceiveImplemented = false
     const val guestImportImplemented = false
@@ -59,6 +63,10 @@ object GuestGraphicsTransportContract {
             ownershipProtocolImplemented &&
             authenticatedSessionHandshakePrimitiveImplemented &&
             androidSeqpacketSessionHostImplemented &&
+            nativeAuthenticationDeadlineImplemented &&
+            graphicsSessionOrchestratorImplemented &&
+            prootGraphicsEnvironmentInjectionImplemented &&
+            authenticatedHostPvi1Pvs1OfferImplemented &&
             externalImagePvi1ProtocolImplemented &&
             externalTimelineSemaphorePvs1ProtocolImplemented &&
             guestReceiveImplemented &&
