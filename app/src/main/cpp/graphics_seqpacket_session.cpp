@@ -41,7 +41,8 @@ constexpr uint32_t kPgaMagic = 0x31414750u;  // PGA1 little-endian.
 constexpr uint16_t kPgaVersion = 1;
 constexpr size_t kPgaPacketBytes = 48;
 constexpr uint16_t kPgaFirstStage = 1;
-constexpr uint16_t kPgaLastStage = 4;
+constexpr uint16_t kPgaImportLastStage = 4;
+constexpr uint16_t kPgaGpuSignalStage = 5;
 constexpr int32_t kPgaStatusOk = 0;
 constexpr int kPgaReadyMask = 0x0f;
 
@@ -314,8 +315,9 @@ int ReceiveAck(
         uint16_t expected_stage,
         uint64_t resource_id,
         uint64_t generation,
-        uint64_t sequence) {
-    if (!IsSeqpacket(fd) || expected_stage < kPgaFirstStage || expected_stage > kPgaLastStage ||
+        uint64_t sequence,
+        uint32_t* detail_out) {
+    if (!IsSeqpacket(fd) || expected_stage < kPgaFirstStage || expected_stage > kPgaGpuSignalStage ||
         resource_id == 0 || generation == 0 || sequence == 0) {
         return -20;
     }
@@ -356,6 +358,7 @@ int ReceiveAck(
     const uint64_t ack_resource_id = GetU64Le(packet.data() + 16);
     const uint64_t ack_generation = GetU64Le(packet.data() + 24);
     const uint64_t ack_sequence = GetU64Le(packet.data() + 32);
+    const uint32_t detail = GetU32Le(packet.data() + 40);
     const uint32_t reserved1 = GetU32Le(packet.data() + 44);
 
     if (magic != kPgaMagic || version != kPgaVersion) return -26;
@@ -365,6 +368,7 @@ int ReceiveAck(
     if (ack_resource_id != resource_id || ack_generation != generation || ack_sequence != sequence)
         return -30;
 
+    if (detail_out) *detail_out = detail;
     return 1 << (stage - 1u);
 }
 
@@ -379,12 +383,37 @@ int AwaitImportAcks(
 
     const auto deadline = Clock::now() + std::chrono::milliseconds(timeout_millis);
     int mask = 0;
-    for (uint16_t stage = kPgaFirstStage; stage <= kPgaLastStage; ++stage) {
-        const int result = ReceiveAck(fd, deadline, stage, resource_id, generation, sequence);
+    for (uint16_t stage = kPgaFirstStage; stage <= kPgaImportLastStage; ++stage) {
+        const int result = ReceiveAck(fd, deadline, stage, resource_id, generation, sequence, nullptr);
         if (result < 0) return result;
         mask |= result;
     }
     return mask == kPgaReadyMask ? mask : -33;
+}
+
+int AwaitGpuSignalAck(
+        int fd,
+        uint64_t resource_id,
+        uint64_t generation,
+        uint64_t sequence,
+        int timeout_millis) {
+    if (timeout_millis < kMinTimeoutMillis || timeout_millis > kMaxTimeoutMillis) return -34;
+    if (!IsSeqpacket(fd) || resource_id == 0 || generation == 0 || sequence == 0) return -35;
+
+    const auto deadline = Clock::now() + std::chrono::milliseconds(timeout_millis);
+    uint32_t queue_family = 0u;
+    const int result = ReceiveAck(
+        fd,
+        deadline,
+        kPgaGpuSignalStage,
+        resource_id,
+        generation,
+        sequence,
+        &queue_family);
+    if (result < 0) return result;
+    if (result != (1 << (kPgaGpuSignalStage - 1u))) return -36;
+    if (queue_family > static_cast<uint32_t>(INT32_MAX)) return -37;
+    return static_cast<int>(queue_family);
 }
 
 }  // namespace
@@ -480,6 +509,19 @@ Java_dev_pocketpc_core_runtime_GraphicsSeqpacketSessionHost_nativeAwaitImportAck
         jlong sequence, jint timeout_millis) {
     if (resource_id <= 0 || generation <= 0 || sequence <= 0) return -32;
     return AwaitImportAcks(
+        fd,
+        static_cast<uint64_t>(resource_id),
+        static_cast<uint64_t>(generation),
+        static_cast<uint64_t>(sequence),
+        timeout_millis);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_dev_pocketpc_core_runtime_GraphicsSeqpacketSessionHost_nativeAwaitGpuSignalAck(
+        JNIEnv*, jobject, jint fd, jlong resource_id, jlong generation,
+        jlong sequence, jint timeout_millis) {
+    if (resource_id <= 0 || generation <= 0 || sequence <= 0) return -35;
+    return AwaitGpuSignalAck(
         fd,
         static_cast<uint64_t>(resource_id),
         static_cast<uint64_t>(generation),
