@@ -55,16 +55,20 @@ def main() -> int:
         ("guest-tool-manifest.json", "feed-manifest-verification"),
         ("runtime-graphics-capabilities.json", "feed-capability-sidecar"),
         ("experimentalRuntime", "feed-additive-runtime-offer"),
+        ("guestToolVersion", "feed-guest-tool-version"),
         ("pocketPcSourceRevision", "feed-revision-binding"),
+        ("actual_names != expected_names", "feed-exact-zip-file-set"),
+        ("experimental runtime file SHA-256 mismatch", "feed-per-file-hash"),
     ):
         require(feed, needle, label)
 
     for needle, label in (
         ("POCKETPC_SOURCE_REVISION_PINNED", "catalog-pinned-apk-revision"),
         ("EXPERIMENTAL_RUNTIME_REVISION_MISMATCH", "catalog-revision-mismatch"),
+        ("guestToolVersion", "catalog-guest-tool-version"),
         ("wineVulkanAbi", "catalog-abi52"),
         ("pocketpc.vulkan.continuous-present.v52", "catalog-exact-capability"),
-        ("https://", "catalog-https"),
+        ("EXPERIMENTAL_RUNTIME_FEED_REDIRECT_DOWNGRADE", "catalog-feed-https-redirect-gate"),
     ):
         require(catalog, needle, label)
 
@@ -75,6 +79,12 @@ def main() -> int:
         ("packages.stageZip", "installer-package-verifier-path"),
         ("installer.install", "installer-verified-install-path"),
         ("EXPERIMENTAL_RUNTIME_REDIRECT_DOWNGRADE", "installer-https-redirect-gate"),
+        ("BuildConfig.POCKETPC_SOURCE_REVISION_PINNED", "installer-pinned-running-apk"),
+        ("EXPERIMENTAL_RUNTIME_INSTALL_REVISION_MISMATCH", "installer-running-revision-rebind"),
+        ("EXPERIMENTAL_RUNTIME_INSTALL_CAPABILITY_MISMATCH", "installer-capability-rebind"),
+        ("EXPERIMENTAL_RUNTIME_STAGED_VERSION_MISMATCH", "installer-staged-version-rebind"),
+        ("EXPERIMENTAL_RUNTIME_INSTALLED_VERSION_MISMATCH", "installer-installed-version-rebind"),
+        ("packages.remove(staged)", "installer-staging-cleanup"),
     ):
         require(installer, needle, label)
 
@@ -119,6 +129,7 @@ def main() -> int:
     print("POCKETPC_PAIRED_V52_HOME_TEST_POLICY_OK")
     print("PAIRED_BUILD_PATH_IMPLEMENTED=1")
     print("PAIRED_IN_APP_OFFER_IMPLEMENTED=1")
+    print("INSTALL_IDENTITY_REVALIDATION_IMPLEMENTED=1")
     print("NORMAL_OTA_REMAINS_APK_ONLY=1")
     print("RUNTIME_EXECUTED=0")
     print("PHYSICAL_VISIBLE_FRAME=0")
