@@ -18,6 +18,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 object GraphicsSeqpacketSessionHost {
     const val PROTOCOL_VERSION = 1
     const val TOKEN_BYTES = 32
+    const val MIN_AUTH_TIMEOUT_MILLIS = 100L
+    const val MAX_AUTH_TIMEOUT_MILLIS = 120_000L
+    const val DEFAULT_AUTH_TIMEOUT_MILLIS = 8_000L
     private const val SOCKET_PREFIX = "pocketpc-gfx-"
 
     private val secureRandom = SecureRandom()
@@ -29,7 +32,11 @@ object GraphicsSeqpacketSessionHost {
         token: ByteArray,
     ): Long
 
-    private external fun nativeAcceptAuthenticated(sessionId: Long): Int
+    private external fun nativeAcceptAuthenticated(
+        sessionId: Long,
+        timeoutMillis: Int,
+    ): Int
+
     private external fun nativeCloseAcceptedFd(fd: Int)
     private external fun nativeCloseServer(sessionId: Long)
 
@@ -70,12 +77,22 @@ object GraphicsSeqpacketSessionHost {
     ) : AutoCloseable {
         private val closed = AtomicBoolean(false)
 
-        /** Blocking. Call from the runtime IO executor, never the Compose thread. */
-        fun acceptAuthenticated(): AcceptedConnection? {
+        /**
+         * Blocking, but bounded in native code with poll() and a monotonic
+         * deadline. Call from the runtime IO executor, never the Compose thread.
+         */
+        fun acceptAuthenticated(
+            timeoutMillis: Long = DEFAULT_AUTH_TIMEOUT_MILLIS,
+        ): AcceptedConnection? {
             if (closed.get() || sessionId <= 0L) return null
+            if (timeoutMillis !in MIN_AUTH_TIMEOUT_MILLIS..MAX_AUTH_TIMEOUT_MILLIS) return null
+
             val fd =
                 runCatching {
-                    GraphicsSeqpacketSessionHost.nativeAcceptAuthenticated(sessionId)
+                    GraphicsSeqpacketSessionHost.nativeAcceptAuthenticated(
+                        sessionId,
+                        timeoutMillis.toInt(),
+                    )
                 }.getOrNull() ?: return null
             return fd.takeIf { it >= 0 }?.let(::AcceptedConnection)
         }
