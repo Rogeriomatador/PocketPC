@@ -17,6 +17,7 @@ SESSION = (
     / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySessionController.kt"
 )
 BRIDGE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDesktopBridge.kt"
+EVIDENCE = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeGraphicsEvidenceLog.kt"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -33,6 +34,7 @@ def main() -> None:
     controller = CONTROLLER.read_text(encoding="utf-8")
     session = SESSION.read_text(encoding="utf-8")
     bridge = BRIDGE.read_text(encoding="utf-8")
+    evidence = EVIDENCE.read_text(encoding="utf-8")
 
     require(
         controller,
@@ -85,9 +87,34 @@ def main() -> None:
         "session republishes compositor state",
     )
     require(
+        session,
+        "RuntimeGraphicsEvidenceLog.desktopModelFrameDelivered(",
+        "session records post-snapshot model delivery",
+    )
+    require(
         bridge,
         "ownerForLocked(",
         "bridge exact owner lookup",
+    )
+    require(
+        evidence,
+        '"DESKTOP_MODEL_FRAME_DELIVERED"',
+        "desktop model delivery evidence event",
+    )
+    require(
+        evidence,
+        '" model_delivery=1"',
+        "model-only evidence classification",
+    )
+    require(
+        evidence,
+        '" host_visible_frame=0"',
+        "physical visibility stays fail-closed",
+    )
+    require(
+        evidence,
+        '" physical_validated=0"',
+        "physical validation stays false",
     )
 
     # The source pipeline must remain fail-closed about physical presentation.
@@ -95,6 +122,7 @@ def main() -> None:
         (controller, "controller"),
         (session, "session"),
         (bridge, "bridge"),
+        (evidence, "evidence"),
     ):
         forbid(text, "hostVisiblePresentValidated = true", label)
         forbid(text, "robloxExecuted = true", label)
