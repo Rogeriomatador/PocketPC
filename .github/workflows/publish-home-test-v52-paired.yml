@@ -2,6 +2,11 @@ name: PocketPC Paired v52 Home Test
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - improve/alpha22-desktop-continuity
+    paths:
+      - .github/paired-v52-home-test.trigger
 
 permissions:
   contents: read
