@@ -21,6 +21,8 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 V52_CAPABILITY = "pocketpc.vulkan.continuous-present.v52"
 V52_CAPABILITY_PATH = "share/pocketpc/runtime-graphics-capabilities.json"
 MAX_EMBEDDED_JSON_BYTES = 16 * 1024 * 1024
+MAX_GUEST_FILE_COUNT = 100_000
+MAX_GUEST_PATH_CHARS = 4096
 
 
 def sha256_bytes(payload: bytes) -> str:
@@ -117,6 +119,77 @@ def read_zip_json(
     return parsed, payload
 
 
+def validate_guest_path(value: object) -> str:
+    if not isinstance(value, str) or not value or len(value) > MAX_GUEST_PATH_CHARS:
+        raise ValueError("experimental runtime manifest contains invalid file path")
+    if "\\" in value or value.startswith("/"):
+        raise ValueError(f"experimental runtime manifest path is unsafe: {value!r}")
+    path = pathlib.PurePosixPath(value)
+    if value != path.as_posix() or any(part in ("", ".", "..") for part in path.parts):
+        raise ValueError(f"experimental runtime manifest path is unsafe: {value!r}")
+    return value
+
+
+def verify_manifest_files(
+    archive: zipfile.ZipFile,
+    manifest: dict[str, object],
+) -> dict[str, dict[str, object]]:
+    files = manifest.get("files")
+    if not isinstance(files, list) or not files:
+        raise ValueError("experimental runtime manifest files must be a non-empty list")
+    if len(files) > MAX_GUEST_FILE_COUNT:
+        raise ValueError("experimental runtime manifest has too many files")
+
+    records: dict[str, dict[str, object]] = {}
+    for raw in files:
+        if not isinstance(raw, dict):
+            raise ValueError("experimental runtime manifest file record is invalid")
+        path = validate_guest_path(raw.get("path"))
+        if path == "guest-tool-manifest.json" or path in records:
+            raise ValueError(f"experimental runtime manifest path is duplicated: {path}")
+        expected_sha = raw.get("sha256")
+        expected_bytes = raw.get("bytes")
+        executable = raw.get("executable")
+        if not isinstance(expected_sha, str) or not SHA256_RE.fullmatch(expected_sha):
+            raise ValueError(f"experimental runtime manifest SHA-256 invalid: {path}")
+        if not isinstance(expected_bytes, int) or isinstance(expected_bytes, bool) or expected_bytes < 0:
+            raise ValueError(f"experimental runtime manifest byte size invalid: {path}")
+        if not isinstance(executable, bool):
+            raise ValueError(f"experimental runtime executable flag invalid: {path}")
+        records[path] = raw
+
+    archive_names = archive.namelist()
+    if len(archive_names) != len(set(archive_names)):
+        raise ValueError("experimental runtime ZIP contains duplicate paths")
+    expected_names = {"guest-tool-manifest.json", *records.keys()}
+    actual_names = set(archive_names)
+    if actual_names != expected_names:
+        missing = sorted(expected_names - actual_names)[:8]
+        extra = sorted(actual_names - expected_names)[:8]
+        raise ValueError(
+            "experimental runtime ZIP/manifest file set mismatch "
+            f"missing={missing} extra={extra}"
+        )
+
+    for path, record in records.items():
+        info = archive.getinfo(path)
+        if info.is_dir():
+            raise ValueError(f"experimental runtime file is a directory: {path}")
+        if info.file_size != record["bytes"]:
+            raise ValueError(f"experimental runtime file byte size mismatch: {path}")
+        digest = hashlib.sha256()
+        with archive.open(info, "r") as stream:
+            while True:
+                chunk = stream.read(1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
+        if digest.hexdigest() != record["sha256"]:
+            raise ValueError(f"experimental runtime file SHA-256 mismatch: {path}")
+
+    return records
+
+
 def verify_v52_runtime_package(
     package_path: pathlib.Path,
     source_revision: str,
@@ -128,35 +201,43 @@ def verify_v52_runtime_package(
         raise ValueError("experimental runtime is empty")
 
     with zipfile.ZipFile(package, "r") as archive:
-        names = archive.namelist()
-        if len(names) != len(set(names)):
-            raise ValueError("experimental runtime ZIP contains duplicate paths")
-
         manifest, _ = read_zip_json(archive, "guest-tool-manifest.json")
+
+        if manifest.get("schemaVersion") != 1:
+            raise ValueError("experimental runtime manifest schema must be 1")
+        if manifest.get("id") != "wine":
+            raise ValueError("experimental runtime manifest id must be wine")
+        version = manifest.get("version")
+        if not isinstance(version, str) or not version or len(version) > 128:
+            raise ValueError("experimental runtime manifest version is invalid")
+        if manifest.get("architecture") != "x86_64":
+            raise ValueError("experimental runtime architecture must be x86_64")
+        if manifest.get("guestRoot") != "/opt/pocketpc/wine":
+            raise ValueError("experimental runtime guest root is invalid")
+        if manifest.get("entrypoint") != "bin/wine":
+            raise ValueError("experimental runtime entrypoint must be bin/wine")
+        source_commit = manifest.get("sourceCommit")
+        if not isinstance(source_commit, str) or not REVISION_RE.fullmatch(source_commit):
+            raise ValueError("experimental runtime Wine source commit is invalid")
+        if manifest.get("license") != "LGPL-2.1-or-later":
+            raise ValueError("experimental runtime license declaration is invalid")
+        if manifest.get("executionMode") != "box64-x86_64":
+            raise ValueError("experimental runtime execution mode is invalid")
+
+        records = verify_manifest_files(archive, manifest)
+        entrypoint = records.get("bin/wine")
+        if entrypoint is None or entrypoint.get("executable") is not True:
+            raise ValueError("experimental runtime entrypoint is not executable")
+
         capability, capability_payload = read_zip_json(
             archive,
             V52_CAPABILITY_PATH,
         )
-
-        if manifest.get("id") != "wine":
-            raise ValueError("experimental runtime manifest id must be wine")
-        if manifest.get("architecture") != "x86_64":
-            raise ValueError("experimental runtime architecture must be x86_64")
-
-        files = manifest.get("files")
-        if not isinstance(files, list):
-            raise ValueError("experimental runtime manifest files must be a list")
-        matching = [
-            item
-            for item in files
-            if isinstance(item, dict)
-            and item.get("path") == V52_CAPABILITY_PATH
-        ]
-        if len(matching) != 1:
+        manifest_capability = records.get(V52_CAPABILITY_PATH)
+        if manifest_capability is None:
             raise ValueError(
                 "experimental runtime capability must appear exactly once in manifest"
             )
-        manifest_capability = matching[0]
         expected_capability_sha = sha256_bytes(capability_payload)
         if manifest_capability.get("sha256") != expected_capability_sha:
             raise ValueError("experimental runtime capability SHA-256 mismatch")
@@ -195,6 +276,7 @@ def verify_v52_runtime_package(
     return {
         "kind": "wine",
         "experimental": True,
+        "guestToolVersion": version,
         "pocketPcSourceRevision": source_revision,
         "sha256": digest,
         "bytes": package.stat().st_size,
@@ -292,6 +374,7 @@ def main() -> int:
     print(f"apk_sha256={digest}")
     if runtime is not None:
         print("experimental_runtime_verified=true")
+        print(f"experimental_runtime_guest_tool_version={runtime['guestToolVersion']}")
         print(f"experimental_runtime_sha256={runtime['sha256']}")
         print(f"experimental_runtime_bytes={runtime['bytes']}")
         print("experimental_runtime_wine_vulkan_abi=52")
