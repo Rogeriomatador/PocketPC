@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: pocketpc-home-test-builder
+    runtime: docker
+    plan: free
+    region: ohio
+    branch: improve/alpha22-desktop-continuity
+    autoDeployTrigger: off
+    dockerfilePath: ./infra/render/Dockerfile.builder
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: POCKETPC_SOURCE_REVISION
+        value: LOCAL_UNPINNED
