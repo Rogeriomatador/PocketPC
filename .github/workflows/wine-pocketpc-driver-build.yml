@@ -35,6 +35,7 @@ on:
       - 'app/src/main/java/dev/pocketpc/core/runtime/RobloxInstalledLaunchPlan.kt'
       - 'scripts/prepare-wine-source.py'
       - 'scripts/prepare-wine-pocketpc-driver.py'
+      - 'scripts/prepare-wine-pocketpc-present-image.py'
       - 'scripts/build-wine-pocketpc-driver.py'
       - 'scripts/run-pocketpc-fd-transport-smoke.py'
       - 'scripts/run-pocketpc-guest-graphics-receive-smoke.py'
@@ -56,6 +57,7 @@ on:
       - 'scripts/test-wine-pocketpc-driver-policy.py'
       - 'scripts/test-wine-pocketpc-driver-abi-lock.py'
       - 'scripts/test-wine-pocketpc-vulkan-abi-policy.py'
+      - 'scripts/test-wine-pocketpc-present-image-policy.py'
       - 'scripts/test-vulkan-wsi-policy.py'
       - 'scripts/test-ahardwarebuffer-vulkan-transport-policy.py'
       - 'scripts/test-guest-graphics-protocol-policy.py'
@@ -108,6 +110,7 @@ jobs:
           python3 scripts/test-wine-pocketpc-driver-policy.py
           python3 scripts/test-wine-pocketpc-driver-abi-lock.py
           python3 scripts/test-wine-pocketpc-vulkan-abi-policy.py
+          python3 scripts/test-wine-pocketpc-present-image-policy.py
           python3 scripts/test-vulkan-wsi-policy.py
           python3 scripts/test-ahardwarebuffer-vulkan-transport-policy.py
           python3 scripts/test-guest-graphics-protocol-policy.py
@@ -174,6 +177,12 @@ jobs:
             --wine-source "$RUNNER_TEMP/pocketpc-wine-driver-source/source" \
             --evidence "$RUNNER_TEMP/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json"
 
+      - name: Add exact presented-image identity patch
+        run: |
+          python3 scripts/prepare-wine-pocketpc-present-image.py \
+            --wine-source "$RUNNER_TEMP/pocketpc-wine-driver-source/source" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-driver-source/wine-pocketpc-present-image.json"
+
       - name: Build only winepocketpc driver
         run: |
           python3 scripts/build-wine-pocketpc-driver.py \
@@ -214,6 +223,7 @@ jobs:
             ${{ runner.temp }}/pocketpc-pvs1-smoke/pvs1-evidence.json
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-build-plan.json
             ${{ runner.temp }}/pocketpc-wine-driver-source/wine-pocketpc-driver-overlay.json
+            ${{ runner.temp }}/pocketpc-wine-driver-source/wine-pocketpc-present-image.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/winepocketpc-driver-build-evidence.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/winepocketpc-driver-pe-audit.json
             ${{ runner.temp }}/pocketpc-wine-driver-build/winepocketpc-driver-artifact-set.json
