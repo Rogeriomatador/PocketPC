@@ -34,14 +34,25 @@ object GuestGraphicsTransportContract {
     const val guestImportAcknowledgementProtocolImplemented = true
     const val guestImportAcknowledgementHostValidationImplemented = true
     const val guestImportOwnershipPromotionImplemented = true
+    const val guestGpuQueueSignalAcknowledgementStageImplemented = true
     const val externalImagePvi1ProtocolImplemented = true
     const val guestVulkanImportPrimitiveImplemented = true
     const val externalTimelineSemaphorePvs1ProtocolImplemented = true
     const val hostTimelineSemaphoreExporterImplemented = true
     const val guestVulkanTimelineImportPrimitiveImplemented = true
+    const val guestGpuQueueSignalPrimitiveImplemented = true
     const val wineVulkanAbiV48DeviceLifecycleSourceIntegrated = true
     const val activeWineDeviceImportSourceIntegrated = true
     const val asynchronousWineDeviceResourceWorkerImplemented = true
+
+    /*
+     * The queue signal primitive submits a real timeline semaphore signal to a
+     * Wine Vulkan queue, but source presence is not execution evidence and is
+     * not yet tied to the queue/presented frame selected by DXVK.
+     */
+    const val guestGpuQueueSignalExecuted = false
+    const val guestGpuQueueSignalCompletionObserved = false
+    const val guestGpuQueueSignalPresentOrdered = false
 
     /*
      * The pinned Box64 source has not provided verified evidence that a direct
@@ -52,11 +63,10 @@ object GuestGraphicsTransportContract {
 
     /*
      * These three gates describe OBSERVED integration in the real guest, not
-     * the existence of source code, host sendmsg(), or PGA1 source handling.
-     * They remain false until a launched Box64/Wine guest actually receives the
-     * canonical PGT/PVI1/PVS1 sequence, returns ordered PGA1 acknowledgements,
-     * imports the resources into the active DXVK device, and exercises
-     * ownership through real GPU queue work end-to-end.
+     * the existence of source code, host sendmsg(), PGA1 source handling, or a
+     * queue-submit helper. They remain false until a launched Box64/Wine guest
+     * actually receives/imports the canonical resources and synchronization is
+     * proven through real GPU work associated with the presentation path.
      */
     const val guestReceiveImplemented = false
     const val guestImportImplemented = false
@@ -86,6 +96,7 @@ object GuestGraphicsTransportContract {
             guestImportOwnershipPromotionImplemented &&
             externalImagePvi1ProtocolImplemented &&
             externalTimelineSemaphorePvs1ProtocolImplemented &&
+            guestGpuQueueSignalPrimitiveImplemented &&
             wineVulkanAbiV48DeviceLifecycleSourceIntegrated &&
             activeWineDeviceImportSourceIntegrated &&
             guestReceiveImplemented &&
