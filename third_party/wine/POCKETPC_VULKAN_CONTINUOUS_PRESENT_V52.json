@@ -15,7 +15,8 @@
     "graphicsSession": "PGH1 v1 remains the authenticated SOCK_SEQPACKET transport.",
     "resourceOffer": "PGT1/PVI1 offer identity remains immutable for one resource generation.",
     "ownershipSemaphore": "PVS1 role FRAME_OWNERSHIP is reused instead of inventing an unsynchronized second ownership channel.",
-    "pga1": "PGA1 stages 1-6 remain lifecycle/diagnostic acknowledgements; continuous frame ownership is not inferred from repeated PGA1 packets."
+    "pga1": "PGA1 stages 1-6 remain lifecycle/diagnostic acknowledgements; continuous frame ownership is not inferred from repeated PGA1 packets.",
+    "jniNumericBoundary": "Kotlin/JNI transport uses Long/jlong, so v52 intentionally stays within signed 64-bit positive values even though Vulkan timeline counters are uint64_t."
   },
   "identity": {
     "resourceIdentity": [
@@ -25,17 +26,19 @@
     ],
     "offerSequenceMeaning": "Immutable descriptor/FD-offer identity. It is not the continuous frame number.",
     "frameSequenceSource": "Derived from the shared PVS1 timeline value.",
-    "generationRule": "Resize, resource recreation, device loss, or incompatible format/extent creates a new generation and a fresh timeline initialized to zero."
+    "generationRule": "Resize, resource recreation, device loss, incompatible format/extent, or timeline exhaustion creates a new generation and a fresh timeline initialized to zero."
   },
   "timelineOwnership": {
     "initialValue": 0,
+    "bridgeMaximumTimelineValue": 9223372036854775807,
+    "maximumFrameSequence": 4611686018427387903,
     "guestReadyFormula": "2 * frameSequence - 1",
     "hostConsumedFormula": "2 * frameSequence",
     "frameSequenceMinimum": 1,
     "guestReadyParity": "odd",
     "hostConsumedParity": "even",
     "monotonic": true,
-    "overflowPolicy": "Fail closed before multiplication/addition can exceed UINT64_MAX. Recreate the resource/generation instead of wrapping.",
+    "overflowPolicy": "Fail closed before multiplication/addition can exceed Long.MAX_VALUE/jlong positive range. Recreate the resource/generation instead of wrapping or crossing into negative Kotlin values.",
     "firstFrame": {
       "previousHostConsumedValue": 0,
       "guestReadyValue": 1,
@@ -45,6 +48,11 @@
       "previousHostConsumedValue": 2,
       "guestReadyValue": 3,
       "hostConsumedValue": 4
+    },
+    "lastRepresentableFrame": {
+      "frameSequence": 4611686018427387903,
+      "guestReadyValue": 9223372036854775805,
+      "hostConsumedValue": 9223372036854775806
     }
   },
   "guestPerFrameOrder": [
@@ -70,6 +78,7 @@
     "Never reuse frameSequence after a generation change.",
     "Never accept an even value as guest-ready or an odd value as host-consumed.",
     "Never accept a lower or equal frame sequence after a newer frame was already committed for the same generation.",
+    "Never pass a timeline value greater than Long.MAX_VALUE through Kotlin/JNI.",
     "Never infer host-visible presentation from successful Vulkan readback or Compose model delivery.",
     "Never infer Roblox execution, rendering, playability, input, audio, network, or stability from this contract."
   ],
