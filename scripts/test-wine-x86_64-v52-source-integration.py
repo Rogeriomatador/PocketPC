@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Static source-integration lock for experimental PocketPC Wine Vulkan ABI v52.
 
-This does not prepare or compile Wine. It only verifies that the checked-in v52
-source overlay preserves the v51 fallback, keeps the official build on v51, and
-keeps all runtime/physical/Roblox evidence fail-closed.
+This does not prepare or compile Wine. It verifies that the checked-in v52
+source overlay preserves the v51 fallback, keeps the official build on v51,
+and keeps the v52 build path explicitly manual/experimental and fail-closed.
 """
 
 from __future__ import annotations
@@ -17,7 +17,9 @@ GUEST_HEADER = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_c
 GUEST_SOURCE = ROOT / "third_party/wine/pocketpc-display-bridge/pocketpc_guest_continuous_present.c"
 OVERLAY = ROOT / "scripts/prepare-wine-pocketpc-continuous-present-v52.py"
 PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver-v52.py"
+EXPERIMENTAL_BUILDER = ROOT / "scripts/build-wine-x86_64-v52-experimental.py"
 OFFICIAL_WORKFLOW = ROOT / ".github/workflows/wine-x86_64-build.yml"
+EXPERIMENTAL_WORKFLOW = ROOT / ".github/workflows/wine-x86_64-v52-experimental.yml"
 
 
 def fail(message: str) -> None:
@@ -40,7 +42,9 @@ def main() -> None:
     guest = GUEST_SOURCE.read_text(encoding="utf-8")
     overlay = OVERLAY.read_text(encoding="utf-8")
     preparer = PREPARER.read_text(encoding="utf-8")
+    experimental_builder = EXPERIMENTAL_BUILDER.read_text(encoding="utf-8")
     workflow = OFFICIAL_WORKFLOW.read_text(encoding="utf-8")
+    experimental_workflow = EXPERIMENTAL_WORKFLOW.read_text(encoding="utf-8")
 
     if contract.get("targetPrivateWineVulkanAbi") != 52:
         fail("contract ABI must remain 52")
@@ -61,7 +65,7 @@ def main() -> None:
         if source.get(key) is not True:
             fail(f"guest source flag not implemented: {key}")
     if source.get("activeRuntimeWiring") is not False:
-        fail("active runtime wiring must remain false")
+        fail("active runtime activation must remain false")
 
     if any((contract.get("requiredImplementationGates") or {}).values()):
         fail("full implementation gate was promoted without executed evidence")
@@ -95,11 +99,27 @@ def main() -> None:
     require(preparer, "physicalVisibleFrame\": False", "physical fail-closed")
     require(preparer, "robloxExecuted\": False", "Roblox fail-closed")
 
+    require(experimental_builder, "BASE_BUILD", "experimental builder base")
+    require(experimental_builder, "V52_PREPARER", "experimental builder preparer")
+    require(experimental_builder, "module.DRIVER_PREPARER = V52_PREPARER", "experimental builder isolation")
+    require(experimental_builder, "experimental", "experimental builder labeling")
+
     require(workflow, "python3 scripts/build-wine-x86_64-v51.py", "official v51 builder")
     require(workflow, "Build pinned Wine 11 x86_64 package with PocketPC v51 driver", "official v51 label")
     forbid(workflow, "build-wine-x86_64-v52.py", "official workflow")
+    forbid(workflow, "build-wine-x86_64-v52-experimental.py", "official workflow")
     forbid(workflow, "prepare-wine-pocketpc-driver-v52.py", "official workflow")
     forbid(workflow, "POCKETPC_VULKAN_CONTINUOUS_PRESENT_V52=1", "official workflow")
+
+    require(experimental_workflow, "workflow_dispatch:", "experimental workflow manual trigger")
+    forbid(experimental_workflow, "pull_request:", "experimental workflow")
+    forbid(experimental_workflow, "push:", "experimental workflow")
+    require(experimental_workflow, "build-wine-x86_64-v52-experimental.py", "experimental workflow builder")
+    require(experimental_workflow, "officialBuildSelected\"] is False", "experimental evidence guard")
+    require(experimental_workflow, "runtimeExecuted\"] is False", "runtime evidence guard")
+    require(experimental_workflow, "physicalVisibleFrame\"] is False", "physical evidence guard")
+    require(experimental_workflow, "robloxExecuted\"] is False", "Roblox evidence guard")
+    require(experimental_workflow, "PocketPC-Wine11-x86_64-v52-experimental-review", "experimental artifact label")
 
     evidence = contract.get("evidenceClassification") or {}
     for key in ("software", "integration", "physical", "roblox"):
@@ -109,6 +129,7 @@ def main() -> None:
     print("PASS static Wine v52 source integration lock")
     print("CLASSIFICATION=IMPLEMENTED_SOURCE_NOT_EXECUTED")
     print("OFFICIAL_WINE_BUILD=v51")
+    print("EXPERIMENTAL_V52_TRIGGER=workflow_dispatch")
     print("V52_COMPILED=0")
     print("V52_RUNTIME_EXECUTED=0")
     print("V52_INTEGRATION_EXECUTED=0")
