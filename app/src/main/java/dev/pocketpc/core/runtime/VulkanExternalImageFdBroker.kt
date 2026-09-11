@@ -10,6 +10,8 @@ data class VulkanExternalImageFdLease(
     val allocationSize: Long,
     val memoryTypeBits: Long,
     val memoryTypeIndex: Int,
+    val externalOwner: Boolean,
+    val boundaryLayout: Int,
     val raw: String,
 ) {
     val structurallyValid: Boolean
@@ -23,7 +25,9 @@ data class VulkanExternalImageFdLease(
                 allocationSize > 0L &&
                 memoryTypeBits > 0L &&
                 memoryTypeIndex in 0..31 &&
-                (memoryTypeBits and (1L shl memoryTypeIndex)) != 0L
+                (memoryTypeBits and (1L shl memoryTypeIndex)) != 0L &&
+                externalOwner &&
+                boundaryLayout == VulkanExternalImageFdBroker.EXTERNAL_BOUNDARY_LAYOUT_GENERAL
 
     fun toGuestDescriptor(
         producerPid: Int,
@@ -54,6 +58,10 @@ object VulkanExternalImageFdBroker {
     const val MAX_DIMENSION = 4_096
     const val FORMAT_R8G8B8A8_UNORM = 37
     const val IMAGE_USAGE_FLAGS = 0x17L
+
+    /** Vulkan VkImageLayout numeric value for VK_IMAGE_LAYOUT_GENERAL. */
+    const val EXTERNAL_BOUNDARY_LAYOUT_GENERAL = 1
+
     const val TIMELINE_PROTOCOL = "PVS1"
     const val TIMELINE_INITIAL_VALUE = 0L
     const val TIMELINE_ROLE_FRAME_OWNERSHIP = 1
@@ -138,6 +146,8 @@ object VulkanExternalImageFdBroker {
                     fields["resource_id"]?.toLongOrNull() == lease.resourceId &&
                     fields["generation"]?.toLongOrNull() == lease.generation &&
                     fields["sequence"]?.toLongOrNull() == sequence &&
+                    fields["external_owner"] == "1" &&
+                    fields["boundary_layout"]?.toIntOrNull() == EXTERNAL_BOUNDARY_LAYOUT_GENERAL &&
                     fields["send_result"] == "0"
             ) {
                 "VULKAN_EXTERNAL_IMAGE_SEND_FAILED:" + safeStatus(raw)
@@ -215,6 +225,12 @@ object VulkanExternalImageFdBroker {
         if (fields.keys != LEASE_FIELDS) return null
         if (fields["vulkan-external-image-fd"] != "ok") return null
 
+        val externalOwner = when (fields["external_owner"]) {
+            "1" -> true
+            "0" -> false
+            else -> return null
+        }
+
         val lease =
             VulkanExternalImageFdLease(
                 protocol = fields["protocol"]?.toIntOrNull() ?: return null,
@@ -226,6 +242,8 @@ object VulkanExternalImageFdBroker {
                 allocationSize = fields["allocation_size"]?.toLongOrNull() ?: return null,
                 memoryTypeBits = fields["memory_type_bits"]?.toLongOrNull() ?: return null,
                 memoryTypeIndex = fields["memory_type_index"]?.toIntOrNull() ?: return null,
+                externalOwner = externalOwner,
+                boundaryLayout = fields["boundary_layout"]?.toIntOrNull() ?: return null,
                 raw = raw,
             )
         return lease.takeIf { it.structurallyValid }
@@ -280,5 +298,7 @@ object VulkanExternalImageFdBroker {
             "allocation_size",
             "memory_type_bits",
             "memory_type_index",
+            "external_owner",
+            "boundary_layout",
         )
 }
