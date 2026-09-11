@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard the PocketPC Wine Vulkan v48 ABI and its fail-closed visible path."""
+"""Guard the PocketPC Wine Vulkan v49 ABI and its fail-closed visible path."""
 from __future__ import annotations
 
 import json
@@ -33,7 +33,7 @@ def main() -> int:
     contract = CONTRACT.read_text(encoding="utf-8")
     arch = json.loads(ARCH.read_text(encoding="utf-8"))
 
-    if arch.get("schemaVersion") != 6:
+    if arch.get("schemaVersion") != 7:
         raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_ARCHITECTURE_SCHEMA_MISMATCH")
     if arch.get("status") != "VULKAN_TRANSPORT_PRIMITIVES_IMPLEMENTED_VISIBLE_WSI_NOT_IMPLEMENTED_NOT_EXECUTED":
         raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_ARCHITECTURE_STATUS_MISMATCH")
@@ -41,14 +41,26 @@ def main() -> int:
     need(main_source, ".pVulkanInit =\n        POCKETPC_VulkanInit,", "user-driver-vulkan-init")
     need(makefile, "\tvulkan.c \\", "vulkan-source-build")
     need(makefile, "\tpocketpc_graphics_session_client.c \\", "graphics-session-client-build")
+    need(makefile, "\tpocketpc_graphics_ack.c \\", "graphics-ack-build")
+
     need(preparer, 'VULKAN_DRIVER_VERSION_47 = "#define WINE_VULKAN_DRIVER_VERSION 47"', "upstream-version-lock")
-    need(preparer, 'VULKAN_DRIVER_VERSION_48 = "#define WINE_VULKAN_DRIVER_VERSION 48"', "pocketpc-version-patch")
+    need(preparer, 'VULKAN_DRIVER_VERSION_49 = "#define WINE_VULKAN_DRIVER_VERSION 49"', "pocketpc-version-patch")
     need(preparer, "p_vulkan_device_created", "overlay-device-created-patch")
     need(preparer, "p_vulkan_device_destroyed", "overlay-device-destroyed-patch")
-    need(preparer, '"vulkanAbiDriverVersion": 48', "overlay-vulkan-version")
-    need(contract, "WINE_VULKAN_DRIVER_VERSION =\n        48", "contract-version-48")
+    need(preparer, "p_vulkan_queue_presented", "overlay-present-queue-patch")
+    need(preparer, "driver_funcs->p_vulkan_queue_presented( queue, res )", "win32u-present-callback-call")
+    need(preparer, '"vulkanAbiDriverVersion": 49', "overlay-vulkan-version")
+    need(preparer, '"presentQueueTimelineSignalSourceIntegrated": True', "overlay-present-queue-signal")
+    need(preparer, '"presentQueueTimelineSignalExecuted": False', "overlay-present-queue-not-executed")
+
+    need(contract, "WINE_VULKAN_DRIVER_VERSION =\n        49", "contract-version-49")
     need(contract, "PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION =\n        47", "contract-upstream-version-47")
     need(contract, "const val deviceLifecycleCallbacksImplemented =\n        true", "contract-device-lifecycle")
+    need(contract, "const val presentQueueCallbackImplemented =\n        true", "contract-present-queue-callback")
+    need(contract, "const val presentQueueTimelineSignalSourceIntegrated =\n        true", "contract-present-queue-signal")
+    need(contract, "const val presentQueueTimelineSignalExecuted =\n        false", "contract-present-queue-not-executed")
+    need(contract, "const val swapchainImageCaptureImplemented =\n        false", "contract-no-image-capture")
+    need(contract, "const val hostVisibleFrameImplemented =\n        false", "contract-no-visible-frame")
     need(contract, "const val implemented =\n        false", "contract-visible-wsi-state")
     need(contract, '"VULKAN_WSI_NOT_IMPLEMENTED"', "contract-visible-wsi-blocker")
 
@@ -59,6 +71,13 @@ def main() -> int:
         (".p_map_device_extensions = pocketpc_map_device_extensions,", "device-map-callback"),
         (".p_vulkan_device_created = pocketpc_vulkan_device_created,", "device-created-callback"),
         (".p_vulkan_device_destroyed = pocketpc_vulkan_device_destroyed,", "device-destroyed-callback"),
+        (".p_vulkan_queue_presented = pocketpc_vulkan_queue_presented,", "present-queue-callback"),
+        ("static void pocketpc_vulkan_queue_presented", "present-queue-handler"),
+        ("present_result != VK_SUCCESS && present_result != VK_SUBOPTIMAL_KHR", "present-success-gate"),
+        ("pocketpc_guest_vulkan_timeline_signal_queue", "present-queue-timeline-signal"),
+        ("same_queue_as_present=1", "same-present-queue-classification"),
+        ("visible_present=0", "non-visible-present-classification"),
+        ("PGA_STAGE_GPU_SIGNAL_SUBMITTED", "present-queue-ack-stage"),
         ("pocketpc_graphics_session_connect_from_environment", "live-pgh1-client"),
         ("pgt_receive_resource_offer", "pgt-resource-offer-receive"),
         ("pocketpc_external_image_fd_receive", "pvi1-receive"),
@@ -73,8 +92,6 @@ def main() -> int:
         ("instance->p_vkCreateHeadlessSurfaceEXT", "headless-create-call"),
         ("client_surface_create(", "headless-client-surface"),
         ("stage=headless_present_observed", "headless-present-observer"),
-        ("diagnostic_only=1", "diagnostic-classification"),
-        ("visible_present=0", "non-visible-classification"),
         ("extensions->has_VK_KHR_win32_surface", "headless-win32-mapping-input"),
         ("extensions->has_VK_EXT_headless_surface = 1", "headless-extension-map"),
         ("has_VK_KHR_external_memory_win32", "external-memory-win32"),
@@ -101,12 +118,14 @@ def main() -> int:
     wine = arch.get("wine") or {}
     if wine.get("upstreamVulkanDriverVersion") != 47:
         raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_UPSTREAM_VERSION_MISMATCH")
-    if wine.get("vulkanDriverVersion") != 48:
+    if wine.get("vulkanDriverVersion") != 49:
         raise SystemExit("POCKETPC_VULKAN_ABI_POLICY_VERSION_MISMATCH")
 
     required_true = (
         "abiEntryPointImplemented",
         "deviceLifecycleCallbacksImplemented",
+        "presentQueueCallbackSourceIntegrated",
+        "presentQueueTimelineSignalSourceIntegrated",
         "externalHandleFdMappingImplemented",
         "headlessDiagnosticSurfaceImplemented",
         "headlessDiagnosticPresentationSupportImplemented",
@@ -115,6 +134,8 @@ def main() -> int:
     )
     required_false = (
         "deviceLifecycleCallbacksExecuted",
+        "presentQueueCallbackExecuted",
+        "presentQueueTimelineSignalExecuted",
         "visibleSurfaceCreateImplemented",
         "visiblePresentationSupportImplemented",
         "visibleSurfaceExtensionMappingImplemented",
@@ -136,12 +157,14 @@ def main() -> int:
         "authenticatedSessionClientImplemented",
         "resourceOfferReceiverImplemented",
         "activeWineDeviceImportSourceIntegrated",
+        "presentQueueTimelineSignalSourceIntegrated",
     ):
         if guest.get(key) is not True:
             raise SystemExit(f"POCKETPC_VULKAN_ABI_POLICY_MISSING:guest-{key}")
     for key in (
         "authenticatedRuntimeReceiveIntegrated",
         "activeWineDeviceImageImportIntegrated",
+        "presentQueueTimelineSignalExecuted",
         "gpuQueueSynchronizationImplemented",
         "integrationTestExecuted",
         "physicalTestExecuted",
@@ -152,6 +175,8 @@ def main() -> int:
     gates = arch.get("gates") or {}
     for key in (
         "wineVulkanDeviceLifecycleCallbacksExecuted",
+        "winePresentQueueCallbackExecuted",
+        "presentQueueTimelineSignalExecuted",
         "authenticatedGuestGraphicsReceiveIntegrated",
         "guestVulkanImageImportIntegrated",
         "guestGraphicsGpuSynchronizationImplemented",
@@ -168,11 +193,15 @@ def main() -> int:
 
     print("POCKETPC_VULKAN_ABI_POLICY_OK")
     print("wine_vulkan_upstream_driver_version=47")
-    print("wine_vulkan_pocketpc_driver_version=48")
+    print("wine_vulkan_pocketpc_driver_version=49")
     print("device_lifecycle_callbacks_source_integrated=true")
+    print("present_queue_callback_source_integrated=true")
+    print("present_queue_timeline_signal_source_integrated=true")
+    print("present_queue_timeline_signal_executed=false")
     print("active_wine_device_import_source_integrated=true")
     print("headless_diagnostic_implemented=true")
     print("external_handle_fd_mapping=true")
+    print("swapchain_capture=false")
     print("visible_wsi_implemented=false")
     print("host_visible_present=false")
     print("execution_evidence=false")
