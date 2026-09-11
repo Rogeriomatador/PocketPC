@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "PocketPC Vulkan Continuous Present v52",
-  "status": "DESIGN_SOURCE_CONTRACT_NOT_RUNTIME_INTEGRATED_NOT_EXECUTED",
+  "status": "DESIGN_WITH_PARTIAL_HOST_SOURCE_NOT_RUNTIME_INTEGRATED_NOT_EXECUTED",
   "targetPrivateWineVulkanAbi": 52,
   "officialBuildSelected": false,
   "runtimeIntegrated": false,
@@ -79,9 +79,22 @@
     "Never accept an even value as guest-ready or an odd value as host-consumed.",
     "Never accept a lower or equal frame sequence after a newer frame was already committed for the same generation.",
     "Never pass a timeline value greater than Long.MAX_VALUE through Kotlin/JNI.",
+    "Never advance to frame N+1 while hostConsumed(N) still has a pending signal.",
     "Never infer host-visible presentation from successful Vulkan readback or Compose model delivery.",
     "Never infer Roblox execution, rendering, playability, input, audio, network, or stability from this contract."
   ],
+  "sourceImplementation": {
+    "timelineArithmetic": true,
+    "hostOwnershipStateMachine": true,
+    "hostCoordinator": true,
+    "hostPendingConsumedSignalRecovery": true,
+    "exactDesktopWindowDeliveryContract": true,
+    "activeRuntimeWiring": false,
+    "nativeTimelineWait": false,
+    "nativePerFrameReadback": false,
+    "nativeHostConsumedSignal": false,
+    "guestWineV52CopyLoop": false
+  },
   "requiredImplementationGates": {
     "guestWaitPreviousHostConsumed": false,
     "guestPerPresentSequence": false,
@@ -99,7 +112,7 @@
   },
   "evidenceClassification": {
     "contract": "DESIGN",
-    "sourceRuntime": "NOT_IMPLEMENTED",
+    "sourceRuntime": "PARTIALLY_IMPLEMENTED_SOURCE_ONLY",
     "software": "NOT_EXECUTED",
     "integration": "NOT_EXECUTED",
     "physical": "NOT_EXECUTED",
