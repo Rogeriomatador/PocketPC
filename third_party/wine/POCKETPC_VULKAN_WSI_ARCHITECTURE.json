@@ -1,16 +1,20 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "status": "VULKAN_TRANSPORT_PRIMITIVES_IMPLEMENTED_VISIBLE_WSI_NOT_IMPLEMENTED_NOT_EXECUTED",
   "wine": {
     "version": "11.0",
     "commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
     "upstreamVulkanDriverVersion": 47,
-    "vulkanDriverVersion": 48,
+    "vulkanDriverVersion": 49,
     "driver": "winepocketpc.drv",
     "requiredEntryPoint": "user_driver_funcs.pVulkanInit",
     "abiEntryPointImplemented": true,
     "deviceLifecycleCallbacksImplemented": true,
     "deviceLifecycleCallbacksExecuted": false,
+    "presentQueueCallbackSourceIntegrated": true,
+    "presentQueueCallbackExecuted": false,
+    "presentQueueTimelineSignalSourceIntegrated": true,
+    "presentQueueTimelineSignalExecuted": false,
     "externalHandleFdMappingImplemented": true,
     "headlessDiagnosticSurfaceImplemented": true,
     "headlessDiagnosticPresentationSupportImplemented": true,
@@ -46,7 +50,9 @@
     "authenticatedSeqpacketSessionHostImplemented": true,
     "pgtResourceOfferSenderImplemented": true,
     "pga1OrderedImportAckValidatorImplemented": true,
+    "pga1PresentQueueSignalAckValidatorImplemented": true,
     "guestImportOwnershipPromotionSourceIntegrated": true,
+    "runtimeDisplayPresentQueueSignalObservationSourceIntegrated": true,
     "pvi1ImageProtocolImplemented": true,
     "pvs1TimelineProtocolImplemented": true,
     "softwareTestExecuted": false,
@@ -60,6 +66,8 @@
     "resourceOfferReceiverImplemented": true,
     "pga1ImportAcknowledgementSenderImplemented": true,
     "pga1ImportAcknowledgementExecuted": false,
+    "pga1PresentQueueSignalAcknowledgementSenderImplemented": true,
+    "pga1PresentQueueSignalAcknowledgementExecuted": false,
     "ancillaryFdTransportPrimitiveImplemented": true,
     "handleBindingImplemented": true,
     "receivePrimitiveImplemented": true,
@@ -70,6 +78,10 @@
     "timelineCounterPrimitiveImplemented": true,
     "timelineCpuSignalPrimitiveImplemented": true,
     "timelineCpuWaitPrimitiveImplemented": true,
+    "timelineQueueSignalPrimitiveImplemented": true,
+    "presentQueueTimelineSignalSourceIntegrated": true,
+    "presentQueueTimelineSignalExecuted": false,
+    "presentQueueTimelineSignalCompletionObserved": false,
     "activeWineDeviceImportSourceIntegrated": true,
     "authenticatedRuntimeReceiveIntegrated": false,
     "activeWineDeviceImageImportIntegrated": false,
@@ -103,16 +115,21 @@
       "version": 1,
       "packetBytes": 48,
       "transport": "AF_UNIX/SOCK_SEQPACKET",
-      "orderedStages": [
+      "orderedImportStages": [
         "RESOURCE_OFFER_RECEIVED",
         "IMAGE_IMPORTED",
         "SYNC_IMPORTED",
         "READY"
       ],
+      "presentQueueStage": "GPU_SIGNAL_SUBMITTED",
+      "presentQueueStageNumber": 5,
+      "presentQueueStageDetail": "queueFamilyIndex",
       "identity": ["resourceId", "generation", "sequence"],
       "carriesFileDescriptors": false,
       "readyProvesGpuSynchronization": false,
-      "readyProvesVisiblePresent": false
+      "presentQueueStageCanProveSamePresentQueueOrderingWhenExecuted": true,
+      "presentQueueStageProvesSwapchainImageCapture": false,
+      "presentQueueStageProvesVisiblePresent": false
     },
     "externalImage": {
       "name": "PVI1",
@@ -159,11 +176,14 @@
     }
   },
   "presentCapture": {
-    "wineObservation": "win32u_vkQueuePresentKHR knows the presented swapchain and image index, invokes the host vkQueuePresentKHR, then client_surface_present",
+    "wineObservation": "win32u_vkQueuePresentKHR knows the exact Wine queue, presented swapchain and image index; PocketPC v49 now calls p_vulkan_queue_presented immediately after host vkQueuePresentKHR",
     "clientSurfaceHeadlessPresentObserverImplemented": true,
+    "presentQueueCallbackSourceIntegrated": true,
+    "presentQueueTimelineSignalSourceIntegrated": true,
+    "presentQueueTimelineSignalExecuted": false,
+    "samePresentQueueOrderingObserved": false,
     "swapchainImageCaptureHookImplemented": false,
     "copyPresentedImageToPocketPcResourceImplemented": false,
-    "signalPvs1FromGpuQueueImplemented": false,
     "hostVisibleFrameImplemented": false,
     "execution": "NOT_EXECUTED"
   },
@@ -177,7 +197,9 @@
     "requiresAuthenticatedGuestGraphicsTransport": true,
     "requiresObservedGuestImportAcknowledgement": true,
     "requiresActiveWineDeviceImport": true,
+    "requiresObservedPresentQueueOrdering": true,
     "requiresGpuQueueSynchronization": true,
+    "requiresSwapchainImageCapture": true,
     "requiresRunnableVisibleSurfaceBackend": true,
     "requiresHostVisiblePresent": true,
     "headlessDiagnosticMayPromoteGameplay": false,
@@ -207,11 +229,19 @@
     },
     {
       "route": "treat PGA1 source code or host offer as executed guest import",
-      "reason": "Only an observed ordered PGA1 chain from the launched guest can promote the runtime import observation; source integration alone cannot."
+      "reason": "Only an observed ordered PGA1 chain from the launched guest can promote runtime import evidence; source integration alone cannot."
     },
     {
       "route": "treat PGA1 READY as GPU synchronization",
-      "reason": "PGA1 READY confirms source-level receive/import completion only; GPU synchronization requires timeline participation in actual queue submissions."
+      "reason": "PGA1 READY confirms receive/import completion only; queue synchronization is a separate stage."
+    },
+    {
+      "route": "treat first available Vulkan queue as the Present queue",
+      "reason": "PocketPC v49 receives the exact struct vulkan_queue from win32u after host vkQueuePresentKHR instead of guessing queue identity."
+    },
+    {
+      "route": "treat same-Present-queue timeline signal as swapchain capture",
+      "reason": "Queue ordering alone does not copy the presented VkImage into the PocketPC exported image."
     },
     {
       "route": "treat CPU timeline signal/wait as GPU synchronization",
@@ -223,7 +253,7 @@
     },
     {
       "route": "promote transport primitives to Roblox readiness",
-      "reason": "Roblox requires executed Wine/DXVK import, GPU ordering and a host-visible frame."
+      "reason": "Roblox requires executed Wine/DXVK import, observed queue ordering, swapchain capture and a host-visible frame."
     }
   ],
   "targetArchitecture": {
@@ -234,17 +264,21 @@
     "phase5": "Export/import a timeline semaphore for the same resource/device using PVS1.",
     "phase6": "Return and validate the ordered PGA1 import acknowledgement chain, then promote host logical ownership only to GUEST_IMPORTED.",
     "phase7": "Execute the authenticated PGH1/PGT/PVI1/PVS1/PGA1 path through real Box64/Wine and record observed import evidence.",
-    "phase8": "Insert the PVS1 timeline into actual GPU queue submissions and prove image ownership transitions end-to-end.",
-    "phase9": "Use headless WSI to prove DXVK surface/swapchain/Present control flow without claiming visibility.",
-    "phase10": "Capture the exact presented swapchain image at the Wine win32u Present boundary and copy it into the exported PocketPC image resource.",
-    "phase11": "Present the synchronized resource in Android and require a host-visible frame.",
-    "phase12": "Run D3D11 Present end-to-end and only then enable a controlled Roblox attempt.",
-    "phase13": "Record Roblox process/window/Present/network/audio/input/stability separately from generic runtime evidence."
+    "phase8": "Use PocketPC Wine v49 p_vulkan_queue_presented to signal PVS1 on the exact queue that completed host vkQueuePresentKHR and observe PGA1 stage 5.",
+    "phase9": "Capture the exact presented swapchain image at the Wine win32u Present boundary and copy it into the exported PocketPC image resource with correct layouts and synchronization.",
+    "phase10": "Present the synchronized exported resource in Android and require a host-visible frame.",
+    "phase11": "Run D3D11 Present end-to-end and only then enable a controlled Roblox attempt.",
+    "phase12": "Record Roblox process/window/Present/network/audio/input/stability separately from generic runtime evidence."
   },
   "gates": {
     "wineVulkanAbiEntryPointImplemented": true,
     "wineVulkanDeviceLifecycleCallbacksImplemented": true,
     "wineVulkanDeviceLifecycleCallbacksExecuted": false,
+    "winePresentQueueCallbackSourceIntegrated": true,
+    "winePresentQueueCallbackExecuted": false,
+    "presentQueueTimelineSignalSourceIntegrated": true,
+    "presentQueueTimelineSignalExecuted": false,
+    "samePresentQueueOrderingObserved": false,
     "wineExternalHandleFdMappingImplemented": true,
     "wineHeadlessDiagnosticImplemented": true,
     "wineHeadlessPresentObserverImplemented": true,
@@ -252,6 +286,8 @@
     "pgtResourceOfferImplemented": true,
     "pga1ImportAcknowledgementImplemented": true,
     "pga1ImportAcknowledgementExecuted": false,
+    "pga1PresentQueueSignalAcknowledgementImplemented": true,
+    "pga1PresentQueueSignalAcknowledgementExecuted": false,
     "guestImportOwnershipPromotionSourceIntegrated": true,
     "hostOpaqueFdImageBrokerImplemented": true,
     "pvi1ProtocolImplemented": true,
@@ -260,6 +296,7 @@
     "hostTimelineSemaphoreExporterImplemented": true,
     "guestTimelineSemaphoreImportPrimitiveImplemented": true,
     "guestTimelineCpuSignalWaitPrimitiveImplemented": true,
+    "guestTimelineQueueSignalPrimitiveImplemented": true,
     "guestWineDeviceImportSourceIntegrated": true,
     "authenticatedGuestGraphicsReceiveIntegrated": false,
     "guestVulkanImageImportIntegrated": false,
