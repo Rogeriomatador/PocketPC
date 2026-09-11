@@ -12,8 +12,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * A successful host offer means only that PGT RESOURCE_OFFER + PVI1 + PVS1
  * were sent over the authenticated SOCK_SEQPACKET connection. Guest import is
- * confirmed separately through PGA1 stages 1..4. PGA1 stage 5 is tracked as a
- * queue-submit diagnostic only and never promoted to Present ordering.
+ * confirmed separately through PGA1 stages 1..4. PGA1 stage 5 is emitted only
+ * after the pinned Wine Present callback signals PVS1 on the exact queue used
+ * by host vkQueuePresentKHR. That proves same-Present-queue ordering when it is
+ * observed in a real run, but not swapchain capture or a host-visible frame.
  */
 class GuestGraphicsSessionOrchestrator private constructor(
     private val session: GraphicsSeqpacketSessionHost.Session,
@@ -23,7 +25,7 @@ class GuestGraphicsSessionOrchestrator private constructor(
         AUTHENTICATED,
         RESOURCE_OFFERED,
         GUEST_IMPORT_CONFIRMED,
-        GPU_QUEUE_SIGNAL_OBSERVED,
+        PRESENT_QUEUE_SIGNAL_OBSERVED,
         CLOSED,
     }
 
@@ -63,7 +65,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
             get() =
                 guestImportConfirmed &&
                     gpuQueueSignalAcknowledgement?.submitted == true &&
-                    gpuQueueSignalAcknowledgement.presentOrdered == false
+                    gpuQueueSignalAcknowledgement.presentQueueOrdered &&
+                    !gpuQueueSignalAcknowledgement.hostVisibleFrame
     }
 
     data class Snapshot(
@@ -75,6 +78,8 @@ class GuestGraphicsSessionOrchestrator private constructor(
         val guestImportConfirmed: Boolean,
         val gpuQueueSignalObserved: Boolean,
         val gpuQueueFamilyIndex: Int?,
+        val presentQueueOrdered: Boolean,
+        val hostVisibleFrame: Boolean,
         val blocker: String?,
     )
 
@@ -262,13 +267,6 @@ class GuestGraphicsSessionOrchestrator private constructor(
             }
         }
 
-    /**
-     * Wait for PGA1 stages 1..4 and only then promote logical ownership from
-     * OFFERED_TO_GUEST(sequence=1) to GUEST_IMPORTED(sequence=2).
-     *
-     * This is an import acknowledgement boundary only. No transition to
-     * GUEST_RENDERING occurs here because that requires real GPU queue work.
-     */
     fun awaitGuestImportConfirmation(
         timeoutMillis: Long = GraphicsSeqpacketSessionHost.DEFAULT_AUTH_TIMEOUT_MILLIS,
     ): Result<ResourceOffer> =
@@ -333,10 +331,13 @@ class GuestGraphicsSessionOrchestrator private constructor(
         }
 
     /**
-     * Waits for PGA1 stage 5 after import confirmation. This is deliberately a
-     * diagnostic precursor: it proves the guest says vkQueueSubmit accepted a
-     * PVS1 timeline signal on one Wine queue, but it does not advance the
-     * ownership state to GUEST_RENDERING and does not prove Present ordering.
+     * Wait for PGA1 stage 5 after import confirmation. The patched Wine v49
+     * calls the driver immediately after host vkQueuePresentKHR with the exact
+     * vulkan_queue used for Present. The driver submits the PVS1 signal on that
+     * queue and only then sends stage 5.
+     *
+     * This may prove same-Present-queue ordering in an executed run, but the
+     * exported PocketPC image still is not populated from the swapchain here.
      */
     fun awaitGpuQueueSignalProbe(
         timeoutMillis: Long = GraphicsSeqpacketSessionHost.DEFAULT_AUTH_TIMEOUT_MILLIS,
@@ -366,7 +367,11 @@ class GuestGraphicsSessionOrchestrator private constructor(
                     throw IllegalStateException(BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED)
                 }
 
-            check(acknowledgement.submitted && !acknowledgement.presentOrdered) {
+            check(
+                acknowledgement.submitted &&
+                    acknowledgement.presentQueueOrdered &&
+                    !acknowledgement.hostVisibleFrame
+            ) {
                 BLOCKER_GPU_QUEUE_SIGNAL_ACK_FAILED
             }
 
@@ -406,11 +411,12 @@ class GuestGraphicsSessionOrchestrator private constructor(
         val isAuthenticated =
             !isClosed && authenticated.get() && acceptedConnection?.valid == true
         val offer = activeOffer
+        val queueAck = offer?.gpuQueueSignalAcknowledgement
         return Snapshot(
             state =
                 when {
                     isClosed -> State.CLOSED
-                    offer?.gpuQueueSignalObserved == true -> State.GPU_QUEUE_SIGNAL_OBSERVED
+                    offer?.gpuQueueSignalObserved == true -> State.PRESENT_QUEUE_SIGNAL_OBSERVED
                     offer?.guestImportConfirmed == true -> State.GUEST_IMPORT_CONFIRMED
                     offer?.hostOfferComplete == true -> State.RESOURCE_OFFERED
                     isAuthenticated -> State.AUTHENTICATED
@@ -422,7 +428,9 @@ class GuestGraphicsSessionOrchestrator private constructor(
             hostResourceOffered = offer?.hostOfferComplete == true,
             guestImportConfirmed = offer?.guestImportConfirmed == true,
             gpuQueueSignalObserved = offer?.gpuQueueSignalObserved == true,
-            gpuQueueFamilyIndex = offer?.gpuQueueSignalAcknowledgement?.queueFamilyIndex,
+            gpuQueueFamilyIndex = queueAck?.queueFamilyIndex,
+            presentQueueOrdered = queueAck?.presentQueueOrdered == true,
+            hostVisibleFrame = queueAck?.hostVisibleFrame == true,
             blocker = lastBlocker,
         )
     }
