@@ -89,6 +89,8 @@ int pocketpc_guest_vulkan_timeline_import(
     timeline->resource_id = received->metadata.resource_id;
     timeline->generation = received->metadata.generation;
     timeline->last_known_value = received->metadata.initial_value;
+    timeline->queue_signal_value = 0u;
+    timeline->queue_signal_submitted = 0u;
     return POCKETPC_GUEST_VULKAN_TIMELINE_OK;
 }
 
@@ -243,7 +245,40 @@ int pocketpc_guest_vulkan_timeline_signal_queue(
         return POCKETPC_GUEST_VULKAN_TIMELINE_QUEUE_SUBMIT_FAILED;
 
     timeline->last_known_value = value;
+    timeline->queue_signal_value = value;
+    timeline->queue_signal_submitted = 1u;
     return POCKETPC_GUEST_VULKAN_TIMELINE_OK;
+}
+
+int pocketpc_guest_vulkan_timeline_probe_first_queue(
+    struct vulkan_device *device,
+    struct pocketpc_guest_vulkan_timeline *timeline
+) {
+    struct vulkan_queue *queue;
+    uint64_t current = 0u;
+    int result;
+
+    if (!pocketpc_guest_vulkan_timeline_runtime_ready(device, timeline))
+        return POCKETPC_GUEST_VULKAN_TIMELINE_INVALID_ARGUMENT;
+    if (!device->queues || device->queue_count == 0u)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_QUEUE_UNAVAILABLE;
+
+    queue = &device->queues[0];
+    if (!queue->host.queue || queue->device != device)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_QUEUE_UNAVAILABLE;
+
+    result = pocketpc_guest_vulkan_timeline_get_counter(device, timeline, &current);
+    if (result != POCKETPC_GUEST_VULKAN_TIMELINE_OK)
+        return result;
+    if (current == UINT64_MAX)
+        return POCKETPC_GUEST_VULKAN_TIMELINE_NON_MONOTONIC;
+
+    return pocketpc_guest_vulkan_timeline_signal_queue(
+        device,
+        queue,
+        timeline,
+        current + 1u
+    );
 }
 
 void pocketpc_guest_vulkan_timeline_release(
