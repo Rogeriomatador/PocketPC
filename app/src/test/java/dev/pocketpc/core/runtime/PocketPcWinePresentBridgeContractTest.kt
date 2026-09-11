@@ -6,12 +6,13 @@ import org.junit.Test
 
 class PocketPcWinePresentBridgeContractTest {
     @Test
-    fun sourceIntegrationDoesNotPromoteRuntimeOrRoblox() {
+    fun sourceIntegrationDoesNotPromoteCopyExecutionRuntimeOrRoblox() {
         assertTrue(
             PocketPcWinePresentBridgeContract
                 .sourceIntegratedForPixelCopyAttempt(),
         )
-        assertFalse(PocketPcWinePresentBridgeContract.pixelCopyImplemented)
+        assertTrue(PocketPcWinePresentBridgeContract.pixelCopyImplemented)
+        assertFalse(PocketPcWinePresentBridgeContract.pixelCopyExecuted)
         assertFalse(
             PocketPcWinePresentBridgeContract
                 .androidVisiblePresentImplemented,
@@ -25,12 +26,17 @@ class PocketPcWinePresentBridgeContractTest {
     }
 
     @Test
-    fun blockersNameTheRemainingPresentAndRobloxGates() {
+    fun blockersNameOnlyTheRemainingPresentAndRobloxGates() {
         val blockers = PocketPcWinePresentBridgeContract.blockers()
 
-        assertTrue(
+        assertFalse(
             blockers.contains(
                 PocketPcWinePresentBridgeContract.BLOCKER_PIXEL_COPY,
+            ),
+        )
+        assertTrue(
+            blockers.contains(
+                PocketPcWinePresentBridgeContract.BLOCKER_PIXEL_COPY_EXECUTION,
             ),
         )
         assertTrue(
