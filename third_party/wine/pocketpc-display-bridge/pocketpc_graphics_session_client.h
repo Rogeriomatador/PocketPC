@@ -12,7 +12,13 @@ extern "C" {
 #define PGS_TOKEN_BYTES 32u
 #define PGS_HANDSHAKE_BYTES 48u
 #define PGS_MAX_SOCKET_NAME_BYTES 80u
-#define PGS_DEFAULT_TIMEOUT_MILLIS 8000
+/*
+ * The guest connects immediately when the Wine VkDevice is created, then a
+ * worker waits for the host to learn the first real Display Bridge extent
+ * before PGT/PVI1/PVS1 are sent. Keep the socket bounded but do not force an
+ * arbitrary image size just to satisfy a short receive timeout.
+ */
+#define PGS_DEFAULT_TIMEOUT_MILLIS 30000
 #define PGS_MIN_TIMEOUT_MILLIS 100
 #define PGS_MAX_TIMEOUT_MILLIS 120000
 
