@@ -37,6 +37,8 @@ BRIDGE_FILES = (
     "pocketpc_display_bridge.c",
     "pocketpc_graphics_session_client.h",
     "pocketpc_graphics_session_client.c",
+    "pocketpc_graphics_ack.h",
+    "pocketpc_graphics_ack.c",
     "pocketpc_graphics_transport.h",
     "pocketpc_graphics_transport.c",
     "pocketpc_fd_transport.h",
@@ -64,6 +66,7 @@ BRIDGE_FILES = (
 UNIX_ONLY_C_FILES = {
     "pocketpc_display_bridge.c",
     "pocketpc_graphics_session_client.c",
+    "pocketpc_graphics_ack.c",
     "pocketpc_graphics_transport.c",
     "pocketpc_fd_transport.c",
     "pocketpc_graphics_handle_binding.c",
@@ -303,6 +306,8 @@ def main() -> int:
         "guestGraphicsProtocolVersion": 1,
         "graphicsSessionProtocol": "PGH1",
         "graphicsResourceOfferProtocol": "PGT1_RESOURCE_OFFER",
+        "graphicsImportAcknowledgementProtocol": "PGA1",
+        "graphicsImportAcknowledgementProtocolVersion": 1,
         "graphicsFdTransportProtocolVersion": 1,
         "externalImageFdProtocol": "PVI1",
         "externalImageFdProtocolVersion": 1,
@@ -362,6 +367,7 @@ def main() -> int:
         "guestGraphicsDescriptorProtocolImplemented": True,
         "guestGraphicsOwnershipProtocolImplemented": True,
         "guestGraphicsResourceOfferReceiveImplemented": True,
+        "guestGraphicsImportAcknowledgementProtocolImplemented": True,
         "guestGraphicsAncillaryFdTransportPrimitiveImplemented": True,
         "guestGraphicsHandleBindingImplemented": True,
         "guestGraphicsReceivePrimitiveImplemented": True,
@@ -372,6 +378,7 @@ def main() -> int:
         "guestVulkanTimelineImportPrimitiveImplemented": True,
         "guestTimelineCpuSignalWaitPrimitiveImplemented": True,
         "guestVulkanDeviceImportPathSourceIntegrated": True,
+        "guestImportAcknowledgementSourceIntegrated": True,
         "guestGraphicsHandleReceiveIntegrated": False,
         "guestGraphicsImportIntegrated": False,
         "guestGraphicsSynchronizationImplemented": False,
@@ -390,6 +397,7 @@ def main() -> int:
                 "window.c",
                 "pocketpc_display_bridge.c",
                 "pocketpc_graphics_session_client.c",
+                "pocketpc_graphics_ack.c",
                 "pocketpc_graphics_transport.c",
                 "pocketpc_fd_transport.c",
                 "pocketpc_graphics_handle_binding.c",
@@ -415,6 +423,7 @@ def main() -> int:
             "p_vulkan_device_destroyed through Wine",
             "PGH1 guest session client through Box64/Wine",
             "PGT resource offer receive through Box64/Wine",
+            "PGA1 ordered import acknowledgements through Box64/Wine",
             "headless diagnostic Vulkan surface through Wine",
             "headless Present observer through Wine",
             "win32u Present context observer through Wine",
@@ -457,6 +466,7 @@ def main() -> int:
     print("vulkan_external_fd_extension_mapping=true")
     print("graphics_session_client=PGH1")
     print("graphics_resource_offer=PGT1_RESOURCE_OFFER")
+    print("graphics_import_acknowledgement=PGA1")
     print("external_image_fd_protocol=PVI1")
     print("guest_vulkan_import_primitive=true")
     print("external_timeline_semaphore_fd_protocol=PVS1")
@@ -464,6 +474,7 @@ def main() -> int:
     print("guest_vulkan_timeline_import_primitive=true")
     print("guest_timeline_cpu_signal_wait_primitive=true")
     print("guest_vulkan_device_import_path_source_integrated=true")
+    print("guest_import_acknowledgement_source_integrated=true")
     print("guest_graphics_handle_receive_integrated=false")
     print("guest_graphics_import_integrated=false")
     print("guest_graphics_synchronization=false")
