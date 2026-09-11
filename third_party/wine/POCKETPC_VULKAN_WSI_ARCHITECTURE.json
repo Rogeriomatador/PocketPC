@@ -4,10 +4,13 @@
   "wine": {
     "version": "11.0",
     "commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
-    "vulkanDriverVersion": 47,
+    "upstreamVulkanDriverVersion": 47,
+    "vulkanDriverVersion": 48,
     "driver": "winepocketpc.drv",
     "requiredEntryPoint": "user_driver_funcs.pVulkanInit",
     "abiEntryPointImplemented": true,
+    "deviceLifecycleCallbacksImplemented": true,
+    "deviceLifecycleCallbacksExecuted": false,
     "externalHandleFdMappingImplemented": true,
     "headlessDiagnosticSurfaceImplemented": true,
     "headlessDiagnosticPresentationSupportImplemented": true,
@@ -40,6 +43,8 @@
     "dmaBufImageBrokerImplemented": false,
     "opaqueFdTimelineSemaphoreExporterImplemented": true,
     "imageAndTimelineShareSameVkDevice": true,
+    "authenticatedSeqpacketSessionHostImplemented": true,
+    "pgtResourceOfferSenderImplemented": true,
     "pvi1ImageProtocolImplemented": true,
     "pvs1TimelineProtocolImplemented": true,
     "softwareTestExecuted": false,
@@ -49,6 +54,8 @@
   "guestGraphics": {
     "descriptorProtocolImplemented": true,
     "ownershipProtocolImplemented": true,
+    "authenticatedSessionClientImplemented": true,
+    "resourceOfferReceiverImplemented": true,
     "ancillaryFdTransportPrimitiveImplemented": true,
     "handleBindingImplemented": true,
     "receivePrimitiveImplemented": true,
@@ -59,6 +66,7 @@
     "timelineCounterPrimitiveImplemented": true,
     "timelineCpuSignalPrimitiveImplemented": true,
     "timelineCpuWaitPrimitiveImplemented": true,
+    "activeWineDeviceImportSourceIntegrated": true,
     "authenticatedRuntimeReceiveIntegrated": false,
     "activeWineDeviceImageImportIntegrated": false,
     "timelineCpuRoundTripExecuted": false,
@@ -73,10 +81,18 @@
       "name": "PocketPC Display Bridge",
       "version": 4
     },
+    "graphicsSession": {
+      "name": "PGH1",
+      "version": 1,
+      "transport": "AF_UNIX/SOCK_SEQPACKET",
+      "authentication": ["per-session-token", "SO_PEERCRED-pid"]
+    },
     "guestResourceDescriptor": {
       "name": "PGT1",
       "version": 1,
-      "identity": ["resourceId", "generation", "sequence"]
+      "identity": ["resourceId", "generation", "sequence"],
+      "resourceOfferPayloadBytes": 96,
+      "resourceOfferFrameBytes": 120
     },
     "externalImage": {
       "name": "PVI1",
@@ -157,8 +173,16 @@
       "reason": "AHardwareBuffer is image/memory state, not a Vulkan surface."
     },
     {
+      "route": "create a parallel guest VkDevice for PocketPC imports",
+      "reason": "PVI1/PVS1 must be imported into the exact struct vulkan_device used by Wine/DXVK."
+    },
+    {
       "route": "trust host memoryTypeIndex in the Wine VkDevice",
       "reason": "The guest importer re-queries vkGetMemoryFdPropertiesKHR and intersects memoryTypeBits on the active Wine device."
+    },
+    {
+      "route": "reconstruct missing resource descriptor fields from PVI1",
+      "reason": "The host sends a canonical PGT RESOURCE_OFFER before PVI1/PVS1 so identity and ownership are not invented by the guest."
     },
     {
       "route": "treat CPU timeline signal/wait as GPU synchronization",
@@ -175,11 +199,11 @@
   ],
   "targetArchitecture": {
     "phase1": "Prove Android AHardwareBuffer and Vulkan capability foundations without promoting guest readiness.",
-    "phase2": "Transport exact resource identity with descriptor plus SCM_RIGHTS and reject stale generation/sequence.",
-    "phase3": "Export a real OPAQUE_FD VkImage on the Android host and carry its metadata in PVI1.",
-    "phase4": "Receive PVI1 and import the allocation into the exact VkDevice used by Wine/DXVK after querying vkGetMemoryFdPropertiesKHR.",
-    "phase5": "Export/import a timeline semaphore for the same resource/device using PVS1 and prove monotonic CPU signal/wait as an integration precursor.",
-    "phase6": "Wire authenticated graphics broker receive/import into the real Box64/Wine session.",
+    "phase2": "Authenticate the real Wine guest over PGH1 and send the canonical PGT descriptor/ownership offer.",
+    "phase3": "Export a real OPAQUE_FD VkImage on the Android host and carry its immutable import metadata in PVI1.",
+    "phase4": "Receive PGT/PVI1 on the exact Wine VkDevice lifecycle callback and import after re-querying vkGetMemoryFdPropertiesKHR.",
+    "phase5": "Export/import a timeline semaphore for the same resource/device using PVS1.",
+    "phase6": "Execute the authenticated PGT/PVI1/PVS1 path through real Box64/Wine and record guest acknowledgements.",
     "phase7": "Insert the PVS1 timeline into actual GPU queue submissions and prove image ownership transitions end-to-end.",
     "phase8": "Use headless WSI to prove DXVK surface/swapchain/Present control flow without claiming visibility.",
     "phase9": "Capture the exact presented swapchain image at the Wine win32u Present boundary and copy it into the exported PocketPC image resource.",
@@ -189,9 +213,13 @@
   },
   "gates": {
     "wineVulkanAbiEntryPointImplemented": true,
+    "wineVulkanDeviceLifecycleCallbacksImplemented": true,
+    "wineVulkanDeviceLifecycleCallbacksExecuted": false,
     "wineExternalHandleFdMappingImplemented": true,
     "wineHeadlessDiagnosticImplemented": true,
     "wineHeadlessPresentObserverImplemented": true,
+    "hostAuthenticatedGraphicsSessionImplemented": true,
+    "pgtResourceOfferImplemented": true,
     "hostOpaqueFdImageBrokerImplemented": true,
     "pvi1ProtocolImplemented": true,
     "guestVulkanImageImportPrimitiveImplemented": true,
@@ -199,6 +227,7 @@
     "hostTimelineSemaphoreExporterImplemented": true,
     "guestTimelineSemaphoreImportPrimitiveImplemented": true,
     "guestTimelineCpuSignalWaitPrimitiveImplemented": true,
+    "guestWineDeviceImportSourceIntegrated": true,
     "authenticatedGuestGraphicsReceiveIntegrated": false,
     "guestVulkanImageImportIntegrated": false,
     "timelineCpuRoundTripExecuted": false,
