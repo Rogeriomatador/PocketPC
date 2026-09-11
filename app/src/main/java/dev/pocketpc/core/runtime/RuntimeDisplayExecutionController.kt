@@ -27,6 +27,7 @@ data class RuntimeDisplayExecutionResult(
     val authenticatedPeerCount: Int = 0,
     val graphicsAuthenticated: Boolean = false,
     val graphicsHostResourceOffered: Boolean = false,
+    val graphicsGuestImportConfirmed: Boolean = false,
     val graphicsResourceId: Long? = null,
     val graphicsGeneration: Long? = null,
     val graphicsError: String? = null,
@@ -35,6 +36,7 @@ data class RuntimeDisplayExecutionResult(
 private data class RuntimeDisplayGraphicsState(
     val authenticated: Boolean,
     val hostResourceOffered: Boolean,
+    val guestImportConfirmed: Boolean,
     val resourceId: Long?,
     val generation: Long?,
     val error: String?,
@@ -57,6 +59,7 @@ private sealed interface RuntimeDisplayStartup {
  * Display Bridge and graphics transport intentionally share the same PRoot /
  * Box64 / Wine process family. A graphics transport failure is recorded but
  * does not silently turn a generic Win32 display test into a Vulkan PASS.
+ * Host resource offer and guest import acknowledgement are separate results.
  */
 class RuntimeDisplayExecutionController(
     private val executionController: ProotExecutionController,
@@ -159,6 +162,7 @@ class RuntimeDisplayExecutionController(
 
             var graphicsAuthenticated = false
             var graphicsHostResourceOffered = false
+            var graphicsGuestImportConfirmed = false
             var graphicsResourceId: Long? = null
             var graphicsGeneration: Long? = null
             var graphicsError: String? =
@@ -173,6 +177,7 @@ class RuntimeDisplayExecutionController(
                     RuntimeDisplayGraphicsState(
                         authenticated = graphicsAuthenticated,
                         hostResourceOffered = graphicsHostResourceOffered,
+                        guestImportConfirmed = graphicsGuestImportConfirmed,
                         resourceId = graphicsResourceId,
                         generation = graphicsGeneration,
                         error = graphicsError,
@@ -217,6 +222,7 @@ class RuntimeDisplayExecutionController(
             fun updateGraphicsState(
                 authenticated: Boolean? = null,
                 offered: Boolean? = null,
+                guestImportConfirmed: Boolean? = null,
                 resourceId: Long? = null,
                 generation: Long? = null,
                 error: String? = null,
@@ -225,6 +231,7 @@ class RuntimeDisplayExecutionController(
                 synchronized(stateLock) {
                     authenticated?.let { graphicsAuthenticated = it }
                     offered?.let { graphicsHostResourceOffered = it }
+                    guestImportConfirmed?.let { graphicsGuestImportConfirmed = it }
                     resourceId?.let { graphicsResourceId = it }
                     generation?.let { graphicsGeneration = it }
                     if (clearError) graphicsError = null
@@ -366,8 +373,36 @@ class RuntimeDisplayExecutionController(
 
                     updateGraphicsState(
                         offered = true,
+                        guestImportConfirmed = false,
                         resourceId = offered.resourceId,
                         generation = offered.generation,
+                        clearError = true,
+                    )
+
+                    val importResult =
+                        graphics.awaitGuestImportConfirmation(
+                            timeoutMillis =
+                                handshakeTimeoutMillis.coerceIn(
+                                    GraphicsSeqpacketSessionHost.MIN_AUTH_TIMEOUT_MILLIS,
+                                    GraphicsSeqpacketSessionHost.MAX_AUTH_TIMEOUT_MILLIS,
+                                ),
+                        )
+                    val imported = importResult.getOrNull()
+                    if (imported == null || !imported.guestImportConfirmed) {
+                        updateGraphicsState(
+                            guestImportConfirmed = false,
+                            error =
+                                graphics.snapshot().blocker
+                                    ?: importResult.exceptionOrNull()?.message
+                                    ?: GuestGraphicsSessionOrchestrator.BLOCKER_IMPORT_ACK_FAILED,
+                        )
+                        return@launch
+                    }
+
+                    updateGraphicsState(
+                        guestImportConfirmed = true,
+                        resourceId = imported.resourceId,
+                        generation = imported.generation,
                         clearError = true,
                     )
                 }
@@ -395,6 +430,7 @@ class RuntimeDisplayExecutionController(
                                 (failure.message ?: failure.javaClass.simpleName),
                         graphicsAuthenticated = graphics.authenticated,
                         graphicsHostResourceOffered = graphics.hostResourceOffered,
+                        graphicsGuestImportConfirmed = graphics.guestImportConfirmed,
                         graphicsResourceId = graphics.resourceId,
                         graphicsGeneration = graphics.generation,
                         graphicsError = graphics.error,
@@ -441,6 +477,7 @@ class RuntimeDisplayExecutionController(
                             },
                         graphicsAuthenticated = graphics.authenticated,
                         graphicsHostResourceOffered = graphics.hostResourceOffered,
+                        graphicsGuestImportConfirmed = graphics.guestImportConfirmed,
                         graphicsResourceId = graphics.resourceId,
                         graphicsGeneration = graphics.generation,
                         graphicsError = graphics.error,
@@ -487,7 +524,7 @@ class RuntimeDisplayExecutionController(
 
                 if (graphicsOfferJob?.isActive == true) {
                     updateGraphicsState(
-                        error = "GUEST_GRAPHICS_OFFER_NOT_COMPLETED_BEFORE_PROCESS_EXIT",
+                        error = "GUEST_GRAPHICS_IMPORT_NOT_COMPLETED_BEFORE_PROCESS_EXIT",
                     )
                 }
 
@@ -504,6 +541,7 @@ class RuntimeDisplayExecutionController(
                     authenticatedPeerCount = peers,
                     graphicsAuthenticated = graphics.authenticated,
                     graphicsHostResourceOffered = graphics.hostResourceOffered,
+                    graphicsGuestImportConfirmed = graphics.guestImportConfirmed,
                     graphicsResourceId = graphics.resourceId,
                     graphicsGeneration = graphics.generation,
                     graphicsError = graphics.error,
