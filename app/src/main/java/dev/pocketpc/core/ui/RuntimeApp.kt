@@ -231,6 +231,9 @@ fun RuntimeApp(
     var showPcRuntimeStages by rememberSaveable {
         mutableStateOf(false)
     }
+    var requestContinuousPresentV52 by rememberSaveable {
+        mutableStateOf(false)
+    }
 
     suspend fun reload() {
         staged = manager.discover()
@@ -2117,6 +2120,30 @@ fun RuntimeApp(
                             MaterialTheme.colorScheme
                                 .error,
                     )
+                    Row(
+                        horizontalArrangement =
+                            Arrangement.spacedBy(10.dp),
+                    ) {
+                        Switch(
+                            checked = requestContinuousPresentV52,
+                            onCheckedChange = {
+                                requestContinuousPresentV52 = it
+                            },
+                        )
+                        Column {
+                            Text("Vulkan Present v52 experimental")
+                            Text(
+                                if (requestContinuousPresentV52) {
+                                    "Exige pacote Wine v52 verificado; falha fechada se ausente."
+                                } else {
+                                    "Desativado: mantém o caminho v51 padrão."
+                                },
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall,
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -2214,6 +2241,8 @@ fun RuntimeApp(
                                                 true,
                                             desktopBridge =
                                                 desktopBridge,
+                                            requestContinuousPresentV52 =
+                                                requestContinuousPresentV52,
                                         )
 
                                 probeOutput =
@@ -2248,6 +2277,24 @@ fun RuntimeApp(
                                                 result
                                                     .authenticatedPeerCount
                                         )
+                                        appendLine(
+                                            "v52 frames entregues ao modelo: " +
+                                                result.graphicsV52FramesDelivered
+                                        )
+                                        if (
+                                            result.graphicsV52FrameFingerprints
+                                                .isNotEmpty()
+                                        ) {
+                                            appendLine(
+                                                "v52 fingerprints distintos: " +
+                                                    result.graphicsV52FrameFingerprints
+                                                        .toSet()
+                                                        .size +
+                                                    "/" +
+                                                    result.graphicsV52FrameFingerprints
+                                                        .size
+                                            )
+                                        }
                                         result.bridgeError
                                             ?.let {
                                                 appendLine(
