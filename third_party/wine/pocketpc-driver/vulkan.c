@@ -33,6 +33,7 @@ struct pocketpc_vulkan_guest_resource_state
     pthread_t worker;
     BOOL worker_started;
     BOOL stopping;
+    BOOL present_queue_signal_ack_sent;
     struct vulkan_device *device;
     struct pocketpc_graphics_session session;
     struct pgt_resource_descriptor descriptor;
@@ -99,6 +100,7 @@ static void pocketpc_guest_resource_reset_records(void)
     pocketpc_guest_resource.timeline.semaphore = VK_NULL_HANDLE;
     pocketpc_guest_resource.image_imported = FALSE;
     pocketpc_guest_resource.timeline_imported = FALSE;
+    pocketpc_guest_resource.present_queue_signal_ack_sent = FALSE;
 }
 
 static void pocketpc_guest_resource_release_imports_locked(struct vulkan_device *device)
@@ -271,38 +273,6 @@ static void *pocketpc_vulkan_guest_resource_worker(void *argument)
         goto failed;
     }
 
-    result = pocketpc_guest_vulkan_timeline_probe_first_queue(
-        device,
-        &pocketpc_guest_resource.timeline);
-    if (result == POCKETPC_GUEST_VULKAN_TIMELINE_OK)
-    {
-        uint32_t queue_family = 0u;
-        if (device->queue_count > 0u)
-            queue_family = device->queues[0].info.queueFamilyIndex;
-
-        result = pocketpc_send_guest_ack(
-            session_fd,
-            PGA_STAGE_GPU_SIGNAL_SUBMITTED,
-            PGA_STATUS_OK,
-            &descriptor,
-            &ownership,
-            queue_family);
-        if (result != 0)
-        {
-            ERR("POCKETPC_VULKAN_GUEST stage=pga_gpu_signal_ack_failed result=%d\n", result);
-            goto failed;
-        }
-
-        TRACE("POCKETPC_VULKAN_GUEST stage=gpu_queue_signal_submitted execution_evidence=0 present_ordered=0 queue_family=%u value=%llu\n",
-              queue_family,
-              (unsigned long long)pocketpc_guest_resource.timeline.queue_signal_value);
-    }
-    else
-    {
-        WARN("POCKETPC_VULKAN_GUEST stage=gpu_queue_signal_probe_failed result=%d execution_evidence=0 present_ordered=0\n",
-             result);
-    }
-
     TRACE("POCKETPC_VULKAN_GUEST stage=resource_import_source_path_ready execution_evidence=0 gpu_sync=0 visible_present=0 resource=%llu generation=%llu sequence=%llu\n",
           (unsigned long long)descriptor.resource_id,
           (unsigned long long)descriptor.generation,
@@ -418,6 +388,73 @@ static void pocketpc_vulkan_device_destroyed(struct vulkan_device *device)
         pocketpc_guest_resource.worker_started = FALSE;
         pocketpc_guest_resource.stopping = FALSE;
     }
+    pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+}
+
+static void pocketpc_vulkan_queue_presented(struct vulkan_queue *queue, VkResult present_result)
+{
+    struct vulkan_device *device;
+    uint64_t current_value = 0u;
+    uint32_t queue_family;
+    int result;
+
+    if (!queue || !queue->device)
+        return;
+    if (present_result != VK_SUCCESS && present_result != VK_SUBOPTIMAL_KHR)
+        return;
+
+    device = queue->device;
+    pthread_mutex_lock(&pocketpc_guest_resource.mutex);
+
+    if (pocketpc_guest_resource.device != device ||
+        pocketpc_guest_resource.stopping ||
+        !pocketpc_guest_resource.image_imported ||
+        !pocketpc_guest_resource.timeline_imported ||
+        pocketpc_guest_resource.present_queue_signal_ack_sent ||
+        pocketpc_guest_resource.session.fd < 0)
+    {
+        pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+        return;
+    }
+
+    result = pocketpc_guest_vulkan_timeline_get_counter(
+        device,
+        &pocketpc_guest_resource.timeline,
+        &current_value);
+    if (result == POCKETPC_GUEST_VULKAN_TIMELINE_OK && current_value != UINT64_MAX)
+        result = pocketpc_guest_vulkan_timeline_signal_queue(
+            device,
+            queue,
+            &pocketpc_guest_resource.timeline,
+            current_value + 1u);
+
+    if (result != POCKETPC_GUEST_VULKAN_TIMELINE_OK)
+    {
+        WARN("POCKETPC_VULKAN_GUEST stage=present_queue_signal_failed result=%d present_result=%d execution_evidence=0\n",
+             result, present_result);
+        pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+        return;
+    }
+
+    queue_family = queue->info.queueFamilyIndex;
+    result = pocketpc_send_guest_ack(
+        pocketpc_guest_resource.session.fd,
+        PGA_STAGE_GPU_SIGNAL_SUBMITTED,
+        PGA_STATUS_OK,
+        &pocketpc_guest_resource.descriptor,
+        &pocketpc_guest_resource.ownership,
+        queue_family);
+    if (result != 0)
+    {
+        ERR("POCKETPC_VULKAN_GUEST stage=pga_present_queue_signal_ack_failed result=%d\n", result);
+        pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
+        return;
+    }
+
+    pocketpc_guest_resource.present_queue_signal_ack_sent = TRUE;
+    TRACE("POCKETPC_VULKAN_GUEST stage=present_queue_signal_submitted execution_evidence=0 same_queue_as_present=1 visible_present=0 queue_family=%u value=%llu\n",
+          queue_family,
+          (unsigned long long)pocketpc_guest_resource.timeline.queue_signal_value);
     pthread_mutex_unlock(&pocketpc_guest_resource.mutex);
 }
 
@@ -605,6 +642,7 @@ static const struct vulkan_driver_funcs pocketpc_vulkan_driver_funcs =
     .p_map_device_extensions = pocketpc_map_device_extensions,
     .p_vulkan_device_created = pocketpc_vulkan_device_created,
     .p_vulkan_device_destroyed = pocketpc_vulkan_device_destroyed,
+    .p_vulkan_queue_presented = pocketpc_vulkan_queue_presented,
 };
 
 UINT POCKETPC_VulkanInit(
@@ -630,7 +668,7 @@ UINT POCKETPC_VulkanInit(
     *driver_funcs = &pocketpc_vulkan_driver_funcs;
 
     TRACE(
-        "POCKETPC_VULKAN_WSI stage=abi_initialized version=%u visible_surface_backend=blocked headless_diagnostic=%u external_handle_mapping=ready device_lifecycle_callbacks=ready\n",
+        "POCKETPC_VULKAN_WSI stage=abi_initialized version=%u visible_surface_backend=blocked headless_diagnostic=%u external_handle_mapping=ready device_lifecycle_callbacks=ready present_queue_callback=ready\n",
         WINE_VULKAN_DRIVER_VERSION,
         pocketpc_headless_diagnostic_enabled()
     );
