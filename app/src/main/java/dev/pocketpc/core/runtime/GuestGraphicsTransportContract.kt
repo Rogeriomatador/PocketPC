@@ -15,6 +15,9 @@ object GuestGraphicsTransportContract {
     const val ownershipProtocolImplemented = true
     const val hostAhardwareBufferBrokerImplemented = true
     const val hostOpaqueFdImageBrokerImplemented = true
+    const val hostOpaqueFdInitialExternalReleaseSourceIntegrated = true
+    const val guestExternalImageAcquireReleasePrimitiveImplemented = true
+    const val externalImageBoundaryLayoutGeneral = true
     const val hostDmaBufImageBrokerImplemented = false
     const val externalResourceCapabilityProbeImplemented = true
     const val canonicalAhardwareBufferImportProbeImplemented = true
@@ -47,21 +50,35 @@ object GuestGraphicsTransportContract {
     /* Reusable diagnostic helper; no longer used to classify Present ordering. */
     const val guestGpuFirstQueueSignalProbeImplemented = true
 
+    /* Base PocketPC overlay remains v49 before the staged v50 image patch. */
     const val wineVulkanAbiV49DeviceLifecycleSourceIntegrated = true
     const val wineVulkanAbiV49PresentQueueCallbackSourceIntegrated = true
+    const val wineVulkanAbiV50ExactPresentedImageSourceIntegrated = true
     const val presentQueueTimelineSignalSourceIntegrated = true
     const val activeWineDeviceImportSourceIntegrated = true
     const val asynchronousWineDeviceResourceWorkerImplemented = true
 
     /*
+     * The Android OPAQUE_FD broker now records a real initial Vulkan release
+     * from its graphics queue to VK_QUEUE_FAMILY_EXTERNAL in GENERAL before it
+     * will send PVI1. The Wine helper can perform the matching acquire/release
+     * on the exact Wine queue. These are source foundations only until a real
+     * Android/Box64/Wine run observes the transitions.
+     */
+    const val hostOpaqueFdInitialExternalReleaseExecuted = false
+    const val guestExternalImageAcquireExecuted = false
+    const val guestExternalImageReleaseExecuted = false
+
+    /*
      * The v49 Present callback receives the exact struct vulkan_queue used by
      * win32u_vkQueuePresentKHR and submits the PVS1 signal on that same queue.
-     * PGA1 stage 5 can carry that source-path result back to Android.
-     * Source presence is not execution evidence.
+     * The staged v50 patch additionally resolves pImageIndices to the exact
+     * host swapchain VkImage. Source presence is not execution evidence.
      */
     const val guestGpuQueueSignalExecuted = false
     const val guestGpuQueueSignalCompletionObserved = false
     const val guestGpuQueueSignalPresentOrdered = false
+    const val exactPresentedImageIdentityExecuted = false
     const val guestGpuQueueSignalHostVisibleFrame = false
 
     /*
@@ -108,10 +125,13 @@ object GuestGraphicsTransportContract {
             guestGpuQueueSignalAcknowledgementHostValidationImplemented &&
             runtimeDisplayGpuQueueSignalObservationImplemented &&
             externalImagePvi1ProtocolImplemented &&
+            hostOpaqueFdInitialExternalReleaseSourceIntegrated &&
+            guestExternalImageAcquireReleasePrimitiveImplemented &&
             externalTimelineSemaphorePvs1ProtocolImplemented &&
             guestGpuQueueSignalPrimitiveImplemented &&
             wineVulkanAbiV49DeviceLifecycleSourceIntegrated &&
             wineVulkanAbiV49PresentQueueCallbackSourceIntegrated &&
+            wineVulkanAbiV50ExactPresentedImageSourceIntegrated &&
             presentQueueTimelineSignalSourceIntegrated &&
             activeWineDeviceImportSourceIntegrated &&
             guestReceiveImplemented &&
