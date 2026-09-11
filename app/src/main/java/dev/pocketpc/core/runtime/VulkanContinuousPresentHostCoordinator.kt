@@ -76,6 +76,7 @@ data class VulkanContinuousPresentHostStep(
     val guestReadyValue: Long,
     val hostConsumedValue: Long,
     val detail: String,
+    val frameFingerprint: Long? = null,
 ) {
     val generationMustBeRecreated: Boolean
         get() =
@@ -134,6 +135,7 @@ class VulkanContinuousPresentHostCoordinator(
         val frameSequence: Long,
         val hostConsumedValue: Long,
         val guestReadyValue: Long,
+        val frameFingerprint: Long,
     )
 
     private val ownership =
@@ -268,6 +270,8 @@ class VulkanContinuousPresentHostCoordinator(
             )
         }
 
+        val frameFingerprint = fingerprintArgb(frame.argb)
+
         val modelFrame =
             RuntimeDesktopExternalVulkanFrame(
                 windowId = windowId,
@@ -333,6 +337,7 @@ class VulkanContinuousPresentHostCoordinator(
                 frameSequence = frameSequence,
                 hostConsumedValue = hostConsumedValue,
                 guestReadyValue = guestReadyValue,
+                frameFingerprint = frameFingerprint,
             )
         pendingSignal = pending
         return retryPendingSignal(pending)
@@ -375,6 +380,7 @@ class VulkanContinuousPresentHostCoordinator(
                     guestReadyValue = pending.guestReadyValue,
                     hostConsumedValue = pending.hostConsumedValue,
                     detail = "HOST_CONSUMED_SIGNALLED",
+                    frameFingerprint = pending.frameFingerprint,
                 )
             },
             onFailure = { failure ->
@@ -386,6 +392,7 @@ class VulkanContinuousPresentHostCoordinator(
                     guestReadyValue = pending.guestReadyValue,
                     hostConsumedValue = pending.hostConsumedValue,
                     detail = safeDetail(failure),
+                    frameFingerprint = pending.frameFingerprint,
                 )
             },
         )
@@ -398,6 +405,7 @@ class VulkanContinuousPresentHostCoordinator(
         guestReadyValue: Long,
         hostConsumedValue: Long,
         detail: String,
+        frameFingerprint: Long? = null,
     ) =
         VulkanContinuousPresentHostStep(
             status = status,
@@ -406,7 +414,16 @@ class VulkanContinuousPresentHostCoordinator(
             guestReadyValue = guestReadyValue,
             hostConsumedValue = hostConsumedValue,
             detail = detail,
+            frameFingerprint = frameFingerprint,
         )
+
+    private fun fingerprintArgb(argb: IntArray): Long {
+        var hash = -3750763034362895579L
+        argb.forEach { pixel ->
+            hash = (hash xor (pixel.toLong() and 0xffffffffL)) * 1099511628211L
+        }
+        return hash
+    }
 
     private fun requireTimeout(timeoutMillis: Long) {
         require(timeoutMillis in 1L..MAX_TIMEOUT_MILLIS) {
