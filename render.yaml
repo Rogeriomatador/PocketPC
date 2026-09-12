@@ -10,5 +10,5 @@ services:
     dockerContext: .
     healthCheckPath: /health
     envVars:
-      - key: POCKETPC_SOURCE_REVISION
-        value: LOCAL_UNPINNED
+      - key: POCKETPC_RENDER_BUILD_UNSIGNED_DEBUG
+        value: "1"
