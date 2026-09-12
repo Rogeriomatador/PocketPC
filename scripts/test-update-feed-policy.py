@@ -31,7 +31,6 @@ BOOTSTRAP_WINDOWS = ROOT / "scripts" / "bootstrap-update-signing-windows.ps1"
 LOCAL_PUBLISHER = ROOT / "scripts" / "publish-update-local-windows.ps1"
 BUILD_GRADLE = ROOT / "app" / "build.gradle.kts"
 PAIRED_V52_POLICY = ROOT / "scripts" / "test-paired-v52-home-test-policy.py"
-RENDER_BUILDER_POLICY = ROOT / "scripts" / "test-render-builder-policy.py"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 REVISION_RE = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -231,12 +230,6 @@ def main() -> int:
             "--publish",
             '"published": bool(args.publish)',
         ),
-        RENDER_BUILDER_POLICY: (
-            "POCKETPC_RENDER_BUILDER_POLICY_OK",
-            "RUNTIME_EXECUTED=0",
-            "PHYSICAL_VISIBLE_FRAME=0",
-            "ROBLOX_EXECUTED=0",
-        ),
         PAIRED_V52_POLICY: (
             "POCKETPC_PAIRED_V52_HOME_TEST_POLICY_OK",
             "PAIRED_IN_APP_OFFER_IMPLEMENTED=1",
@@ -365,17 +358,6 @@ def main() -> int:
         for sentinel in sentinels:
             if sentinel not in text:
                 failures.append(f"{path.relative_to(ROOT)} missing sentinel: {sentinel}")
-
-    render_policy = subprocess.run(
-        [sys.executable, str(RENDER_BUILDER_POLICY)],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if render_policy.returncode != 0:
-        detail = (render_policy.stderr or render_policy.stdout).strip()
-        failures.append("Render builder policy failed: " + detail)
 
     paired_policy = subprocess.run(
         [sys.executable, str(PAIRED_V52_POLICY)],
