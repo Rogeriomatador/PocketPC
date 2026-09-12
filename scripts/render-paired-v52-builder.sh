@@ -6,8 +6,16 @@ cd "$ROOT"
 
 REVISION="${POCKETPC_SOURCE_REVISION:-${RENDER_GIT_COMMIT:-}}"
 if [[ ! "$REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+  REVISION="$(git rev-parse HEAD 2>/dev/null || true)"
+fi
+if [[ ! "$REVISION" =~ ^[0-9a-f]{40}$ ]]; then
   echo "POCKETPC_RENDER_SOURCE_REVISION_NOT_PINNED" >&2
   exit 10
+fi
+ACTUAL_REVISION="$(git rev-parse HEAD 2>/dev/null || true)"
+if [[ "$ACTUAL_REVISION" =~ ^[0-9a-f]{40}$ && "$ACTUAL_REVISION" != "$REVISION" ]]; then
+  echo "POCKETPC_RENDER_SOURCE_REVISION_MISMATCH:$ACTUAL_REVISION:$REVISION" >&2
+  exit 11
 fi
 
 OUT="${POCKETPC_RENDER_OUTPUT_DIR:-/tmp/pocketpc-render-output}"
@@ -26,7 +34,12 @@ python3 scripts/test-runtime-v52-present-selection-policy.py
 python3 scripts/test-v52-package-revision-binding.py
 python3 scripts/test-v52-continuous-present-integration-validator.py
 
-install-android-toolchain toolchains/android-build-lock.json
+if command -v install-android-toolchain >/dev/null 2>&1; then
+  install-android-toolchain toolchains/android-build-lock.json
+else
+  command -v sdkmanager >/dev/null
+  command -v gradle >/dev/null
+fi
 
 VERSION_CODE="${POCKETPC_VERSION_CODE:-220000}"
 VERSION_NAME="${POCKETPC_VERSION_NAME:-0.1.0-alpha22.render}"
