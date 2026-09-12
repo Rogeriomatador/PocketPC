@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-DOCKER=ROOT/"infra/render/Dockerfile"
+DOCKER=ROOT/"infra/render/Dockerfile.builder"
 INSTALL=ROOT/"infra/render/install-android-toolchain.sh"
 BUILD=ROOT/"scripts/render-paired-v52-builder.sh"
 
@@ -18,7 +18,7 @@ def main():
         ("openjdk-17-jdk-headless","jdk17"),
         ("gcc-mingw-w64-x86-64","mingw"),
         ("libvulkan-dev","vulkan"),
-        ("install-android-toolchain","android-toolchain"),
+        ("render-paired-v52-builder.sh","render-builder"),
     ): req(docker,needle,label)
     for needle,label in (
         ("android-build-lock.json","lock-input"),
@@ -27,6 +27,7 @@ def main():
     ): req(install,needle,label)
     for needle,label in (
         ("POCKETPC_RENDER_SOURCE_REVISION_NOT_PINNED","revision-pin"),
+        ("POCKETPC_RENDER_SOURCE_REVISION_MISMATCH","revision-mismatch"),
         ("test-update-feed-policy.py","source-policy"),
         (":app:testDebugUnitTest","unit-tests"),
         (":app:assembleDebug","debug-apk"),
