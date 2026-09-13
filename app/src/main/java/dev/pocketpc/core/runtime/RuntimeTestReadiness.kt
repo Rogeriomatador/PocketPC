@@ -11,10 +11,17 @@ data class RuntimeTestReadiness(
     val prerequisites:
         List<RuntimeTestPrerequisite>,
 ) {
-    val firstBlocker:
+    val corePrerequisites:
+        List<RuntimeTestPrerequisite>
+        get() =
+            prerequisites.filter {
+                it.id != "dxvk"
+            }
+
+    val firstCoreBlocker:
         RuntimeTestPrerequisite?
         get() =
-            prerequisites
+            corePrerequisites
                 .firstOrNull {
                     !it.ready
                 }
@@ -22,7 +29,28 @@ data class RuntimeTestReadiness(
     val coreRuntimeReady:
         Boolean
         get() =
-            firstBlocker == null
+            firstCoreBlocker == null
+
+    val firstD3dBlocker:
+        RuntimeTestPrerequisite?
+        get() =
+            prerequisites
+                .firstOrNull {
+                    !it.ready
+                }
+
+    val d3dRuntimeReady:
+        Boolean
+        get() =
+            firstD3dBlocker == null
+
+    /*
+     * Compatibility alias for callers that still describe the complete
+     * diagnostic stack. Core/GDI callers must use firstCoreBlocker instead.
+     */
+    val firstBlocker:
+        RuntimeTestPrerequisite?
+        get() = firstD3dBlocker
 }
 
 object RuntimeTestReadinessProbe {
@@ -114,7 +142,7 @@ object RuntimeTestReadinessProbe {
                         detail =
                             if (
                                 "box64" in
-                                toolIds
+                                    toolIds
                             ) {
                                 "Pacote Box64 instalado e atestado."
                             } else {
@@ -130,7 +158,7 @@ object RuntimeTestReadinessProbe {
                         detail =
                             if (
                                 "wine" in
-                                toolIds
+                                    toolIds
                             ) {
                                 "Pacote Wine instalado e atestado."
                             } else {
@@ -146,11 +174,11 @@ object RuntimeTestReadinessProbe {
                         detail =
                             if (
                                 "dxvk" in
-                                layerIds
+                                    layerIds
                             ) {
                                 "DXVK implantado neste prefixo."
                             } else {
-                                "DXVK será necessário nos probes D3D11."
+                                "DXVK não bloqueia o core/GDI; ele passa a ser obrigatório apenas nos probes D3D11."
                             },
                     ),
                 ),
