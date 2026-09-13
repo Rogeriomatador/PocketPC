@@ -1,0 +1,164 @@
+name: Wine v52 Driver Fast Build
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/wine-v52-driver-fast-build.yml'
+      - 'scripts/prepare-wine-source.py'
+      - 'scripts/prepare-wine-pocketpc-driver-v51.py'
+      - 'scripts/prepare-wine-pocketpc-v51-compile-fix.py'
+      - 'scripts/prepare-wine-pocketpc-driver-v52.py'
+      - 'scripts/prepare-wine-pocketpc-continuous-present-v52.py'
+      - 'scripts/prepare-wine-pocketpc-v52-compile-fix.py'
+      - 'scripts/build-wine-pocketpc-driver.py'
+      - 'scripts/audit-wine-pocketpc-driver-pe.py'
+      - 'scripts/verify-wine-pocketpc-driver-artifact-set.py'
+      - 'third_party/wine/pocketpc-display-bridge/**'
+      - 'third_party/wine/pocketpc-driver/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wine-v52-driver-fast-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-v52-driver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Wine driver build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            gcc-mingw-w64-x86-64 \
+            bison \
+            flex \
+            pkg-config \
+            libvulkan-dev
+
+      - name: Validate v52 build scripts
+        run: |
+          python3 -m py_compile \
+            scripts/prepare-wine-source.py \
+            scripts/prepare-wine-pocketpc-driver-v51.py \
+            scripts/prepare-wine-pocketpc-v51-compile-fix.py \
+            scripts/prepare-wine-pocketpc-driver-v52.py \
+            scripts/prepare-wine-pocketpc-continuous-present-v52.py \
+            scripts/prepare-wine-pocketpc-v52-compile-fix.py \
+            scripts/build-wine-pocketpc-driver.py \
+            scripts/audit-wine-pocketpc-driver-pe.py \
+            scripts/verify-wine-pocketpc-driver-artifact-set.py
+          python3 scripts/test-vulkan-continuous-present-v52-policy.py
+          python3 scripts/test-wine-x86_64-v52-source-integration.py
+
+      - name: Fetch exact pinned Wine source
+        run: |
+          python3 scripts/prepare-wine-source.py \
+            --work "$RUNNER_TEMP/pocketpc-wine-v52-driver-source"
+
+      - name: Apply complete experimental v52 overlay
+        run: |
+          python3 scripts/prepare-wine-pocketpc-driver-v52.py \
+            --wine-source "$RUNNER_TEMP/pocketpc-wine-v52-driver-source/source" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-v52-driver-source/wine-pocketpc-driver-v52-overlay.json"
+
+      - name: Verify v52 overlay remains fail-closed before build
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'pocketpc-wine-v52-driver-source'
+          evidence = json.loads((root / 'wine-pocketpc-driver-v52-overlay.json').read_text(encoding='utf-8'))
+          assert evidence['privateWineVulkanAbi'] == 52
+          assert evidence['derivedFromPrivateAbi'] == 51
+          assert evidence['officialBuildSelected'] is False
+          assert evidence['compiled'] is False
+          assert evidence['runtimeExecuted'] is False
+          assert evidence['integrationExecuted'] is False
+          assert evidence['physicalVisibleFrame'] is False
+          assert evidence['robloxExecuted'] is False
+          print('POCKETPC_V52_DRIVER_OVERLAY_READY_NOT_BUILT_NOT_EXECUTED')
+          PY
+
+      - name: Build only experimental v52 winepocketpc driver
+        run: |
+          python3 scripts/build-wine-pocketpc-driver.py \
+            --wine-source "$RUNNER_TEMP/pocketpc-wine-v52-driver-source/source" \
+            --work "$RUNNER_TEMP/pocketpc-wine-v52-driver-build"
+
+      - name: Audit v52 winepocketpc PE architecture
+        run: |
+          python3 scripts/audit-wine-pocketpc-driver-pe.py \
+            --driver "$RUNNER_TEMP/pocketpc-wine-v52-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-v52-driver-build/winepocketpc-driver-pe-audit.json"
+
+      - name: Verify coherent v52 driver artifact set
+        run: |
+          python3 scripts/verify-wine-pocketpc-driver-artifact-set.py \
+            --build-evidence "$RUNNER_TEMP/pocketpc-wine-v52-driver-build/winepocketpc-driver-build-evidence.json" \
+            --pe-evidence "$RUNNER_TEMP/pocketpc-wine-v52-driver-build/winepocketpc-driver-pe-audit.json" \
+            --driver "$RUNNER_TEMP/pocketpc-wine-v52-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv" \
+            --unixlib "$RUNNER_TEMP/pocketpc-wine-v52-driver-build/build/dlls/winepocketpc.drv/winepocketpc.so" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-v52-driver-build/winepocketpc-driver-artifact-set.json"
+
+      - name: Record v52 driver-only evidence
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          out = Path(os.environ['RUNNER_TEMP']) / 'pocketpc-wine-v52-driver-build' / 'wine-v52-driver-fast-evidence.json'
+          out.write_text(json.dumps({
+              'schemaVersion': 1,
+              'status': 'V52_DRIVER_ONLY_COMPILED_NOT_FULL_PACKAGE_NOT_RUNTIME_TESTED',
+              'privateWineVulkanAbi': 52,
+              'driverBuildExecuted': True,
+              'fullWinePackageBuilt': False,
+              'runtimeExecuted': False,
+              'androidExecuted': False,
+              'physicalVisibleFrame': False,
+              'robloxExecuted': False,
+              'classification': {
+                  'driverBuild': 'SOFTWARE_TEST',
+                  'fullPackage': 'NOT_EXECUTED',
+                  'runtime': 'NOT_EXECUTED',
+                  'physical': 'NOT_EXECUTED',
+                  'roblox': 'NOT_EXECUTED'
+              }
+          }, indent=2) + '\n', encoding='utf-8')
+          print('POCKETPC_V52_DRIVER_FAST_BUILD_PASS_RUNTIME_NOT_EXECUTED')
+          PY
+
+      - name: Prove repository stayed unmodified
+        if: always()
+        run: git diff --exit-code -- app third_party scripts .github
+
+      - name: Upload v52 driver fast-build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Wine11-v52-driver-fast-evidence
+          path: |
+            ${{ runner.temp }}/pocketpc-wine-v52-driver-source/*.json
+            ${{ runner.temp }}/pocketpc-wine-v52-driver-build/*.json
+            ${{ runner.temp }}/pocketpc-wine-v52-driver-build/*.log
+            ${{ runner.temp }}/pocketpc-wine-v52-driver-build/build/dlls/winepocketpc.drv/winepocketpc.drv
+            ${{ runner.temp }}/pocketpc-wine-v52-driver-build/build/dlls/winepocketpc.drv/winepocketpc.so
+          if-no-files-found: warn
