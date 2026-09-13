@@ -3,6 +3,8 @@
 
 #include "pocketpc_external_timeline_semaphore_fd_protocol.h"
 
+#include "windef.h"
+#include "winbase.h"
 #include "wine/vulkan.h"
 #include "wine/vulkan_driver.h"
 

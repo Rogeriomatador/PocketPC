@@ -3,6 +3,8 @@
 
 #include "pocketpc_external_image_fd_protocol.h"
 
+#include "windef.h"
+#include "winbase.h"
 #include "wine/vulkan.h"
 #include "wine/vulkan_driver.h"
 
