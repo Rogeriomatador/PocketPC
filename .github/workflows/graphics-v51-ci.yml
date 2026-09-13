@@ -13,7 +13,9 @@ on:
       - 'app/src/test/java/dev/pocketpc/core/runtime/**'
       - 'scripts/build-wine-x86_64-v52-experimental.py'
       - 'scripts/prepare-wine-pocketpc-continuous-present-v52.py'
+      - 'scripts/prepare-wine-pocketpc-driver-v51.py'
       - 'scripts/prepare-wine-pocketpc-driver-v52.py'
+      - 'scripts/prepare-wine-pocketpc-v51-compile-fix.py'
       - 'scripts/test-runtime-v52-present-selection-policy.py'
       - 'scripts/test-v52-package-revision-binding.py'
       - 'scripts/test-wine-x86_64-v51-integration.py'
@@ -46,7 +48,9 @@ jobs:
           python3 -m py_compile
           scripts/build-wine-x86_64-v52-experimental.py
           scripts/prepare-wine-pocketpc-continuous-present-v52.py
+          scripts/prepare-wine-pocketpc-driver-v51.py
           scripts/prepare-wine-pocketpc-driver-v52.py
+          scripts/prepare-wine-pocketpc-v51-compile-fix.py
           scripts/test-runtime-v52-present-selection-policy.py
           scripts/test-v52-package-revision-binding.py
           scripts/test-wine-x86_64-v51-integration.py
