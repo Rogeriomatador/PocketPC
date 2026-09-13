@@ -211,7 +211,7 @@ def main() -> int:
         "Wine overlay evidence",
         preparer,
         (
-            '"schemaVersion": 4',
+            '"schemaVersion": 10',
             '"pocketpc_fd_transport.h",',
             '"pocketpc_fd_transport.c",',
             '"pocketpc_graphics_handle_binding.h",',
@@ -219,8 +219,8 @@ def main() -> int:
             '"graphicsFdTransportProtocolVersion": 1',
             '"guestGraphicsAncillaryFdTransportPrimitiveImplemented": True',
             '"guestGraphicsHandleBindingImplemented": True',
-            '"guestGraphicsHandleReceiveImplemented": False',
-            '"guestGraphicsImportImplemented": False',
+            '"guestGraphicsHandleReceiveIntegrated": False',
+            '"guestGraphicsImportIntegrated": False',
             '"guestGraphicsSynchronizationImplemented": False',
         ),
     )
@@ -229,10 +229,10 @@ def main() -> int:
         "runtime contract distinction",
         contract,
         (
-            "const val ancillaryFdTransportPrimitiveImplemented =\n        true",
-            "const val guestReceiveImplemented =\n        false",
-            "const val guestImportImplemented =\n        false",
-            "const val synchronizationImplemented =\n        false",
+            "const val ancillaryFdTransportPrimitiveImplemented = true",
+            "const val guestReceiveImplemented = false",
+            "const val guestImportImplemented = false",
+            "const val synchronizationImplemented = false",
         ),
     )
     require(

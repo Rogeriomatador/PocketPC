@@ -144,8 +144,8 @@ def main() -> int:
             '"pocketpc_guest_graphics_receive.h",',
             '"pocketpc_guest_graphics_receive.c",',
             '"guestGraphicsReceivePrimitiveImplemented": True',
-            '"guestGraphicsHandleReceiveImplemented": False',
-            '"guestGraphicsImportImplemented": False',
+            '"guestGraphicsHandleReceiveIntegrated": False',
+            '"guestGraphicsImportIntegrated": False',
             '"guestGraphicsSynchronizationImplemented": False',
         ),
     )
@@ -154,10 +154,10 @@ def main() -> int:
         "runtime contract",
         contract,
         (
-            "const val guestReceivePrimitiveImplemented =\n        true",
-            "const val guestReceiveImplemented =\n        false",
-            "const val guestImportImplemented =\n        false",
-            "const val synchronizationImplemented =\n        false",
+            "const val guestReceivePrimitiveImplemented = true",
+            "const val guestReceiveImplemented = false",
+            "const val guestImportImplemented = false",
+            "const val synchronizationImplemented = false",
         ),
     )
 

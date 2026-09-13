@@ -72,7 +72,7 @@ function Test-Marker {
         [Parameter(Mandatory=$true)][string]$Text,
         [Parameter(Mandatory=$true)][string]$Marker
     )
-    return $Text.Contains($Marker, [System.StringComparison]::Ordinal)
+    return $Text.IndexOf($Marker, [System.StringComparison]::Ordinal) -ge 0
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -95,7 +95,7 @@ if (-not $DeviceSerial) {
 
 $state = Invoke-Adb $adb $DeviceSerial @("get-state")
 if ($state.ExitCode -ne 0 -or $state.Text -ne "device") {
-    throw "ADB_DEVICE_NOT_READY:$DeviceSerial:$($state.Text)"
+    throw "ADB_DEVICE_NOT_READY:${DeviceSerial}:$($state.Text)"
 }
 
 if (-not $OutputDirectory) {
