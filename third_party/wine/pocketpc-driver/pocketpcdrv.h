@@ -31,7 +31,6 @@ extern BOOL pocketpc_bridge_ready;
 void POCKETPC_FailBridgeLocked(
     const char *reason
 );
-BOOL POCKETPC_RegisterQueueFd(void);
 BOOL POCKETPC_BridgeReady(void);
 BOOL POCKETPC_CreateWindow(HWND hwnd);
 BOOL POCKETPC_ProcessEvents(DWORD mask);
