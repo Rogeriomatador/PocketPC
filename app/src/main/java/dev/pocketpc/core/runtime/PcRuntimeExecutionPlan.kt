@@ -116,7 +116,7 @@ object PcRuntimeExecutionPlanner {
                 PcApplicationGraphicsProfile.WINDOWED_GDI ->
                     readiness.windowedAttemptReady
                 PcApplicationGraphicsProfile.D3D_DXVK ->
-                    readiness.controlledAttemptReady
+                    readiness.graphicsAttemptReady
             }
         val launchEligible =
             attemptEligible &&
