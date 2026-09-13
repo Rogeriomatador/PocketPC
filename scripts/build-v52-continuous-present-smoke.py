@@ -65,6 +65,7 @@ def main() -> int:
         str(SOURCE),
         "-ld3d11",
         "-ldxgi",
+        "-luuid",
         "-luser32",
     ]
     with log.open("w", encoding="utf-8") as stream:
