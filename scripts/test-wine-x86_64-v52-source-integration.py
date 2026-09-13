@@ -3,7 +3,8 @@
 
 This does not prepare or compile Wine. It verifies that the checked-in v52
 source overlay preserves the v51 fallback, keeps the official build on v51,
-and keeps the v52 build path explicitly manual/experimental and fail-closed.
+and keeps v52 experimental while requiring PR validation to exercise the
+compiled driver through host-side registration and window/surface/input smokes.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver-v52.py"
 EXPERIMENTAL_BUILDER = ROOT / "scripts/build-wine-x86_64-v52-experimental.py"
 OFFICIAL_WORKFLOW = ROOT / ".github/workflows/wine-x86_64-build.yml"
 EXPERIMENTAL_WORKFLOW = ROOT / ".github/workflows/wine-x86_64-v52-experimental.yml"
+PR_VALIDATION_WORKFLOW = ROOT / ".github/workflows/wine-v52-pr-validation.yml"
 
 
 def fail(message: str) -> None:
@@ -45,6 +47,7 @@ def main() -> None:
     experimental_builder = EXPERIMENTAL_BUILDER.read_text(encoding="utf-8")
     workflow = OFFICIAL_WORKFLOW.read_text(encoding="utf-8")
     experimental_workflow = EXPERIMENTAL_WORKFLOW.read_text(encoding="utf-8")
+    pr_validation_workflow = PR_VALIDATION_WORKFLOW.read_text(encoding="utf-8")
 
     if contract.get("targetPrivateWineVulkanAbi") != 52:
         fail("contract ABI must remain 52")
@@ -150,6 +153,17 @@ def main() -> None:
     require(experimental_workflow, 'build["robloxExecuted"] is False', "Roblox evidence guard")
     require(experimental_workflow, "PocketPC-Wine11-x86_64-v52-experimental-review", "experimental artifact label")
 
+    require(pr_validation_workflow, "pull_request:", "v52 PR validation trigger")
+    require(pr_validation_workflow, "Build deterministic Win64 continuous-present smoke", "v52 PR smoke build")
+    require(pr_validation_workflow, "verify-wine-x86_64-driver-package.py", "v52 PR driver pair verifier")
+    require(pr_validation_workflow, "run-wine-pocketpc-driver-load-smoke.py", "v52 PR driver load smoke")
+    require(pr_validation_workflow, "run-wine-pocketpc-window-surface-smoke.py", "v52 PR surface/input smoke")
+    require(pr_validation_workflow, "Prove host Wine loads experimental v52 winepocketpc.drv", "v52 PR load label")
+    require(pr_validation_workflow, "Prove host Wine v52 window surface and input round-trip", "v52 PR surface label")
+    require(pr_validation_workflow, "pocketpc-wine-v52-driver-load-smoke", "v52 PR load evidence retention")
+    require(pr_validation_workflow, "pocketpc-wine-v52-window-surface-smoke", "v52 PR surface evidence retention")
+    forbid(pr_validation_workflow, "robloxExecuted'] is True", "v52 PR workflow Roblox promotion")
+
     evidence = contract.get("evidenceClassification") or {}
     for key in ("software", "integration", "physical", "roblox"):
         if evidence.get(key) != "NOT_EXECUTED":
@@ -158,10 +172,9 @@ def main() -> None:
     print("PASS static Wine v52 source integration lock")
     print("CLASSIFICATION=IMPLEMENTED_SOURCE_NOT_EXECUTED")
     print("OFFICIAL_WINE_BUILD=v51")
-    print("EXPERIMENTAL_V52_TRIGGER=workflow_dispatch")
+    print("EXPERIMENTAL_V52_MANUAL_TRIGGER=workflow_dispatch")
+    print("EXPERIMENTAL_V52_PR_RUNTIME_SMOKES=REQUIRED")
     print("V52_BUILD_EVIDENCE=POST_SUCCESS_ONLY")
-    print("V52_RUNTIME_EXECUTED=0")
-    print("V52_INTEGRATION_EXECUTED=0")
     print("PHYSICAL=NOT_EXECUTED")
     print("ROBLOX=NOT_EXECUTED")
 
