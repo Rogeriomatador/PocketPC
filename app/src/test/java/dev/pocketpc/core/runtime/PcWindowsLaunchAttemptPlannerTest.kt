@@ -112,6 +112,55 @@ class PcWindowsLaunchAttemptPlannerTest {
     }
 
     @Test
+    fun gdiProfileDoesNotRequireDxvkOnlyRuntimeGates() {
+        val blockers =
+            PcWindowsLaunchAttemptPlanner
+                .graphicsRuntimeBlockers(
+                    profile =
+                        PcApplicationGraphicsProfile
+                            .WINDOWED_GDI,
+                    evidence =
+                        RuntimeProbeEvidenceState(),
+                    deployedLayers =
+                        emptyList(),
+                )
+
+        assertTrue(blockers.isEmpty())
+    }
+
+    @Test
+    fun d3dProfileRemainsFailClosedBehindGraphicsRuntimeGates() {
+        val blockers =
+            PcWindowsLaunchAttemptPlanner
+                .graphicsRuntimeBlockers(
+                    profile =
+                        PcApplicationGraphicsProfile
+                            .D3D_DXVK,
+                    evidence =
+                        RuntimeProbeEvidenceState(),
+                    deployedLayers =
+                        emptyList(),
+                )
+
+        assertTrue(
+            "D3D11_RUNTIME_NOT_VALIDATED" in
+                blockers,
+        )
+        assertTrue(
+            PocketPcVulkanWsiContract.blocker in
+                blockers,
+        )
+        assertTrue(
+            "GRAPHICS_PRESENTATION_NOT_VALIDATED" in
+                blockers,
+        )
+        assertTrue(
+            "DXVK_LAYER_NOT_DEPLOYED" in
+                blockers,
+        )
+    }
+
+    @Test
     fun materializedTargetNameRemovesPathSeparatorsAndControlCharacters() {
         val sanitized =
             PcApplicationTargetMaterializer
