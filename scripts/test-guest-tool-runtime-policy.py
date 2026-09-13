@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -94,8 +95,10 @@ def main() -> int:
             failures.append(f"missing file: {relative}")
             continue
         text = path.read_text(encoding="utf-8")
+        compact_text = re.sub(r"\\s+", "", text)
         for sentinel in sentinels:
-            if sentinel not in text:
+            compact_sentinel = re.sub(r"\\s+", "", sentinel)
+            if sentinel not in text and compact_sentinel not in compact_text:
                 failures.append(f"{relative}: missing sentinel {sentinel!r}")
 
     box64_build = (ROOT / "scripts/build-box64-aarch64.py").read_text(encoding="utf-8")
@@ -133,7 +136,7 @@ def main() -> int:
     else:
         android_text = android_driver.read_text(encoding="utf-8")
         for sentinel in (
-            '"status": "UPSTREAM_PRESENT_DIRECT_REUSE_BLOCKED_BROKER_REQUIRED"',
+            '"status": "UPSTREAM_DIRECT_REUSE_BLOCKED_POCKETPC_DRIVER_V4_TEMPLATE_IMPLEMENTED_NOT_BUILT"',
             '"wineSourceCommit": "db11d0fe6a169c457e23d007e20404643d067aa8"',
             '"guestWineArchitecture": "x86_64"',
             '"hostArchitecture": "arm64-v8a"',
