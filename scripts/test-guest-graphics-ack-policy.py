@@ -99,7 +99,7 @@ def main() -> int:
         ("nativeAwaitImportAcks", "kotlin-native-await"),
         ("awaitImportAcknowledgements", "kotlin-await-wrapper"),
         ("it == IMPORT_ACK_READY_MASK", "kotlin-exact-mask"),
-        ("It does not prove GPU queue synchronization", "kotlin-non-promotion-comment"),
+        ("not prove swapchain image capture, Android-visible presentation or gameplay", "kotlin-non-promotion-comment"),
     ):
         need(host_kotlin, marker, label)
 
@@ -115,7 +115,7 @@ def main() -> int:
     for marker, label in (
         ("graphicsGuestImportConfirmed", "display-result-field"),
         ("awaitGuestImportConfirmation", "display-await-integration"),
-        ("GUEST_GRAPHICS_IMPORT_NOT_COMPLETED_BEFORE_PROCESS_EXIT", "display-exit-blocker"),
+        ("GUEST_GRAPHICS_PRESENT_PIPELINE_NOT_COMPLETED_BEFORE_PROCESS_EXIT", "display-exit-blocker"),
     ):
         need(display, marker, label)
 
