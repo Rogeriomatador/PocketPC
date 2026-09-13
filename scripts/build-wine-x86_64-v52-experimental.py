@@ -23,7 +23,12 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE_BUILD = ROOT / "scripts/build-wine-x86_64.py"
 V52_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver-v52.py"
 EVIDENCE_NAME = "wine-v52-experimental-build-evidence.json"
+MANIFEST_RELATIVE = Path("guest-tool-manifest.json")
 CAPABILITY_RELATIVE = Path("share/pocketpc/runtime-graphics-capabilities.json")
+WINE_ENTRYPOINT_RELATIVE = Path("bin/wine")
+WINDOW_SMOKE_RELATIVE = Path("share/tests/pocketpc-window-smoke.exe")
+EXPECTED_GUEST_ROOT = "/opt/pocketpc/wine"
+EXPECTED_ENTRYPOINT = WINE_ENTRYPOINT_RELATIVE.as_posix()
 CAPABILITY_ID = "pocketpc.vulkan.continuous-present.v52"
 POCKETPC_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -34,6 +39,10 @@ def sha256(path: Path) -> str:
         while block := stream.read(1024 * 1024):
             digest.update(block)
     return digest.hexdigest()
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
 def requested_work_dir() -> Path:
@@ -68,10 +77,85 @@ def require_bool_false(mapping: dict[str, object], key: str, label: str) -> None
         raise SystemExit(f"WINE_V52_EVIDENCE_NOT_FAIL_CLOSED:{label}:{key}")
 
 
-def attach_verified_v52_capability(work: Path) -> str:
+def verify_required_guest_payload(work: Path) -> dict[str, object]:
+    package_root = work / "guest-package"
+    manifest_path = package_root / MANIFEST_RELATIVE
+    package_path = work / "guest-package.zip"
+    for path in (package_root, manifest_path, package_path):
+        if not path.exists():
+            raise SystemExit(f"WINE_V52_REQUIRED_PAYLOAD_INPUT_MISSING:{path.name}")
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("guestRoot") != EXPECTED_GUEST_ROOT:
+        raise SystemExit("WINE_V52_GUEST_ROOT_MISMATCH")
+    if manifest.get("entrypoint") != EXPECTED_ENTRYPOINT:
+        raise SystemExit("WINE_V52_ENTRYPOINT_MISMATCH")
+
+    records: dict[str, dict[str, object]] = {}
+    for item in manifest.get("files", []):
+        if not isinstance(item, dict):
+            raise SystemExit("WINE_V52_MANIFEST_FILE_RECORD_INVALID")
+        relative = str(item.get("path", ""))
+        if not relative or relative in records:
+            raise SystemExit("WINE_V52_MANIFEST_FILE_RECORD_DUPLICATE_OR_EMPTY")
+        records[relative] = item
+
+    required = (
+        WINE_ENTRYPOINT_RELATIVE,
+        WINDOW_SMOKE_RELATIVE,
+    )
+    local_evidence: dict[str, dict[str, object]] = {}
+    for relative_path in required:
+        relative = relative_path.as_posix()
+        record = records.get(relative)
+        if record is None:
+            raise SystemExit(f"WINE_V52_REQUIRED_MANIFEST_RECORD_MISSING:{relative}")
+        source = package_root / relative_path
+        if not source.is_file() or source.stat().st_size <= 0:
+            raise SystemExit(f"WINE_V52_REQUIRED_PACKAGE_FILE_MISSING:{relative}")
+        digest = sha256(source)
+        if record.get("bytes") != source.stat().st_size:
+            raise SystemExit(f"WINE_V52_REQUIRED_FILE_SIZE_MISMATCH:{relative}")
+        if record.get("sha256") != digest:
+            raise SystemExit(f"WINE_V52_REQUIRED_FILE_DIGEST_MISMATCH:{relative}")
+        local_evidence[relative] = {
+            "path": relative,
+            "bytes": source.stat().st_size,
+            "sha256": digest,
+        }
+
+    with zipfile.ZipFile(package_path, "r") as archive:
+        names = set(archive.namelist())
+        if MANIFEST_RELATIVE.as_posix() not in names:
+            raise SystemExit("WINE_V52_ZIP_MANIFEST_MISSING")
+        archived_manifest = json.loads(
+            archive.read(MANIFEST_RELATIVE.as_posix()).decode("utf-8")
+        )
+        if archived_manifest != manifest:
+            raise SystemExit("WINE_V52_ZIP_MANIFEST_CONTENT_MISMATCH")
+        for relative_path in required:
+            relative = relative_path.as_posix()
+            if relative not in names:
+                raise SystemExit(f"WINE_V52_REQUIRED_ZIP_FILE_MISSING:{relative}")
+            archived = archive.read(relative)
+            evidence = local_evidence[relative]
+            if len(archived) != evidence["bytes"]:
+                raise SystemExit(f"WINE_V52_REQUIRED_ZIP_SIZE_MISMATCH:{relative}")
+            if sha256_bytes(archived) != evidence["sha256"]:
+                raise SystemExit(f"WINE_V52_REQUIRED_ZIP_DIGEST_MISMATCH:{relative}")
+
+    return {
+        "guestRoot": EXPECTED_GUEST_ROOT,
+        "entrypoint": EXPECTED_ENTRYPOINT,
+        "wineEntrypoint": local_evidence[WINE_ENTRYPOINT_RELATIVE.as_posix()],
+        "windowSmokeFixture": local_evidence[WINDOW_SMOKE_RELATIVE.as_posix()],
+    }
+
+
+def attach_verified_v52_capability(work: Path) -> tuple[str, dict[str, object]]:
     pocketpc_source_revision = pinned_pocketpc_source_revision()
     package_root = work / "guest-package"
-    manifest_path = package_root / "guest-tool-manifest.json"
+    manifest_path = package_root / MANIFEST_RELATIVE
     package_path = work / "guest-package.zip"
     base_path = work / "wine-build-evidence.json"
     for path in (package_root, manifest_path, package_path, base_path):
@@ -125,7 +209,7 @@ def attach_verified_v52_capability(work: Path) -> str:
         compresslevel=9,
     ) as archive:
         ordered = [
-            ("guest-tool-manifest.json", False),
+            (MANIFEST_RELATIVE.as_posix(), False),
             *[
                 (str(item["path"]), bool(item["executable"]))
                 for item in files
@@ -143,20 +227,27 @@ def attach_verified_v52_capability(work: Path) -> str:
             info.compress_type = zipfile.ZIP_DEFLATED
             archive.writestr(info, source.read_bytes())
 
+    required_payload = verify_required_guest_payload(work)
+
     base = json.loads(base_path.read_text(encoding="utf-8"))
     package = base.setdefault("package", {})
     package["fileCount"] = len(files)
     package["manifestSha256"] = sha256(manifest_path)
     package["zipBytes"] = package_path.stat().st_size
     package["zipSha256"] = sha256(package_path)
+    package["verifiedRequiredPayload"] = required_payload
     base_path.write_text(
         json.dumps(base, indent=2) + "\n",
         encoding="utf-8",
     )
-    return pocketpc_source_revision
+    return pocketpc_source_revision, required_payload
 
 
-def emit_post_build_evidence(work: Path, pocketpc_source_revision: str) -> None:
+def emit_post_build_evidence(
+    work: Path,
+    pocketpc_source_revision: str,
+    required_payload: dict[str, object],
+) -> None:
     base_path = work / "wine-build-evidence.json"
     overlay_path = work / "wine-pocketpc-driver-overlay-evidence.json"
     package_path = work / "guest-package.zip"
@@ -197,6 +288,7 @@ def emit_post_build_evidence(work: Path, pocketpc_source_revision: str) -> None:
             "bytes": package_path.stat().st_size,
             "sha256": sha256(package_path),
         },
+        "verifiedRequiredGuestPayload": required_payload,
         "verifiedRuntimeGraphicsCapability": {
             "path": CAPABILITY_RELATIVE.as_posix(),
             "sha256": sha256(work / "guest-package" / CAPABILITY_RELATIVE),
@@ -222,6 +314,7 @@ def emit_post_build_evidence(work: Path, pocketpc_source_revision: str) -> None:
             "roblox": "NOT_EXECUTED",
         },
         "limitations": [
+            "The Wine entrypoint and GDI window smoke fixture were verified inside the package by manifest path, size, and SHA-256 only; they were not executed.",
             "A successful Wine package build does not prove the v52 guest was loaded.",
             "No continuous-present frame is claimed from build evidence.",
             "No Android integration or physical-visible frame is claimed.",
@@ -232,6 +325,7 @@ def emit_post_build_evidence(work: Path, pocketpc_source_revision: str) -> None:
     output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     print(f"POCKETPC_WINE_V52_EXPERIMENTAL_BUILD_EVIDENCE={output}")
     print(f"POCKETPC_SOURCE_REVISION={pocketpc_source_revision}")
+    print("V52_REQUIRED_GUEST_PAYLOAD_VERIFIED=1")
     print("V52_BUILD_EXECUTED=1")
     print("V52_RUNTIME_EXECUTED=0")
     print("V52_PHYSICAL_VISIBLE_FRAME=0")
@@ -250,8 +344,12 @@ def main() -> int:
     result = int(module.main() or 0)
     if result != 0:
         return result
-    pocketpc_source_revision = attach_verified_v52_capability(work)
-    emit_post_build_evidence(work, pocketpc_source_revision)
+    pocketpc_source_revision, required_payload = attach_verified_v52_capability(work)
+    emit_post_build_evidence(
+        work,
+        pocketpc_source_revision,
+        required_payload,
+    )
     return 0
 
 
