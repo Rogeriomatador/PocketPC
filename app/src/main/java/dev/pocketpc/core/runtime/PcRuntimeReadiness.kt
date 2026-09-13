@@ -19,6 +19,7 @@ data class PcRuntimeReadiness(
     val stages: List<PcRuntimeStage>,
     val executableReady: Boolean,
     val controlledAttemptReady: Boolean = false,
+    val windowedAttemptReady: Boolean = false,
 ) {
     val readyCount: Int
         get() =
@@ -277,7 +278,7 @@ object PcRuntimeReadinessProbe {
                 ),
             )
 
-        val controlledAttemptStageIds =
+        val windowedAttemptStageIds =
             setOf(
                 "native-arm64-host",
                 "linux-userspace",
@@ -286,8 +287,24 @@ object PcRuntimeReadinessProbe {
                 "win32-compat",
                 "wine-display-driver",
                 "windows-state",
-                "graphics-bridge",
             )
+        val windowedAttemptReady =
+            stages
+                .filter {
+                    it.id in
+                        windowedAttemptStageIds
+                }
+                .all {
+                    it.state ==
+                        PcRuntimeStageState.READY
+                } &&
+                probeEvidence
+                    ?.displayBridgeSmokePassed ==
+                    true
+
+        val controlledAttemptStageIds =
+            windowedAttemptStageIds +
+                "graphics-bridge"
         val controlledAttemptReady =
             stages
                 .filter {
@@ -305,6 +322,8 @@ object PcRuntimeReadinessProbe {
         return PcRuntimeReadiness(
             target = "Windows x64 em Android ARM64",
             stages = stages,
+            windowedAttemptReady =
+                windowedAttemptReady,
             controlledAttemptReady =
                 controlledAttemptReady,
             executableReady =
