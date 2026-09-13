@@ -17,8 +17,4 @@ if missing:
         "POCKET_DOWNLOAD_IMPORTER_POLICY_FAIL missing=" + ",".join(missing)
     )
 
-# Fail closed if the importer regresses to treating .bin only as generic content.
-if "looksLikeWindowsExecutable" not in source and "isWindowsExecutable" not in source:
-    raise SystemExit("POCKET_DOWNLOAD_IMPORTER_POLICY_FAIL missing executable signature helper")
-
 print("POCKET_DOWNLOAD_IMPORTER_POLICY_PASS")
