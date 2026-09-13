@@ -850,7 +850,13 @@ def main() -> int:
             "surface_visibility=cross-process-native-pass",
         ),
     )
-    if "msync(" in surface_writer_source:
+    surface_writer_code = re.sub(
+        r"/\\*.*?\\*/|//[^\\n]*",
+        "",
+        surface_writer_source,
+        flags=re.DOTALL,
+    )
+    if re.search(r"\\bmsync\\s*\\(", surface_writer_code):
         failures.append(
             "surface writer must not force MS_SYNC on the frame hot path"
         )
