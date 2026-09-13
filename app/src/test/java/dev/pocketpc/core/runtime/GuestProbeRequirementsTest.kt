@@ -127,7 +127,7 @@ class GuestProbeRequirementsTest {
                 .implemented,
         )
         assertEquals(
-            47,
+            50,
             PocketPcVulkanWsiContract
                 .WINE_VULKAN_DRIVER_VERSION,
         )

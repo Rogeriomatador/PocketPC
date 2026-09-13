@@ -42,6 +42,7 @@ class PocketPcVulkanWsiFoundationTest {
             PocketPcVulkanWsiFoundationProbe.assess(
                 nativeHost = nativeHost(),
                 crossProcessEvidence = crossProcessEvidence(),
+                guestGraphicsTransportReady = true,
             )
 
         assertTrue(result.readyForWsiImplementation)

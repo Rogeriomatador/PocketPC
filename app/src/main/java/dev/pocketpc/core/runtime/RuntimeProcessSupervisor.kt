@@ -984,16 +984,26 @@ class RuntimeProcessSupervisor {
                 // Read only available bytes. Waiting for EOF can hang forever when
                 // a descendant inherits stdout after the supervised process exits.
                 fun drainAvailable() {
-                    var remaining = 64 * 1024
-                    while (remaining > 0) {
-                        val available = process.inputStream.available()
-                        if (available <= 0) break
-                        val read = process.inputStream.read(buffer, 0, minOf(buffer.size, available, remaining))
-                        if (read < 0) break
-                        val room = spec.maxOutputBytes - stored.size()
-                        if (room > 0) stored.write(buffer, 0, minOf(room, read))
-                        if (read > room) truncated = true
-                        remaining -= read
+                    try {
+                        var remaining = 64 * 1024
+                        while (remaining > 0) {
+                            val available = process.inputStream.available()
+                            if (available <= 0) break
+                            val read = process.inputStream.read(
+                                buffer,
+                                0,
+                                minOf(buffer.size, available, remaining),
+                            )
+                            if (read < 0) break
+                            val room = spec.maxOutputBytes - stored.size()
+                            if (room > 0) stored.write(buffer, 0, minOf(room, read))
+                            if (read > room) truncated = true
+                            remaining -= read
+                        }
+                    } catch (_: java.io.IOException) {
+                        // External termination can close the process pipe
+                        // between available() and read(); output collected so
+                        // far remains valid.
                     }
                 }
                 while (true) {

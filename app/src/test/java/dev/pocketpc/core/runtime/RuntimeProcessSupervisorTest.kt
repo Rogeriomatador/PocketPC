@@ -163,22 +163,20 @@ class RuntimeProcessSupervisorTest {
                 )
             }
 
-        var snapshot:
-            RuntimeProcessSnapshot? =
-            null
+        var familyId: Long? = null
         repeat(100) {
-            snapshot =
-                RuntimeProcessRegistry
-                    .snapshots()
-                    .singleOrNull()
-            if (snapshot != null) {
-                return@repeat
+            familyId = supervisor.activeFamilyId()
+            if (familyId == null) {
+                delay(10)
             }
-            delay(10)
         }
 
         val visible =
-            requireNotNull(snapshot)
+            RuntimeProcessRegistry
+                .snapshots()
+                .single {
+                    it.id == requireNotNull(familyId)
+                }
         assertTrue(visible.alive)
         assertTrue(
             visible.argv.contains(
@@ -280,14 +278,9 @@ class RuntimeProcessSupervisorTest {
                 }
 
             repeat(100) {
-                if (
-                    RuntimeProcessRegistry
-                        .snapshots()
-                        .isNotEmpty()
-                ) {
-                    return@repeat
+                if (supervisor.activeFamilyId() == null) {
+                    delay(10)
                 }
-                delay(10)
             }
 
             assertTrue(
