@@ -20,6 +20,11 @@ object WineLaunchPlanner {
         wineRuntimeValidated: Boolean,
         box64GuestPath: String = DEFAULT_BOX64,
         wineGuestPath: String = DEFAULT_WINE,
+        /*
+         * D3D callers intentionally use enableDxvk = true. Windowed GDI
+         * validation targets keep this false so their first controlled run
+         * does not pretend that DXVK/Vulkan WSI has already been validated.
+         */
         enableDxvk: Boolean = false,
     ): WineLaunchPlan {
         val blockers = mutableListOf<String>()
