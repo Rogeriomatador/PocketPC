@@ -53,36 +53,13 @@ object PcWindowsLaunchAttemptPlanner {
             blockers +=
                 "WINDOWS_PROCESS_RUNTIME_NOT_VALIDATED"
         }
-        if (requiresDxvk) {
-            if (!evidence.d3d11SmokePassed) {
-                blockers +=
-                    "D3D11_RUNTIME_NOT_VALIDATED"
-            }
-            if (
-                !PocketPcVulkanWsiContract
-                    .implemented
-            ) {
-                blockers +=
-                    PocketPcVulkanWsiContract
-                        .blocker
-            }
-            if (
-                !evidence
-                    .graphicsPresentationSmokePassed
-            ) {
-                blockers +=
-                    "GRAPHICS_PRESENTATION_NOT_VALIDATED"
-            }
-            if (
-                deployedLayers.none {
-                    it.manifest.id ==
-                        "dxvk"
-                }
-            ) {
-                blockers +=
-                    "DXVK_LAYER_NOT_DEPLOYED"
-            }
-        }
+        blockers +=
+            graphicsRuntimeBlockers(
+                profile =
+                    target.source.graphicsProfile,
+                evidence = evidence,
+                deployedLayers = deployedLayers,
+            )
 
         val prefixReadiness =
             WindowsPrefixReadinessProbe
@@ -270,6 +247,51 @@ object PcWindowsLaunchAttemptPlanner {
             blockers =
                 structuralBlockers,
         )
+    }
+
+    internal fun graphicsRuntimeBlockers(
+        profile: PcApplicationGraphicsProfile,
+        evidence: RuntimeProbeEvidenceState,
+        deployedLayers:
+            List<DeployedWindowsRuntimeLayer>,
+    ): List<String> {
+        if (
+            profile !=
+            PcApplicationGraphicsProfile.D3D_DXVK
+        ) {
+            return emptyList()
+        }
+
+        return buildList {
+            if (!evidence.d3d11SmokePassed) {
+                add("D3D11_RUNTIME_NOT_VALIDATED")
+            }
+            if (
+                !PocketPcVulkanWsiContract
+                    .implemented
+            ) {
+                add(
+                    PocketPcVulkanWsiContract
+                        .blocker,
+                )
+            }
+            if (
+                !evidence
+                    .graphicsPresentationSmokePassed
+            ) {
+                add(
+                    "GRAPHICS_PRESENTATION_NOT_VALIDATED",
+                )
+            }
+            if (
+                deployedLayers.none {
+                    it.manifest.id ==
+                        "dxvk"
+                }
+            ) {
+                add("DXVK_LAYER_NOT_DEPLOYED")
+            }
+        }
     }
 
     internal fun shellArguments(
