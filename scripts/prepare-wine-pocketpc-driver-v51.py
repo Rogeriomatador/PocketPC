@@ -6,6 +6,7 @@ Stages:
   2. v50 exact presented-image + external ownership overlay
   3. v51 one-shot pre-Present GPU copy overlay
   4. ordered PGA1 stage-6 copy-completed acknowledgement
+  5. compile-safe source normalization against the canonical PGT1 contract
 
 The combined evidence remains fail-closed: source integration never implies
 compilation, runtime execution, Android-visible presentation or Roblox support.
@@ -23,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 V50_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver-v50.py"
 V51_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-pre-present-copy.py"
 COPY_ACK_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-present-copy-ack.py"
+COMPILE_FIX_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-v51-compile-fix.py"
 
 
 def run_stage(script: Path, wine_source: Path, evidence: Path) -> None:
@@ -129,6 +131,33 @@ def require_copy_ack(data: dict[str, object]) -> None:
         raise SystemExit("WINE_V51_COPY_ACK_ROBLOX_MUST_REMAIN_FALSE")
 
 
+def require_compile_fix(data: dict[str, object]) -> None:
+    if data.get("schemaVersion") != 1:
+        raise SystemExit("WINE_V51_COMPILE_FIX_EVIDENCE_SCHEMA_INVALID")
+    if data.get("privateWineVulkanAbi") != 51:
+        raise SystemExit("WINE_V51_COMPILE_FIX_ABI_INVALID")
+    source = data.get("sourceIntegration")
+    if not isinstance(source, dict):
+        raise SystemExit("WINE_V51_COMPILE_FIX_SOURCE_MISSING")
+    required_true = (
+        "copyCompletedDeclarationMovedBeforeQueueCallback",
+        "copyAckDeclarationMovedBeforeQueueCallback",
+        "descriptorPixelFormatContractUsed",
+    )
+    if any(source.get(key) is not True for key in required_true):
+        raise SystemExit("WINE_V51_COMPILE_FIX_INCOMPLETE")
+    if source.get("descriptorFormatReferencesRewritten") != 2:
+        raise SystemExit("WINE_V51_COMPILE_FIX_FORMAT_REWRITE_COUNT_INVALID")
+    if data.get("compiled") is not False:
+        raise SystemExit("WINE_V51_COMPILE_FIX_MUST_NOT_PRECLAIM_BUILD")
+    if data.get("runtimeExecuted") is not False:
+        raise SystemExit("WINE_V51_COMPILE_FIX_MUST_NOT_PRECLAIM_RUNTIME")
+    if data.get("androidVisibleFrame") is not False:
+        raise SystemExit("WINE_V51_COMPILE_FIX_MUST_NOT_PRECLAIM_VISIBLE_FRAME")
+    if data.get("robloxExecuted") is not False:
+        raise SystemExit("WINE_V51_COMPILE_FIX_MUST_NOT_PRECLAIM_ROBLOX")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wine-source", type=Path, required=True)
@@ -144,6 +173,7 @@ def main() -> int:
         v50_path = temp_root / "v50.json"
         v51_path = temp_root / "v51.json"
         copy_ack_path = temp_root / "copy-ack.json"
+        compile_fix_path = temp_root / "compile-fix.json"
 
         run_stage(V50_PREPARER, wine_source, v50_path)
         v50 = json.loads(v50_path.read_text(encoding="utf-8"))
@@ -156,6 +186,10 @@ def main() -> int:
         run_stage(COPY_ACK_PREPARER, wine_source, copy_ack_path)
         copy_ack = json.loads(copy_ack_path.read_text(encoding="utf-8"))
         require_copy_ack(copy_ack)
+
+        run_stage(COMPILE_FIX_PREPARER, wine_source, compile_fix_path)
+        compile_fix = json.loads(compile_fix_path.read_text(encoding="utf-8"))
+        require_compile_fix(compile_fix)
 
     combined = dict(v50)
     combined.update(
@@ -170,6 +204,14 @@ def main() -> int:
                 "sameResourceIdentity": copy_ack["sourceIntegration"]["stage6UsesSameResourceIdentity"],
                 "queueFamilyInDetail": copy_ack["sourceIntegration"]["stage6DetailCarriesQueueFamily"],
                 "implemented": True,
+                "executed": False,
+            },
+            "compileSourceNormalization": {
+                "copyCompletedDeclarationMovedBeforeQueueCallback": True,
+                "copyAckDeclarationMovedBeforeQueueCallback": True,
+                "descriptorPixelFormatContractUsed": True,
+                "descriptorFormatReferencesRewritten": 2,
+                "compiled": False,
                 "executed": False,
             },
             "pixelCopyImplemented": True,
@@ -188,6 +230,9 @@ def main() -> int:
                 "copyAckStatus": copy_ack.get("status"),
                 "copyAckFiles": copy_ack.get("files"),
                 "copyAckNotExecuted": copy_ack.get("notExecuted"),
+                "compileFixStatus": compile_fix.get("status"),
+                "compileFixFiles": compile_fix.get("files"),
+                "compileFixNotExecuted": compile_fix.get("notExecuted"),
             },
         }
     )
@@ -202,6 +247,8 @@ def main() -> int:
     print("private_wine_vulkan_abi=51")
     print("pixel_copy_source_integrated=true")
     print("pga_present_copy_completed_stage=6")
+    print("compile_source_normalized=true")
+    print("descriptor_pixel_format_contract=true")
     print("pixel_copy_executed=false")
     print("android_visible_consumer=false")
     print("roblox_executed=false")
