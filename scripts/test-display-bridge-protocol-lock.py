@@ -47,6 +47,7 @@ NATIVE_INTEGRATION = ROOT / "scripts/test-display-bridge-native-integration.py"
 WINE_DRIVER_INPUT = ROOT / "third_party/wine/pocketpc-driver/input.c"
 WINDOWS_KEY_MAPPER = ROOT / "app/src/main/java/dev/pocketpc/core/runtime/RuntimeWindowsKeyMapper.kt"
 RUNTIME_WINDOW_LAYER = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeDesktopWindowLayer.kt"
+RUNTIME_INPUT_COMPAT = ROOT / "app/src/main/java/dev/pocketpc/core/ui/RuntimeDesktopInputCompat.kt"
 
 
 def require_sentinels(
@@ -369,6 +370,7 @@ def main() -> int:
     wine_driver_input = WINE_DRIVER_INPUT.read_text(encoding="utf-8")
     windows_key_mapper = WINDOWS_KEY_MAPPER.read_text(encoding="utf-8")
     runtime_window_layer = RUNTIME_WINDOW_LAYER.read_text(encoding="utf-8")
+    runtime_input_compat = RUNTIME_INPUT_COMPAT.read_text(encoding="utf-8")
 
     require_sentinels(
         failures,
@@ -573,7 +575,7 @@ def main() -> int:
             "RuntimeDisplayExecutionController",
             "desktopBridge =",
             "PC_WINDOWS_ATTEMPT_FINISHED_UNVALIDATED",
-            "compatibility remains UNVALIDATED",
+            "compatibilidade permanece UNVALIDATED",
         ),
     )
     require_sentinels(
@@ -861,8 +863,8 @@ def main() -> int:
             "RuntimeWindowsKeyMapper",
             "RuntimeWindowsKey",
             "KeyEvent.KEYCODE_A",
-            "virtualKey =",
-            "scanCode =",
+            "val virtualKey: Int",
+            "val scanCode: Int",
             "KEYCODE_CTRL_RIGHT",
             "0x11d",
             "KEYCODE_F12",
@@ -874,7 +876,7 @@ def main() -> int:
     require_sentinels(
         failures,
         "Physical mouse Win32 forwarding",
-        runtime_window_layer,
+        runtime_window_layer + runtime_input_compat,
         (
             "pointerInteropFilter",
             "MotionEvent.ACTION_HOVER_MOVE",
