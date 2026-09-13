@@ -54,8 +54,8 @@ def main() -> int:
         if (wine.get("gates") or {}).get(gate) is not False:
             failures.append(f"Wine gate must remain false until evidence exists: {gate}")
 
-    if graphics.get("schemaVersion") != 1:
-        failures.append("graphics schemaVersion must be 1")
+    if graphics.get("schemaVersion") != 3:
+        failures.append("graphics schemaVersion must be 3")
     dxvk = graphics.get("dxvk") or {}
     if dxvk.get("version") != "3.0.2":
         failures.append("DXVK version must remain pinned to 3.0.2")
@@ -80,9 +80,31 @@ def main() -> int:
         if vkd3d.get(gate) is not False:
             failures.append(f"vkd3d-proton gate must remain false until evidence exists: {gate}")
 
-    for gate, value in (graphics.get("gates") or {}).items():
-        if value is not False:
-            failures.append(f"graphics runtime gate must remain false until evidence exists: {gate}")
+    graphics_gates = graphics.get("gates") or {}
+    for gate in (
+        "guestVulkanBackendSourcePinned",
+        "guestVulkanLoaderPinned",
+        "guestVulkanHeadersPinned",
+    ):
+        if graphics_gates.get(gate) is not True:
+            failures.append(f"graphics source metadata gate must remain true: {gate}")
+
+    for gate in (
+        "guestVulkanBackendBuilt",
+        "guestVulkanLoaderBuilt",
+        "guestVulkanLoaderPackaged",
+        "guestVulkanIcdLoaded",
+        "guestVulkanDeviceCreated",
+        "androidVulkanExposedToGuest",
+        "wineVulkanWsiImplemented",
+        "wineGraphicsSmokeTest",
+        "d3d11SmokeTest",
+        "d3d11PresentSmokeTest",
+        "d3d12SmokeTest",
+        "robloxGraphicsTest",
+    ):
+        if graphics_gates.get(gate) is not False:
+            failures.append(f"graphics execution gate must remain false until evidence exists: {gate}")
 
     if failures:
         print("PC_RUNTIME_SOURCE_LOCKS_FAILED", file=sys.stderr)

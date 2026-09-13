@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -37,6 +39,7 @@ import dev.pocketpc.core.update.PocketPcUpdateDownload
 import dev.pocketpc.core.update.PocketPcUpdateManifest
 import dev.pocketpc.core.update.PocketPcUpdater
 import dev.pocketpc.core.update.cancelPocketPcReopenAfterUpdate
+import dev.pocketpc.core.update.pocketPcDownloadStatusText
 import dev.pocketpc.core.update.requestPocketPcReopenAfterUpdate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -54,6 +57,7 @@ private enum class ForegroundUpdatePhase {
 @Composable
 fun PocketPcForegroundUpdateFlow() {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val updater =
         remember {
             PocketPcUpdater(
@@ -251,7 +255,10 @@ fun PocketPcForegroundUpdateFlow() {
                     ForegroundUpdatePhase.VERIFYING ->
                         "A atualização terminou de baixar e está sendo verificada."
                     ForegroundUpdatePhase.BLOCKED ->
-                        "O download anterior falhou."
+                        pocketPcDownloadStatusText(
+                            pending.status,
+                            pending.reason,
+                        )
                     else ->
                         "Existe uma atualização sendo baixada. O progresso continuará visível aqui."
                 }
@@ -311,7 +318,10 @@ fun PocketPcForegroundUpdateFlow() {
                     phase =
                         ForegroundUpdatePhase.BLOCKED
                     status =
-                        "O download da atualização falhou."
+                        pocketPcDownloadStatusText(
+                            refreshed.status,
+                            refreshed.reason,
+                        )
                     visible = true
                     break
                 }
@@ -321,6 +331,11 @@ fun PocketPcForegroundUpdateFlow() {
                 DownloadManager.STATUS_PAUSED -> {
                     phase =
                         ForegroundUpdatePhase.DOWNLOADING
+                    status =
+                        pocketPcDownloadStatusText(
+                            refreshed.status,
+                            refreshed.reason,
+                        )
                     visible = true
                 }
             }
@@ -571,14 +586,39 @@ fun PocketPcForegroundUpdateFlow() {
                                 }
                             }
 
-                            ForegroundUpdatePhase.BLOCKED ->
-                                Button(
+                            ForegroundUpdatePhase.BLOCKED -> {
+                                TextButton(
                                     onClick = {
                                         visible = false
                                     }
                                 ) {
                                     Text("Fechar")
                                 }
+                                Button(
+                                    onClick = {
+                                        updater.cancelPendingDownload()
+                                        download = null
+                                        verified = false
+                                        beginForegroundDownload()
+                                    },
+                                ) {
+                                    Text("Tentar novamente")
+                                }
+                                if (
+                                    currentManifest.apkUrl
+                                        .startsWith("https://")
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            uriHandler.openUri(
+                                                currentManifest.apkUrl
+                                            )
+                                        },
+                                    ) {
+                                        Text("Baixar no GitHub")
+                                    }
+                                }
+                            }
 
                             ForegroundUpdatePhase.DOWNLOADING,
                             ForegroundUpdatePhase.VERIFYING,

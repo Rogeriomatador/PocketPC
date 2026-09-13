@@ -24,6 +24,7 @@ import dev.pocketpc.core.update.PocketPcUpdateDownload
 import dev.pocketpc.core.storage.PocketPcProfileBackup
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.update.PocketPcUpdater
+import dev.pocketpc.core.update.pocketPcDownloadStatusText
 import dev.pocketpc.core.update.shouldAutoInstallUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -774,13 +775,7 @@ fun UpdateCenterApp() {
                     }
                 },
                 onClear = {
-                    val manager =
-                        context.getSystemService(
-                            android.content.Context
-                                .DOWNLOAD_SERVICE
-                        ) as DownloadManager
-                    manager.remove(download.id)
-                    updater.clearPendingDownload()
+                    updater.cancelPendingDownload()
                     pending = null
                     verified = false
                     status =
@@ -892,8 +887,9 @@ private fun DownloadUpdateCard(
             )
             ValueRow(
                 "Status",
-                updateDownloadStatus(
-                    download.status
+                pocketPcDownloadStatusText(
+                    download.status,
+                    download.reason,
                 ),
             )
 
@@ -949,23 +945,6 @@ private fun DownloadUpdateCard(
     }
 }
 
-private fun updateDownloadStatus(
-    status: Int,
-): String =
-    when (status) {
-        DownloadManager.STATUS_PENDING ->
-            "Aguardando"
-        DownloadManager.STATUS_RUNNING ->
-            "Baixando"
-        DownloadManager.STATUS_PAUSED ->
-            "Pausado"
-        DownloadManager.STATUS_SUCCESSFUL ->
-            "Concluído"
-        DownloadManager.STATUS_FAILED ->
-            "Falhou"
-        else ->
-            "Desconhecido"
-    }
 
 enum class PocketPcUpdateAttention {
     NONE,

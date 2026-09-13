@@ -63,8 +63,9 @@ Implemented in source:
 17. result receiver for success/failure/pending user action;
 18. fallback to Android confirmation when required.
 
-The current Alpha 21 stable feed remains `published=false`. Therefore no remote APK is
-currently advertised to installed devices.
+The production/stable feed remains a separate gated channel. The Alpha 22 Home Test app
+uses the public development feed at
+`PocketPC-Updates/main/latest.json`, which advertises signed prerelease APKs.
 
 ## Signing and release publication
 
@@ -109,14 +110,19 @@ Expected protected secrets:
 
 No private signing key is committed to the repository.
 
-Until a compatible long-lived signing identity is configured:
+Current evidence:
 
 - updater source: IMPLEMENTED;
 - WorkManager scheduling: IMPLEMENTED;
 - PackageInstaller staging: IMPLEMENTED;
-- signed remote release publication: BLOCKED;
-- Alpha 21 software test: NOT_EXECUTED;
-- Alpha 21 physical auto-update: NOT_EXECUTED.
+- compatible Home Test signing identity: CONFIGURED outside the repositories;
+- signed Home Test release publication: SOFTWARE TEST — PASS for published revisions;
+- public feed and immutable asset integration: INTEGRATION TEST — PASS for the validated
+  publication chain;
+- in-app Home Test update to `0.1.0-alpha22.home.1592` on the POCO X7 5G:
+  PHYSICAL TEST — PASS;
+- later revisions do not inherit that physical result and remain NOT_EXECUTED on-device
+  until observed.
 
 ## Current Alpha 20 installation and signing migration
 
@@ -204,8 +210,9 @@ Alpha 22 monotonic versionCode, then open PocketPC on the phone and validate, in
    confirmation;
 7. application data remains present after the update.
 
-Only after those device observations are captured may the Home Test OTA path be marked
-PHYSICAL PASS. Publication/build evidence alone is not enough.
+Those observations were captured for `0.1.0-alpha22.home.1592`, so that exact update
+path is PHYSICAL TEST — PASS. Publication/build evidence alone is still insufficient for
+newer revisions; every later build remains NOT_EXECUTED on-device until observed.
 
 ## Local publisher fallback
 
