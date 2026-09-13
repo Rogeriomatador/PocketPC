@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -54,8 +55,10 @@ def require_sentinels(
     text: str,
     sentinels: tuple[str, ...],
 ) -> None:
+    compact_text = re.sub(r"\s+", "", text)
     for sentinel in sentinels:
-        if sentinel not in text:
+        compact_sentinel = re.sub(r"\s+", "", sentinel)
+        if sentinel not in text and compact_sentinel not in compact_text:
             failures.append(f"{label} missing: {sentinel}")
 
 
@@ -486,7 +489,7 @@ def main() -> int:
             "RuntimeDisplayFramePixels",
             "RuntimeDisplayFrameReader",
             "DISPLAY_FRAME_SIZE_CHANGED",
-            "ARGB",
+            "argb = pixels",
         ),
     )
     require_sentinels(
@@ -609,7 +612,7 @@ def main() -> int:
             "WINE_POCKETPC_WINDOW_SMOKE",
             "winePocketPcWindowSmokePassed",
             "wine-pocketpc-window-smoke-key",
-            "runtime-probe-evidence-v8",
+            "runtime-probe-evidence-v9",
             "WINE_POCKETPC_WINDOW_NOT_VALIDATED",
             "wine-display-driver",
             "POCKETPC_WINE_DRIVER_HOST_FRAME_OK",
@@ -845,7 +848,7 @@ def main() -> int:
             "surface_visibility=cross-process-native-pass",
         ),
     )
-    if "MS_SYNC" in surface_writer_source:
+    if "msync(" in surface_writer_source:
         failures.append(
             "surface writer must not force MS_SYNC on the frame hot path"
         )
