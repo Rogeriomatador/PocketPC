@@ -91,6 +91,9 @@ fun PocketPcForegroundUpdateFlow() {
     var waitingUnknownSourcePermission by remember {
         mutableStateOf(false)
     }
+    var installHandedOffToAndroid by remember {
+        mutableStateOf(false)
+    }
     var phase by remember {
         mutableStateOf(
             ForegroundUpdatePhase.IDLE
@@ -104,6 +107,7 @@ fun PocketPcForegroundUpdateFlow() {
         current: PocketPcUpdateDownload,
     ) {
         waitingUnknownSourcePermission = false
+        installHandedOffToAndroid = false
         phase = ForegroundUpdatePhase.INSTALLING
         status =
             "Preparando a atualização. Continue aqui; o PocketPC fará o restante automaticamente."
@@ -116,6 +120,7 @@ fun PocketPcForegroundUpdateFlow() {
             .onSuccess { result ->
                 when (result) {
                     PocketPcInstallResult.SESSION_COMMITTED -> {
+                        installHandedOffToAndroid = true
                         phase =
                             ForegroundUpdatePhase.INSTALLING
                         status =
@@ -123,6 +128,7 @@ fun PocketPcForegroundUpdateFlow() {
                     }
 
                     PocketPcInstallResult.SESSION_ALREADY_PENDING -> {
+                        installHandedOffToAndroid = true
                         phase =
                             ForegroundUpdatePhase.INSTALLING
                         status =
@@ -144,6 +150,7 @@ fun PocketPcForegroundUpdateFlow() {
                     context.applicationContext
                 )
                 continueInstallAfterDownload = false
+                installHandedOffToAndroid = false
                 phase = ForegroundUpdatePhase.BLOCKED
                 status =
                     "Não foi possível instalar: " +
@@ -384,7 +391,10 @@ fun PocketPcForegroundUpdateFlow() {
     val isBusy =
         phase == ForegroundUpdatePhase.DOWNLOADING ||
             phase == ForegroundUpdatePhase.VERIFYING ||
-            phase == ForegroundUpdatePhase.INSTALLING
+            (
+                phase == ForegroundUpdatePhase.INSTALLING &&
+                    !installHandedOffToAndroid
+                )
 
     Dialog(
         onDismissRequest = {
@@ -521,8 +531,11 @@ fun PocketPcForegroundUpdateFlow() {
                     if (
                         phase ==
                             ForegroundUpdatePhase.VERIFYING ||
-                        phase ==
-                            ForegroundUpdatePhase.INSTALLING
+                        (
+                            phase ==
+                                ForegroundUpdatePhase.INSTALLING &&
+                                !installHandedOffToAndroid
+                            )
                     ) {
                         LinearProgressIndicator(
                             modifier =
@@ -621,18 +634,35 @@ fun PocketPcForegroundUpdateFlow() {
                             }
 
                             ForegroundUpdatePhase.DOWNLOADING,
-                            ForegroundUpdatePhase.VERIFYING,
-                            ForegroundUpdatePhase.INSTALLING ->
+                            ForegroundUpdatePhase.VERIFYING ->
                                 Text(
-                                    if (phase == ForegroundUpdatePhase.INSTALLING) {
-                                        "O Android/Google Play Protect assumirá a próxima etapa. Aguarde a tela do sistema; em conexão lenta a verificação pode demorar."
+                                    "Mantenha o PocketPC aberto. O processo continua automaticamente.",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                )
+
+                            ForegroundUpdatePhase.INSTALLING -> {
+                                Text(
+                                    if (installHandedOffToAndroid) {
+                                        "O APK já foi entregue ao Android/Google Play Protect. Você pode continuar usando o PocketPC enquanto aguarda a tela do sistema."
                                     } else {
-                                        "Mantenha o PocketPC aberto. O processo continua automaticamente."
+                                        "Preparando o APK verificado para o instalador do Android."
                                     },
                                     style =
                                         MaterialTheme.typography
                                             .bodySmall,
                                 )
+                                if (installHandedOffToAndroid) {
+                                    TextButton(
+                                        onClick = {
+                                            visible = false
+                                        }
+                                    ) {
+                                        Text("Continuar usando")
+                                    }
+                                }
+                            }
 
                             ForegroundUpdatePhase.IDLE ->
                                 Unit
