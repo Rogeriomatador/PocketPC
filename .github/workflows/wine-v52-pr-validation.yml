@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - '.github/workflows/wine-v52-pr-validation.yml'
+      - '.github/workflows/wine-v52-driver-fast-build.yml'
       - '.github/workflows/wine-x86_64-v52-experimental.yml'
       - 'scripts/build-wine-x86_64-v52-experimental.py'
       - 'scripts/build-v52-continuous-present-smoke.py'
@@ -19,6 +20,7 @@ on:
       - 'scripts/run-wine-pocketpc-window-surface-smoke.py'
       - 'scripts/test-vulkan-continuous-present-v52-policy.py'
       - 'scripts/test-wine-x86_64-v52-source-integration.py'
+      - 'scripts/test-wine-v52-fast-build-policy.py'
       - 'scripts/test-runtime-v52-present-selection-policy.py'
       - 'scripts/test-v52-package-revision-binding.py'
       - 'third_party/wine/pocketpc-display-bridge/**'
@@ -66,10 +68,12 @@ jobs:
             scripts/run-wine-pocketpc-window-surface-smoke.py \
             scripts/test-vulkan-continuous-present-v52-policy.py \
             scripts/test-wine-x86_64-v52-source-integration.py \
+            scripts/test-wine-v52-fast-build-policy.py \
             scripts/test-runtime-v52-present-selection-policy.py \
             scripts/test-v52-package-revision-binding.py
           python3 scripts/test-vulkan-continuous-present-v52-policy.py
           python3 scripts/test-wine-x86_64-v52-source-integration.py
+          python3 scripts/test-wine-v52-fast-build-policy.py
           python3 scripts/test-runtime-v52-present-selection-policy.py
           python3 scripts/test-v52-package-revision-binding.py
 
