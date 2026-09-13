@@ -201,6 +201,7 @@ class SurfaceSmokeBroker:
                 while not self.stop.is_set():
                     try:msg_type,sequence,payload=read_frame(conn)
                     except TimeoutError:continue
+                    except ConnectionResetError:return
                     except RuntimeError as error:
                         if "peer closed" in str(error):return
                         raise
