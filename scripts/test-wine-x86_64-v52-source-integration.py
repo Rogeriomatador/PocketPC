@@ -130,7 +130,16 @@ def main() -> None:
     require(experimental_builder, '"robloxExecuted": False', "post-build Roblox fail-closed")
     require(experimental_builder, '"build": "SOFTWARE_BUILD_EXECUTED"', "post-build classification")
     require(experimental_builder, '"runtime": "NOT_EXECUTED"', "post-build runtime classification")
-    require(experimental_builder, "emit_post_build_evidence(work, pocketpc_source_revision)", "post-build evidence after base success")
+    require(
+        experimental_builder,
+        "pocketpc_source_revision, required_payload = attach_verified_v52_capability(work)",
+        "verified payload returned before post-build evidence",
+    )
+    require(
+        experimental_builder,
+        "emit_post_build_evidence(\n        work,\n        pocketpc_source_revision,\n        required_payload,\n    )",
+        "post-build evidence after base success",
+    )
 
     require(workflow, "python3 scripts/build-wine-x86_64-v51.py", "official v51 builder")
     require(workflow, "Build pinned Wine 11 x86_64 package with PocketPC v51 driver", "official v51 label")
