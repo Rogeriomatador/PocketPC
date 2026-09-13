@@ -225,7 +225,7 @@ def main() -> int:
             "UPDATE_FEED_PREPARED",
             "UNPUBLISHED_FAIL_CLOSED",
             "hashlib.sha256",
-            "apk URL must be an absolute HTTPS URL",
+            "artifact URL must be an absolute HTTPS URL",
             "source revision must be exactly 40 hexadecimal characters",
             "--publish",
             '"published": bool(args.publish)',
