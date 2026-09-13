@@ -2,10 +2,11 @@
 """Run host Wine PocketPC driver window/surface/input integration smoke.
 
 PASS proves the custom Wine USER driver registered on a host x86_64 Wine build,
-created a bridged top-level window, wrote non-zero BGRA bytes into the broker
-surface, completed FRAME_READY/FRAME_PRESENTED ownership, and delivered the
-broker pointer/key events back to the Win32 smoke application. It never claims
-Android, PRoot, Box64, DXVK/Vulkan, or Roblox execution.
+registered the display bridge fd with the Wine message queue, created a bridged
+top-level window, wrote non-zero BGRA bytes into the broker surface, completed
+FRAME_READY/FRAME_PRESENTED ownership, and delivered the broker pointer/key
+events back to the Win32 smoke application. It never claims Android, PRoot,
+Box64, DXVK/Vulkan, or Roblox execution.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ spec.loader.exec_module(load_helpers)
 REQUIRED_LOG_MARKERS=(
     "POCKETPC_DRIVER_LOAD stage=unix_init_begin protocol=4",
     "POCKETPC_DRIVER_LOAD stage=bridge_connected protocol=4",
+    "POCKETPC_DRIVER_LOAD stage=queue_fd_registered protocol=4",
     "POCKETPC_DRIVER_LOAD stage=user_driver_registered protocol=4",
     "POCKETPC_WINE_DRIVER_WINDOW_OK",
     "POCKETPC_WINE_DRIVER_PAINT_OK",
@@ -67,6 +69,7 @@ def main()->int:
             "prefix_created":False,
             "graphics_registry_configured_pocketpc":False,
             "wine_user_driver_registered":False,
+            "driver_queue_fd_registered":False,
             "window_create_observed":False,
             "shared_surface_allocated":False,
             "nonzero_shared_pixels_observed":False,
@@ -190,6 +193,7 @@ def main()->int:
         base["status"]="PASS_HOST_WINE_WINDOW_SURFACE_INPUT_NOT_ANDROID"
         claims=base["claims"]
         claims["wine_user_driver_registered"]=True
+        claims["driver_queue_fd_registered"]=True
         claims["window_create_observed"]=True
         claims["shared_surface_allocated"]=True
         claims["nonzero_shared_pixels_observed"]=True
@@ -218,6 +222,7 @@ def main()->int:
 
     print("WINE_POCKETPC_WINDOW_SURFACE_SMOKE_OK")
     print("wine_user_driver_registered=true")
+    print("driver_queue_fd_registered=true")
     print("window_create_observed=true")
     print("nonzero_shared_pixels_observed=true")
     print("frame_ready_and_presented_ack=true")
