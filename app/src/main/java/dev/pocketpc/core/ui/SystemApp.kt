@@ -35,6 +35,7 @@ private enum class PcInfoTab(
     UPDATES("Atualizações"),
     RESEARCH("Pesquisa"),
     DIAGNOSTICS("Diagnóstico"),
+    ABOUT("Sobre"),
 }
 
 @Composable
@@ -223,8 +224,31 @@ fun SystemApp(
                             )
                         },
                     )
+
+                PcInfoTab.ABOUT ->
+                    AboutTab()
             }
         }
+    }
+}
+
+@Composable
+private fun AboutTab() {
+    InfoSection("PocketPC") {
+        ValueRow("Criador", "Rogério Martins")
+        ValueRow("GitHub", "@Rogeriomatador")
+        ValueRow("Versão", BuildConfig.VERSION_NAME)
+        Text(
+            "Ambiente desktop para Android criado por Rogério Martins. " +
+                "Fonte oficial: github.com/Rogeriomatador/PocketPC",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "Copyright © 2026 Rogério Martins. Todos os direitos reservados.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

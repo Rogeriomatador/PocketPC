@@ -1,5 +1,8 @@
 # PocketPC — 0.1.0-alpha21
 
+**Created by Rogério Martins ([@Rogeriomatador](https://github.com/Rogeriomatador)).**
+
+
 PocketPC is an experimental Android desktop/runtime project whose goal is to turn a
 phone into a practical PC-like workspace while keeping strict evidence boundaries.
 It can cooperate with Android desktop/freeform/display APIs, but it does not pretend
