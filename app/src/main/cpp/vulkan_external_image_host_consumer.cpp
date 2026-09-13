@@ -412,7 +412,17 @@ int CreateImportedConsumer(
     VkPhysicalDeviceFeatures2 features {};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features.pNext = &timeline_features;
-    vkGetPhysicalDeviceFeatures2(consumer->physical, &features);
+    auto get_features2 = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2>(
+        vkGetInstanceProcAddr(consumer->instance, "vkGetPhysicalDeviceFeatures2"));
+    if (get_features2 == nullptr) {
+        get_features2 = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2>(
+            vkGetInstanceProcAddr(consumer->instance, "vkGetPhysicalDeviceFeatures2KHR"));
+    }
+    if (get_features2 == nullptr) {
+        *reason = "vkGetPhysicalDeviceFeatures2-missing";
+        return -5;
+    }
+    get_features2(consumer->physical, &features);
     if (timeline_features.timelineSemaphore != VK_TRUE) {
         *reason = "timeline-feature";
         return -5;

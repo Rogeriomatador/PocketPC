@@ -287,6 +287,7 @@ int FindMemoryType(
 }
 
 bool TimelineSemaphoreSupported(
+        VkInstance instance,
         VkPhysicalDevice physical,
         const VkPhysicalDeviceProperties& properties,
         bool* needs_extension) {
@@ -307,7 +308,14 @@ bool TimelineSemaphoreSupported(
     VkPhysicalDeviceFeatures2 features {};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features.pNext = &timeline_features;
-    vkGetPhysicalDeviceFeatures2(physical, &features);
+    auto get_features2 = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2>(
+        vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFeatures2"));
+    if (get_features2 == nullptr) {
+        get_features2 = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2>(
+            vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFeatures2KHR"));
+    }
+    if (get_features2 == nullptr) return false;
+    get_features2(physical, &features);
     return timeline_features.timelineSemaphore == VK_TRUE;
 }
 
@@ -462,7 +470,8 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     }
 
     bool needs_timeline_extension = false;
-    if (!TimelineSemaphoreSupported(out->physical, selected_properties, &needs_timeline_extension)) {
+    if (!TimelineSemaphoreSupported(
+            out->instance, out->physical, selected_properties, &needs_timeline_extension)) {
         *reason = "timeline-semaphore-not-supported";
         return -8;
     }
@@ -554,7 +563,20 @@ int CreateResource(uint32_t width, uint32_t height, Resource* out, std::string* 
     VkImageFormatProperties2 format_properties {};
     format_properties.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2;
     format_properties.pNext = &external_properties;
-    result = vkGetPhysicalDeviceImageFormatProperties2(
+    auto get_image_format_properties2 =
+        reinterpret_cast<PFN_vkGetPhysicalDeviceImageFormatProperties2>(
+            vkGetInstanceProcAddr(out->instance, "vkGetPhysicalDeviceImageFormatProperties2"));
+    if (get_image_format_properties2 == nullptr) {
+        get_image_format_properties2 =
+            reinterpret_cast<PFN_vkGetPhysicalDeviceImageFormatProperties2>(
+                vkGetInstanceProcAddr(
+                    out->instance, "vkGetPhysicalDeviceImageFormatProperties2KHR"));
+    }
+    if (get_image_format_properties2 == nullptr) {
+        *reason = "vkGetPhysicalDeviceImageFormatProperties2-missing";
+        return -15;
+    }
+    result = get_image_format_properties2(
         out->physical, &format_info, &format_properties);
     if (result != VK_SUCCESS) {
         *reason = "external-image-format-unsupported:" + std::to_string(result);
