@@ -250,6 +250,16 @@ def main() -> int:
             }
         )
 
+    for name in BRIDGE_FILES:
+        if name in UNIX_ONLY_C_FILES:
+            staged_source = destination / name
+            if not staged_source.read_text(encoding="utf-8").startswith(
+                UNIX_MAKEDEP_PREAMBLE
+            ):
+                raise SystemExit(
+                    f"BRIDGE_SOURCE_UNIX_MAKEDEP_MISSING:{name}"
+                )
+
     configure_ac = source / "configure.ac"
     configure = source / "configure"
     if not configure_ac.is_file():
