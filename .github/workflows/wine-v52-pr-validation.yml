@@ -13,6 +13,7 @@ on:
       - 'scripts/prepare-wine-pocketpc-v51-compile-fix.py'
       - 'scripts/prepare-wine-pocketpc-driver-v52.py'
       - 'scripts/prepare-wine-pocketpc-continuous-present-v52.py'
+      - 'scripts/prepare-wine-pocketpc-v52-compile-fix.py'
       - 'scripts/verify-wine-x86_64-driver-package.py'
       - 'scripts/run-wine-pocketpc-driver-load-smoke.py'
       - 'scripts/run-wine-pocketpc-window-surface-smoke.py'
@@ -59,6 +60,7 @@ jobs:
             scripts/prepare-wine-pocketpc-v51-compile-fix.py \
             scripts/prepare-wine-pocketpc-driver-v52.py \
             scripts/prepare-wine-pocketpc-continuous-present-v52.py \
+            scripts/prepare-wine-pocketpc-v52-compile-fix.py \
             scripts/verify-wine-x86_64-driver-package.py \
             scripts/run-wine-pocketpc-driver-load-smoke.py \
             scripts/run-wine-pocketpc-window-surface-smoke.py \
