@@ -30,6 +30,9 @@ object PcWindowsLaunchAttemptPlanner {
     ): PcWindowsLaunchAttemptPlan {
         val blockers =
             mutableListOf<String>()
+        val requiresDxvk =
+            target.source.graphicsProfile ==
+                PcApplicationGraphicsProfile.D3D_DXVK
 
         if (
             !evidence.displayBridgeSmokePassed
@@ -50,33 +53,35 @@ object PcWindowsLaunchAttemptPlanner {
             blockers +=
                 "WINDOWS_PROCESS_RUNTIME_NOT_VALIDATED"
         }
-        if (!evidence.d3d11SmokePassed) {
-            blockers +=
-                "D3D11_RUNTIME_NOT_VALIDATED"
-        }
-        if (
-            !PocketPcVulkanWsiContract
-                .implemented
-        ) {
-            blockers +=
-                PocketPcVulkanWsiContract
-                    .blocker
-        }
-        if (
-            !evidence
-                .graphicsPresentationSmokePassed
-        ) {
-            blockers +=
-                "GRAPHICS_PRESENTATION_NOT_VALIDATED"
-        }
-        if (
-            deployedLayers.none {
-                it.manifest.id ==
-                    "dxvk"
+        if (requiresDxvk) {
+            if (!evidence.d3d11SmokePassed) {
+                blockers +=
+                    "D3D11_RUNTIME_NOT_VALIDATED"
             }
-        ) {
-            blockers +=
-                "DXVK_LAYER_NOT_DEPLOYED"
+            if (
+                !PocketPcVulkanWsiContract
+                    .implemented
+            ) {
+                blockers +=
+                    PocketPcVulkanWsiContract
+                        .blocker
+            }
+            if (
+                !evidence
+                    .graphicsPresentationSmokePassed
+            ) {
+                blockers +=
+                    "GRAPHICS_PRESENTATION_NOT_VALIDATED"
+            }
+            if (
+                deployedLayers.none {
+                    it.manifest.id ==
+                        "dxvk"
+                }
+            ) {
+                blockers +=
+                    "DXVK_LAYER_NOT_DEPLOYED"
+            }
         }
 
         val prefixReadiness =
@@ -139,7 +144,7 @@ object PcWindowsLaunchAttemptPlanner {
                     evidence.box64SmokePassed,
                 wineRuntimeValidated =
                     evidence.wineSmokePassed,
-                enableDxvk = true,
+                enableDxvk = requiresDxvk,
             )
         blockers +=
             wine.blockers
