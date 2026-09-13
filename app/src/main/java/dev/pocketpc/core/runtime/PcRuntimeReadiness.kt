@@ -19,7 +19,8 @@ data class PcRuntimeReadiness(
     val stages: List<PcRuntimeStage>,
     val executableReady: Boolean,
     val controlledAttemptReady: Boolean = false,
-    val windowedAttemptReady: Boolean = false,
+    val windowedAttemptReady: Boolean = controlledAttemptReady,
+    val graphicsAttemptReady: Boolean = controlledAttemptReady,
 ) {
     val readyCount: Int
         get() =
@@ -302,14 +303,14 @@ object PcRuntimeReadinessProbe {
                     ?.displayBridgeSmokePassed ==
                     true
 
-        val controlledAttemptStageIds =
+        val graphicsAttemptStageIds =
             windowedAttemptStageIds +
                 "graphics-bridge"
-        val controlledAttemptReady =
+        val graphicsAttemptReady =
             stages
                 .filter {
                     it.id in
-                        controlledAttemptStageIds
+                        graphicsAttemptStageIds
                 }
                 .all {
                     it.state ==
@@ -325,7 +326,9 @@ object PcRuntimeReadinessProbe {
             windowedAttemptReady =
                 windowedAttemptReady,
             controlledAttemptReady =
-                controlledAttemptReady,
+                windowedAttemptReady,
+            graphicsAttemptReady =
+                graphicsAttemptReady,
             executableReady =
                 stages.all {
                     it.state ==
