@@ -17,6 +17,13 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "third_party/proot/ARTIFACT_CONTRACT.json"
 SOURCE_LOCK = ROOT / "third_party/proot/LOCK.json"
 
+EXPECTED_PACKAGING_ALIASES = {
+    "proot": "libproot.so",
+    "loader64": "libproot_loader.so",
+    "libandroid-shmem": "libandroid-shmem.so",
+    "libtalloc": "libtalloc.so",
+}
+
 
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -55,7 +62,9 @@ def main() -> int:
         for item in contract["requiredRoles"]
     }
     aliases["libtalloc"] = "libtalloc.so"
-    required = {"proot", "loader64", "libandroid-shmem", "libtalloc"}
+    if aliases != EXPECTED_PACKAGING_ALIASES:
+        raise SystemExit("STAGING_REFUSED_PACKAGING_ALIASES")
+    required = set(EXPECTED_PACKAGING_ALIASES)
     artifacts = audit.get("artifacts") or {}
     if set(artifacts) != required:
         raise SystemExit("STAGING_REFUSED_ROLE_SET")
