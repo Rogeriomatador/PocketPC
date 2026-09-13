@@ -1,5 +1,6 @@
 package dev.pocketpc.core.ui
 
+import android.app.Activity
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
@@ -15,6 +16,9 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebSettings
+import android.view.View
+import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -172,8 +176,22 @@ fun BrowserApp(
     var downloadStatus by remember { mutableStateOf<String?>(null) }
     var mobileUserAgent by remember { mutableStateOf<String?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
+    var customVideoView by remember { mutableStateOf<View?>(null) }
+    var customVideoCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
     val tabsScroll = rememberLazyListState()
 
+    fun hideCustomVideo() {
+        val activity = context as? Activity
+        val view = customVideoView
+        if (activity != null && view != null) {
+            (activity.window.decorView as? ViewGroup)?.removeView(view)
+            @Suppress("DEPRECATION")
+            activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+        }
+        customVideoView = null
+        customVideoCallback?.onCustomViewHidden()
+        customVideoCallback = null
+    }
     fun navigate(raw: String) {
         val target = browserTarget(raw)
         focusManager.clearFocus()
@@ -207,7 +225,8 @@ fun BrowserApp(
                 "O Android não encontrou outro navegador para abrir esta página."
         }
     }
-    BackHandler(enabled = isActive && canGoBack) { webView?.goBack() }
+    BackHandler(enabled = isActive && customVideoView != null) { hideCustomVideo() }
+    BackHandler(enabled = isActive && customVideoView == null && canGoBack) { webView?.goBack() }
     LaunchedEffect(session.activeTabId) {
         editingAddress = false
         focusManager.clearFocus()
@@ -369,7 +388,10 @@ fun BrowserApp(
                         settings.safeBrowsingEnabled = true
                         settings.allowFileAccess = false
                         settings.allowContentAccess = true
-                        settings.mediaPlaybackRequiresUserGesture = true
+                        settings.mediaPlaybackRequiresUserGesture = false
+                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                        settings.cacheMode = WebSettings.LOAD_DEFAULT
+                        setLayerType(View.LAYER_TYPE_HARDWARE, null)
                         settings.builtInZoomControls = true
                         settings.displayZoomControls = false
                         settings.setSupportZoom(true)
@@ -417,6 +439,43 @@ fun BrowserApp(
                             }
                         }
                         webChromeClient = object : WebChromeClient() {
+                            override fun onShowCustomView(
+                                view: View?,
+                                callback: CustomViewCallback?,
+                            ) {
+                                val activity = activityContext as? Activity
+                                if (view == null || activity == null) {
+                                    callback?.onCustomViewHidden()
+                                    return
+                                }
+                                if (customVideoView != null) {
+                                    callback?.onCustomViewHidden()
+                                    return
+                                }
+                                val decor = activity.window.decorView as? ViewGroup
+                                if (decor == null) {
+                                    callback?.onCustomViewHidden()
+                                    return
+                                }
+                                customVideoView = view
+                                customVideoCallback = callback
+                                decor.addView(
+                                    view,
+                                    ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ),
+                                )
+                                @Suppress("DEPRECATION")
+                                activity.window.decorView.systemUiVisibility =
+                                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                                        View.SYSTEM_UI_FLAG_FULLSCREEN or
+                                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            }
+
+                            override fun onHideCustomView() {
+                                hideCustomVideo()
+                            }
                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                                 if (session.activeTabId == tabId) progress = newProgress.coerceIn(0, 100) / 100f
                             }
@@ -448,6 +507,9 @@ fun BrowserApp(
                 },
                 onRelease = { view ->
                     runCatching { session.saveWebViewState(tabId, Bundle().also(view::saveState)) }
+                    if (customVideoView != null) {
+                        hideCustomVideo()
+                    }
                     view.stopLoading()
                     view.setDownloadListener(null)
                     view.webChromeClient = WebChromeClient()
