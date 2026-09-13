@@ -19,6 +19,18 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def component_root(path: Path) -> Path:
+    if not path.is_dir() or path.is_symlink():
+        raise SystemExit("LICENSE_AUDIT_COMPONENT_ROOT_MISSING:" + str(path))
+    children = [child for child in path.iterdir() if child.is_dir() and not child.is_symlink()]
+    files = [child for child in path.iterdir() if child.is_file()]
+    if files:
+        return path
+    if len(children) == 1:
+        return children[0]
+    raise SystemExit("LICENSE_AUDIT_COMPONENT_ROOT_AMBIGUOUS:" + str(path))
+
+
 def require_text(path: Path, sentinels: tuple[str, ...]) -> dict[str, object]:
     if not path.is_file() or path.is_symlink():
         raise SystemExit("LICENSE_AUDIT_FILE_MISSING:" + str(path))
@@ -49,9 +61,9 @@ def main() -> int:
     if not source_root.is_dir():
         raise SystemExit("LICENSE_AUDIT_SOURCE_ROOT_MISSING")
 
-    proot = source_root / "proot"
-    shmem = source_root / "libandroid-shmem"
-    talloc = source_root / "libtalloc"
+    proot = component_root(source_root / "proot")
+    shmem = component_root(source_root / "libandroid-shmem")
+    talloc = component_root(source_root / "libtalloc")
 
     evidence = {
         "proot": require_text(
