@@ -15,6 +15,9 @@ data class RobloxRuntimeEvidence(
     val audioOutputObserved: Boolean = false,
     val pointerInputObserved: Boolean = false,
     val keyboardInputObserved: Boolean = false,
+    val serverSessionJoined: Boolean = false,
+    val avatarMovementObserved: Boolean = false,
+    val gameplayInteractionObserved: Boolean = false,
     val stableSessionMillis: Long = 0L,
     val crashObserved: Boolean = false,
 ) {
@@ -30,9 +33,20 @@ data class RobloxRuntimeEvidence(
                 stableSessionMillis >= MIN_ROBLOX_SMOKE_SESSION_MILLIS &&
                 !crashObserved
 
+    val gameplayValidated: Boolean
+        get() =
+            integrationSmokePassed &&
+                serverSessionJoined &&
+                avatarMovementObserved &&
+                gameplayInteractionObserved &&
+                stableSessionMillis >=
+                    MIN_ROBLOX_GAMEPLAY_SESSION_MILLIS
+
     companion object {
         const val MIN_ROBLOX_SMOKE_SESSION_MILLIS =
             60_000L
+        const val MIN_ROBLOX_GAMEPLAY_SESSION_MILLIS =
+            5L * 60L * 1000L
     }
 }
 
@@ -157,7 +171,9 @@ object RobloxLaunchReadinessProbe {
             state = state,
             controlledAttemptReady = controlledAttemptReady,
             integrationSmokePassed = smokePassed,
-            gameplayValidated = false,
+            gameplayValidated =
+                controlledAttemptReady &&
+                    robloxEvidence.gameplayValidated,
             selectedInstallation = selected,
             blockers = blockers.distinct(),
             detail = detail,

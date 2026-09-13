@@ -160,6 +160,25 @@ class RobloxLaunchReadinessTest {
                 crashObserved = false,
             )
         assertTrue(complete.integrationSmokePassed)
+        assertFalse(complete.gameplayValidated)
+
+        val gameplay =
+            complete.copy(
+                serverSessionJoined = true,
+                avatarMovementObserved = true,
+                gameplayInteractionObserved = true,
+                stableSessionMillis =
+                    RobloxRuntimeEvidence
+                        .MIN_ROBLOX_GAMEPLAY_SESSION_MILLIS,
+            )
+        assertTrue(gameplay.integrationSmokePassed)
+        assertTrue(gameplay.gameplayValidated)
+        assertFalse(
+            gameplay.copy(
+                gameplayInteractionObserved = false,
+            ).gameplayValidated,
+        )
+
         assertFalse(
             complete.copy(
                 stableSessionMillis =

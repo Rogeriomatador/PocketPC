@@ -204,6 +204,9 @@ jobs:
       - name: Physical bootstrap signer self-test
         run: python3 scripts/test-bootstrap-signer-verifier.py
 
+      - name: Public release readiness verifier self-test
+        run: python3 scripts/test-public-release-readiness.py
+
       - name: PocketDrive and research policy
         run: python3 scripts/test-pocketdrive-research-policy.py
 
