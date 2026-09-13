@@ -120,7 +120,10 @@ class PcWindowsLaunchAttemptPlannerTest {
                         PcApplicationGraphicsProfile
                             .WINDOWED_GDI,
                     evidence =
-                        RuntimeProbeEvidenceState(),
+                        RuntimeProbeEvidenceState(
+                            box64SmokePassed = false,
+                            wineSmokePassed = false,
+                        ),
                     deployedLayers =
                         emptyList(),
                 )
@@ -137,7 +140,10 @@ class PcWindowsLaunchAttemptPlannerTest {
                         PcApplicationGraphicsProfile
                             .D3D_DXVK,
                     evidence =
-                        RuntimeProbeEvidenceState(),
+                        RuntimeProbeEvidenceState(
+                            box64SmokePassed = false,
+                            wineSmokePassed = false,
+                        ),
                     deployedLayers =
                         emptyList(),
                 )
