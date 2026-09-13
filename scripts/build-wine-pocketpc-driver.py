@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import struct
 import subprocess
 
@@ -57,11 +58,7 @@ def git_head(source: Path) -> str:
     ).strip()
 
 
-def run_logged(
-    argv: list[str],
-    cwd: Path,
-    log: Path,
-) -> int:
+def run_logged(argv: list[str], cwd: Path, log: Path) -> int:
     with log.open("w", encoding="utf-8") as output:
         result = subprocess.run(
             argv,
@@ -77,25 +74,13 @@ def run_logged(
 def elf_identity(path: Path) -> dict[str, int]:
     raw = path.read_bytes()[:20]
     if len(raw) < 20 or raw[:4] != b"\x7fELF":
-        raise RuntimeError(
-            "WINE_POCKETPC_UNIXLIB_NOT_ELF"
-        )
+        raise RuntimeError("WINE_POCKETPC_UNIXLIB_NOT_ELF")
     elf_class = raw[4]
     endian = raw[5]
     if endian != 1:
-        raise RuntimeError(
-            "WINE_POCKETPC_UNIXLIB_ENDIAN_INVALID"
-        )
-    elf_type, machine = struct.unpack_from(
-        "<HH",
-        raw,
-        16,
-    )
-    if (
-        elf_class != 2
-        or machine != 62
-        or elf_type not in (2, 3)
-    ):
+        raise RuntimeError("WINE_POCKETPC_UNIXLIB_ENDIAN_INVALID")
+    elf_type, machine = struct.unpack_from("<HH", raw, 16)
+    if elf_class != 2 or machine != 62 or elf_type not in (2, 3):
         raise RuntimeError(
             "WINE_POCKETPC_UNIXLIB_TARGET_INVALID:"
             f"class={elf_class}:type={elf_type}:machine={machine}"
@@ -136,9 +121,7 @@ def _parse_make_targets(text: str) -> set[str]:
     }
 
 
-def _select_official_targets(
-    targets: set[str],
-) -> list[str]:
+def _select_official_targets(targets: set[str]) -> list[str]:
     aggregate, pe, unixlib = OFFICIAL_BUILD_TARGETS
     if aggregate in targets:
         return [aggregate]
@@ -147,22 +130,14 @@ def _select_official_targets(
     return []
 
 
-def discover_build_targets(
-    build: Path,
-    makefile: Path,
-) -> BuildTargetDiscovery:
+def discover_build_targets(build: Path, makefile: Path) -> BuildTargetDiscovery:
     database_targets: set[str] = set()
     database_exit_code: int | None = None
     database_error: str | None = None
 
     try:
         result = subprocess.run(
-            [
-                "make",
-                "-qp",
-                "-f",
-                str(makefile),
-            ],
+            ["make", "-qp", "-f", str(makefile)],
             cwd=build,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -170,27 +145,14 @@ def discover_build_targets(
             check=False,
         )
         database_exit_code = result.returncode
-
-        # GNU make -q uses exit 1 for "targets need rebuilding".
-        # That is not a database-generation failure. Exit >= 2 is.
         if result.returncode in (0, 1):
-            database_targets = _parse_make_targets(
-                result.stdout,
-            )
+            database_targets = _parse_make_targets(result.stdout)
         else:
-            database_error = (
-                "MAKE_DATABASE_EXIT_" +
-                str(result.returncode)
-            )
+            database_error = "MAKE_DATABASE_EXIT_" + str(result.returncode)
     except OSError as error:
-        database_error = (
-            "MAKE_DATABASE_EXEC_FAILED:" +
-            error.__class__.__name__
-        )
+        database_error = "MAKE_DATABASE_EXEC_FAILED:" + error.__class__.__name__
 
-    selected = _select_official_targets(
-        database_targets,
-    )
+    selected = _select_official_targets(database_targets)
     if selected:
         return BuildTargetDiscovery(
             selected=selected,
@@ -200,80 +162,92 @@ def discover_build_targets(
                 if target in database_targets
             ),
             selection_source="make-database",
-            database_exit_code=
-                database_exit_code,
+            database_exit_code=database_exit_code,
             database_error=database_error,
-            database_target_count=
-                len(database_targets),
+            database_target_count=len(database_targets),
             makefile_target_count=0,
         )
 
-    # A generated Wine Makefile is an authoritative fallback for
-    # exact target names if make's database is unavailable/incomplete.
     makefile_targets = _parse_make_targets(
-            makefile.read_text(
-                encoding="utf-8",
-                errors="replace",
-            ),
-        )
-    fallback_selected = _select_official_targets(
-            makefile_targets,
-        )
-
+        makefile.read_text(encoding="utf-8", errors="replace")
+    )
+    fallback_selected = _select_official_targets(makefile_targets)
     discovered = sorted(
         {
             target
             for target in OFFICIAL_BUILD_TARGETS
-            if (
-                target in database_targets
-                or target in makefile_targets
-            )
+            if target in database_targets or target in makefile_targets
         }
     )
 
     return BuildTargetDiscovery(
         selected=fallback_selected,
         discovered=discovered,
-        selection_source=(
-            "generated-makefile"
-            if fallback_selected
-            else "none"
-        ),
-        database_exit_code=
-            database_exit_code,
+        selection_source=("generated-makefile" if fallback_selected else "none"),
+        database_exit_code=database_exit_code,
         database_error=database_error,
-        database_target_count=
-            len(database_targets),
-        makefile_target_count=
-            len(makefile_targets),
+        database_target_count=len(database_targets),
+        makefile_target_count=len(makefile_targets),
     )
 
 
-def write_evidence(
-    path: Path,
-    data: dict[str, object],
-) -> None:
+def write_evidence(path: Path, data: dict[str, object]) -> None:
     path.write_text(
-        json.dumps(
-            data,
-            indent=2,
-        ) + "\n",
+        json.dumps(data, indent=2) + "\n",
         encoding="utf-8",
     )
 
 
+def normalize_pe_artifact(output_dir: Path) -> tuple[Path | None, dict[str, object]]:
+    """Normalize Wine 11's multiarch PE output without changing its bytes.
+
+    Wine 11 emits the PE module under x86_64-windows while the existing
+    PocketPC audit workflow consumes a stable path directly under the driver
+    build directory. Copying the exact file keeps the verifier interface stable
+    and records both paths so the normalization itself is auditable.
+    """
+    stable = output_dir / "winepocketpc.drv"
+    multiarch = output_dir / "x86_64-windows" / "winepocketpc.drv"
+
+    if stable.is_file():
+        return stable, {
+            "layout": "stable-output",
+            "source": str(stable),
+            "normalized": False,
+        }
+
+    if not multiarch.is_file():
+        return None, {
+            "layout": "missing",
+            "checked": [str(stable), str(multiarch)],
+            "normalized": False,
+        }
+
+    if multiarch.read_bytes()[:2] != b"MZ":
+        return multiarch, {
+            "layout": "wine11-multiarch",
+            "source": str(multiarch),
+            "normalized": False,
+            "invalidHeader": True,
+        }
+
+    shutil.copy2(multiarch, stable)
+    if sha256(multiarch) != sha256(stable):
+        raise RuntimeError("WINE_POCKETPC_PE_NORMALIZATION_HASH_MISMATCH")
+
+    return stable, {
+        "layout": "wine11-multiarch",
+        "source": str(multiarch),
+        "stableExport": str(stable),
+        "normalized": True,
+        "byteIdentical": True,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--wine-source",
-        type=Path,
-        required=True,
-    )
-    parser.add_argument(
-        "--work",
-        type=Path,
-        required=True,
-    )
+    parser.add_argument("--wine-source", type=Path, required=True)
+    parser.add_argument("--work", type=Path, required=True)
     args = parser.parse_args()
 
     source = args.wine_source.resolve()
@@ -286,22 +260,13 @@ def main() -> int:
         or source == repo
         or repo in source.parents
     ):
-        raise SystemExit(
-            "WINE_DRIVER_BUILD_PATH_MUST_BE_OUTSIDE_REPOSITORY"
-        )
+        raise SystemExit("WINE_DRIVER_BUILD_PATH_MUST_BE_OUTSIDE_REPOSITORY")
     if work.exists():
-        raise SystemExit(
-            "WINE_DRIVER_BUILD_WORK_ALREADY_EXISTS"
-        )
+        raise SystemExit("WINE_DRIVER_BUILD_WORK_ALREADY_EXISTS")
     work.mkdir(parents=True)
 
-    evidence_path = (
-        work /
-        "wine-pocketpc-driver-build-evidence.json"
-    )
-    lock = json.loads(
-        LOCK.read_text(encoding="utf-8")
-    )
+    evidence_path = work / "winepocketpc-driver-build-evidence.json"
+    lock = json.loads(LOCK.read_text(encoding="utf-8"))
 
     base: dict[str, object] = {
         "schemaVersion": 1,
@@ -316,42 +281,22 @@ def main() -> int:
         "robloxExecuted": False,
     }
 
-    if (
-        not (source / ".git").exists()
-        or git_head(source) != lock["commit"]
-    ):
+    if not (source / ".git").exists() or git_head(source) != lock["commit"]:
         base["status"] = "SOURCE_IDENTITY_FAILED"
         write_evidence(evidence_path, base)
         return 20
 
-    driver_source = (
-        source /
-        "dlls/winepocketpc.drv"
-    )
-    if (
-        not driver_source.is_dir()
-        or not (
-            driver_source /
-            "Makefile.in"
-        ).is_file()
-    ):
+    driver_source = source / "dlls/winepocketpc.drv"
+    if not driver_source.is_dir() or not (driver_source / "Makefile.in").is_file():
         base["status"] = "DRIVER_OVERLAY_MISSING"
         write_evidence(evidence_path, base)
         return 21
 
-    configure_ac = (
-        source /
-        "configure.ac"
-    ).read_text(encoding="utf-8")
-    configure_text = (
-        source /
-        "configure"
-    ).read_text(encoding="utf-8")
+    configure_ac = (source / "configure.ac").read_text(encoding="utf-8")
+    configure_text = (source / "configure").read_text(encoding="utf-8")
     if (
-        "WINE_CONFIG_MAKEFILE(dlls/winepocketpc.drv)"
-        not in configure_ac
-        or
-        "wine_fn_config_makefile dlls/winepocketpc.drv enable_winepocketpc_drv"
+        "WINE_CONFIG_MAKEFILE(dlls/winepocketpc.drv)" not in configure_ac
+        or "wine_fn_config_makefile dlls/winepocketpc.drv enable_winepocketpc_drv"
         not in configure_text
     ):
         base["status"] = "DRIVER_CONFIGURE_REGISTRATION_MISSING"
@@ -360,67 +305,36 @@ def main() -> int:
 
     build = work / "build"
     build.mkdir()
+    configure_log = work / "configure.log"
+    build_log = work / "driver-build.log"
 
-    configure_log = (
-        work /
-        "configure.log"
-    )
-    build_log = (
-        work /
-        "driver-build.log"
-    )
-
-    configure_argv = [
-        str(source / "configure"),
-        *CONFIGURE_ARGS,
-    ]
+    configure_argv = [str(source / "configure"), *CONFIGURE_ARGS]
     base["configure"] = configure_argv
-    configure_rc = run_logged(
-        configure_argv,
-        build,
-        configure_log,
-    )
+    configure_rc = run_logged(configure_argv, build, configure_log)
     base["configureExitCode"] = configure_rc
     if configure_rc != 0:
         base["status"] = "CONFIGURE_FAILED"
-        base["logs"] = {
-            "configure": str(configure_log),
-        }
+        base["logs"] = {"configure": str(configure_log)}
         write_evidence(evidence_path, base)
-        print(
-            "WINE_POCKETPC_DRIVER_CONFIGURE_FAILED"
-        )
+        print("WINE_POCKETPC_DRIVER_CONFIGURE_FAILED")
         return 30
 
-    generated_makefile = (
-        build /
-        "Makefile"
-    )
+    generated_makefile = build / "Makefile"
     if not generated_makefile.is_file():
         base["status"] = "GENERATED_MAKEFILE_MISSING"
         write_evidence(evidence_path, base)
         return 31
 
-    discovery = discover_build_targets(
-            build,
-            generated_makefile,
-        )
+    discovery = discover_build_targets(build, generated_makefile)
     base["buildTargetDiscovery"] = {
         "selected": discovery.selected,
-        "discoveredOfficialTargets":
-            discovery.discovered,
-        "selectionSource":
-            discovery.selection_source,
-        "makeDatabaseExitCode":
-            discovery.database_exit_code,
-        "makeDatabaseError":
-            discovery.database_error,
-        "makeDatabaseTargetCount":
-            discovery.database_target_count,
-        "generatedMakefileTargetCount":
-            discovery.makefile_target_count,
-        "officialCandidates":
-            list(OFFICIAL_BUILD_TARGETS),
+        "discoveredOfficialTargets": discovery.discovered,
+        "selectionSource": discovery.selection_source,
+        "makeDatabaseExitCode": discovery.database_exit_code,
+        "makeDatabaseError": discovery.database_error,
+        "makeDatabaseTargetCount": discovery.database_target_count,
+        "generatedMakefileTargetCount": discovery.makefile_target_count,
+        "officialCandidates": list(OFFICIAL_BUILD_TARGETS),
     }
     if not discovery.selected:
         base["status"] = (
@@ -429,31 +343,13 @@ def main() -> int:
             else "BUILD_TARGET_NOT_FOUND"
         )
         write_evidence(evidence_path, base)
-        print(
-            "WINE_POCKETPC_DRIVER_" +
-            str(base["status"])
-        )
-        return (
-            38
-            if discovery.database_error
-            else 32
-        )
+        print("WINE_POCKETPC_DRIVER_" + str(base["status"]))
+        return 38 if discovery.database_error else 32
 
-    base["selectedBuildTargets"] = (
-        discovery.selected
-    )
-    base["buildCommand"] = [
-        "make",
-        "-j2",
-        *discovery.selected,
-    ]
-
+    base["selectedBuildTargets"] = discovery.selected
+    base["buildCommand"] = ["make", "-j2", *discovery.selected]
     build_rc = run_logged(
-        [
-            "make",
-            "-j2",
-            *discovery.selected,
-        ],
+        ["make", "-j2", *discovery.selected],
         build,
         build_log,
     )
@@ -465,25 +361,21 @@ def main() -> int:
     if build_rc != 0:
         base["status"] = "BUILD_FAILED"
         write_evidence(evidence_path, base)
-        print(
-            "WINE_POCKETPC_DRIVER_BUILD_FAILED"
-        )
+        print("WINE_POCKETPC_DRIVER_BUILD_FAILED")
         return 33
 
-    output_dir = (
-        build /
-        "dlls/winepocketpc.drv"
-    )
-    pe = (
-        output_dir /
-        "winepocketpc.drv"
-    )
-    unixlib = (
-        output_dir /
-        "winepocketpc.so"
-    )
+    output_dir = build / "dlls/winepocketpc.drv"
+    try:
+        pe, pe_layout = normalize_pe_artifact(output_dir)
+    except Exception as error:
+        base["status"] = "PE_DRIVER_ARTIFACT_NORMALIZATION_FAILED"
+        base["artifactError"] = str(error)
+        write_evidence(evidence_path, base)
+        return 34
+    base["peArtifactLayout"] = pe_layout
 
-    if not pe.is_file():
+    unixlib = output_dir / "winepocketpc.so"
+    if pe is None or not pe.is_file():
         base["status"] = "PE_DRIVER_ARTIFACT_MISSING"
         write_evidence(evidence_path, base)
         return 34
@@ -497,18 +389,14 @@ def main() -> int:
         return 36
 
     try:
-        unix_identity = elf_identity(
-            unixlib
-        )
+        unix_identity = elf_identity(unixlib)
     except Exception as error:
         base["status"] = "UNIXLIB_AUDIT_FAILED"
         base["auditError"] = str(error)
         write_evidence(evidence_path, base)
         return 37
 
-    base["status"] = (
-        "COMPILED_X86_64_NOT_LOADED_NOT_RUNTIME_TESTED"
-    )
+    base["status"] = "COMPILED_X86_64_NOT_LOADED_NOT_RUNTIME_TESTED"
     base["artifacts"] = {
         "peDriver": {
             "path": str(pe),
@@ -535,16 +423,9 @@ def main() -> int:
         "Roblox",
     ]
 
-    write_evidence(
-        evidence_path,
-        base,
-    )
-    print(
-        "WINE_POCKETPC_DRIVER_COMPILED_NOT_RUNTIME_TESTED"
-    )
-    print(
-        "runtime_execution_evidence=false"
-    )
+    write_evidence(evidence_path, base)
+    print("WINE_POCKETPC_DRIVER_COMPILED_NOT_RUNTIME_TESTED")
+    print("runtime_execution_evidence=false")
     return 0
 
 
