@@ -1,6 +1,18 @@
-# PocketPC — 0.1.0-alpha21
+# PocketPC — 0.1.0-alpha22 (Home Test)
 
 **Created by Rogério Martins ([@Rogeriomatador](https://github.com/Rogeriomatador)).**
+
+## Baixar o PocketPC
+
+A versão Home Test assinada mais recente pode ser baixada na página pública:
+
+**[Baixar APK pelo GitHub](https://github.com/Rogeriomatador/PocketPC-Updates/releases)**
+
+Abra a versão mais recente e toque no arquivo `.apk`. O Android ou o Google Play
+Protect ainda pode exigir uma verificação e uma confirmação de instalação. Esta é uma
+versão de desenvolvimento e não representa validação física completa do runtime Windows
+ou do Roblox.
+
 
 
 PocketPC is an experimental Android desktop/runtime project whose goal is to turn a

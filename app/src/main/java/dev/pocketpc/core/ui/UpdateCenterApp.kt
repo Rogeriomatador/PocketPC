@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.pocketpc.core.BuildConfig
@@ -32,6 +33,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun UpdateCenterApp() {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val updater =
         remember {
             PocketPcUpdater(
@@ -676,6 +678,30 @@ fun UpdateCenterApp() {
                             Text("Baixar atualização")
                         }
                     }
+
+                    if (
+                        manifest.published &&
+                        manifest.apkUrl.startsWith("https://")
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                uriHandler.openUri(
+                                    manifest.apkUrl
+                                )
+                            },
+                        ) {
+                            Text("Baixar pelo GitHub")
+                        }
+                        Text(
+                            "O download abre no navegador. A verificação seguinte pertence ao Android/Google Play Protect e pode demorar em uma conexão lenta.",
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -772,7 +798,9 @@ fun UpdateCenterApp() {
                 "Android comum não permite que um app sideloaded " +
                     "se substitua silenciosamente. O PocketPC pode " +
                     "detectar, baixar e verificar tudo sozinho; a etapa " +
-                    "final continua sob confirmação do instalador do sistema.",
+                    "final pertence ao instalador do sistema e ao Google " +
+                    "Play Protect. Essa tela externa pode demorar se a " +
+                    "conexão estiver lenta.",
                 modifier = Modifier.padding(12.dp),
                 style =
                     MaterialTheme.typography.bodySmall,

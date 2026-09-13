@@ -115,7 +115,7 @@ fun PocketPcForegroundUpdateFlow() {
                         phase =
                             ForegroundUpdatePhase.INSTALLING
                         status =
-                            "Instalação iniciada. Se o Android pedir confirmação, confirme uma única vez. Depois disso o PocketPC tentará retornar sozinho."
+                            "APK entregue ao Android. A próxima tela pode ser do instalador ou do Google Play Protect; essa verificação é externa ao PocketPC e pode demorar em uma conexão lenta. Confirme uma única vez e o PocketPC tentará retornar sozinho."
                     }
 
                     PocketPcInstallResult.SESSION_ALREADY_PENDING -> {
@@ -584,7 +584,11 @@ fun PocketPcForegroundUpdateFlow() {
                             ForegroundUpdatePhase.VERIFYING,
                             ForegroundUpdatePhase.INSTALLING ->
                                 Text(
-                                    "Mantenha o PocketPC aberto. O processo continua automaticamente.",
+                                    if (phase == ForegroundUpdatePhase.INSTALLING) {
+                                        "O Android/Google Play Protect assumirá a próxima etapa. Aguarde a tela do sistema; em conexão lenta a verificação pode demorar."
+                                    } else {
+                                        "Mantenha o PocketPC aberto. O processo continua automaticamente."
+                                    },
                                     style =
                                         MaterialTheme.typography
                                             .bodySmall,
