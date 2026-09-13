@@ -1193,22 +1193,30 @@ class RuntimeProcessSupervisor {
                         64 * 1024
                     while (remaining > 0) {
                         val available =
-                            process.inputStream
-                                .available()
+                            try {
+                                process.inputStream
+                                    .available()
+                            } catch (_: java.io.IOException) {
+                                break
+                            }
                         if (available <= 0) {
                             break
                         }
                         val read =
-                            process.inputStream
-                                .read(
-                                    buffer,
-                                    0,
-                                    minOf(
-                                        buffer.size,
-                                        available,
-                                        remaining,
-                                    ),
-                                )
+                            try {
+                                process.inputStream
+                                    .read(
+                                        buffer,
+                                        0,
+                                        minOf(
+                                            buffer.size,
+                                            available,
+                                            remaining,
+                                        ),
+                                    )
+                            } catch (_: java.io.IOException) {
+                                break
+                            }
                         if (read < 0) {
                             break
                         }
