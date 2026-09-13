@@ -360,7 +360,7 @@ class PcRuntimeReadinessTest {
     }
 
     @Test
-    fun completeNonWsiEvidenceStillBlocksControlledDxvkAttempt() {
+    fun completeNonWsiEvidenceAllowsBaseAttemptButBlocksDxvkAttempt() {
         val result =
             PcRuntimeReadinessProbe.assess(
                 nativeHost =
@@ -402,8 +402,14 @@ class PcRuntimeReadinessTest {
                 it.id == "wine-display-driver"
             }.state,
         )
-        assertFalse(
+        assertTrue(
             result.controlledAttemptReady,
+        )
+        assertTrue(
+            result.windowedAttemptReady,
+        )
+        assertFalse(
+            result.graphicsAttemptReady,
         )
         assertEquals(
             PcRuntimeStageState.NOT_IMPLEMENTED,
