@@ -12,13 +12,33 @@ $Package = "dev.pocketpc.core"
 $Activity = "dev.pocketpc.core/.MainActivity"
 $Tag = "PocketPCGraphics"
 
+function Invoke-NativeCapture {
+    param(
+        [Parameter(Mandatory=$true)][string]$FilePath,
+        [Parameter(Mandatory=$true)][string[]]$Arguments
+    )
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = & $FilePath @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    return [pscustomobject]@{
+        ExitCode = $exitCode
+        Lines = @($output)
+    }
+}
+
 function Invoke-Adb {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-    $output = & $Adb @Args 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "ADB_FAILED: adb $($Args -join ' ')`n$($output -join "`n")"
+    $capture = Invoke-NativeCapture -FilePath $Adb -Arguments $Args
+    if ($capture.ExitCode -ne 0) {
+        throw "ADB_FAILED: adb $($Args -join ' ')`n$($capture.Lines -join "`n")"
     }
-    return @($output)
+    return @($capture.Lines)
 }
 
 function Get-OneAuthorizedDevice {
