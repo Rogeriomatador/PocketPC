@@ -41,6 +41,23 @@ def wait_snapshot(broker:SurfaceSmokeBroker,key:str,minimum:int|bool,timeout:flo
         broker.activity.clear()
     return broker.snapshot()
 
+class ResetAfterHelloSocket:
+    """Deterministic peer that resets only after a valid protocol-v4 HELLO."""
+    def __init__(self,hello_frame:bytes):
+        self.pending=bytearray(hello_frame)
+        self.sent=bytearray()
+
+    def __enter__(self):return self
+    def __exit__(self,exc_type,exc,tb):return False
+    def settimeout(self,_timeout:float)->None:return None
+    def sendall(self,data:bytes)->None:self.sent.extend(data)
+    def recv(self,size:int)->bytes:
+        if self.pending:
+            block=bytes(self.pending[:size])
+            del self.pending[:size]
+            return block
+        raise ConnectionResetError(104,"Connection reset by peer")
+
 def main()->int:
     token=bytes(range(32))
     identity=b"a"*64
@@ -102,6 +119,17 @@ def main()->int:
     broker.close()
     assert not surface_path.exists()
 
+    reset_broker=SurfaceSmokeBroker(token,identity)
+    reset_hello=struct.pack("<IHHIQ",MAGIC,VERSION,MSG_HELLO,len(hello),0)+hello
+    reset_peer=ResetAfterHelloSocket(reset_hello)
+    reset_broker._handle_connection(reset_peer)
+    reset_snapshot=reset_broker.snapshot()
+    assert reset_snapshot["handshakeCount"]==1
+    assert reset_snapshot["errors"]==[]
+    ack_type,ack_version,ack_message,ack_size,ack_sequence=struct.unpack("<IHHIQ",reset_peer.sent[:20])
+    assert (ack_type,ack_version,ack_message,ack_size,ack_sequence)==(MAGIC,VERSION,MSG_HELLO_ACK,4,0)
+    reset_broker.server.close()
+
     bad=SurfaceSmokeBroker(token,identity)
     bad.start()
     bad_client=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
@@ -122,6 +150,7 @@ def main()->int:
     print("nonzero_shared_pixels=observed")
     print("pointer_key_and_frame_ack=emitted")
     print("window_destroy=accepted")
+    print("post_handshake_peer_reset=accepted_as_disconnect")
     print("wrong_token=rejected")
     print("wine_execution=false")
     print("physical_validation=false")
