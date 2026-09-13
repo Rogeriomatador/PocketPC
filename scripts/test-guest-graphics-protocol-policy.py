@@ -103,11 +103,11 @@ def main() -> int:
         "guest transport fail-closed contract",
         contract,
         (
-            "const val descriptorProtocolImplemented =\n        true",
-            "const val ownershipProtocolImplemented =\n        true",
-            "const val guestReceiveImplemented =\n        false",
-            "const val guestImportImplemented =\n        false",
-            "const val synchronizationImplemented =\n        false",
+            "const val descriptorProtocolImplemented = true",
+            "const val ownershipProtocolImplemented = true",
+            "const val guestReceiveImplemented = false",
+            "const val guestImportImplemented = false",
+            "const val synchronizationImplemented = false",
         ),
     )
     require(
@@ -127,8 +127,8 @@ def main() -> int:
             '"pocketpc_graphics_transport.c",',
             '"guestGraphicsDescriptorProtocolImplemented": True',
             '"guestGraphicsOwnershipProtocolImplemented": True',
-            '"guestGraphicsHandleReceiveImplemented": False',
-            '"guestGraphicsImportImplemented": False',
+            '"guestGraphicsHandleReceiveIntegrated": False',
+            '"guestGraphicsImportIntegrated": False',
             '"guestGraphicsSynchronizationImplemented": False',
         ),
     )
