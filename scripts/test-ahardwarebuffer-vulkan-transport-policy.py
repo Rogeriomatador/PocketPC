@@ -36,8 +36,8 @@ def main() -> int:
         print(f"- json: {error}", file=sys.stderr)
         return 1
 
-    if arch.get("schemaVersion") != 6:
-        failures.append("architecture schema must be v6")
+    if arch.get("schemaVersion") != 8:
+        failures.append("architecture schema must be v8")
     if arch.get("status") != "VULKAN_TRANSPORT_PRIMITIVES_IMPLEMENTED_VISIBLE_WSI_NOT_IMPLEMENTED_NOT_EXECUTED":
         failures.append("architecture status changed without policy update")
 
@@ -230,7 +230,7 @@ def main() -> int:
         return 1
 
     print("AHARDWAREBUFFER_VULKAN_TRANSPORT_POLICY_OK")
-    print("architecture_schema=6")
+    print("architecture_schema=8")
     print("pvi1_implemented=true")
     print("pvs1_implemented=true")
     print("guest_vulkan_import_primitive=true")
