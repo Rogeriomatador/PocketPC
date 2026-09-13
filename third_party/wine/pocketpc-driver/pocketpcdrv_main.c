@@ -12,6 +12,7 @@
 
 #include "pocketpcdrv.h"
 #include "unixlib.h"
+#include "wine/server.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(pocketpcdrv);
 
@@ -56,6 +57,65 @@ pocketpcdrv_funcs =
     .pVulkanInit =
         POCKETPC_VulkanInit,
 };
+
+/*
+ * Wine only invokes pProcessEvents from a blocking message wait after the
+ * server observes readable data on the driver queue fd and raises QS_DRIVER.
+ * Register the PocketPC display bridge socket with the current thread queue so
+ * host pointer/key/FRAME_PRESENTED traffic wakes GetMessage/MsgWait callers.
+ */
+static BOOL register_bridge_queue_fd(void)
+{
+    HANDLE handle;
+    int ret;
+
+    if (pocketpc_connection.fd < 0)
+        return FALSE;
+
+    if (
+        wine_server_fd_to_handle(
+            pocketpc_connection.fd,
+            GENERIC_READ | SYNCHRONIZE,
+            0,
+            &handle
+        )
+    ) {
+        ERR(
+            "POCKETPC_DRIVER_LOAD stage=queue_fd_handle_failed protocol=%u fd=%d\n",
+            PDB_VERSION,
+            pocketpc_connection.fd
+        );
+        return FALSE;
+    }
+
+    SERVER_START_REQ(set_queue_fd)
+    {
+        req->handle =
+            wine_server_obj_handle(handle);
+        ret = wine_server_call(req);
+    }
+    SERVER_END_REQ;
+
+    NtClose(handle);
+
+    if (ret)
+    {
+        ERR(
+            "POCKETPC_DRIVER_LOAD stage=queue_fd_register_failed protocol=%u fd=%d status=%#x\n",
+            PDB_VERSION,
+            pocketpc_connection.fd,
+            (unsigned int)ret
+        );
+        return FALSE;
+    }
+
+    TRACE(
+        "POCKETPC_DRIVER_LOAD stage=queue_fd_registered protocol=%u fd=%d\n",
+        PDB_VERSION,
+        pocketpc_connection.fd
+    );
+    return TRUE;
+}
 
 static NTSTATUS pocketpcdrv_unix_init(
     void *arg
@@ -121,6 +181,19 @@ static NTSTATUS pocketpcdrv_unix_init(
             PDB_VERSION,
             (long)getpid(),
             (unsigned long)process_namespace
+        );
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    if (!register_bridge_queue_fd())
+    {
+        pdb_close(
+            &pocketpc_connection
+        );
+        ERR(
+            "POCKETPC_DRIVER_LOAD stage=queue_fd_failed protocol=%u pid=%ld\n",
+            PDB_VERSION,
+            (long)getpid()
         );
         return STATUS_UNSUCCESSFUL;
     }
