@@ -28,6 +28,8 @@ jobs:
           python-version: '3.13'
       - name: Verify staging policy remains fail-closed
         run: python3 scripts/test-proot-apk-staging-policy.py
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
       - name: Install pinned NDK
         run: sdkmanager 'ndk;29.0.14206865'
       - name: Build outside the APK
