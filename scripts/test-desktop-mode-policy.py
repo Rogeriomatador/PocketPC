@@ -318,8 +318,8 @@ CHECKS = {
         "Pacote de PC",
         "PocketDriveDirectory.DOWNLOADS",
         "PcApplicationTarget",
-        '"Ver compatibilidade"',
-        "onCompatibility",
+        '"Abrir no PocketPC"',
+        "onOpenRuntime",
     ),
     "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt": (
         "PocketPC-Updates/main/latest.json",
