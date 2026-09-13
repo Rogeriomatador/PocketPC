@@ -21,6 +21,7 @@
     </queries>
     <application
         android:allowBackup="false"
+        android:hardwareAccelerated="true"
         android:label="PocketPC"
         android:supportsRtl="true"
         android:theme="@style/Theme.PocketPC">
