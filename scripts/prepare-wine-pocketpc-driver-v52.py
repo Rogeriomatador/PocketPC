@@ -5,6 +5,7 @@ Stages:
   1. complete v51 source overlay (official one-shot baseline)
   2. v52 continuous-Present source overlay gated by
      POCKETPC_VULKAN_CONTINUOUS_PRESENT_V52=1
+  3. compile-safe v52 gate forward-declaration normalization
 
 This preparer is deliberately NOT selected by the official Wine build workflow.
 Its output is source evidence only until Wine compiles and the odd/even ownership
@@ -22,6 +23,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 V51_PREPARER = ROOT / "scripts/prepare-wine-pocketpc-driver-v51.py"
 V52_OVERLAY = ROOT / "scripts/prepare-wine-pocketpc-continuous-present-v52.py"
+V52_COMPILE_FIX = ROOT / "scripts/prepare-wine-pocketpc-v52-compile-fix.py"
 
 
 def run_stage(script: Path, wine_source: Path, evidence: Path) -> None:
@@ -135,6 +137,25 @@ def require_v52(data: dict[str, object]) -> None:
             raise SystemExit(f"WINE_V52_PREMATURE_EXECUTION_CLAIM:{key}")
 
 
+def require_compile_fix(data: dict[str, object]) -> None:
+    if data.get("schemaVersion") != 1:
+        raise SystemExit("WINE_V52_COMPILE_FIX_SCHEMA_INVALID")
+    if data.get("privateWineVulkanAbi") != 52:
+        raise SystemExit("WINE_V52_COMPILE_FIX_ABI_INVALID")
+    source = data.get("sourceIntegration")
+    if not isinstance(source, dict):
+        raise SystemExit("WINE_V52_COMPILE_FIX_SOURCE_MISSING")
+    if source.get("continuousPresentGateForwardDeclaredBeforeQueueCallback") is not True:
+        raise SystemExit("WINE_V52_COMPILE_FIX_FORWARD_DECLARATION_MISSING")
+    if source.get("continuousPresentGateStaticDefinitionRetained") is not True:
+        raise SystemExit("WINE_V52_COMPILE_FIX_STATIC_DEFINITION_MISSING")
+    if source.get("declarationCount") != 1 or source.get("definitionCount") != 1:
+        raise SystemExit("WINE_V52_COMPILE_FIX_GATE_CARDINALITY_INVALID")
+    for key in ("compiled", "runtimeExecuted", "physicalVisibleFrame", "robloxExecuted"):
+        if data.get(key) is not False:
+            raise SystemExit(f"WINE_V52_COMPILE_FIX_PREMATURE_CLAIM:{key}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wine-source", type=Path, required=True)
@@ -149,6 +170,7 @@ def main() -> int:
         temp_root = Path(temp)
         v51_path = temp_root / "v51.json"
         v52_path = temp_root / "v52-overlay.json"
+        compile_fix_path = temp_root / "v52-compile-fix.json"
 
         run_stage(V51_PREPARER, wine_source, v51_path)
         v51 = json.loads(v51_path.read_text(encoding="utf-8"))
@@ -157,6 +179,10 @@ def main() -> int:
         run_stage(V52_OVERLAY, wine_source, v52_path)
         v52 = json.loads(v52_path.read_text(encoding="utf-8"))
         require_v52(v52)
+
+        run_stage(V52_COMPILE_FIX, wine_source, compile_fix_path)
+        compile_fix = json.loads(compile_fix_path.read_text(encoding="utf-8"))
+        require_compile_fix(compile_fix)
 
     combined = {
         "schemaVersion": 1,
@@ -173,9 +199,23 @@ def main() -> int:
         "inputInjectionImplemented": v51["inputInjectionImplemented"],
         "timelineOwnership": v52["timelineOwnership"],
         "presentOrdering": v52["presentOrdering"],
-        "sourceIntegration": v52["sourceIntegration"],
+        "sourceIntegration": {
+            **v52["sourceIntegration"],
+            "continuousPresentGateForwardDeclaredBeforeQueueCallback": True,
+        },
+        "compileSourceNormalization": {
+            "continuousPresentGateForwardDeclaredBeforeQueueCallback": True,
+            "continuousPresentGateStaticDefinitionRetained": True,
+            "declarationCount": 1,
+            "definitionCount": 1,
+            "compiled": False,
+            "executed": False,
+        },
         "helperFiles": v52["helperFiles"],
-        "files": v52["files"],
+        "files": {
+            **v52["files"],
+            "compileFixDriverAfterSha256": compile_fix["files"]["driverAfterSha256"],
+        },
         "compiled": False,
         "runtimeExecuted": False,
         "integrationExecuted": False,
@@ -193,10 +233,11 @@ def main() -> int:
             "status": v52.get("status"),
             "environmentGate": v52.get("environmentGate"),
             "notExecuted": v52.get("notExecuted"),
+            "compileFixStatus": compile_fix.get("status"),
+            "compileFixNotExecuted": compile_fix.get("notExecuted"),
         },
         "notExecuted": [
-            "prepare-wine-pocketpc-driver-v52.py against the pinned Wine checkout",
-            "Wine v52 compilation",
+            "Wine v52 compilation after source normalization",
             "Wine v52 link/package",
             "continuous odd/even PVS1 runtime exchange",
             "multi-frame Android host readback loop",
@@ -215,6 +256,7 @@ def main() -> int:
     print("private_wine_vulkan_abi=52")
     print("official_build_selected=false")
     print("continuous_present_source_implemented=true")
+    print("continuous_present_gate_forward_declared=true")
     print("compiled=false")
     print("runtime_executed=false")
     print("physical_visible_frame=false")
