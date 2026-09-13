@@ -39,7 +39,7 @@ def main() -> int:
         "POCKETPC_GRAPHICS_SOCKET_NAME",
         "POCKETPC_GRAPHICS_SESSION_TOKEN",
         "POCKETPC_GRAPHICS_SESSION_PROTOCOL",
-        "Blocking. Call from the runtime IO executor",
+        "fun acceptAuthenticated(",
     ))
     require(failures, cmake, ("graphics_seqpacket_session.cpp",))
     require(failures, guest_h, (

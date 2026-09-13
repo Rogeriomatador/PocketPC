@@ -93,7 +93,7 @@ def main() -> int:
             "python3 scripts/test-pocketpc-pe-audit.py",
             "python3 scripts/test-wine-pocketpc-pe-policy.py",
             "python3 scripts/audit-wine-pocketpc-driver-pe.py",
-            "wine-pocketpc-driver-pe-audit.json",
+            "winepocketpc-driver-pe-audit.json",
         ),
     )
 

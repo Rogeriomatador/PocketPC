@@ -56,7 +56,7 @@ def main() -> int:
         need(header + "\n" + source, marker, label)
 
     need(ack_h, "PGA_STAGE_GPU_SIGNAL_SUBMITTED 5u", "gpu-submit-ack-stage")
-    need(ack_c, "PGA_STAGE_GPU_SIGNAL_SUBMITTED", "gpu-submit-ack-accepted")
+    need(ack_c, "stage <= PGA_STAGE_PRESENT_COPY_COMPLETED", "gpu-submit-ack-accepted")
 
     for marker, label in (
         ("static void pocketpc_vulkan_queue_presented", "driver-present-queue-handler"),

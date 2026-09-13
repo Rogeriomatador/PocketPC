@@ -255,16 +255,16 @@ def main() -> int:
         "runtime contract",
         contract,
         (
-            "const val hostOpaqueFdImageBrokerImplemented =\n        true",
+            "const val hostOpaqueFdImageBrokerImplemented = true",
             "const val hostOpaqueFdInitialExternalReleaseSourceIntegrated = true",
             "const val guestExternalImageAcquireReleasePrimitiveImplemented = true",
             "const val hostOpaqueFdInitialExternalReleaseExecuted = false",
             "const val guestExternalImageAcquireExecuted = false",
             "const val guestExternalImageReleaseExecuted = false",
-            "const val hostDmaBufImageBrokerImplemented =\n        false",
-            "const val guestReceiveImplemented =\n        false",
-            "const val guestImportImplemented =\n        false",
-            "const val synchronizationImplemented =\n        false",
+            "const val hostDmaBufImageBrokerImplemented = false",
+            "const val guestReceiveImplemented = false",
+            "const val guestImportImplemented = false",
+            "const val synchronizationImplemented = false",
         ),
     )
     require(

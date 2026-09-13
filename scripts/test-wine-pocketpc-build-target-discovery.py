@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 from unittest import mock
 
@@ -20,7 +21,12 @@ def load_harness():
     if spec is None or spec.loader is None:
         raise RuntimeError("BUILD_HARNESS_IMPORT_FAILED")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(spec.name, None)
+        raise
     return module
 
 
