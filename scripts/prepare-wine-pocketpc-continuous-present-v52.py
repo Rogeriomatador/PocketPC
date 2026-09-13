@@ -120,7 +120,7 @@ CONTINUOUS_SUBMIT_BRANCH = r'''
             format,
             extent,
             &pocketpc_guest_resource.image,
-            (VkFormat)pocketpc_guest_resource.descriptor.format,
+            (VkFormat)pocketpc_guest_resource.descriptor.pixel_format,
             pocketpc_guest_resource.descriptor.width,
             pocketpc_guest_resource.descriptor.height,
             (VkImageUsageFlags)pocketpc_guest_resource.descriptor.usage,
