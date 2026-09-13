@@ -216,10 +216,6 @@ NEW_CLEANUP_PREFIX = r'''    if (pocketpc_guest_resource.continuous_present_subm
 
     result = pocketpc_guest_present_copy_cleanup('''
 
-QUEUE_COUNTER_ANCHOR = r'''    result = pocketpc_guest_vulkan_timeline_get_counter(
-        device,
-        &pocketpc_guest_resource.timeline,
-        &current_value);'''
 V52_POST_PRESENT_BRANCH = r'''    if (pocketpc_continuous_present_v52_enabled())
     {
         queue_family = queue->info.queueFamilyIndex;
@@ -267,6 +263,10 @@ V52_POST_PRESENT_BRANCH = r'''    if (pocketpc_continuous_present_v52_enabled())
     }
 
 '''
+QUEUE_COUNTER_ANCHOR = r'''    result = pocketpc_guest_vulkan_timeline_get_counter(
+        device,
+        &pocketpc_guest_resource.timeline,
+        &current_value);'''
 
 # Build these strings without a trailing escape in the Python source itself.
 MAKEFILE_COPY_LINE = "\tpocketpc_guest_present_copy.c " + "\\"
