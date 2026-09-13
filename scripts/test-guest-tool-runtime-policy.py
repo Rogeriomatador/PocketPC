@@ -95,9 +95,9 @@ def main() -> int:
             failures.append(f"missing file: {relative}")
             continue
         text = path.read_text(encoding="utf-8")
-        compact_text = re.sub(r"\\s+", "", text)
+        compact_text = re.sub(r"\s+", "", text)
         for sentinel in sentinels:
-            compact_sentinel = re.sub(r"\\s+", "", sentinel)
+            compact_sentinel = re.sub(r"\s+", "", sentinel)
             if sentinel not in text and compact_sentinel not in compact_text:
                 failures.append(f"{relative}: missing sentinel {sentinel!r}")
 
