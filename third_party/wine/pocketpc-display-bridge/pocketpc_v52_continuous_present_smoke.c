@@ -1,4 +1,6 @@
 #define COBJMACROS
+#define UNICODE
+#define _UNICODE
 #include <windows.h>
 #include <d3d11.h>
 #include <dxgi.h>
