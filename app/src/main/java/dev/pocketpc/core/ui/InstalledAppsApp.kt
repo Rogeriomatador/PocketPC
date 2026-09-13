@@ -10,6 +10,7 @@ import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -66,6 +67,9 @@ fun InstalledAppsApp(
     var status by remember { mutableStateOf<String?>(null) }
     val compatibilityStore =
         remember { GameCompatibilityStore(context) }
+    var selectedForUninstall by remember {
+        mutableStateOf<LaunchableAndroidApp?>(null)
+    }
     var selectedGame by remember {
         mutableStateOf<LaunchableAndroidApp?>(null)
     }
@@ -87,6 +91,42 @@ fun InstalledAppsApp(
             withContext(Dispatchers.IO) {
                 queryLaunchableApps(context)
             }
+    }
+
+    selectedForUninstall?.let { app ->
+        AlertDialog(
+            onDismissRequest = { selectedForUninstall = null },
+            title = { Text("Desinstalar ${app.label}?") },
+            text = {
+                Text(
+                    "O Android mostrará a confirmação final. Os dados desse aplicativo também poderão ser removidos."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        selectedForUninstall = null
+                        runCatching {
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_DELETE,
+                                    Uri.parse("package:${app.packageName}"),
+                                )
+                            )
+                            status = "Confirme a desinstalação de ${app.label} na tela do Android."
+                        }.onFailure { error ->
+                            status =
+                                error.message ?: "Não foi possível abrir a desinstalação."
+                        }
+                    },
+                ) { Text("Continuar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedForUninstall = null }) {
+                    Text("Cancelar")
+                }
+            },
+        )
     }
 
     val filtered =
@@ -407,7 +447,7 @@ fun InstalledAppsApp(
 
                     Card(
                         onClick = { launch(app) },
-                        modifier = Modifier.height(118.dp),
+                        modifier = Modifier.height(146.dp),
                         colors =
                             CardDefaults.cardColors(
                                 containerColor =
@@ -458,20 +498,38 @@ fun InstalledAppsApp(
                                         .onSurfaceVariant,
                             )
 
-                            if (app.isGame) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                if (app.isGame) {
+                                    TextButton(
+                                        onClick = {
+                                            selectedGame = app
+                                        },
+                                        contentPadding =
+                                            androidx.compose.foundation
+                                                .layout
+                                                .PaddingValues(0.dp),
+                                    ) {
+                                        Text(
+                                            "Perfil desktop",
+                                            fontSize = 8.sp,
+                                        )
+                                    }
+                                } else {
+                                    Spacer(Modifier.width(1.dp))
+                                }
                                 TextButton(
                                     onClick = {
-                                        selectedGame = app
+                                        selectedForUninstall = app
                                     },
                                     contentPadding =
                                         androidx.compose.foundation
                                             .layout
                                             .PaddingValues(0.dp),
                                 ) {
-                                    Text(
-                                        "Perfil desktop",
-                                        fontSize = 8.sp,
-                                    )
+                                    Text("Desinstalar", fontSize = 8.sp)
                                 }
                             }
                         }
