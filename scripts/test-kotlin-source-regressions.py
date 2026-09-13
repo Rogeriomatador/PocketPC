@@ -195,12 +195,24 @@ iso = read("app/src/main/java/dev/pocketpc/core/ui/PocketIsoInspectorPane.kt")
 for required in (
     "ISO_DESCRIPTOR_START_SECTOR",
     'signature == "CD001"',
-    "ByteOrder.LITTLE_ENDIAN",
+    "parsePocketIso9660PrimaryDescriptor(pvd)",
     "openFileDescriptor(Uri.parse(uriString), \"r\")",
     "Primary Volume Descriptor ISO9660 não encontrado",
 ):
     if required not in iso:
         errors.append(f"PocketIsoInspectorPane lost ISO9660 invariant: {required}")
+
+iso_engine = read("app/src/main/java/dev/pocketpc/core/storage/PocketIso9660.kt")
+for required in (
+    "readUInt32LittleEndian(descriptor, 80)",
+    "readUInt32BigEndian(descriptor, 84)",
+    "require(volumeBlocksLittle == volumeBlocksBig)",
+    "readUInt16LittleEndian(descriptor, 128)",
+    "readUInt16BigEndian(descriptor, 130)",
+    "require(logicalBlockLittle == logicalBlockBig)",
+):
+    if required not in iso_engine:
+        errors.append(f"PocketIso9660 lost both-endian invariant: {required}")
 
 zip_creator = read("app/src/main/java/dev/pocketpc/core/storage/PocketZipCreator.kt")
 for required in (
