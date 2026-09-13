@@ -159,6 +159,8 @@ $markers = [ordered]@{
     externalOwnershipRoundTrip = "POCKETPC_VULKAN_EXTERNAL_OWNERSHIP stage=roundtrip_completed"
     prePresentCopySubmitted = "POCKETPC_VULKAN_PRESENT_COPY stage=copy_submitted"
     prePresentCopyCompleted = "POCKETPC_VULKAN_PRESENT_COPY stage=copy_queue_completed"
+    androidHostReadbackCompleted = "POCKETPC_GRAPHICS_EVIDENCE ANDROID_HOST_READBACK_COMPLETED"
+    composeFrameDrawSubmitted = "POCKETPC_GRAPHICS_EVIDENCE COMPOSE_FRAME_DRAW_SUBMITTED"
     headlessPresentObserved = "POCKETPC_VULKAN_WSI stage=headless_present_observed"
 }
 
@@ -215,6 +217,8 @@ $evidence = [ordered]@{
         externalOwnershipRoundTrip = "Proves one observed guest acquire/release round-trip between VK_QUEUE_FAMILY_EXTERNAL and the exact Wine queue. It does not prove a copied frame."
         prePresentCopySubmitted = "Proves the v51 copy submit was queued after consuming the original Present waits and before the real Present. Submission alone is not completion evidence."
         prePresentCopyCompleted = "With the v51 source contract, this marker is emitted only after the exact-image copy submit and the Present queue reached idle, with the PVI1 destination released back to VK_QUEUE_FAMILY_EXTERNAL/GENERAL. It still does not prove Android displayed the frame."
+        androidHostReadbackCompleted = "Proves the Android host read back the transported pixels. It does not prove the UI drew them."
+        composeFrameDrawSubmitted = "Proves Compose executed drawContent for the exact transported frame. It still does not prove a physical display scanout or Roblox gameplay."
         headlessPresentObserved = "Headless control-flow evidence only; never a visible-frame proof."
     }
     explicitNonClaims = $explicitNonClaims

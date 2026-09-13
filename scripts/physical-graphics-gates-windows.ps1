@@ -125,6 +125,9 @@ $authenticated = Has-Marker $graphicsLines "PGH1_AUTHENTICATED"
 $offered = Has-Marker $graphicsLines "RESOURCE_OFFERED"
 $imported = Has-Marker $graphicsLines "GUEST_IMPORT_CONFIRMED"
 $presentQueueSignal = Has-Marker $graphicsLines "PRESENT_QUEUE_SIGNAL_OBSERVED"
+$presentCopy = Has-Marker $graphicsLines "PRESENT_COPY_COMPLETED"
+$hostReadback = Has-Marker $graphicsLines "ANDROID_HOST_READBACK_COMPLETED"
+$composeDraw = Has-Marker $graphicsLines "COMPOSE_FRAME_DRAW_SUBMITTED"
 $blockedLines = @($graphicsLines | Where-Object { $_ -like "* BLOCKED blocker=*" })
 
 $queueFamily = $null
@@ -142,14 +145,23 @@ if ($identityLine) {
 }
 
 $highestGate =
-    if ($presentQueueSignal) { "PRESENT_QUEUE_SIGNAL_OBSERVED" }
+    if ($composeDraw) { "COMPOSE_FRAME_DRAW_SUBMITTED" }
+    elseif ($hostReadback) { "ANDROID_HOST_READBACK_COMPLETED" }
+    elseif ($presentCopy) { "PRESENT_COPY_COMPLETED" }
+    elseif ($presentQueueSignal) { "PRESENT_QUEUE_SIGNAL_OBSERVED" }
     elseif ($imported) { "GUEST_IMPORT_CONFIRMED" }
     elseif ($offered) { "RESOURCE_OFFERED" }
     elseif ($authenticated) { "PGH1_AUTHENTICATED" }
     else { "NONE" }
 
 $classification =
-    if ($presentQueueSignal) {
+    if ($composeDraw) {
+        "PHYSICAL_PARTIAL_COMPOSE_DRAW_SUBMITTED_VISIBLE_SCANOUT_NOT_PROVEN"
+    } elseif ($hostReadback) {
+        "PHYSICAL_PARTIAL_ANDROID_HOST_READBACK_COMPLETED_COMPOSE_DRAW_NOT_OBSERVED"
+    } elseif ($presentCopy) {
+        "PHYSICAL_PARTIAL_PRESENT_COPY_COMPLETED_ANDROID_READBACK_NOT_OBSERVED"
+    } elseif ($presentQueueSignal) {
         "PHYSICAL_PARTIAL_PRESENT_QUEUE_ORDERING_OBSERVED_VISIBLE_FRAME_NOT_PROVEN"
     } elseif ($imported) {
         "PHYSICAL_PARTIAL_GUEST_IMPORT_OBSERVED_PRESENT_QUEUE_ORDERING_NOT_OBSERVED"
@@ -184,9 +196,11 @@ $evidence = [ordered]@{
         hostResourceOffered = Marker-State $offered
         guestImportConfirmed = Marker-State $imported
         samePresentQueueTimelineSignal = Marker-State $presentQueueSignal
+        presentCopyCompleted = Marker-State $presentCopy
+        androidHostReadbackCompleted = Marker-State $hostReadback
+        composeFrameDrawSubmitted = Marker-State $composeDraw
         exactPresentedImageIdentity = "NOT_OBSERVED_BY_THIS_LOGCAT_CHANNEL"
-        swapchainPixelCopy = "NOT_IMPLEMENTED"
-        hostVisibleFrame = "NOT_IMPLEMENTED"
+        hostVisibleFrame = "NOT_PROVEN"
         robloxGameplay = "NOT_INFERRED"
     }
     highestObservedGate = $highestGate

@@ -1,6 +1,7 @@
 package dev.pocketpc.core.runtime
 
 import android.util.Log
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Compact physical-test evidence channel for the graphics transport.
@@ -12,6 +13,8 @@ import android.util.Log
  */
 object RuntimeGraphicsEvidenceLog {
     const val TAG = "PocketPCGraphics"
+    private val lastComposeFrameByWindow =
+        ConcurrentHashMap<Long, RuntimeDisplayExternalFrameIdentity>()
 
     fun authenticated() =
         emit("PGH1_AUTHENTICATED")
@@ -114,6 +117,29 @@ object RuntimeGraphicsEvidenceLog {
                 " physical_validated=0" +
                 " roblox_validated=0",
         )
+
+    fun composeFrameDrawSubmitted(
+        windowId: Long,
+        identity: RuntimeDisplayExternalFrameIdentity,
+        width: Int,
+        height: Int,
+    ) {
+        if (windowId <= 0L || !identity.structurallyValid || width <= 0 || height <= 0) return
+        if (lastComposeFrameByWindow.put(windowId, identity) == identity) return
+        emit(
+            "COMPOSE_FRAME_DRAW_SUBMITTED" +
+                " window_id=" + windowId +
+                " resource_id=" + identity.resourceId +
+                " generation=" + identity.generation +
+                " sequence=" + identity.sequence +
+                " width=" + width +
+                " height=" + height +
+                " compose_draw=1" +
+                " host_visible_frame=0" +
+                " physical_validated=0" +
+                " roblox_validated=0",
+        )
+    }
 
     fun blocked(blocker: String) {
         if (blocker.isBlank()) return

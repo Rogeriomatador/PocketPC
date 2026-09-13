@@ -310,6 +310,7 @@ internal fun RuntimeDesktopWindowLayer(
                             ?.let { frame ->
                                 RuntimeDisplayFramePreview(
                                     frame = frame,
+                                    windowId = window.windowId,
                                     frameId = window.frameId,
                                     externalFrameIdentity =
                                         window.externalFrameIdentity,

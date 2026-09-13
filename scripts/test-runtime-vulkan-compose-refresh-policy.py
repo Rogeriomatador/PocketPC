@@ -41,7 +41,22 @@ def main() -> None:
         "frameId,\n            externalFrameIdentity,",
         "bitmap remember invalidation keys",
     )
+    require(
+        preview,
+        "RuntimeGraphicsEvidenceLog.composeFrameDrawSubmitted(",
+        "Compose draw submission evidence",
+    )
+    require(
+        preview,
+        "drawWithContent",
+        "draw-stage instrumentation",
+    )
 
+    require(
+        layer,
+        "windowId = window.windowId",
+        "desktop layer forwards exact window identity",
+    )
     require(
         layer,
         "frameId = window.frameId",
