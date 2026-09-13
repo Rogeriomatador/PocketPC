@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$DeviceSerial,
     [string]$AndroidSdkRoot,
@@ -33,6 +33,27 @@ function Resolve-Adb {
     throw "ADB_NOT_FOUND"
 }
 
+function Invoke-NativeCapture {
+    param(
+        [Parameter(Mandatory=$true)][string]$FilePath,
+        [Parameter(Mandatory=$true)][string[]]$Arguments
+    )
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = & $FilePath @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    [pscustomobject]@{
+        ExitCode = $exitCode
+        Text = (($output | Out-String).Trim())
+    }
+}
+
 function Invoke-Adb {
     param(
         [Parameter(Mandatory=$true)][string]$Adb,
@@ -43,21 +64,7 @@ function Invoke-Adb {
     $full = @()
     if ($Serial) { $full += @("-s", $Serial) }
     $full += $Arguments
-
-    $previous = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = "Continue"
-        $output = & $Adb @full 2>&1
-        $exitCode = $LASTEXITCODE
-    }
-    finally {
-        $ErrorActionPreference = $previous
-    }
-
-    [pscustomobject]@{
-        ExitCode = $exitCode
-        Text = (($output | Out-String).Trim())
-    }
+    return Invoke-NativeCapture -FilePath $Adb -Arguments $full
 }
 
 function Test-Marker {
