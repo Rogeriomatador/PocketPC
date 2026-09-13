@@ -93,6 +93,102 @@ class RobloxRuntimeEvidenceAccumulatorTest {
         assertFalse(evidence.integrationSmokePassed)
     }
 
+    @Test
+    fun gameplayRequiresServerAndObservedPlayerInteraction() {
+        val accumulator =
+            RobloxRuntimeEvidenceAccumulator(
+                fingerprint = fingerprint,
+                startedAtElapsedMillis = 0L,
+            )
+        accumulator.observe(
+            RobloxObservedSignal.PLAYER_PROCESS_STARTED,
+            elapsedMillis = 100L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.PLAYER_WINDOW_PRESENTED,
+            elapsedMillis = 200L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.D3D11_PRESENT_OBSERVED,
+            elapsedMillis = 300L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.EXTERNAL_NETWORK_OBSERVED,
+            elapsedMillis = 400L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.AUDIO_OUTPUT_OBSERVED,
+            elapsedMillis = 500L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.KEYBOARD_INPUT_OBSERVED,
+            elapsedMillis = 600L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.POINTER_INPUT_OBSERVED,
+            elapsedMillis = 700L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.SERVER_SESSION_JOINED,
+            elapsedMillis = 800L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.AVATAR_MOVEMENT_OBSERVED,
+            elapsedMillis = 900L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.GAMEPLAY_INTERACTION_OBSERVED,
+            elapsedMillis = 1_000L,
+        )
+
+        val evidence =
+            accumulator.snapshot(
+                expectedFingerprint = fingerprint,
+                elapsedMillis = 300_100L,
+            )
+
+        assertTrue(evidence.serverSessionJoined)
+        assertTrue(evidence.avatarMovementObserved)
+        assertTrue(evidence.gameplayInteractionObserved)
+        assertTrue(evidence.gameplayValidated)
+    }
+
+    @Test
+    fun gameplaySignalsAreRejectedBeforeServerEvidence() {
+        val accumulator =
+            RobloxRuntimeEvidenceAccumulator(
+                fingerprint = fingerprint,
+                startedAtElapsedMillis = 0L,
+            )
+        accumulator.observe(
+            RobloxObservedSignal.PLAYER_PROCESS_STARTED,
+            elapsedMillis = 100L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.KEYBOARD_INPUT_OBSERVED,
+            elapsedMillis = 200L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.AVATAR_MOVEMENT_OBSERVED,
+            elapsedMillis = 300L,
+        )
+        accumulator.observe(
+            RobloxObservedSignal.GAMEPLAY_INTERACTION_OBSERVED,
+            elapsedMillis = 400L,
+        )
+
+        val evidence =
+            accumulator.snapshot(
+                expectedFingerprint = fingerprint,
+                elapsedMillis = 400_000L,
+            )
+
+        assertFalse(evidence.serverSessionJoined)
+        assertFalse(evidence.avatarMovementObserved)
+        assertFalse(evidence.gameplayInteractionObserved)
+        assertFalse(evidence.gameplayValidated)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun fingerprintChangeIsRejected() {
         val accumulator =
