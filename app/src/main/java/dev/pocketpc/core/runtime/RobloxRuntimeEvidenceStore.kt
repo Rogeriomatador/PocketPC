@@ -59,6 +59,21 @@ class RobloxRuntimeEvidenceStore(
                     KEY_KEYBOARD,
                     false,
                 ),
+            serverSessionJoined =
+                prefs.getBoolean(
+                    KEY_SERVER_SESSION,
+                    false,
+                ),
+            avatarMovementObserved =
+                prefs.getBoolean(
+                    KEY_AVATAR_MOVEMENT,
+                    false,
+                ),
+            gameplayInteractionObserved =
+                prefs.getBoolean(
+                    KEY_GAMEPLAY_INTERACTION,
+                    false,
+                ),
             stableSessionMillis =
                 prefs.getLong(
                     KEY_STABLE_SESSION,
@@ -140,6 +155,18 @@ class RobloxRuntimeEvidenceStore(
                 KEY_KEYBOARD,
                 evidence.keyboardInputObserved,
             )
+            .putBoolean(
+                KEY_SERVER_SESSION,
+                evidence.serverSessionJoined,
+            )
+            .putBoolean(
+                KEY_AVATAR_MOVEMENT,
+                evidence.avatarMovementObserved,
+            )
+            .putBoolean(
+                KEY_GAMEPLAY_INTERACTION,
+                evidence.gameplayInteractionObserved,
+            )
             .putLong(
                 KEY_STABLE_SESSION,
                 evidence.stableSessionMillis,
@@ -184,6 +211,12 @@ class RobloxRuntimeEvidenceStore(
             "pointer_input_observed"
         private const val KEY_KEYBOARD =
             "keyboard_input_observed"
+        private const val KEY_SERVER_SESSION =
+            "server_session_joined"
+        private const val KEY_AVATAR_MOVEMENT =
+            "avatar_movement_observed"
+        private const val KEY_GAMEPLAY_INTERACTION =
+            "gameplay_interaction_observed"
         private const val KEY_STABLE_SESSION =
             "stable_session_millis"
         private const val KEY_CRASH =
