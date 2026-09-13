@@ -39,11 +39,12 @@ class PcRuntimeWindowedAttemptGateTest {
         )
 
     @Test
-    fun windowedGateCanPassWithoutPromotingDxvkGate() {
+    fun baseControlledGateCanPassWithoutPromotingDxvkGate() {
         val readiness = windowedReadyRuntime()
 
         assertTrue(readiness.windowedAttemptReady)
-        assertFalse(readiness.controlledAttemptReady)
+        assertTrue(readiness.controlledAttemptReady)
+        assertFalse(readiness.graphicsAttemptReady)
         assertFalse(readiness.executableReady)
     }
 
