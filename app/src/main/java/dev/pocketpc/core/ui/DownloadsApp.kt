@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -31,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +57,7 @@ import dev.pocketpc.core.storage.planPocketFileOpen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 private data class PocketDownload(
     val id: Long,
@@ -72,6 +75,7 @@ fun DownloadsApp(
     onOpenRuntime: (PcApplicationTarget) -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val manager =
         remember {
             context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -82,6 +86,7 @@ fun DownloadsApp(
     var pcPackages by remember { mutableStateOf<List<PocketPcPackageRecord>>(emptyList()) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var refreshToken by remember { mutableIntStateOf(0) }
+    var pendingDelete by remember { mutableStateOf<StorageEntry?>(null) }
 
     LaunchedEffect(refreshToken, rootUri) {
         while (true) {
@@ -122,6 +127,43 @@ fun DownloadsApp(
 
             delay(2_000)
         }
+    }
+
+    pendingDelete?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Excluir permanentemente?") },
+            text = {
+                Text(
+                    if (entry.directory) {
+                        "A pasta \"${entry.name}\" e todo o conteúdo serão excluídos do PocketDrive."
+                    } else {
+                        "O arquivo \"${entry.name}\" será excluído do PocketDrive."
+                    }
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        pendingDelete = null
+                        scope.launch {
+                            repository.delete(entry)
+                                .onSuccess {
+                                    statusMessage = "\"${entry.name}\" foi excluído."
+                                    refreshToken++
+                                }
+                                .onFailure { error ->
+                                    statusMessage =
+                                        error.message ?: "Não foi possível excluir o item."
+                                }
+                        }
+                    },
+                ) { Text("Excluir") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Cancelar") }
+            },
+        )
     }
 
     val regularPocketFiles =
@@ -268,6 +310,17 @@ fun DownloadsApp(
                 items(pcPackages, key = { "pc-package-${it.uri}" }) { record ->
                     PcPackageRow(
                         record = record,
+                        onDelete = {
+                            pendingDelete =
+                                StorageEntry(
+                                    name = record.name,
+                                    uri = record.uri,
+                                    directory = false,
+                                    size = record.size,
+                                    mimeType = null,
+                                    lastModified = record.importedAtMillis,
+                                )
+                        },
                         onOpen = {
                             statusMessage = "Abrindo ${record.name} no runtime de PC do PocketPC."
                             onOpenRuntime(
@@ -292,6 +345,7 @@ fun DownloadsApp(
                 items(regularPocketFiles, key = { "drive-${it.uri}" }) { entry ->
                     PocketDriveDownloadRow(
                         entry = entry,
+                        onDelete = { pendingDelete = entry },
                         onOpen = {
                             if (!entry.directory) {
                                 val plan =
@@ -357,6 +411,7 @@ private fun DownloadSectionHeader(title: String, subtitle: String) {
 private fun PcPackageRow(
     record: PocketPcPackageRecord,
     onOpen: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -398,10 +453,15 @@ private fun PcPackageRow(
                 )
             }
 
-            AssistChip(
-                onClick = onOpen,
-                label = { Text("Abrir no PocketPC", fontSize = 8.sp) },
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                AssistChip(
+                    onClick = onOpen,
+                    label = { Text("Abrir no PocketPC", fontSize = 8.sp) },
+                )
+                TextButton(onClick = onDelete) {
+                    Text("Excluir", fontSize = 8.sp)
+                }
+            }
         }
     }
 }
@@ -410,6 +470,7 @@ private fun PcPackageRow(
 private fun PocketDriveDownloadRow(
     entry: StorageEntry,
     onOpen: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val fileClass =
         if (entry.directory) PocketFileClass.GENERIC
@@ -447,6 +508,7 @@ private fun PocketDriveDownloadRow(
             if (!entry.directory) {
                 Button(onClick = onOpen) { Text("Abrir") }
             }
+            TextButton(onClick = onDelete) { Text("Excluir") }
         }
     }
 }
