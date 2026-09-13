@@ -39,14 +39,12 @@ def read_exact(conn:socket.socket,size:int)->bytes:
             raise RuntimeError("peer closed while reading display bridge frame")
         out.extend(block)
     return bytes(out)
-
 def read_frame(conn:socket.socket)->tuple[int,int,bytes]:
     header=read_exact(conn,20)
     magic,version,msg_type,size,sequence=struct.unpack("<IHHIQ",header)
     if magic!=MAGIC or version!=VERSION or size>MAX_PAYLOAD:
         raise RuntimeError("invalid display bridge frame header")
     return msg_type,sequence,read_exact(conn,size)
-
 def write_frame(conn:socket.socket,msg_type:int,sequence:int,payload:bytes=b"")->None:
     if len(payload)>MAX_PAYLOAD:
         raise RuntimeError("display bridge payload exceeds protocol maximum")
@@ -278,5 +276,7 @@ class SurfaceSmokeBroker:
                         self.activity.set();continue
 
                     raise RuntimeError(f"unexpected guest message type={msg_type}")
+        except (ConnectionResetError,BrokenPipeError):
+            return
         except Exception as exc:
             if not self.stop.is_set():self._record_error(exc)
