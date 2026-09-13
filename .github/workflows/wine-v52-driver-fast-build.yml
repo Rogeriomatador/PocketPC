@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - '.github/workflows/wine-v52-driver-fast-build.yml'
+      - 'scripts/test-wine-v52-fast-build-policy.py'
       - 'scripts/prepare-wine-source.py'
       - 'scripts/prepare-wine-pocketpc-driver-v51.py'
       - 'scripts/prepare-wine-pocketpc-v51-compile-fix.py'
@@ -53,6 +54,7 @@ jobs:
       - name: Validate v52 build scripts
         run: |
           python3 -m py_compile \
+            scripts/test-wine-v52-fast-build-policy.py \
             scripts/prepare-wine-source.py \
             scripts/prepare-wine-pocketpc-driver-v51.py \
             scripts/prepare-wine-pocketpc-v51-compile-fix.py \
@@ -64,6 +66,7 @@ jobs:
             scripts/verify-wine-pocketpc-driver-artifact-set.py
           python3 scripts/test-vulkan-continuous-present-v52-policy.py
           python3 scripts/test-wine-x86_64-v52-source-integration.py
+          python3 scripts/test-wine-v52-fast-build-policy.py
 
       - name: Fetch exact pinned Wine source
         run: |
