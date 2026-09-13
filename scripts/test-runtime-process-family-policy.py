@@ -152,7 +152,7 @@ def main() -> int:
         (
             "associateActiveFamilyPid",
             "window.windowId",
-            "ushr 32",
+            ".ushr(32)",
             "processPid >",
             "Int.MAX_VALUE",
         ),
