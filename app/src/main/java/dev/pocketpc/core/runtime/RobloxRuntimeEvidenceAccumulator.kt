@@ -8,6 +8,9 @@ enum class RobloxObservedSignal {
     AUDIO_OUTPUT_OBSERVED,
     POINTER_INPUT_OBSERVED,
     KEYBOARD_INPUT_OBSERVED,
+    SERVER_SESSION_JOINED,
+    AVATAR_MOVEMENT_OBSERVED,
+    GAMEPLAY_INTERACTION_OBSERVED,
     CRASH_OBSERVED,
 }
 
@@ -33,6 +36,9 @@ class RobloxRuntimeEvidenceAccumulator(
     private var audioObserved = false
     private var pointerObserved = false
     private var keyboardObserved = false
+    private var serverSessionJoined = false
+    private var avatarMovementObserved = false
+    private var gameplayInteractionObserved = false
     private var crashObserved = false
     private var stoppedAtElapsedMillis: Long? = null
 
@@ -77,6 +83,18 @@ class RobloxRuntimeEvidenceAccumulator(
             RobloxObservedSignal.KEYBOARD_INPUT_OBSERVED ->
                 if (processStarted) {
                     keyboardObserved = true
+                }
+            RobloxObservedSignal.SERVER_SESSION_JOINED ->
+                if (processStarted && networkObserved && windowPresented) {
+                    serverSessionJoined = true
+                }
+            RobloxObservedSignal.AVATAR_MOVEMENT_OBSERVED ->
+                if (serverSessionJoined && (pointerObserved || keyboardObserved)) {
+                    avatarMovementObserved = true
+                }
+            RobloxObservedSignal.GAMEPLAY_INTERACTION_OBSERVED ->
+                if (serverSessionJoined && (pointerObserved || keyboardObserved)) {
+                    gameplayInteractionObserved = true
                 }
             RobloxObservedSignal.CRASH_OBSERVED -> {
                 crashObserved = true
@@ -147,6 +165,9 @@ class RobloxRuntimeEvidenceAccumulator(
             pointerInputObserved = pointerObserved,
             keyboardInputObserved = keyboardObserved,
             stableSessionMillis = stableMillis,
+            serverSessionJoined = serverSessionJoined,
+            avatarMovementObserved = avatarMovementObserved,
+            gameplayInteractionObserved = gameplayInteractionObserved,
             crashObserved = crashObserved,
         )
     }
