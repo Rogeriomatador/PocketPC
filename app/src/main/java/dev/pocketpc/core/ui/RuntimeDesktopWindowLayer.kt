@@ -37,6 +37,7 @@ import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -135,8 +136,17 @@ internal fun RuntimeDesktopWindowLayer(
                             composeEvent.type
                         ) {
                             KeyEventType.KeyDown ->
-                                RuntimeDisplayBridgePayloadCodec
-                                    .KEY_ACTION_DOWN
+                                if (
+                                    composeEvent
+                                        .nativeKeyEvent
+                                        .repeatCount > 0
+                                ) {
+                                    RuntimeDisplayBridgePayloadCodec
+                                        .KEY_ACTION_REPEAT
+                                } else {
+                                    RuntimeDisplayBridgePayloadCodec
+                                        .KEY_ACTION_DOWN
+                                }
 
                             KeyEventType.KeyUp ->
                                 RuntimeDisplayBridgePayloadCodec
@@ -199,7 +209,11 @@ internal fun RuntimeDesktopWindowLayer(
                                     .modifiers(
                                         metaState,
                                     ),
-                            repeatCount = 0,
+                            repeatCount =
+                                composeEvent
+                                    .nativeKeyEvent
+                                    .repeatCount
+                                    .coerceAtLeast(0),
                         ),
                     ).isSuccess
                 }
