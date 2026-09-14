@@ -32,6 +32,7 @@ C_SOURCE = r"""
 #include <windows.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef uint32_t VkFlags;
 typedef uint32_t VkBool32;
@@ -93,8 +94,10 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 int main(void)
 {
     HMODULE vulkan = NULL;
-    PFN_vkCreateInstance create_instance;
-    PFN_vkGetInstanceProcAddr get_proc;
+    FARPROC create_instance_raw = NULL;
+    FARPROC get_proc_raw = NULL;
+    PFN_vkCreateInstance create_instance = NULL;
+    PFN_vkGetInstanceProcAddr get_proc = NULL;
     PFN_vkDestroyInstance destroy_instance;
     PFN_vkCreateWin32SurfaceKHR create_surface;
     PFN_vkDestroySurfaceKHR destroy_surface;
@@ -114,12 +117,19 @@ int main(void)
         return 10;
     }
 
-    create_instance = (PFN_vkCreateInstance)GetProcAddress(vulkan, "vkCreateInstance");
-    get_proc = (PFN_vkGetInstanceProcAddr)GetProcAddress(vulkan, "vkGetInstanceProcAddr");
-    if (!create_instance || !get_proc) {
+    create_instance_raw = GetProcAddress(vulkan, "vkCreateInstance");
+    get_proc_raw = GetProcAddress(vulkan, "vkGetInstanceProcAddr");
+    if (!create_instance_raw || !get_proc_raw) {
         printf("POCKETPC_VULKAN_HEADLESS_SMOKE_EXPORTS_MISSING\n");
         return 11;
     }
+
+    _Static_assert(sizeof(create_instance) == sizeof(create_instance_raw),
+        "Win32/Vulkan function pointer size mismatch");
+    _Static_assert(sizeof(get_proc) == sizeof(get_proc_raw),
+        "Win32/Vulkan function pointer size mismatch");
+    memcpy(&create_instance, &create_instance_raw, sizeof(create_instance));
+    memcpy(&get_proc, &get_proc_raw, sizeof(get_proc));
 
     app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app.pApplicationName = "PocketPC Vulkan Headless Smoke";
@@ -273,6 +283,10 @@ def main() -> int:
         )
         (work / "compile.log").write_text(compile_result.stdout, encoding="utf-8")
         if compile_result.returncode != 0 or not smoke.is_file():
+            evidence["compile"] = {
+                "returnCode": compile_result.returncode,
+                "logTail": compile_result.stdout[-8000:],
+            }
             raise RuntimeError(f"Win64 Vulkan fixture compile failed rc={compile_result.returncode}")
 
         runtime_env, relocation = load_helpers.relocated_wine_env(wine_root, wine, package)
