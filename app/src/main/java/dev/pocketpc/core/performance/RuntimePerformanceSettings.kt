@@ -40,6 +40,17 @@ data class RuntimePerformanceSettings(
 
         fun normalizeFrameRate(value: Int): Int =
             value.coerceIn(MIN_FRAME_RATE, MAX_FRAME_RATE)
+
+        fun automaticFrameRateFor(
+            action: GovernorAction?,
+        ): Int? =
+            when (action) {
+                null -> null
+                GovernorAction.HOLD -> 120
+                GovernorAction.WATCH -> 90
+                GovernorAction.REDUCE_LOAD -> 60
+                GovernorAction.REDUCE_AGGRESSIVELY -> 45
+            }
     }
 }
 
@@ -47,8 +58,9 @@ data class RuntimePerformanceSettings(
  * Process-local performance controller backed by app-private preferences.
  *
  * Automatic mode is deliberately fail-safe: without a fresh governor decision
- * it does not invent a thermal target or force an FPS cap. Manual mode is
- * deterministic and is consumed by the Windows/DXVK launch planner.
+ * backed by usable pressure evidence it does not invent a thermal target or
+ * force an FPS cap. Manual mode is deterministic and is consumed by the
+ * Windows/DXVK launch planner.
  */
 object RuntimePerformanceController {
     private const val PREFS = "pocketpc-runtime-performance"
@@ -117,18 +129,13 @@ object RuntimePerformanceController {
     }
 
     fun updateAutomaticDecision(
-        action: GovernorAction,
+        action: GovernorAction?,
     ) {
-        val target =
-            when (action) {
-                GovernorAction.HOLD -> 120
-                GovernorAction.WATCH -> 90
-                GovernorAction.REDUCE_LOAD -> 60
-                GovernorAction.REDUCE_AGGRESSIVELY -> 45
-            }
         update(
             mutableState.value.copy(
-                automaticFrameRate = target,
+                automaticFrameRate =
+                    RuntimePerformanceSettings
+                        .automaticFrameRateFor(action),
             ),
             persist = false,
         )
