@@ -1,0 +1,248 @@
+name: PRoot Home Test Candidate APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - improve/alpha22-desktop-continuity
+    paths:
+      - 'app/build.gradle.kts'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/SubstrateDeviceValidation.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/ExecutionSubstrateProbe.kt'
+      - 'scripts/build-proot-ndk.py'
+      - 'scripts/stage-proot-apk-candidate.py'
+      - 'scripts/make-proot-device-validation-bundle.py'
+      - 'scripts/audit-proot-source-licenses.py'
+      - 'scripts/test-proot-apk-staging-policy.py'
+      - 'third_party/proot/**'
+      - '.github/workflows/proot-home-test-candidate-apk.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocketpc-proot-home-test-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candidate-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact PocketPC source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Read pinned Android toolchain
+        id: android_lock
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          lock = json.loads(Path('toolchains/android-build-lock.json').read_text(encoding='utf-8'))
+          android = lock['android']
+          values = {
+              'jdk': str(lock['jdk']['major']),
+              'gradle': str(lock['gradle']['version']),
+              'platform': str(android['platformPackage']),
+              'build_tools': str(android['buildTools']),
+              'ndk': str(android['ndk']),
+              'cmake': str(android['cmake']),
+          }
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              for key, value in values.items():
+                  out.write(f'{key}={value}\n')
+          print('PROOT_HOME_TEST_ANDROID_LOCK_OK')
+          PY
+
+      - name: Setup pinned Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.android_lock.outputs.jdk }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install pinned Android toolchain
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "${{ steps.android_lock.outputs.platform }}" \
+            "build-tools;${{ steps.android_lock.outputs.build_tools }}" \
+            "ndk;${{ steps.android_lock.outputs.ndk }}" \
+            "cmake;${{ steps.android_lock.outputs.cmake }}"
+
+      - name: Setup pinned Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ steps.android_lock.outputs.gradle }}
+
+      - name: Verify fail-closed PRoot staging policy
+        run: |
+          python3 scripts/test-python-script-syntax.py
+          python3 scripts/test-proot-apk-staging-policy.py
+
+      - name: Build PRoot ARM64 candidate outside repository
+        run: |
+          python3 scripts/build-proot-ndk.py \
+            --ndk "$ANDROID_HOME/ndk/${{ steps.android_lock.outputs.ndk }}" \
+            --work "$RUNNER_TEMP/pocketpc-proot-ndk" \
+            --source-cache "$RUNNER_TEMP/pocketpc-proot-sources"
+
+      - name: Stage PRoot Android aliases outside repository
+        run: |
+          python3 scripts/stage-proot-apk-candidate.py \
+            --artifact-dir "$RUNNER_TEMP/pocketpc-proot-ndk/quarantine/arm64-v8a" \
+            --audit "$RUNNER_TEMP/pocketpc-proot-ndk/proot-elf-audit.json" \
+            --out "$RUNNER_TEMP/pocketpc-proot-apk-candidate"
+
+      - name: Audit exact PRoot build-source licenses
+        run: |
+          python3 scripts/audit-proot-source-licenses.py \
+            --source-root "$RUNNER_TEMP/pocketpc-proot-ndk/sources" \
+            --out "$RUNNER_TEMP/pocketpc-proot-license-audit.json"
+
+      - name: Build device-validation bundle
+        run: |
+          python3 scripts/make-proot-device-validation-bundle.py \
+            --staged-dir "$RUNNER_TEMP/pocketpc-proot-apk-candidate" \
+            --license-audit "$RUNNER_TEMP/pocketpc-proot-license-audit.json" \
+            --source-cache "$RUNNER_TEMP/pocketpc-proot-sources" \
+            --out "$RUNNER_TEMP/pocketpc-proot-device-validation"
+
+      - name: Verify candidate remains non-production
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'pocketpc-proot-device-validation'
+          manifest = json.loads((root / 'assets/proot-device-validation.json').read_text(encoding='utf-8'))
+          evidence = json.loads((root / 'DEVICE_VALIDATION_BUNDLE_EVIDENCE.json').read_text(encoding='utf-8'))
+          assert manifest['status'] == 'DEVICE_VALIDATION_CANDIDATE'
+          assert manifest['productionApproved'] is False
+          assert manifest['review']['deviceAudit'] is False
+          assert set(manifest['allowedExecution']) == {'SHELL', 'ROOTFS'}
+          assert evidence['status'] == 'DEVICE_VALIDATION_BUNDLE_READY_NOT_PRODUCTION_APPROVED'
+          assert evidence['productionApprovalChanged'] is False
+          assert evidence['deviceExecution'] == 'NOT_EXECUTED'
+          print('PROOT_HOME_TEST_CANDIDATE_FAIL_CLOSED_OK')
+          PY
+
+      - name: Build release APK with explicit PRoot validation candidate
+        env:
+          POCKETPC_SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          gradle --no-daemon \
+            -Ppocketpc.prootValidationCandidateDir="$RUNNER_TEMP/pocketpc-proot-device-validation" \
+            :app:testDebugUnitTest \
+            :app:assembleRelease
+
+      - name: Verify candidate is actually packaged in release APK
+        id: verify
+        run: |
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print | head -n 1)"
+          test -n "$APK"
+          test -s "$APK"
+          export APK
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import zipfile
+          from pathlib import Path
+
+          apk = Path(os.environ['APK'])
+          candidate = Path(os.environ['RUNNER_TEMP']) / 'pocketpc-proot-device-validation'
+          expected = json.loads((candidate / 'assets/proot-device-validation.json').read_text(encoding='utf-8'))
+
+          with zipfile.ZipFile(apk, 'r') as archive:
+              names = set(archive.namelist())
+              manifest_name = 'assets/proot-device-validation.json'
+              if manifest_name not in names:
+                  raise SystemExit('PROOT_HOME_TEST_MANIFEST_NOT_PACKAGED')
+              packaged_manifest = json.loads(archive.read(manifest_name).decode('utf-8'))
+              if packaged_manifest != expected:
+                  raise SystemExit('PROOT_HOME_TEST_MANIFEST_MISMATCH')
+
+              by_name = {item['fileName']: item for item in expected['artifacts']}
+              required = {
+                  'libproot.so',
+                  'libproot_loader.so',
+                  'libandroid-shmem.so',
+                  'libtalloc.so',
+              }
+              if set(by_name) != required:
+                  raise SystemExit('PROOT_HOME_TEST_ROLE_SET_INVALID')
+              for file_name in sorted(required):
+                  entry = f'lib/arm64-v8a/{file_name}'
+                  if entry not in names:
+                      raise SystemExit('PROOT_HOME_TEST_LIB_NOT_PACKAGED:' + file_name)
+                  payload = archive.read(entry)
+                  record = by_name[file_name]
+                  if len(payload) != int(record['bytes']):
+                      raise SystemExit('PROOT_HOME_TEST_LIB_SIZE_MISMATCH:' + file_name)
+                  digest = hashlib.sha256(payload).hexdigest()
+                  if digest != record['sha256']:
+                      raise SystemExit('PROOT_HOME_TEST_LIB_SHA_MISMATCH:' + file_name)
+
+          generated = Path('app/build/generated/source/buildConfig/release/dev/pocketpc/core/BuildConfig.java')
+          if not generated.is_file():
+              matches = list(Path('app/build/generated').rglob('BuildConfig.java'))
+              matches = [p for p in matches if '/release/' in p.as_posix()]
+              if len(matches) != 1:
+                  raise SystemExit('PROOT_HOME_TEST_BUILDCONFIG_NOT_FOUND')
+              generated = matches[0]
+          text = generated.read_text(encoding='utf-8')
+          if 'POCKETPC_PROOT_VALIDATION_CANDIDATE_PACKAGED = true' not in text:
+              raise SystemExit('PROOT_HOME_TEST_BUILDCONFIG_FLAG_NOT_TRUE')
+
+          evidence = {
+              'schemaVersion': 1,
+              'sourceRevision': os.environ['GITHUB_SHA'].lower(),
+              'apk': apk.name,
+              'prootCandidatePackaged': True,
+              'productionApproved': False,
+              'deviceExecution': 'NOT_EXECUTED',
+              'rootfsExecution': 'NOT_EXECUTED',
+              'box64Execution': 'NOT_EXECUTED',
+              'wineExecution': 'NOT_EXECUTED',
+              'winrarExecution': 'NOT_EXECUTED',
+              'robloxExecution': 'NOT_EXECUTED',
+              'classification': {
+                  'candidatePackaging': 'SOFTWARE_TEST',
+                  'physical': 'NOT_EXECUTED',
+              },
+          }
+          out = Path(os.environ['RUNNER_TEMP']) / 'proot-home-test-candidate-apk-evidence.json'
+          out.write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          print('PROOT_HOME_TEST_RELEASE_APK_CANDIDATE_PACKAGING_OK')
+          PY
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          echo "evidence=$RUNNER_TEMP/proot-home-test-candidate-apk-evidence.json" >> "$GITHUB_OUTPUT"
+
+      - name: Verify build did not mutate approval/source policy
+        run: |
+          git diff --exit-code -- app/src third_party scripts
+
+      - name: Retain candidate APK and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-PRoot-Home-Test-Candidate-APK
+          path: |
+            ${{ steps.verify.outputs.apk }}
+            ${{ steps.verify.outputs.evidence }}
+            ${{ runner.temp }}/pocketpc-proot-device-validation/DEVICE_VALIDATION_BUNDLE_EVIDENCE.json
+            ${{ runner.temp }}/pocketpc-proot-device-validation/assets/proot-device-validation.json
+          if-no-files-found: error
