@@ -79,6 +79,9 @@ val pocketPcProotValidationCandidateDir =
                 .canonicalFile
         }
 
+val pocketPcProotValidationCandidatePackaged =
+    pocketPcProotValidationCandidateDir != null
+
 if (
     pocketPcProotValidationCandidateDir !=
     null
@@ -203,7 +206,7 @@ android {
             buildConfigField(
                 "boolean",
                 "POCKETPC_PROOT_VALIDATION_CANDIDATE_PACKAGED",
-                "false",
+                pocketPcProotValidationCandidatePackaged.toString(),
             )
         }
 
@@ -219,10 +222,7 @@ android {
             buildConfigField(
                 "boolean",
                 "POCKETPC_PROOT_VALIDATION_CANDIDATE_PACKAGED",
-                (
-                    pocketPcProotValidationCandidateDir !=
-                        null
-                    ).toString(),
+                pocketPcProotValidationCandidatePackaged.toString(),
             )
         }
     }
@@ -240,20 +240,23 @@ android {
         pocketPcProotValidationCandidateDir !=
         null
     ) {
-        sourceSets
-            .getByName("validation")
-            .jniLibs
-            .srcDir(
-                pocketPcProotValidationCandidateDir
-                    .resolve("jniLibs")
-            )
-        sourceSets
-            .getByName("validation")
-            .assets
-            .srcDir(
-                pocketPcProotValidationCandidateDir
-                    .resolve("assets")
-            )
+        listOf("release", "validation")
+            .forEach { sourceSetName ->
+                sourceSets
+                    .getByName(sourceSetName)
+                    .jniLibs
+                    .srcDir(
+                        pocketPcProotValidationCandidateDir
+                            .resolve("jniLibs")
+                    )
+                sourceSets
+                    .getByName(sourceSetName)
+                    .assets
+                    .srcDir(
+                        pocketPcProotValidationCandidateDir
+                            .resolve("assets")
+                    )
+            }
     }
 
     packaging {
