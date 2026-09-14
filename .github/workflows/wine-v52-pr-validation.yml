@@ -18,6 +18,7 @@ on:
       - 'scripts/verify-wine-x86_64-driver-package.py'
       - 'scripts/run-wine-pocketpc-driver-load-smoke.py'
       - 'scripts/run-wine-pocketpc-window-surface-smoke.py'
+      - 'scripts/run-wine-pocketpc-vulkan-headless-smoke.py'
       - 'scripts/test-vulkan-continuous-present-v52-policy.py'
       - 'scripts/test-wine-x86_64-v52-source-integration.py'
       - 'scripts/test-wine-v52-fast-build-policy.py'
@@ -51,7 +52,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential flex bison git \
-            gcc-mingw-w64-x86-64 libvulkan-dev
+            gcc-mingw-w64-x86-64 libvulkan-dev mesa-vulkan-drivers
 
       - name: Validate v52 source policies
         run: |
@@ -66,6 +67,7 @@ jobs:
             scripts/verify-wine-x86_64-driver-package.py \
             scripts/run-wine-pocketpc-driver-load-smoke.py \
             scripts/run-wine-pocketpc-window-surface-smoke.py \
+            scripts/run-wine-pocketpc-vulkan-headless-smoke.py \
             scripts/test-vulkan-continuous-present-v52-policy.py \
             scripts/test-wine-x86_64-v52-source-integration.py \
             scripts/test-wine-v52-fast-build-policy.py \
@@ -110,6 +112,13 @@ jobs:
             --package-evidence "$RUNNER_TEMP/pocketpc-wine-v52-experimental/wine-x86_64-driver-package-evidence.json" \
             --work "$RUNNER_TEMP/pocketpc-wine-v52-window-surface-smoke"
 
+      - name: Prove host Wine v52 Vulkan headless surface path
+        run: |
+          python3 scripts/run-wine-pocketpc-vulkan-headless-smoke.py \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-v52-experimental/destdir/opt/pocketpc/wine" \
+            --package-evidence "$RUNNER_TEMP/pocketpc-wine-v52-experimental/wine-x86_64-driver-package-evidence.json" \
+            --work "$RUNNER_TEMP/pocketpc-wine-v52-vulkan-headless-smoke"
+
       - name: Verify evidence remains fail-closed
         run: |
           python3 - <<'PY'
@@ -146,6 +155,8 @@ jobs:
             ${{ runner.temp }}/pocketpc-wine-v52-driver-load-smoke/*.log
             ${{ runner.temp }}/pocketpc-wine-v52-window-surface-smoke/*.json
             ${{ runner.temp }}/pocketpc-wine-v52-window-surface-smoke/*.log
+            ${{ runner.temp }}/pocketpc-wine-v52-vulkan-headless-smoke/*.json
+            ${{ runner.temp }}/pocketpc-wine-v52-vulkan-headless-smoke/*.log
           if-no-files-found: warn
 
       - name: Prove validation did not modify tracked source
