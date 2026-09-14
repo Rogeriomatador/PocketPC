@@ -6,6 +6,7 @@ on:
       - improve/alpha22-desktop-continuity
     paths-ignore:
       - .github/paired-v52-home-test.trigger
+      - .github/workflows/publish-home-test-update.yml
   workflow_dispatch:
 
 permissions:
@@ -136,6 +137,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install pinned Android toolchain
         run: |
