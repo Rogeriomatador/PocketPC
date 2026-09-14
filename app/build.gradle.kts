@@ -262,6 +262,18 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            if (
+                pocketPcProotValidationCandidateDir !=
+                null
+            ) {
+                keepDebugSymbols +=
+                    setOf(
+                        "**/libproot.so",
+                        "**/libproot_loader.so",
+                        "**/libandroid-shmem.so",
+                        "**/libtalloc.so",
+                    )
+            }
         }
     }
 
