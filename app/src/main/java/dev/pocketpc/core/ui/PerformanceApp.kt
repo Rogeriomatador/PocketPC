@@ -83,7 +83,7 @@ fun PerformanceApp(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    "Automático ou controle manual do runtime Windows",
+                    "Telemetria do host PocketPC • automático ou controle manual do runtime Windows",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -218,10 +218,10 @@ fun PerformanceApp(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            "O limite de FPS acima é aplicado somente ao caminho Windows/DXVK. " +
-                "As métricas da tela continuam sendo da UI/host PocketPC e não " +
-                "devem ser interpretadas como FPS real do Roblox. Resolução e " +
-                "escala não são alteradas até existir um hook gráfico validado.",
+            "As métricas acima medem o processo e a UI do PocketPC. " +
+                "Não representam FPS de jogos externos. O limite de FPS configurado aqui " +
+                "é aplicado somente a novos lançamentos Windows/DXVK. Resolução e escala " +
+                "não são alteradas até existir um hook gráfico validado.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
