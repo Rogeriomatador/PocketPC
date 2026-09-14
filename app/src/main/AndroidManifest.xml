@@ -20,6 +20,7 @@
         <package android:name="rikka.shizuku" />
     </queries>
     <application
+        android:name=".PocketPcApplication"
         android:allowBackup="false"
         android:hasFragileUserData="false"
         android:hardwareAccelerated="true"
