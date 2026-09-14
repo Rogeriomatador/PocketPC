@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import dev.pocketpc.core.storage.AppOwnedStorageLifecycle
 
 private const val REOPEN_AFTER_UPDATE_KEY =
     "reopen-after-foreground-update"
@@ -65,8 +66,27 @@ class PocketPcPostUpdateReceiver : BroadcastReceiver() {
             return
         }
 
+        // Only package-private legacy paths are touched. SAF/PocketDrive
+        // documents selected by the user are intentionally outside this
+        // cleanup boundary.
+        val cleanupPendingResult = goAsync()
+        val appContext = context.applicationContext
+        Thread(
+            {
+                try {
+                    AppOwnedStorageLifecycle
+                        .runStartupMaintenance(
+                            appContext,
+                        )
+                } finally {
+                    cleanupPendingResult.finish()
+                }
+            },
+            "PocketPC-storage-cleanup",
+        ).start()
+
         val prefs =
-            context.applicationContext
+            appContext
                 .getSharedPreferences(
                     UPDATE_PREFS_NAME,
                     Context.MODE_PRIVATE,
