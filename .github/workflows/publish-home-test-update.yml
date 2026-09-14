@@ -6,7 +6,7 @@ on:
       - improve/alpha22-desktop-continuity
     paths-ignore:
       - .github/paired-v52-home-test.trigger
-      - .github/workflows/publish-home-test-update.yml
+      - .github/workflows/**
   workflow_dispatch:
 
 permissions:
