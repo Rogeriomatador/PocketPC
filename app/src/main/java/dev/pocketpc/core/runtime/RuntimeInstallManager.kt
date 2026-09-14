@@ -88,8 +88,18 @@ class RuntimeInstallManager(
                     )
 
                     promoteInstalled(tempDir, targetDir)
-                    loadInstalled(targetDir)
-                        ?: error("Instalação promovida, mas metadados não puderam ser recarregados.")
+                    val installed =
+                        loadInstalled(targetDir)
+                            ?: error("Instalação promovida, mas metadados não puderam ser recarregados.")
+                    markActiveVersion(
+                        idDir = idDir,
+                        version = installed.manifest.version,
+                    )
+                    requireSupersededStateRemoved(
+                        runtimeId = installed.manifest.id,
+                        keepVersion = installed.manifest.version,
+                    )
+                    installed
                 } catch (error: Throwable) {
                     SafeTreeOps.deleteNoFollow(tempDir)
                     throw error
@@ -99,10 +109,12 @@ class RuntimeInstallManager(
 
     suspend fun discover(): List<InstalledRuntime> = withContext(Dispatchers.IO) {
         recoverInterruptedTransactions()
+        reconcileActiveVersions()
         installRoot.listFiles()
             .orEmpty()
             .filter { it.isDirectory && !it.name.startsWith(".") }
             .flatMap { id -> id.listFiles().orEmpty().filter(File::isDirectory) }
+            .filter { !it.name.startsWith(".") }
             .mapNotNull(::loadInstalled)
             .sortedWith(compareBy<InstalledRuntime> { it.manifest.name }.thenBy { it.manifest.version })
     }
@@ -111,7 +123,22 @@ class RuntimeInstallManager(
         val root = installRoot.canonicalFile
         val target = runtime.directory.canonicalFile
         if (!target.path.startsWith(root.path + File.separator)) return@withContext false
-        SafeTreeOps.deleteNoFollow(target)
+        val removed = SafeTreeOps.deleteNoFollow(target)
+        if (removed) {
+            removeRuntimeOwnedState(
+                runtimeId = runtime.manifest.id,
+                version = runtime.manifest.version,
+            )
+            val idDir = target.parentFile
+            val marker = File(idDir, ACTIVE_VERSION_FILE)
+            if (
+                marker.isFile &&
+                marker.readText().trim() == runtime.manifest.version
+            ) {
+                marker.delete()
+            }
+        }
+        removed
     }
 
     private fun loadInstalled(directory: File): InstalledRuntime? = runCatching {
@@ -199,11 +226,151 @@ class RuntimeInstallManager(
         }
     }
 
+    private fun markActiveVersion(
+        idDir: File,
+        version: String,
+    ) {
+        val canonicalId = idDir.canonicalFile
+        require(canonicalId.parentFile == installRoot.canonicalFile) {
+            "RUNTIME_ACTIVE_MARKER_ID_ESCAPED"
+        }
+        val transaction =
+            File(
+                canonicalId,
+                "$ACTIVE_VERSION_FILE.tmp-${System.nanoTime()}",
+            )
+        val target = File(canonicalId, ACTIVE_VERSION_FILE)
+        transaction.writeText(version + "\n")
+        if (target.exists()) {
+            require(target.delete()) {
+                "RUNTIME_ACTIVE_MARKER_REPLACE_FAILED"
+            }
+        }
+        require(transaction.renameTo(target)) {
+            "RUNTIME_ACTIVE_MARKER_PROMOTION_FAILED"
+        }
+    }
+
+    private fun reconcileActiveVersions() {
+        installRoot.listFiles()
+            .orEmpty()
+            .filter(File::isDirectory)
+            .filter { !it.name.startsWith(".") }
+            .forEach { idDir ->
+                val marker = File(idDir, ACTIVE_VERSION_FILE)
+                if (!marker.isFile) return@forEach
+                val version =
+                    runCatching {
+                        marker.readText().trim()
+                    }.getOrNull()
+                        ?: return@forEach
+                if (version.isBlank()) return@forEach
+                runCatching {
+                    requireSupersededStateRemoved(
+                        runtimeId = idDir.name,
+                        keepVersion = version,
+                    )
+                }
+            }
+    }
+
+    private fun requireSupersededStateRemoved(
+        runtimeId: String,
+        keepVersion: String,
+    ) {
+        val results =
+            listOf(
+                "installed" to
+                    VersionedInstallPruner.prune(
+                        containerRoot = installRoot,
+                        componentId = runtimeId,
+                        keepVersion = keepVersion,
+                    ),
+                "home" to
+                    VersionedInstallPruner.prune(
+                        containerRoot =
+                            File(
+                                context.filesDir,
+                                "runtime-home",
+                            ),
+                        componentId = runtimeId,
+                        keepVersion = keepVersion,
+                    ),
+                "temp" to
+                    VersionedInstallPruner.prune(
+                        containerRoot =
+                            File(
+                                context.cacheDir,
+                                "runtime-tmp",
+                            ),
+                        componentId = runtimeId,
+                        keepVersion = keepVersion,
+                    ),
+            )
+
+        val failures =
+            results.flatMap {
+                (scope, result) ->
+                result.failedVersions.map {
+                    "$scope:$it"
+                }
+            }
+        require(failures.isEmpty()) {
+            "RUNTIME_SUPERSEDED_CLEANUP_FAILED:" +
+                failures.joinToString(",")
+        }
+    }
+
+    private fun removeRuntimeOwnedState(
+        runtimeId: String,
+        version: String,
+    ) {
+        listOf(
+            File(
+                context.filesDir,
+                "runtime-home/$runtimeId/$version",
+            ),
+            File(
+                context.cacheDir,
+                "runtime-tmp/$runtimeId/$version",
+            ),
+        ).forEach { candidate ->
+            val canonical =
+                runCatching {
+                    candidate.canonicalFile
+                }.getOrNull()
+                    ?: return@forEach
+            val allowedRoots =
+                listOf(
+                    File(
+                        context.filesDir,
+                        "runtime-home",
+                    ).canonicalFile,
+                    File(
+                        context.cacheDir,
+                        "runtime-tmp",
+                    ).canonicalFile,
+                )
+            if (
+                allowedRoots.any {
+                    canonical.path.startsWith(
+                        it.path + File.separator,
+                    )
+                }
+            ) {
+                SafeTreeOps.deleteNoFollow(canonical)
+            }
+        }
+    }
+
     private fun recoverInterruptedTransactions() {
         for (idDir in installRoot.listFiles().orEmpty().filter(File::isDirectory)) {
             for (child in idDir.listFiles().orEmpty()) {
                 if (child.isDirectory && child.name.startsWith(".tmp-install-")) {
                     SafeTreeOps.deleteNoFollow(child)
+                }
+                if (child.isFile && child.name.startsWith("$ACTIVE_VERSION_FILE.tmp-")) {
+                    child.delete()
                 }
             }
 
@@ -225,5 +392,10 @@ class RuntimeInstallManager(
                 }
             }
         }
+    }
+
+    companion object {
+        private const val ACTIVE_VERSION_FILE =
+            ".active-version"
     }
 }
