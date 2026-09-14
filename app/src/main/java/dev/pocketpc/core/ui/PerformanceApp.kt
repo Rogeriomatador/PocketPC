@@ -6,12 +6,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.pocketpc.core.performance.GovernorInput
 import dev.pocketpc.core.performance.PerformanceGovernor
+import dev.pocketpc.core.performance.RuntimePerformanceController
+import dev.pocketpc.core.performance.RuntimePerformanceMode
+import dev.pocketpc.core.performance.RuntimePerformanceSettings
 import dev.pocketpc.core.telemetry.TelemetrySample
 import dev.pocketpc.core.telemetry.thermalHeadroomHint
 import dev.pocketpc.core.telemetry.thermalStatusLabel
@@ -29,6 +35,15 @@ fun PerformanceApp(
                 sample.lowMemory,
             )
         )
+    val performanceSettings by
+        RuntimePerformanceController.state.collectAsState()
+
+    LaunchedEffect(governor.action) {
+        RuntimePerformanceController
+            .updateAutomaticDecision(
+                governor.action,
+            )
+    }
 
     val ramFraction =
         if (sample.totalRamMb > 0) {
@@ -56,27 +71,21 @@ fun PerformanceApp(
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement =
-            Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment =
-                Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
                     "Desempenho",
-                    style =
-                        MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    "Telemetria do host PocketPC",
-                    style =
-                        MaterialTheme.typography.bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant,
+                    "Automático ou controle manual do runtime Windows",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -91,30 +100,31 @@ fun PerformanceApp(
             )
         }
 
+        PerformanceModeCard(
+            settings = performanceSettings,
+            governorAction = governor.action.name,
+        )
+
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             maxItemsInEachRow = if (LocalAppViewport.current.widthDp < 500f) 1 else 3,
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalArrangement =
-                Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             PerformanceMeter(
                 title = "Memória",
-                value =
-                    "${(ramFraction * 100f).roundToInt()}%",
-                detail =
-                    "${sample.availableRamMb} MB livres",
+                value = "${(ramFraction * 100f).roundToInt()}%",
+                detail = "${sample.availableRamMb} MB livres",
                 progress = ramFraction,
                 modifier = Modifier.weight(1f),
             )
             PerformanceMeter(
                 title = "Frame UI",
-                value =
-                    String.format(
-                        java.util.Locale.ROOT,
-                        "%.1f ms",
-                        sample.averageFrameMs,
-                    ),
+                value = String.format(
+                    java.util.Locale.ROOT,
+                    "%.1f ms",
+                    sample.averageFrameMs,
+                ),
                 detail =
                     "pior ${String.format(java.util.Locale.ROOT, "%.1f", sample.worstFrameMs)} ms",
                 progress = framePressure,
@@ -122,10 +132,8 @@ fun PerformanceApp(
             )
             PerformanceMeter(
                 title = "Processo",
-                value =
-                    "${sample.processCpuPercent}% CPU",
-                detail =
-                    "${sample.processRamMb} MB RAM",
+                value = "${sample.processCpuPercent}% CPU",
+                detail = "${sample.processRamMb} MB RAM",
                 progress =
                     (
                         sample.processCpuPercent
@@ -143,19 +151,15 @@ fun PerformanceApp(
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
                     "Térmico e memória",
-                    style =
-                        MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleSmall,
                 )
                 ValueRow(
                     "Thermal status",
-                    thermalStatusLabel(
-                        sample.thermalStatus
-                    ),
+                    thermalStatusLabel(sample.thermalStatus),
                 )
                 ValueRow(
                     "Headroom 10 s",
@@ -171,18 +175,11 @@ fun PerformanceApp(
                 )
                 ValueRow(
                     "Low-memory",
-                    if (sample.lowMemory) {
-                        "SIM"
-                    } else {
-                        "não"
-                    },
+                    if (sample.lowMemory) "SIM" else "não",
                 )
                 Text(
-                    thermalHeadroomHint(
-                        sample.thermalHeadroom
-                    ),
-                    style =
-                        MaterialTheme.typography.bodySmall,
+                    thermalHeadroomHint(sample.thermalHeadroom),
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
         }
@@ -194,26 +191,26 @@ fun PerformanceApp(
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
                     "Governor",
-                    style =
-                        MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleSmall,
                 )
-                ValueRow(
-                    "Ação sugerida",
-                    governor.action.name,
-                )
+                ValueRow("Ação sugerida", governor.action.name)
                 ValueRow(
                     "Teto de qualidade",
                     "${(governor.suggestedQualityCeiling * 100).toInt()}%",
                 )
+                ValueRow(
+                    "Alvo automático DXVK",
+                    performanceSettings.automaticFrameRate
+                        ?.let { "$it FPS" }
+                        ?: "sem limite forçado",
+                )
                 Text(
                     governor.reason,
-                    style =
-                        MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
         }
@@ -221,16 +218,128 @@ fun PerformanceApp(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            "As métricas acima medem o processo e a UI do PocketPC. " +
-                "Não representam FPS de jogos externos nem uso global da GPU. " +
-                "O governor continua apenas consultivo; nenhuma qualidade " +
-                "de aplicativo de terceiros é alterada automaticamente.",
-            style =
-                MaterialTheme.typography.bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant,
+            "O limite de FPS acima é aplicado somente ao caminho Windows/DXVK. " +
+                "As métricas da tela continuam sendo da UI/host PocketPC e não " +
+                "devem ser interpretadas como FPS real do Roblox. Resolução e " +
+                "escala não são alteradas até existir um hook gráfico validado.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun PerformanceModeCard(
+    settings: RuntimePerformanceSettings,
+    governorAction: String,
+) {
+    val automatic =
+        settings.mode == RuntimePerformanceMode.AUTOMATIC
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        tonalElevation = 2.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Controle de desempenho",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        if (automatic) {
+                            "Automático: o governor escolhe o teto de FPS conforme pressão térmica/memória."
+                        } else {
+                            "Manual: você escolhe o teto de FPS usado pelo DXVK."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = automatic,
+                    onCheckedChange = { enabled ->
+                        RuntimePerformanceController.setMode(
+                            if (enabled) {
+                                RuntimePerformanceMode.AUTOMATIC
+                            } else {
+                                RuntimePerformanceMode.MANUAL
+                            },
+                        )
+                    },
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = automatic,
+                    onClick = {
+                        RuntimePerformanceController.setMode(
+                            RuntimePerformanceMode.AUTOMATIC,
+                        )
+                    },
+                    label = { Text("Automático") },
+                )
+                FilterChip(
+                    selected = !automatic,
+                    onClick = {
+                        RuntimePerformanceController.setMode(
+                            RuntimePerformanceMode.MANUAL,
+                        )
+                    },
+                    label = { Text("Manual") },
+                )
+            }
+
+            if (automatic) {
+                ValueRow("Governor", governorAction)
+                ValueRow(
+                    "Teto atual",
+                    settings.effectiveDxvkFrameRate()
+                        ?.let { "$it FPS" }
+                        ?: "sem limite forçado",
+                )
+            } else {
+                Text(
+                    "Limite de FPS",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    RuntimePerformanceSettings
+                        .MANUAL_FRAME_RATE_OPTIONS
+                        .forEach { fps ->
+                            FilterChip(
+                                selected =
+                                    settings.manualFrameRate == fps,
+                                onClick = {
+                                    RuntimePerformanceController
+                                        .setManualFrameRate(fps)
+                                },
+                                label = { Text("$fps FPS") },
+                            )
+                        }
+                }
+                Text(
+                    "FPS mais alto pode aumentar consumo e temperatura. " +
+                        "Se houver throttling, um teto menor pode produzir frametime mais estável.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -249,33 +358,25 @@ private fun PerformanceMeter(
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
-            verticalArrangement =
-                Arrangement.spacedBy(5.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             Text(
                 title,
                 fontSize = 9.sp,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 value,
-                style =
-                    MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium,
             )
             LinearProgressIndicator(
-                progress = {
-                    progress.coerceIn(0f, 1f)
-                },
+                progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 detail,
                 fontSize = 9.sp,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
