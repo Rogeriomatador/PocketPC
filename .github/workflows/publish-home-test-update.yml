@@ -4,9 +4,8 @@ on:
   push:
     branches:
       - improve/alpha22-desktop-continuity
-    paths-ignore:
-      - .github/paired-v52-home-test.trigger
-      - .github/workflows/**
+    paths:
+      - .github/home-test-ota.trigger
   workflow_dispatch:
 
 permissions:
