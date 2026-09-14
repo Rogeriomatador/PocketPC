@@ -57,6 +57,10 @@ class GuestToolInstallManager(
                 val target = File(idDir, manifest.version)
                 loadInstalled(target)?.let { existing ->
                     if (existing.manifest == manifest) {
+                        requireSupersededVersionsRemoved(
+                            manifest.id,
+                            manifest.version,
+                        )
                         return@runCatching existing
                     }
                 }
@@ -112,8 +116,14 @@ class GuestToolInstallManager(
                     }
 
                     promote(transaction, target)
-                    loadInstalled(target)
-                        ?: error("GUEST_TOOL_PROMOTED_BUT_NOT_LOADABLE")
+                    val installed =
+                        loadInstalled(target)
+                            ?: error("GUEST_TOOL_PROMOTED_BUT_NOT_LOADABLE")
+                    requireSupersededVersionsRemoved(
+                        installed.manifest.id,
+                        installed.manifest.version,
+                    )
+                    installed
                 } catch (error: Throwable) {
                     SafeTreeOps.deleteNoFollow(transaction)
                     throw error
@@ -234,6 +244,22 @@ class GuestToolInstallManager(
                 backup.renameTo(target)
             }
             throw error
+        }
+    }
+
+    private fun requireSupersededVersionsRemoved(
+        toolId: String,
+        keepVersion: String,
+    ) {
+        val result =
+            VersionedInstallPruner.prune(
+                containerRoot = installRoot,
+                componentId = toolId,
+                keepVersion = keepVersion,
+            )
+        require(result.failedVersions.isEmpty()) {
+            "GUEST_TOOL_SUPERSEDED_CLEANUP_FAILED:" +
+                result.failedVersions.joinToString(",")
         }
     }
 
