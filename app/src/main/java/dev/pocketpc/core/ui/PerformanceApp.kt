@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -37,13 +36,6 @@ fun PerformanceApp(
         )
     val performanceSettings by
         RuntimePerformanceController.state.collectAsState()
-
-    LaunchedEffect(governor.action) {
-        RuntimePerformanceController
-            .updateAutomaticDecision(
-                governor.action,
-            )
-    }
 
     val ramFraction =
         if (sample.totalRamMb > 0) {
@@ -235,6 +227,13 @@ private fun PerformanceModeCard(
 ) {
     val automatic =
         settings.mode == RuntimePerformanceMode.AUTOMATIC
+    val sliderFrameRate =
+        if (automatic) {
+            settings.effectiveDxvkFrameRate()
+                ?: settings.manualFrameRate
+        } else {
+            settings.manualFrameRate
+        }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -301,6 +300,53 @@ private fun PerformanceModeCard(
                 )
             }
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (automatic) "Alvo automático" else "Limite manual",
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "$sliderFrameRate FPS",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+
+            Slider(
+                value = sliderFrameRate.toFloat(),
+                onValueChange = { rawValue ->
+                    if (!automatic) {
+                        val frameRate =
+                            ((rawValue / 5f).roundToInt() * 5)
+                                .coerceIn(
+                                    RuntimePerformanceSettings.MIN_FRAME_RATE,
+                                    RuntimePerformanceSettings.MAX_FRAME_RATE,
+                                )
+                        RuntimePerformanceController
+                            .setManualFrameRate(frameRate)
+                    }
+                },
+                enabled = !automatic,
+                valueRange =
+                    RuntimePerformanceSettings.MIN_FRAME_RATE.toFloat()..
+                        RuntimePerformanceSettings.MAX_FRAME_RATE.toFloat(),
+                steps = 17,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Text(
+                if (automatic) {
+                    "Ajuste manual bloqueado enquanto Automático estiver ligado. Desative o modo automático para mover a barra."
+                } else {
+                    "Arraste a barra em passos de 5 FPS ou use um dos atalhos abaixo."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             if (automatic) {
                 ValueRow("Governor", governorAction)
                 ValueRow(
@@ -310,10 +356,6 @@ private fun PerformanceModeCard(
                         ?: "sem limite forçado",
                 )
             } else {
-                Text(
-                    "Limite de FPS",
-                    style = MaterialTheme.typography.labelLarge,
-                )
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
