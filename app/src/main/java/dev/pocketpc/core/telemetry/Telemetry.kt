@@ -167,14 +167,22 @@ class TelemetryMonitor(private val context: Context) {
         )
         _sample.value = nextSample
 
-        RuntimePerformanceController.updateAutomaticDecision(
-            PerformanceGovernor.decide(
-                GovernorInput(
-                    thermalHeadroom = nextSample.thermalHeadroom,
-                    lowMemory = nextSample.lowMemory,
-                )
-            ).action
-        )
+        val automaticAction =
+            if (
+                nextSample.lowMemory ||
+                nextSample.thermalHeadroom != null
+            ) {
+                PerformanceGovernor.decide(
+                    GovernorInput(
+                        thermalHeadroom = nextSample.thermalHeadroom,
+                        lowMemory = nextSample.lowMemory,
+                    )
+                ).action
+            } else {
+                null
+            }
+        RuntimePerformanceController
+            .updateAutomaticDecision(automaticAction)
     }
 
     companion object {
