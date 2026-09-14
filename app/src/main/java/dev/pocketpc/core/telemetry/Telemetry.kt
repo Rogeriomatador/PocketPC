@@ -7,6 +7,9 @@ import android.os.Debug
 import android.os.PowerManager
 import android.os.SystemClock
 import android.view.Choreographer
+import dev.pocketpc.core.performance.GovernorInput
+import dev.pocketpc.core.performance.PerformanceGovernor
+import dev.pocketpc.core.performance.RuntimePerformanceController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -150,7 +153,7 @@ class TelemetryMonitor(private val context: Context) {
             lastThermalReadMs = nowMs
         }
 
-        _sample.value = TelemetrySample(
+        val nextSample = TelemetrySample(
             uiFps = frameCounter.fps,
             averageFrameMs = frameCounter.averageFrameMs,
             worstFrameMs = frameCounter.worstFrameMs,
@@ -161,6 +164,16 @@ class TelemetryMonitor(private val context: Context) {
             lowMemory = memoryInfo.lowMemory,
             thermalHeadroom = thermalHeadroom,
             thermalStatus = thermalStatus,
+        )
+        _sample.value = nextSample
+
+        RuntimePerformanceController.updateAutomaticDecision(
+            PerformanceGovernor.decide(
+                GovernorInput(
+                    thermalHeadroom = nextSample.thermalHeadroom,
+                    lowMemory = nextSample.lowMemory,
+                )
+            ).action
         )
     }
 
