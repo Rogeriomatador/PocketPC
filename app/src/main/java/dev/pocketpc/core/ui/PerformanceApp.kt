@@ -227,13 +227,12 @@ private fun PerformanceModeCard(
 ) {
     val automatic =
         settings.mode == RuntimePerformanceMode.AUTOMATIC
+    val automaticFrameRate =
+        settings.effectiveDxvkFrameRate()
+            .takeIf { automatic }
     val sliderFrameRate =
-        if (automatic) {
-            settings.effectiveDxvkFrameRate()
-                ?: settings.manualFrameRate
-        } else {
-            settings.manualFrameRate
-        }
+        automaticFrameRate
+            ?: settings.manualFrameRate
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -310,7 +309,11 @@ private fun PerformanceModeCard(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    "$sliderFrameRate FPS",
+                    if (automatic && automaticFrameRate == null) {
+                        "sem limite"
+                    } else {
+                        "$sliderFrameRate FPS"
+                    },
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
@@ -339,7 +342,11 @@ private fun PerformanceModeCard(
 
             Text(
                 if (automatic) {
-                    "Ajuste manual bloqueado enquanto Automático estiver ligado. Desative o modo automático para mover a barra."
+                    if (automaticFrameRate == null) {
+                        "Ajuste manual bloqueado. Sem leitura térmica/pressão confiável, o Automático não força um teto de FPS."
+                    } else {
+                        "Ajuste manual bloqueado enquanto Automático estiver ligado. Desative o modo automático para mover a barra."
+                    }
                 } else {
                     "Arraste a barra em passos de 5 FPS ou use um dos atalhos abaixo."
                 },
@@ -351,7 +358,7 @@ private fun PerformanceModeCard(
                 ValueRow("Governor", governorAction)
                 ValueRow(
                     "Teto atual",
-                    settings.effectiveDxvkFrameRate()
+                    automaticFrameRate
                         ?.let { "$it FPS" }
                         ?: "sem limite forçado",
                 )
