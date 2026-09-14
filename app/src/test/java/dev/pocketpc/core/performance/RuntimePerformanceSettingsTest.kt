@@ -10,6 +10,10 @@ class RuntimePerformanceSettingsTest {
         val settings = RuntimePerformanceSettings()
         assertEquals(RuntimePerformanceMode.AUTOMATIC, settings.mode)
         assertNull(settings.effectiveDxvkFrameRate())
+        assertNull(
+            RuntimePerformanceSettings
+                .automaticFrameRateFor(null),
+        )
     }
 
     @Test
@@ -37,6 +41,32 @@ class RuntimePerformanceSettingsTest {
             RuntimePerformanceSettings(
                 automaticFrameRate = 999,
             ).effectiveDxvkFrameRate(),
+        )
+    }
+
+    @Test
+    fun automaticGovernorActionsMapToExpectedCaps() {
+        assertEquals(
+            120,
+            RuntimePerformanceSettings
+                .automaticFrameRateFor(GovernorAction.HOLD),
+        )
+        assertEquals(
+            90,
+            RuntimePerformanceSettings
+                .automaticFrameRateFor(GovernorAction.WATCH),
+        )
+        assertEquals(
+            60,
+            RuntimePerformanceSettings
+                .automaticFrameRateFor(GovernorAction.REDUCE_LOAD),
+        )
+        assertEquals(
+            45,
+            RuntimePerformanceSettings
+                .automaticFrameRateFor(
+                    GovernorAction.REDUCE_AGGRESSIVELY,
+                ),
         )
     }
 }
