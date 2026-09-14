@@ -1,5 +1,8 @@
 package dev.pocketpc.core.runtime
 
+import dev.pocketpc.core.performance.RuntimePerformanceController
+import dev.pocketpc.core.performance.RuntimePerformanceSettings
+
 data class WineLaunchPlan(
     val ready: Boolean,
     val argv: List<String>,
@@ -11,6 +14,7 @@ object WineLaunchPlanner {
     const val DEFAULT_BOX64 = "/opt/pocketpc/box64/bin/box64"
     const val DEFAULT_WINE = "/opt/pocketpc/wine/bin/wine"
     const val DXVK_DLL_OVERRIDES = "d3d11=n;dxgi=n"
+    const val DXVK_FRAME_RATE_ENV = "DXVK_FRAME_RATE"
 
     fun build(
         prefixPlan: WindowsPrefixPlan,
@@ -26,6 +30,8 @@ object WineLaunchPlanner {
          * does not pretend that DXVK/Vulkan WSI has already been validated.
          */
         enableDxvk: Boolean = false,
+        performanceSettings: RuntimePerformanceSettings =
+            RuntimePerformanceController.current(),
     ): WineLaunchPlan {
         val blockers = mutableListOf<String>()
 
@@ -73,6 +79,14 @@ object WineLaunchPlanner {
                             "WINEDLLOVERRIDES",
                             DXVK_DLL_OVERRIDES,
                         )
+                        performanceSettings
+                            .effectiveDxvkFrameRate()
+                            ?.let { frameRate ->
+                                put(
+                                    DXVK_FRAME_RATE_ENV,
+                                    frameRate.toString(),
+                                )
+                            }
                     }
                 }
             }
