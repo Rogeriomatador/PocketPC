@@ -40,6 +40,38 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Gate candidate signing credentials
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.POCKETPC_SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.POCKETPC_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.POCKETPC_SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.POCKETPC_SIGNING_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import os
+          required = [
+              os.environ.get('KEYSTORE_B64', ''),
+              os.environ.get('STORE_PASSWORD', ''),
+              os.environ.get('KEY_ALIAS', ''),
+              os.environ.get('KEY_PASSWORD', ''),
+          ]
+          ready = all(required)
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              out.write(f"ready={'true' if ready else 'false'}\n")
+          print(
+              'PROOT_HOME_TEST_SIGNING_CREDENTIALS_READY'
+              if ready
+              else 'PROOT_HOME_TEST_SIGNING_CREDENTIALS_MISSING'
+          )
+          PY
+
+      - name: Stop when candidate signing credentials are unavailable
+        if: steps.signing.outputs.ready != 'true'
+        run: |
+          echo "Installable PRoot validation candidate requires the pinned PocketPC signer." >&2
+          exit 1
+
       - name: Read pinned Android toolchain
         id: android_lock
         run: |
@@ -88,6 +120,24 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: ${{ steps.android_lock.outputs.gradle }}
+
+      - name: Materialize candidate signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.POCKETPC_SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          destination = Path(os.environ['RUNNER_TEMP']) / 'pocketpc-proot-home-test.jks'
+          destination.write_bytes(
+              base64.b64decode(os.environ['KEYSTORE_B64'], validate=True)
+          )
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              env.write(f'POCKETPC_SIGNING_STORE_FILE={destination}\n')
+          print('PROOT_HOME_TEST_SIGNING_KEY_MATERIALIZED')
+          PY
 
       - name: Verify fail-closed PRoot staging policy
         run: |
@@ -142,22 +192,33 @@ jobs:
           print('PROOT_HOME_TEST_CANDIDATE_FAIL_CLOSED_OK')
           PY
 
-      - name: Build release APK with explicit PRoot validation candidate
+      - name: Build signed release APK with explicit PRoot validation candidate
         env:
           POCKETPC_SOURCE_REVISION: ${{ github.sha }}
+          POCKETPC_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETPC_SIGNING_STORE_PASSWORD }}
+          POCKETPC_SIGNING_KEY_ALIAS: ${{ secrets.POCKETPC_SIGNING_KEY_ALIAS }}
+          POCKETPC_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETPC_SIGNING_KEY_PASSWORD }}
         run: |
           gradle --no-daemon \
             -Ppocketpc.prootValidationCandidateDir="$RUNNER_TEMP/pocketpc-proot-device-validation" \
             :app:testDebugUnitTest \
             :app:assembleRelease
 
-      - name: Verify candidate is actually packaged in release APK
+      - name: Verify signed candidate and packaged PRoot payload
         id: verify
         run: |
-          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print | head -n 1)"
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' ! -name '*-unsigned.apk' -print | head -n 1)"
           test -n "$APK"
           test -s "$APK"
-          export APK
+
+          APK_SIGNER="$ANDROID_HOME/build-tools/${{ steps.android_lock.outputs.build_tools }}/apksigner"
+          test -x "$APK_SIGNER"
+          "$APK_SIGNER" verify --verbose --print-certs "$APK"
+          SIGNER_SHA="$($APK_SIGNER verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
+          test -n "$SIGNER_SHA"
+          python3 scripts/verify-bootstrap-signer.py --signer-sha256 "$SIGNER_SHA"
+
+          export APK SIGNER_SHA
           python3 - <<'PY'
           import hashlib
           import json
@@ -166,6 +227,7 @@ jobs:
           from pathlib import Path
 
           apk = Path(os.environ['APK'])
+          signer_sha = os.environ['SIGNER_SHA'].strip().lower()
           candidate = Path(os.environ['RUNNER_TEMP']) / 'pocketpc-proot-device-validation'
           expected = json.loads((candidate / 'assets/proot-device-validation.json').read_text(encoding='utf-8'))
 
@@ -211,9 +273,13 @@ jobs:
               raise SystemExit('PROOT_HOME_TEST_BUILDCONFIG_FLAG_NOT_TRUE')
 
           evidence = {
-              'schemaVersion': 1,
+              'schemaVersion': 2,
               'sourceRevision': os.environ['GITHUB_SHA'].lower(),
               'apk': apk.name,
+              'apkSigned': True,
+              'signatureVerified': True,
+              'signingCertificateSha256': signer_sha,
+              'bootstrapSignerVerified': True,
               'prootCandidatePackaged': True,
               'productionApproved': False,
               'deviceExecution': 'NOT_EXECUTED',
@@ -223,25 +289,29 @@ jobs:
               'winrarExecution': 'NOT_EXECUTED',
               'robloxExecution': 'NOT_EXECUTED',
               'classification': {
+                  'candidateBuild': 'SOFTWARE_TEST',
                   'candidatePackaging': 'SOFTWARE_TEST',
+                  'apkSignature': 'SOFTWARE_TEST',
                   'physical': 'NOT_EXECUTED',
               },
           }
           out = Path(os.environ['RUNNER_TEMP']) / 'proot-home-test-candidate-apk-evidence.json'
           out.write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
-          print('PROOT_HOME_TEST_RELEASE_APK_CANDIDATE_PACKAGING_OK')
+          print('PROOT_HOME_TEST_SIGNED_APK_CANDIDATE_OK')
+          print('PHYSICAL_EXECUTION=NOT_EXECUTED')
           PY
           echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          echo "signer_sha256=$SIGNER_SHA" >> "$GITHUB_OUTPUT"
           echo "evidence=$RUNNER_TEMP/proot-home-test-candidate-apk-evidence.json" >> "$GITHUB_OUTPUT"
 
       - name: Verify build did not mutate approval/source policy
         run: |
           git diff --exit-code -- app/src third_party scripts
 
-      - name: Retain candidate APK and evidence
+      - name: Retain signed candidate APK and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: PocketPC-PRoot-Home-Test-Candidate-APK
+          name: PocketPC-PRoot-Home-Test-Signed-Candidate-APK
           path: |
             ${{ steps.verify.outputs.apk }}
             ${{ steps.verify.outputs.evidence }}
