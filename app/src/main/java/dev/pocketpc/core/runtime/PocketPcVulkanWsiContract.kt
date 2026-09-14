@@ -1,119 +1,121 @@
 package dev.pocketpc.core.runtime
 
 /**
- * Contract for the Wine graphics-driver Vulkan WSI needed by DXVK Present.
+ * Contract for the Wine graphics-driver Vulkan path needed by DXVK Present.
  *
- * This is intentionally fail-closed. GDI window_surface flush support does
- * not satisfy Wine's Vulkan graphics-driver ABI, Android-to-Android
- * AHardwareBuffer transport does not prove guest/Wine import, and none of
- * those proofs alone establish a visible Vulkan surface, swapchain or Present
- * path on Android.
+ * This object deliberately separates SOURCE IMPLEMENTATION from EXECUTED
+ * evidence. PocketPC now has source/preparer plumbing for exact presented-image
+ * copy, continuous v52 ownership, Android host readback, desktop-model delivery
+ * and Compose draw submission. None of those source facts prove that the chain
+ * executed on Android or that a frame was physically visible on a device.
  */
 object PocketPcVulkanWsiContract {
     /**
-     * PocketPC applies staged private ABI patches to the pinned Wine 11 source.
-     * Upstream is v47. The base PocketPC overlay reaches v49 for exact VkDevice
-     * lifecycle + Present-queue callbacks; the presented-image patch advances
-     * that prepared source to v50 and appends the exact host VkImage callback.
+     * Private Wine Vulkan ABI progression used by PocketPC.
      *
-     * These are source-layout guards, not runtime PASS evidence.
+     * 47 = pinned upstream Wine 11 ABI
+     * 49 = base PocketPC device lifecycle + Present queue callbacks
+     * 50 = exact presented swapchain VkImage identity
+     * 51 = exact image -> PVI1 copy path
+     * 52 = continuous odd/even PVS1 ownership path
+     *
+     * These version constants describe prepared source layouts. They are not
+     * runtime PASS evidence by themselves.
      */
-    const val WINE_VULKAN_DRIVER_VERSION =
-        50
-    const val BASE_OVERLAY_VULKAN_DRIVER_VERSION =
-        49
-    const val PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION =
-        47
-    const val PINNED_WINE_VERSION =
-        "11.0"
+    const val WINE_VULKAN_DRIVER_VERSION = 52
+    const val V52_CONTINUOUS_PRESENT_VULKAN_DRIVER_VERSION = 52
+    const val V51_EXACT_PRESENT_COPY_VULKAN_DRIVER_VERSION = 51
+    const val V50_EXACT_PRESENTED_IMAGE_VULKAN_DRIVER_VERSION = 50
+    const val BASE_OVERLAY_VULKAN_DRIVER_VERSION = 49
+    const val PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION = 47
+    const val PINNED_WINE_VERSION = "11.0"
     const val PINNED_WINE_COMMIT =
         "db11d0fe6a169c457e23d007e20404643d067aa8"
 
-    const val abiEntryPointImplemented =
-        true
-    const val deviceLifecycleCallbacksImplemented =
-        true
-    const val presentQueueCallbackImplemented =
-        true
-    const val presentQueueTimelineSignalSourceIntegrated =
-        true
-    const val exactPresentedImageIdentitySourceIntegrated =
-        true
+    /*
+     * Executed host-only evidence. This is intentionally revision-scoped so a
+     * later source change cannot silently inherit a generic PASS claim.
+     */
+    const val HEADLESS_HOST_EVIDENCE_REVISION =
+        "90a593f087603ffa31a3380c63ab10aa14a5938f"
+    const val HEADLESS_HOST_EVIDENCE_RUN_ID = 34890837526L
+    const val HEADLESS_HOST_EVIDENCE_PLATFORM = "linux-x86_64"
 
-    const val deviceLifecycleCallbacksSoftwareTestExecuted =
-        false
-    const val presentQueueCallbackSoftwareTestExecuted =
-        false
-    const val presentQueueTimelineSignalExecuted =
-        false
-    const val exactPresentedImageIdentityExecuted =
-        false
-    const val abiEntryPointSoftwareTestExecuted =
-        false
+    const val abiEntryPointImplemented = true
+    const val deviceLifecycleCallbacksImplemented = true
+    const val presentQueueCallbackImplemented = true
+    const val presentQueueTimelineSignalSourceIntegrated = true
+    const val exactPresentedImageIdentitySourceIntegrated = true
+
+    const val deviceLifecycleCallbacksSoftwareTestExecuted = false
+    const val presentQueueCallbackSoftwareTestExecuted = false
+    const val presentQueueTimelineSignalExecuted = false
+    const val exactPresentedImageIdentityExecuted = false
+    const val abiEntryPointSoftwareTestExecuted = false
+
+    /*
+     * Source pipeline after exact Present identity. These flags mean the source
+     * and preparers exist; they do not mean Android, DXVK or physical execution.
+     */
+    const val swapchainImageCaptureSourceIntegrated = true
+    const val continuousPresentOwnershipSourceIntegrated = true
+    const val androidHostReadbackSourceIntegrated = true
+    const val desktopModelFrameDeliverySourceIntegrated = true
+    const val composeFrameDrawSourceIntegrated = true
+
+    const val androidHostReadbackIntegrationTestExecuted = false
+    const val desktopModelFrameDeliveryIntegrationTestExecuted = false
+    const val composeFrameDrawIntegrationTestExecuted = false
+    const val hostVisibleFramePhysicalTestExecuted = false
 
     /*
      * External Win32 handle mappings can exist before presentation. They use
-     * Wine's normal Linux fd translation model and are deliberately separated
-     * from the visible surface/swapchain WSI gates below.
+     * Wine's normal Linux fd translation model and remain separated from the
+     * production-visible surface/swapchain gates below.
      */
-    const val externalHandleExtensionMappingImplemented =
-        true
-    const val externalHandleExtensionMappingSoftwareTestExecuted =
-        false
+    const val externalHandleExtensionMappingImplemented = true
+    const val externalHandleExtensionMappingSoftwareTestExecuted = false
 
     /*
      * Diagnostic-only WSI follows Wine's nulldrv model and is enabled only by
-     * POCKETPC_VULKAN_HEADLESS_DIAGNOSTIC=1. It can eventually prove that
-     * Wine/DXVK can form a host VkSurfaceKHR/swapchain without claiming any
-     * Android-visible frame.
+     * POCKETPC_VULKAN_HEADLESS_DIAGNOSTIC=1.
+     *
+     * The revision-scoped host CI above proved the private ABI initialized and
+     * a Win32 surface request mapped to a host headless VkSurfaceKHR. It did NOT
+     * prove visible presentation, swapchain pixels, DXVK, Android or Roblox.
      */
-    const val headlessDiagnosticSurfaceImplemented =
-        true
-    const val headlessDiagnosticPresentationSupportImplemented =
-        true
-    const val headlessDiagnosticExtensionMappingImplemented =
-        true
-    const val headlessDiagnosticSoftwareTestExecuted =
-        false
-    const val headlessDiagnosticIntegrationTestExecuted =
-        false
+    const val headlessDiagnosticSurfaceImplemented = true
+    const val headlessDiagnosticPresentationSupportImplemented = true
+    const val headlessDiagnosticExtensionMappingImplemented = true
+    const val headlessDiagnosticSoftwareTestExecuted = true
+    const val headlessDiagnosticIntegrationTestExecuted = true
 
-    // Production-visible Android WSI remains blocked.
-    const val surfaceCreateImplemented =
-        false
-    const val presentationSupportImplemented =
-        false
-    const val surfaceExtensionMappingImplemented =
-        false
-    const val swapchainPresentationImplemented =
-        false
+    // Production-visible Android WSI remains blocked / not executed.
+    const val surfaceCreateImplemented = false
+    const val presentationSupportImplemented = false
+    const val surfaceExtensionMappingImplemented = false
+    const val swapchainPresentationImplemented = false
 
-    /**
-     * We can now identify the exact host swapchain VkImage in source, but no
-     * pixel copy is performed yet. Keep image capture false until a real
-     * pre-Present GPU copy into the exported PVI1 image is implemented.
+    /*
+     * A prepared exact-image copy path exists in source, but production runtime
+     * integration is deliberately kept false until the authenticated Android
+     * PRoot/Box64/Wine/DXVK chain executes it. Likewise, Compose source capable
+     * of drawing a returned frame is not physical-visible-frame evidence.
      */
-    const val swapchainImageCaptureImplemented =
-        false
-    const val hostVisibleFrameImplemented =
-        false
+    const val swapchainImageCaptureImplemented = false
+    const val hostVisibleFrameImplemented = false
 
     const val extensionMappingImplemented =
         externalHandleExtensionMappingImplemented &&
             surfaceExtensionMappingImplemented
 
-    const val implemented =
-        false
-    const val softwareTestExecuted =
-        false
-    const val physicalTestExecuted =
-        false
+    const val implemented = false
+    const val softwareTestExecuted = false
+    const val physicalTestExecuted = false
 
-    const val blocker =
-        "VULKAN_WSI_NOT_IMPLEMENTED"
+    const val blocker = "VULKAN_WSI_NOT_IMPLEMENTED"
 
-    val requiredDriverCallbacks:
-        Set<String> =
+    val requiredDriverCallbacks: Set<String> =
         setOf(
             "p_vulkan_surface_create",
             "p_get_physical_device_presentation_support",
@@ -125,8 +127,7 @@ object PocketPcVulkanWsiContract {
             "p_vulkan_image_presented",
         )
 
-    val requiredTransportProofs:
-        Set<String> =
+    val requiredTransportProofs: Set<String> =
         setOf(
             "native-host-loaded",
             "ahardwarebuffer-same-process-structural-roundtrip",
@@ -138,6 +139,9 @@ object PocketPcVulkanWsiContract {
             "exact-presented-swapchain-image-identity",
             "guest-graphics-synchronization",
             "swapchain-image-capture",
+            "android-host-readback",
+            "desktop-model-frame-delivery",
+            "compose-frame-draw-submission",
             "host-visible-frame",
         )
 
