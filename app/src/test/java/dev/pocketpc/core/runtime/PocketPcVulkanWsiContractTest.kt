@@ -7,8 +7,16 @@ import org.junit.Test
 
 class PocketPcVulkanWsiContractTest {
     @Test
-    fun preparedV52SourcePipelineIsRecordedWithoutPromotingAndroidExecution() {
-        assertEquals(52, PocketPcVulkanWsiContract.WINE_VULKAN_DRIVER_VERSION)
+    fun preparedV52SourcePipelineIsRecordedWithoutPromotingGenericWsiOrAndroidExecution() {
+        assertEquals(50, PocketPcVulkanWsiContract.WINE_VULKAN_DRIVER_VERSION)
+        assertEquals(
+            52,
+            PocketPcVulkanWsiContract.V52_CONTINUOUS_PRESENT_VULKAN_DRIVER_VERSION,
+        )
+        assertEquals(
+            51,
+            PocketPcVulkanWsiContract.V51_EXACT_PRESENT_COPY_VULKAN_DRIVER_VERSION,
+        )
         assertTrue(PocketPcVulkanWsiContract.swapchainImageCaptureSourceIntegrated)
         assertTrue(PocketPcVulkanWsiContract.continuousPresentOwnershipSourceIntegrated)
         assertTrue(PocketPcVulkanWsiContract.androidHostReadbackSourceIntegrated)
@@ -32,7 +40,10 @@ class PocketPcVulkanWsiContractTest {
             "90a593f087603ffa31a3380c63ab10aa14a5938f",
             PocketPcVulkanWsiContract.HEADLESS_HOST_EVIDENCE_REVISION,
         )
-        assertEquals(34890837526L, PocketPcVulkanWsiContract.HEADLESS_HOST_EVIDENCE_RUN_ID)
+        assertEquals(
+            34890837526L,
+            PocketPcVulkanWsiContract.HEADLESS_HOST_EVIDENCE_RUN_ID,
+        )
         assertEquals(
             "linux-x86_64",
             PocketPcVulkanWsiContract.HEADLESS_HOST_EVIDENCE_PLATFORM,

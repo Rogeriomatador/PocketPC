@@ -30,6 +30,8 @@ jobs:
         run: python3 scripts/test-proot-apk-staging-policy.py
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Install pinned NDK
         run: sdkmanager 'ndk;29.0.14206865'
       - name: Build outside the APK

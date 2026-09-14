@@ -15,20 +15,28 @@ object PocketPcVulkanWsiContract {
      *
      * 47 = pinned upstream Wine 11 ABI
      * 49 = base PocketPC device lifecycle + Present queue callbacks
-     * 50 = exact presented swapchain VkImage identity
-     * 51 = exact image -> PVI1 copy path
-     * 52 = continuous odd/even PVS1 ownership path
+     * 50 = generic/current fail-closed WSI contract with exact image identity
+     * 51 = exact image -> PVI1 copy overlay
+     * 52 = continuous odd/even PVS1 ownership overlay
      *
-     * These version constants describe prepared source layouts. They are not
-     * runtime PASS evidence by themselves.
+     * The generic WSI gate intentionally remains v50. v51/v52 are separate
+     * prepared overlays selected by their own verified runtime policy; they do
+     * not promote the generic Android-visible WSI gate by merely existing.
      */
-    const val WINE_VULKAN_DRIVER_VERSION = 52
-    const val V52_CONTINUOUS_PRESENT_VULKAN_DRIVER_VERSION = 52
-    const val V51_EXACT_PRESENT_COPY_VULKAN_DRIVER_VERSION = 51
-    const val V50_EXACT_PRESENTED_IMAGE_VULKAN_DRIVER_VERSION = 50
-    const val BASE_OVERLAY_VULKAN_DRIVER_VERSION = 49
-    const val PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION = 47
-    const val PINNED_WINE_VERSION = "11.0"
+    const val WINE_VULKAN_DRIVER_VERSION =
+        50
+    const val V52_CONTINUOUS_PRESENT_VULKAN_DRIVER_VERSION =
+        52
+    const val V51_EXACT_PRESENT_COPY_VULKAN_DRIVER_VERSION =
+        51
+    const val V50_EXACT_PRESENTED_IMAGE_VULKAN_DRIVER_VERSION =
+        50
+    const val BASE_OVERLAY_VULKAN_DRIVER_VERSION =
+        49
+    const val PINNED_WINE_UPSTREAM_VULKAN_DRIVER_VERSION =
+        47
+    const val PINNED_WINE_VERSION =
+        "11.0"
     const val PINNED_WINE_COMMIT =
         "db11d0fe6a169c457e23d007e20404643d067aa8"
 
@@ -38,43 +46,66 @@ object PocketPcVulkanWsiContract {
      */
     const val HEADLESS_HOST_EVIDENCE_REVISION =
         "90a593f087603ffa31a3380c63ab10aa14a5938f"
-    const val HEADLESS_HOST_EVIDENCE_RUN_ID = 34890837526L
-    const val HEADLESS_HOST_EVIDENCE_PLATFORM = "linux-x86_64"
+    const val HEADLESS_HOST_EVIDENCE_RUN_ID =
+        34890837526L
+    const val HEADLESS_HOST_EVIDENCE_PLATFORM =
+        "linux-x86_64"
 
-    const val abiEntryPointImplemented = true
-    const val deviceLifecycleCallbacksImplemented = true
-    const val presentQueueCallbackImplemented = true
-    const val presentQueueTimelineSignalSourceIntegrated = true
-    const val exactPresentedImageIdentitySourceIntegrated = true
+    const val abiEntryPointImplemented =
+        true
+    const val deviceLifecycleCallbacksImplemented =
+        true
+    const val presentQueueCallbackImplemented =
+        true
+    const val presentQueueTimelineSignalSourceIntegrated =
+        true
+    const val exactPresentedImageIdentitySourceIntegrated =
+        true
 
-    const val deviceLifecycleCallbacksSoftwareTestExecuted = false
-    const val presentQueueCallbackSoftwareTestExecuted = false
-    const val presentQueueTimelineSignalExecuted = false
-    const val exactPresentedImageIdentityExecuted = false
-    const val abiEntryPointSoftwareTestExecuted = false
+    const val deviceLifecycleCallbacksSoftwareTestExecuted =
+        false
+    const val presentQueueCallbackSoftwareTestExecuted =
+        false
+    const val presentQueueTimelineSignalExecuted =
+        false
+    const val exactPresentedImageIdentityExecuted =
+        false
+    const val abiEntryPointSoftwareTestExecuted =
+        false
 
     /*
      * Source pipeline after exact Present identity. These flags mean the source
      * and preparers exist; they do not mean Android, DXVK or physical execution.
      */
-    const val swapchainImageCaptureSourceIntegrated = true
-    const val continuousPresentOwnershipSourceIntegrated = true
-    const val androidHostReadbackSourceIntegrated = true
-    const val desktopModelFrameDeliverySourceIntegrated = true
-    const val composeFrameDrawSourceIntegrated = true
+    const val swapchainImageCaptureSourceIntegrated =
+        true
+    const val continuousPresentOwnershipSourceIntegrated =
+        true
+    const val androidHostReadbackSourceIntegrated =
+        true
+    const val desktopModelFrameDeliverySourceIntegrated =
+        true
+    const val composeFrameDrawSourceIntegrated =
+        true
 
-    const val androidHostReadbackIntegrationTestExecuted = false
-    const val desktopModelFrameDeliveryIntegrationTestExecuted = false
-    const val composeFrameDrawIntegrationTestExecuted = false
-    const val hostVisibleFramePhysicalTestExecuted = false
+    const val androidHostReadbackIntegrationTestExecuted =
+        false
+    const val desktopModelFrameDeliveryIntegrationTestExecuted =
+        false
+    const val composeFrameDrawIntegrationTestExecuted =
+        false
+    const val hostVisibleFramePhysicalTestExecuted =
+        false
 
     /*
      * External Win32 handle mappings can exist before presentation. They use
      * Wine's normal Linux fd translation model and remain separated from the
      * production-visible surface/swapchain gates below.
      */
-    const val externalHandleExtensionMappingImplemented = true
-    const val externalHandleExtensionMappingSoftwareTestExecuted = false
+    const val externalHandleExtensionMappingImplemented =
+        true
+    const val externalHandleExtensionMappingSoftwareTestExecuted =
+        false
 
     /*
      * Diagnostic-only WSI follows Wine's nulldrv model and is enabled only by
@@ -84,38 +115,54 @@ object PocketPcVulkanWsiContract {
      * a Win32 surface request mapped to a host headless VkSurfaceKHR. It did NOT
      * prove visible presentation, swapchain pixels, DXVK, Android or Roblox.
      */
-    const val headlessDiagnosticSurfaceImplemented = true
-    const val headlessDiagnosticPresentationSupportImplemented = true
-    const val headlessDiagnosticExtensionMappingImplemented = true
-    const val headlessDiagnosticSoftwareTestExecuted = true
-    const val headlessDiagnosticIntegrationTestExecuted = true
+    const val headlessDiagnosticSurfaceImplemented =
+        true
+    const val headlessDiagnosticPresentationSupportImplemented =
+        true
+    const val headlessDiagnosticExtensionMappingImplemented =
+        true
+    const val headlessDiagnosticSoftwareTestExecuted =
+        true
+    const val headlessDiagnosticIntegrationTestExecuted =
+        true
 
     // Production-visible Android WSI remains blocked / not executed.
-    const val surfaceCreateImplemented = false
-    const val presentationSupportImplemented = false
-    const val surfaceExtensionMappingImplemented = false
-    const val swapchainPresentationImplemented = false
+    const val surfaceCreateImplemented =
+        false
+    const val presentationSupportImplemented =
+        false
+    const val surfaceExtensionMappingImplemented =
+        false
+    const val swapchainPresentationImplemented =
+        false
 
     /*
-     * A prepared exact-image copy path exists in source, but production runtime
-     * integration is deliberately kept false until the authenticated Android
-     * PRoot/Box64/Wine/DXVK chain executes it. Likewise, Compose source capable
-     * of drawing a returned frame is not physical-visible-frame evidence.
+     * Prepared exact-image copy/readback source exists, but the production
+     * Android runtime path remains fail-closed until authenticated
+     * PRoot/Box64/Wine/DXVK execution proves it. Compose source capable of
+     * drawing a returned frame is not physical-visible-frame evidence.
      */
-    const val swapchainImageCaptureImplemented = false
-    const val hostVisibleFrameImplemented = false
+    const val swapchainImageCaptureImplemented =
+        false
+    const val hostVisibleFrameImplemented =
+        false
 
     const val extensionMappingImplemented =
         externalHandleExtensionMappingImplemented &&
             surfaceExtensionMappingImplemented
 
-    const val implemented = false
-    const val softwareTestExecuted = false
-    const val physicalTestExecuted = false
+    const val implemented =
+        false
+    const val softwareTestExecuted =
+        false
+    const val physicalTestExecuted =
+        false
 
-    const val blocker = "VULKAN_WSI_NOT_IMPLEMENTED"
+    const val blocker =
+        "VULKAN_WSI_NOT_IMPLEMENTED"
 
-    val requiredDriverCallbacks: Set<String> =
+    val requiredDriverCallbacks:
+        Set<String> =
         setOf(
             "p_vulkan_surface_create",
             "p_get_physical_device_presentation_support",
@@ -127,7 +174,8 @@ object PocketPcVulkanWsiContract {
             "p_vulkan_image_presented",
         )
 
-    val requiredTransportProofs: Set<String> =
+    val requiredTransportProofs:
+        Set<String> =
         setOf(
             "native-host-loaded",
             "ahardwarebuffer-same-process-structural-roundtrip",
