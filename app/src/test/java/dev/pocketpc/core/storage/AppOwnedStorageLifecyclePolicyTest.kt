@@ -73,4 +73,33 @@ class AppOwnedStorageLifecyclePolicyTest {
             }
         }
     }
+
+    @Test
+    fun currentRuntimeAndUserStateRootsSurvivePackageUpdates() {
+        val liveRoots =
+            listOf(
+                AppOwnedStorageMaintenanceTarget(
+                    AppOwnedStorageRootKind.NO_BACKUP,
+                    "runtimes",
+                ),
+                AppOwnedStorageMaintenanceTarget(
+                    AppOwnedStorageRootKind.NO_BACKUP,
+                    "runtime-tools",
+                ),
+                AppOwnedStorageMaintenanceTarget(
+                    AppOwnedStorageRootKind.FILES,
+                    "runtime-home",
+                ),
+            )
+
+        liveRoots.forEach { target ->
+            assertFalse(
+                "Current PocketPC state root ${target.root}/${target.childName} must survive package replacement",
+                AppOwnedStorageMaintenancePolicy.permits(
+                    target.root,
+                    target.childName,
+                ),
+            )
+        }
+    }
 }
