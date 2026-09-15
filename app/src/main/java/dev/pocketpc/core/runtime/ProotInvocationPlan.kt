@@ -23,8 +23,15 @@ object ProotInvocationPlanner {
         allowedHostRoots: List<File>,
         probe: GuestRuntimeProbe,
         allowDeviceValidationCandidate:
-            Boolean = false,
+            Boolean = true,
     ): ProotInvocationPlan {
+        /*
+         * A fully attested device-validation candidate is intentionally
+         * executable by probe callers without requiring each UI surface to
+         * remember a separate opt-in. The scope remains fail-closed here:
+         * only SHELL/ROOTFS are eligible, production readiness stays false,
+         * and ProotExecutionController still requires explicit user approval.
+         */
         val validationCandidateSelected =
             allowDeviceValidationCandidate &&
                 !substrate.prootReady &&
@@ -273,4 +280,3 @@ object ProotInvocationPlanner {
         )
     }
 }
-
