@@ -18,7 +18,16 @@ private const val POST_UPDATE_NOTIFICATION_ID = 2102
 internal fun requestPocketPcReopenAfterUpdate(
     context: Context,
 ) {
-    context.applicationContext
+    val appContext = context.applicationContext
+
+    // The package replacement can kill the current process abruptly. Persist
+    // WebView authentication state first so Google/YouTube and other web
+    // sessions are not left relying only on process memory.
+    PocketPcDataContinuity.prepareForPackageReplacement(
+        appContext,
+    )
+
+    appContext
         .getSharedPreferences(
             UPDATE_PREFS_NAME,
             Context.MODE_PRIVATE,
@@ -66,11 +75,19 @@ class PocketPcPostUpdateReceiver : BroadcastReceiver() {
             return
         }
 
+        val appContext = context.applicationContext
+
+        // Record continuity on the new version before maintenance. This only
+        // flushes/persists metadata; it never clears cookies, WebStorage,
+        // preferences, databases, HOME, Wine prefixes or user files.
+        PocketPcDataContinuity.recordPackageReplacement(
+            appContext,
+        )
+
         // Only package-private legacy paths are touched. SAF/PocketDrive
         // documents selected by the user are intentionally outside this
         // cleanup boundary.
         val cleanupPendingResult = goAsync()
-        val appContext = context.applicationContext
         Thread(
             {
                 try {
