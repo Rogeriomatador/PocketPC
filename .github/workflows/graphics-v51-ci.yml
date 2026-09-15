@@ -114,6 +114,8 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install pinned Android SDK, NDK, and CMake
         run: |
