@@ -33,6 +33,97 @@ class PocketPcUpdateDataPreservationPolicyTest {
     }
 
     @Test
+    fun foregroundReplacementFlushesSessionStateBeforeInstallHandoff() {
+        val sourceRoot = locateMainSourceRoot()
+        val postUpdate =
+            File(
+                sourceRoot,
+                "dev/pocketpc/core/update/PocketPcPostUpdateReceiver.kt",
+            ).readText()
+        val foregroundFlow =
+            File(
+                sourceRoot,
+                "dev/pocketpc/core/ui/PocketPcForegroundUpdateFlow.kt",
+            ).readText()
+
+        val reopenFunctionStart =
+            postUpdate.indexOf(
+                "internal fun requestPocketPcReopenAfterUpdate("
+            )
+        val continuityCall =
+            postUpdate.indexOf(
+                "PocketPcDataContinuity.prepareForPackageReplacement(",
+                startIndex = reopenFunctionStart.coerceAtLeast(0),
+            )
+        val reopenPreferenceWrite =
+            postUpdate.indexOf(
+                ".putBoolean(\n            REOPEN_AFTER_UPDATE_KEY,",
+                startIndex = reopenFunctionStart.coerceAtLeast(0),
+            )
+
+        assertTrue(
+            "Foreground update handoff must flush WebView/session state before marking the app for replacement/reopen.",
+            reopenFunctionStart >= 0 &&
+                continuityCall > reopenFunctionStart &&
+                reopenPreferenceWrite > continuityCall,
+        )
+
+        val requestInstallFunction =
+            foregroundFlow.indexOf(
+                "suspend fun requestInstallNow("
+            )
+        val reopenCall =
+            foregroundFlow.indexOf(
+                "requestPocketPcReopenAfterUpdate(",
+                startIndex = requestInstallFunction.coerceAtLeast(0),
+            )
+        val installerCall =
+            foregroundFlow.indexOf(
+                "updater.requestInstall(current)",
+                startIndex = requestInstallFunction.coerceAtLeast(0),
+            )
+
+        assertTrue(
+            "The real foreground install path must prepare data continuity before handing the APK to PackageInstaller.",
+            requestInstallFunction >= 0 &&
+                reopenCall > requestInstallFunction &&
+                installerCall > reopenCall,
+        )
+    }
+
+    @Test
+    fun replacementReceiverRecordsContinuityBeforeMaintenance() {
+        val sourceRoot = locateMainSourceRoot()
+        val postUpdate =
+            File(
+                sourceRoot,
+                "dev/pocketpc/core/update/PocketPcPostUpdateReceiver.kt",
+            ).readText()
+
+        val receiverStart =
+            postUpdate.indexOf(
+                "class PocketPcPostUpdateReceiver"
+            )
+        val continuityRecord =
+            postUpdate.indexOf(
+                "PocketPcDataContinuity.recordPackageReplacement(",
+                startIndex = receiverStart.coerceAtLeast(0),
+            )
+        val maintenance =
+            postUpdate.indexOf(
+                "AppOwnedStorageLifecycle",
+                startIndex = continuityRecord.coerceAtLeast(0),
+            )
+
+        assertTrue(
+            "Post-update continuity must be recorded before any maintenance cleanup runs.",
+            receiverStart >= 0 &&
+                continuityRecord > receiverStart &&
+                maintenance > continuityRecord,
+        )
+    }
+
+    @Test
     fun productionUpdateCodeNeverUninstallsPocketPcBeforeInstall() {
         val updateRoot =
             File(
