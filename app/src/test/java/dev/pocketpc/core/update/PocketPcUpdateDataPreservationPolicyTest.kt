@@ -56,10 +56,12 @@ class PocketPcUpdateDataPreservationPolicyTest {
                 startIndex = reopenFunctionStart.coerceAtLeast(0),
             )
         val reopenPreferenceWrite =
-            postUpdate.indexOf(
-                ".putBoolean(\n            REOPEN_AFTER_UPDATE_KEY,",
+            Regex(
+                """\.putBoolean\(\s*REOPEN_AFTER_UPDATE_KEY,"""
+            ).find(
+                postUpdate,
                 startIndex = reopenFunctionStart.coerceAtLeast(0),
-            )
+            )?.range?.first ?: -1
 
         assertTrue(
             "Foreground update handoff must flush WebView/session state before marking the app for replacement/reopen.",
