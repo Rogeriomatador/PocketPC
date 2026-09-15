@@ -13,6 +13,7 @@ on:
       - 'app/src/main/java/dev/pocketpc/core/runtime/ProotExecutionController.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/GuestRuntimeProbe.kt'
       - 'app/src/main/java/dev/pocketpc/core/runtime/RuntimeProbeEvidenceStore.kt'
+      - 'app/src/main/java/dev/pocketpc/core/runtime/RuntimeBindPolicy.kt'
       - 'app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt'
       - 'app/src/test/java/dev/pocketpc/core/runtime/Proot*Test.kt'
       - 'scripts/build-proot-ndk.py'
