@@ -77,7 +77,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
             onPinnedAppsChanged = pinStore::save,
         )
     }
-    val browserSession = rememberSaveable(saver = BrowserSessionState.Saver) { BrowserSessionState() }
+    val browserSession = rememberPersistentBrowserSession(appContext)
     val windowStateHolder = rememberSaveableStateHolder()
     val savedWindowIds = remember { mutableSetOf<String>() }
     val openWindowIds = desktop.windows.map { it.id }.toSet()
@@ -713,7 +713,7 @@ private fun DesktopWindowView(
     val compactMobile = layout.compact
     val taskbarHeightDp = layout.taskbarHeightDp.dp
     val taskbarHeightPx =
-        with(density) { taskbarHeightDp.toPx() }
+        with(density) { taskbarHeightHeightDp.dp.toPx() }
     val workspaceHeightPx =
         (screenHeightPx - taskbarHeightPx).coerceAtLeast(1f)
     val spec = window.app.windowSpec()
