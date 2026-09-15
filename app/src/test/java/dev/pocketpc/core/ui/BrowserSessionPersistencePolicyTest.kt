@@ -46,14 +46,42 @@ class BrowserSessionPersistencePolicyTest {
                 sourceRoot,
                 "dev/pocketpc/core/PocketPcApplication.kt",
             ).readText()
+        val continuity =
+            File(
+                sourceRoot,
+                "dev/pocketpc/core/update/PocketPcDataContinuity.kt",
+            ).readText()
 
         assertTrue(
-            "PocketPcApplication must flush CookieManager state to persistent storage",
-            application.contains("CookieManager.getInstance().flush()"),
+            "PocketPcApplication must route browser auth persistence through the data-continuity coordinator",
+            application.contains("PocketPcDataContinuity.flushWebAuthenticationState()"),
+        )
+        assertTrue(
+            "CookieManager state must be flushed to persistent storage",
+            continuity.contains("CookieManager.getInstance().flush()"),
         )
         assertTrue(
             "Cookie flush must run when PocketPC leaves the foreground",
             application.contains("TRIM_MEMORY_UI_HIDDEN"),
+        )
+    }
+
+    @Test
+    fun foregroundPackageReplacementFlushesBeforeAndAfterUpdate() {
+        val sourceRoot = locateMainSourceRoot()
+        val receiver =
+            File(
+                sourceRoot,
+                "dev/pocketpc/core/update/PocketPcPostUpdateReceiver.kt",
+            ).readText()
+
+        assertTrue(
+            "Foreground update preparation must flush persisted web authentication before package replacement",
+            receiver.contains("PocketPcDataContinuity.prepareForPackageReplacement("),
+        )
+        assertTrue(
+            "MY_PACKAGE_REPLACED must record continuity without clearing browser state",
+            receiver.contains("PocketPcDataContinuity.recordPackageReplacement("),
         )
     }
 
