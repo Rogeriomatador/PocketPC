@@ -232,7 +232,8 @@ PY
     echo "  installed=$target"
 }
 
-PLATFORM_DIR="$SDK_ROOT/platforms/android-$COMPILE_SDK"
+PLATFORM_DIR_NAME="${LOCK_PLATFORM#platforms;}"
+PLATFORM_DIR="$SDK_ROOT/platforms/$PLATFORM_DIR_NAME"
 BUILD_TOOLS_DIR="$SDK_ROOT/build-tools/$BUILD_TOOLS"
 
 install_package "platform" "$COMPILE_SDK" "$PLATFORM_DIR"

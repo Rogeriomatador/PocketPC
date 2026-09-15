@@ -74,4 +74,43 @@ class ProotExecutionControllerTest {
                     result.blockers
             )
         }
+    @Test
+    fun longSessionStillRequiresExplicitApproval() =
+        runBlocking {
+            val plan =
+                ProotInvocationPlan(
+                    ready = false,
+                    argv =
+                        listOf(
+                            "never-started",
+                        ),
+                    environment =
+                        emptyMap(),
+                    blockers =
+                        listOf(
+                            ProotExecutionController
+                                .EXECUTION_APPROVAL_BLOCKER,
+                        ),
+                )
+
+            val result =
+                ProotExecutionController()
+                    .executeSession(
+                        plan = plan,
+                        userApproved =
+                            false,
+                    )
+
+            assertEquals(
+                ProotExecutionState.BLOCKED,
+                result.state,
+            )
+            assertFalse(result.started)
+            assertTrue(
+                ProotExecutionController
+                    .EXECUTION_APPROVAL_BLOCKER in
+                    result.blockers,
+            )
+        }
+
 }

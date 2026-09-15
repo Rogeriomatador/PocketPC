@@ -18,12 +18,14 @@ import dev.pocketpc.core.runtime.DeviceEvidenceCollector
 import dev.pocketpc.core.runtime.EvidenceBundleManager
 import dev.pocketpc.core.runtime.ExecutionSubstrateProbe
 import dev.pocketpc.core.runtime.NativeRuntimeHost
+import dev.pocketpc.core.runtime.RuntimeV52IntegrationEvidenceStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -250,6 +252,7 @@ class DebugEvidenceActivity : ComponentActivity() {
             .put("nativeHostLoaded", evidence.nativeHostLoaded)
             .put("substrateState", evidence.substrateState)
             .put("prootReady", evidence.prootReady)
+            .put("v52ContinuousPresent", v52EvidenceJson())
             .put("automationDirectory", automationRoot.absolutePath)
 
         writeAtomic(
@@ -276,6 +279,23 @@ class DebugEvidenceActivity : ComponentActivity() {
             }
         }
         throw error
+    }
+
+    private fun v52EvidenceJson(): JSONObject {
+        val snapshot = RuntimeV52IntegrationEvidenceStore.snapshot()
+        return JSONObject()
+            .put("resourceId", snapshot.resourceId)
+            .put("generation", snapshot.generation)
+            .put("windowId", snapshot.windowId)
+            .put("resetReason", snapshot.resetReason)
+            .put("framesDelivered", snapshot.framesDelivered)
+            .put("frameSequences", JSONArray(snapshot.frameSequences))
+            .put("guestReadyValues", JSONArray(snapshot.guestReadyValues))
+            .put("hostConsumedValues", JSONArray(snapshot.hostConsumedValues))
+            .put("frameFingerprints", JSONArray(snapshot.frameFingerprints))
+            .put("allFingerprintsDistinct", snapshot.allFingerprintsDistinct)
+            .put("physicalVisibleFrameValidated", false)
+            .put("robloxValidated", false)
     }
 
     private fun capabilityJson(

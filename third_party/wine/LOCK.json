@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "status": "PINNED_SOURCE_NOT_BUILT_NOT_RUNTIME_TESTED",
+  "component": "wine",
+  "version": "11.0",
+  "repository": "https://github.com/wine-mirror/wine.git",
+  "tag": "wine-11.0",
+  "tagObject": "ce295733f9a67970b7f60d7af201f2ac16441a50",
+  "commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+  "target": {
+    "windowsArchitecture": "x86_64",
+    "hostGuestOs": "linux",
+    "hostGuestArchitecture": "aarch64",
+    "translationLayer": "Box64"
+  },
+  "gates": {
+    "sourcePinned": true,
+    "built": false,
+    "prefixCreated": false,
+    "win64LoaderExecuted": false,
+    "notepadClassSmokeTest": false,
+    "graphicsIntegrated": false,
+    "robloxExecuted": false
+  },
+  "license": "LGPL-2.1-or-later",
+  "licenseEvidence": "COPYING.LIB at pinned commit"
+}

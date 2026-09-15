@@ -23,28 +23,54 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Read pinned build toolchain
+        id: build_lock
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          lock = json.loads(Path("toolchains/android-build-lock.json").read_text(encoding="utf-8"))
+          android = lock["android"]
+          values = {
+              "jdk": str(lock["jdk"]["major"]),
+              "gradle": str(lock["gradle"]["version"]),
+              "platform": str(android["platformPackage"]),
+              "build_tools": str(android["buildTools"]),
+              "ndk": str(android["ndk"]),
+              "cmake": str(android["cmake"]),
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              for key, value in values.items():
+                  out.write(f"{key}={value}\n")
+          print("ANDROID_CI_BUILD_LOCK_OK " + " ".join(f"{k}={v}" for k, v in values.items()))
+          PY
+
+      - name: Set up pinned Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.build_lock.outputs.jdk }}
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
-      - name: Install Android SDK + NDK
+      - name: Install Android SDK + NDK from lock
         run: |
           sdkmanager \
             "platform-tools" \
-            "platforms;android-37.0" \
-            "build-tools;36.0.0" \
-            "ndk;29.0.14206865" \
-            "cmake;3.22.1"
+            "${{ steps.build_lock.outputs.platform }}" \
+            "build-tools;${{ steps.build_lock.outputs.build_tools }}" \
+            "ndk;${{ steps.build_lock.outputs.ndk }}" \
+            "cmake;${{ steps.build_lock.outputs.cmake }}"
 
-      - name: Set up Gradle 9.6.0
+      - name: Set up pinned Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.6.0'
+          gradle-version: ${{ steps.build_lock.outputs.gradle }}
 
       - name: Toolchain versions
         run: |
@@ -89,6 +115,43 @@ jobs:
           python3 -m json.tool third_party/proot/LOCK.json >/dev/null
           python3 -m json.tool third_party/proot/ARTIFACT_CONTRACT.json >/dev/null
 
+      - name: Validate PC runtime source locks
+        run: |
+          python3 -m json.tool third_party/box64/LOCK.json >/dev/null
+          python3 -m json.tool third_party/wine/LOCK.json >/dev/null
+          python3 -m json.tool third_party/wine/ANDROID_DRIVER_REUSE.json >/dev/null
+          python3 -m json.tool third_party/wine/POCKETPC_DISPLAY_BRIDGE_PROTOCOL.json >/dev/null
+          python3 -m json.tool third_party/wine/POCKETPC_VULKAN_WSI_ARCHITECTURE.json >/dev/null
+          python3 -m json.tool third_party/graphics/LOCK.json >/dev/null
+          python3 scripts/test-pc-runtime-source-locks.py
+
+      - name: Repository Python syntax policy
+        run: python3 scripts/test-python-syntax.py
+
+      - name: Guest tool runtime policy
+        run: python3 scripts/test-guest-tool-runtime-policy.py
+
+      - name: Display bridge protocol lock
+        run: python3 scripts/test-display-bridge-protocol-lock.py
+
+      - name: Display multi-peer policy
+        run: python3 scripts/test-display-multipeer-policy.py
+
+      - name: Wine PocketPC driver policy
+        run: python3 scripts/test-wine-pocketpc-driver-policy.py
+
+      - name: Wine PocketPC driver ABI lock
+        run: python3 scripts/test-wine-pocketpc-driver-abi-lock.py
+
+      - name: Vulkan WSI fail-closed policy
+        run: python3 scripts/test-vulkan-wsi-policy.py
+
+      - name: AHardwareBuffer Vulkan transport policy
+        run: python3 scripts/test-ahardwarebuffer-vulkan-transport-policy.py
+
+      - name: Native display bridge integration
+        run: python3 scripts/test-display-bridge-native-integration.py
+
       - name: PRoot ELF policy self-test
         run: python3 scripts/test-proot-artifact-policy.py
 
@@ -128,6 +191,12 @@ jobs:
       - name: Desktop enum coverage
         run: python3 scripts/test-desktop-enum-coverage.py
 
+      - name: Taskbar and Task Manager policy
+        run: python3 scripts/test-taskbar-task-manager-policy.py
+
+      - name: Runtime process family policy
+        run: python3 scripts/test-runtime-process-family-policy.py
+
       - name: CI version evidence policy
         run: python3 scripts/test-ci-version-policy.py
 
@@ -137,8 +206,22 @@ jobs:
       - name: Physical bootstrap signer self-test
         run: python3 scripts/test-bootstrap-signer-verifier.py
 
+      - name: Public release readiness verifier self-test
+        run: python3 scripts/test-public-release-readiness.py
+
       - name: PocketDrive and research policy
         run: python3 scripts/test-pocketdrive-research-policy.py
+
+      - name: Kotlin source regression guards
+        run: python3 scripts/test-kotlin-source-regressions.py
+
+      - name: Vulkan desktop source guards
+        run: |
+          python3 scripts/test-runtime-vulkan-compose-refresh-policy.py
+          python3 scripts/test-runtime-vulkan-present-readback-desktop-wiring.py
+
+      - name: Termux AAPT2 source policy
+        run: python3 scripts/test-termux-aapt2-policy.py
 
       - name: Parse Windows PowerShell harnesses
         shell: pwsh

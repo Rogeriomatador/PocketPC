@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "name": "PocketPC Vulkan Continuous Present v52",
+  "status": "DESIGN_WITH_PARTIAL_HOST_AND_GUEST_SOURCE_NOT_RUNTIME_INTEGRATED_NOT_EXECUTED",
+  "targetPrivateWineVulkanAbi": 52,
+  "officialBuildSelected": false,
+  "runtimeIntegrated": false,
+  "softwareTestExecuted": false,
+  "integrationTestExecuted": false,
+  "physicalTestExecuted": false,
+  "robloxExecuted": false,
+  "purpose": "Evolve the v51 one-shot diagnostic copy into a continuous, ownership-safe frame stream without allowing the Wine guest to overwrite the exported image while the Android host is consuming it.",
+  "compatibility": {
+    "baseline": "v51 remains the official one-shot path until v52 implementation and executed evidence exist.",
+    "graphicsSession": "PGH1 v1 remains the authenticated SOCK_SEQPACKET transport.",
+    "resourceOffer": "PGT1/PVI1 offer identity remains immutable for one resource generation.",
+    "ownershipSemaphore": "PVS1 role FRAME_OWNERSHIP is reused instead of inventing an unsynchronized second ownership channel.",
+    "pga1": "PGA1 stages 1-6 remain lifecycle/diagnostic acknowledgements; continuous frame ownership is not inferred from repeated PGA1 packets.",
+    "jniNumericBoundary": "Kotlin/JNI transport uses Long/jlong, so v52 intentionally stays within signed 64-bit positive values even though Vulkan timeline counters are uint64_t."
+  },
+  "identity": {
+    "resourceIdentity": [
+      "resourceId",
+      "generation",
+      "offerSequence"
+    ],
+    "offerSequenceMeaning": "Immutable descriptor/FD-offer identity. It is not the continuous frame number.",
+    "frameSequenceSource": "Derived from the shared PVS1 timeline value.",
+    "generationRule": "Resize, resource recreation, device loss, incompatible format/extent, or timeline exhaustion creates a new generation and a fresh timeline initialized to zero."
+  },
+  "timelineOwnership": {
+    "initialValue": 0,
+    "bridgeMaximumTimelineValue": 9223372036854775807,
+    "maximumFrameSequence": 4611686018427387903,
+    "guestReadyFormula": "2 * frameSequence - 1",
+    "hostConsumedFormula": "2 * frameSequence",
+    "frameSequenceMinimum": 1,
+    "guestReadyParity": "odd",
+    "hostConsumedParity": "even",
+    "monotonic": true,
+    "overflowPolicy": "Fail closed before multiplication/addition can exceed Long.MAX_VALUE/jlong positive range. Recreate the resource/generation instead of wrapping or crossing into negative Kotlin values.",
+    "firstFrame": {
+      "previousHostConsumedValue": 0,
+      "guestReadyValue": 1,
+      "hostConsumedValue": 2
+    },
+    "secondFrame": {
+      "previousHostConsumedValue": 2,
+      "guestReadyValue": 3,
+      "hostConsumedValue": 4
+    },
+    "lastRepresentableFrame": {
+      "frameSequence": 4611686018427387903,
+      "guestReadyValue": 9223372036854775805,
+      "hostConsumedValue": 9223372036854775806
+    }
+  },
+  "guestPerFrameOrder": [
+    "For frame 1, treat timeline value 0 as the initial host-consumed release. For frame N>1, wait until timeline >= hostConsumed(N-1).",
+    "Acquire the exported image from VK_QUEUE_FAMILY_EXTERNAL onto the exact Wine Present queue/device path.",
+    "Copy the exact presented swapchain VkImage into the exported image with explicit layouts/barriers and Present synchronization.",
+    "Release the exported image back to VK_QUEUE_FAMILY_EXTERNAL.",
+    "Signal PVS1 to guestReady(N) only after the copy and external release are ordered/completed.",
+    "Do not reacquire or overwrite the exported image for frame N+1 until hostConsumed(N) is observed."
+  ],
+  "hostPerFrameOrder": [
+    "Wait until PVS1 >= guestReady(N), then require the observed timeline value to equal guestReady(N) exactly.",
+    "Reject a frame if resourceId/generation no longer match the active resource or if the derived frame sequence is stale/non-monotonic.",
+    "Acquire the exported image from external ownership on the Android Vulkan device used by the persistent host consumer.",
+    "Copy/read back the frame and publish it to the exact desktop window owner.",
+    "Return the image to VK_QUEUE_FAMILY_EXTERNAL.",
+    "Signal PVS1 to hostConsumed(N) only after host consumption, external ownership return, and desktop-model delivery complete.",
+    "Do not promote model delivery to physical-visible evidence."
+  ],
+  "failClosedRules": [
+    "Never write while the opposite side owns the image.",
+    "Never derive continuous frame number from the immutable PVI1 offer sequence.",
+    "Never reuse frameSequence after a generation change.",
+    "Never accept an even value as guest-ready or an odd value as host-consumed.",
+    "Never let the Wine guest signal hostConsumed(N); even ownership values belong to the Android host.",
+    "Never accept a lower or equal frame sequence after a newer frame was already committed for the same generation.",
+    "Never pass a timeline value greater than Long.MAX_VALUE through Kotlin/JNI.",
+    "Never advance to frame N+1 while hostConsumed(N) still has a pending signal.",
+    "Never recreate/import PVI1 and PVS1 for every frame in the proposed v52 native host path; keep one persistent native import per resource generation.",
+    "Never infer host-visible presentation from successful Vulkan readback or Compose model delivery.",
+    "Never select v52 as the official Wine build merely because its source overlay exists.",
+    "Never infer Roblox execution, rendering, playability, input, audio, network, or stability from this contract."
+  ],
+  "sourceImplementation": {
+    "timelineArithmetic": true,
+    "hostOwnershipStateMachine": true,
+    "hostCoordinator": true,
+    "hostPendingConsumedSignalRecovery": true,
+    "exactDesktopWindowDeliveryContract": true,
+    "persistentNativeHostSession": true,
+    "nativeTimelineWait": true,
+    "nativePerFrameReadback": true,
+    "nativeHostConsumedSignal": true,
+    "kotlinNativePort": true,
+    "cmakeSourceIncluded": true,
+    "guestWineV52CopyLoop": true,
+    "guestExactPreviousEvenWait": true,
+    "guestOddReadySignalSameCopySubmit": true,
+    "guestPostPresentEvenSignalSuppressed": true,
+    "guestV52Preparer": true,
+    "v51FallbackRetained": true,
+    "activeRuntimeWiring": false
+  },
+  "requiredImplementationGates": {
+    "guestWaitPreviousHostConsumed": false,
+    "guestPerPresentSequence": false,
+    "guestPerPresentCopy": false,
+    "guestSignalReadyOddValue": false,
+    "hostLoopWaitGuestReady": false,
+    "hostPerFrameReadback": false,
+    "hostSignalConsumedEvenValue": false,
+    "generationResetAndResize": false,
+    "staleFrameRejection": false,
+    "runtimeDiagnostics": false,
+    "softwareTests": false,
+    "integrationTests": false,
+    "physicalVisibleFrame": false
+  },
+  "evidenceClassification": {
+    "contract": "DESIGN",
+    "sourceRuntime": "PARTIALLY_IMPLEMENTED_SOURCE_ONLY",
+    "nativeHostSource": "IMPLEMENTED_NOT_EXECUTED",
+    "guestWineSource": "IMPLEMENTED_NOT_EXECUTED",
+    "software": "NOT_EXECUTED",
+    "integration": "NOT_EXECUTED",
+    "physical": "NOT_EXECUTED",
+    "roblox": "NOT_EXECUTED"
+  }
+}

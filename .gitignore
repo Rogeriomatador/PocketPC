@@ -18,8 +18,9 @@ captures/
 .externalNativeBuild/
 **/.externalNativeBuild/
 
-# PocketPC local build, installation, and evidence output
+# PocketPC local build, installation, packaging, and evidence output
 local-build/
+dist/
 
 # Python caches created by policy checks
 __pycache__/

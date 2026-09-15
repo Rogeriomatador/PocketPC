@@ -1,0 +1,35 @@
+name: Rootfs ARM64 Package
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'third_party/rootfs/**'
+      - 'scripts/prepare-rootfs-package.py'
+      - '.github/workflows/rootfs-arm64-package.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download, verify and audit pinned rootfs
+        run: |
+          python3 scripts/prepare-rootfs-package.py \
+            --work "$RUNNER_TEMP/pocketpc-rootfs"
+      - name: Retain verified rootfs package for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Ubuntu-Base-ARM64-review
+          path: |
+            ${{ runner.temp }}/pocketpc-rootfs/rootfs.tar.gz
+            ${{ runner.temp }}/pocketpc-rootfs/runtime-manifest.json
+            ${{ runner.temp }}/pocketpc-rootfs/rootfs-evidence.json
+          if-no-files-found: error

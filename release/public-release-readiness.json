@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "status": "BLOCKED_NOT_EXECUTED",
+  "sourceRevision": null,
+  "evidenceBundleSha256": null,
+  "immutableEvidenceUrl": null,
+  "device": {
+    "manufacturer": null,
+    "model": null,
+    "androidApi": null
+  },
+  "session": {
+    "stableSessionMillis": 0,
+    "crashObserved": null
+  },
+  "gates": {
+    "exactRevisionBuiltAndTested": false,
+    "prootRootfsExecuted": false,
+    "box64X8664Executed": false,
+    "wineWin64Executed": false,
+    "wineWindowIntegrated": false,
+    "vulkanDxvkContinuousPresent": false,
+    "robloxPlayerStarted": false,
+    "robloxPlayerRendered": false,
+    "robloxServerJoined": false,
+    "networkObserved": false,
+    "inputGameplayObserved": false,
+    "audioObserved": false,
+    "minimumStableSessionObserved": false
+  },
+  "note": "Fail-closed public release gate. Home Test publication is separate. Set PASS only from immutable exact-revision physical evidence."
+}

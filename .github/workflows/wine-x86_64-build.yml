@@ -1,0 +1,155 @@
+name: Wine 11 x86_64 PocketPC Driver Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'third_party/wine/**'
+      - 'scripts/build-wine-x86_64.py'
+      - 'scripts/build-wine-x86_64-v51.py'
+      - 'scripts/prepare-wine-pocketpc-driver-v50.py'
+      - 'scripts/prepare-wine-pocketpc-present-image.py'
+      - 'scripts/prepare-wine-pocketpc-pre-present-copy.py'
+      - 'scripts/prepare-wine-pocketpc-driver-v51.py'
+      - 'scripts/test-wine-x86_64-v51-integration.py'
+      - 'scripts/pocketpc_pe.py'
+      - 'scripts/verify-wine-x86_64-driver-package.py'
+      - 'scripts/test-wine-x86_64-driver-package.py'
+      - 'scripts/run-wine-pocketpc-driver-load-smoke.py'
+      - 'scripts/verify-wine-pocketpc-driver-load-evidence.py'
+      - 'scripts/test-wine-pocketpc-driver-load-evidence.py'
+      - 'scripts/test-wine-pocketpc-driver-load-broker.py'
+      - 'scripts/test-wine-pocketpc-driver-load-smoke.py'
+      - 'scripts/pocketpc_wine_surface_broker.py'
+      - 'scripts/test-wine-pocketpc-surface-broker.py'
+      - 'scripts/run-wine-pocketpc-window-surface-smoke.py'
+      - 'scripts/test-wine-pocketpc-window-surface-policy.py'
+      - 'scripts/test-pc-runtime-source-locks.py'
+      - 'scripts/test-pocketpc-pe-audit.py'
+      - 'scripts/test-wine-pocketpc-driver-policy.py'
+      - 'scripts/test-wine-pocketpc-driver-abi-lock.py'
+      - 'scripts/test-wine-pocketpc-driver-load-policy.py'
+      - 'scripts/test-display-bridge-protocol-lock.py'
+      - '.github/workflows/wine-x86_64-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Wine build toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential flex bison git \
+            gcc-mingw-w64-x86-64 libvulkan-dev
+
+      - name: Validate pinned runtime source locks
+        run: python3 scripts/test-pc-runtime-source-locks.py
+
+      - name: Validate PocketPC Wine driver policy
+        run: |
+          python3 scripts/test-wine-pocketpc-driver-policy.py
+          python3 scripts/test-wine-pocketpc-driver-load-policy.py
+          python3 scripts/test-wine-pocketpc-window-surface-policy.py
+          python3 scripts/test-wine-x86_64-v51-integration.py
+
+      - name: Validate PocketPC Wine driver ABI and package verifier
+        run: |
+          python3 scripts/test-wine-pocketpc-driver-abi-lock.py
+          python3 scripts/test-pocketpc-pe-audit.py
+          python3 scripts/test-wine-x86_64-driver-package.py
+          python3 scripts/test-wine-pocketpc-driver-load-evidence.py
+          python3 scripts/test-wine-pocketpc-driver-load-broker.py
+          python3 scripts/test-wine-pocketpc-driver-load-smoke.py
+          python3 scripts/test-wine-pocketpc-surface-broker.py
+
+      - name: Validate display bridge protocol
+        run: python3 scripts/test-display-bridge-protocol-lock.py
+
+      - name: Build pinned Wine 11 x86_64 package with PocketPC v51 driver
+        run: |
+          python3 scripts/build-wine-x86_64-v51.py \
+            --work "$RUNNER_TEMP/pocketpc-wine-build"
+
+      - name: Verify v51 overlay evidence stayed fail-closed
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          evidence = json.loads(
+              Path("${{ runner.temp }}/pocketpc-wine-build/wine-pocketpc-driver-overlay-evidence.json")
+              .read_text(encoding="utf-8")
+          )
+          assert evidence["privateWineVulkanAbi"] == 51
+          assert evidence["exactPresentedImage"]["passesExactHostVkImage"] is True
+          assert evidence["externalOwnership"]["androidInitialReleaseImplemented"] is True
+          assert evidence["externalOwnership"]["guestAcquireReleasePrimitiveImplemented"] is True
+          assert evidence["externalOwnership"]["executed"] is False
+          assert evidence["prePresentCopy"]["originalPresentWaitsConsumedByCopy"] is True
+          assert evidence["prePresentCopy"]["replacementBinarySemaphoreFeedsPresent"] is True
+          assert evidence["prePresentCopy"]["destinationReleasedToExternalGeneral"] is True
+          assert evidence["pixelCopyImplemented"] is True
+          assert evidence["pixelCopyExecuted"] is False
+          assert evidence["formatConversionImplemented"] is False
+          assert evidence["scalingImplemented"] is False
+          assert evidence["androidVisibleConsumerImplemented"] is False
+          assert evidence["hostVisiblePresentImplemented"] is False
+          assert evidence["robloxExecuted"] is False
+          print("POCKETPC_WINE_V51_OVERLAY_EVIDENCE_OK_NOT_EXECUTED")
+          PY
+
+      - name: Verify installed PocketPC driver pair
+        run: |
+          python3 scripts/verify-wine-x86_64-driver-package.py \
+            --build-evidence "$RUNNER_TEMP/pocketpc-wine-build/wine-build-evidence.json" \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-build/destdir/opt/pocketpc/wine" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-build/wine-x86_64-driver-package-evidence.json"
+
+      - name: Prove host Wine loads and registers winepocketpc.drv
+        run: |
+          python3 scripts/run-wine-pocketpc-driver-load-smoke.py \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-build/destdir/opt/pocketpc/wine" \
+            --smoke-exe "$RUNNER_TEMP/pocketpc-wine-build/pocketpc-window-smoke.exe" \
+            --package-evidence "$RUNNER_TEMP/pocketpc-wine-build/wine-x86_64-driver-package-evidence.json" \
+            --work "$RUNNER_TEMP/pocketpc-wine-driver-load-smoke"
+
+      - name: Prove host Wine window surface and input round-trip
+        run: |
+          python3 scripts/run-wine-pocketpc-window-surface-smoke.py \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-build/destdir/opt/pocketpc/wine" \
+            --smoke-exe "$RUNNER_TEMP/pocketpc-wine-build/pocketpc-window-smoke.exe" \
+            --package-evidence "$RUNNER_TEMP/pocketpc-wine-build/wine-x86_64-driver-package-evidence.json" \
+            --work "$RUNNER_TEMP/pocketpc-wine-window-surface-smoke"
+
+      - name: Retain review package and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Wine11-x86_64-pocketpc-driver-review
+          path: |
+            ${{ runner.temp }}/pocketpc-wine-build/guest-package.zip
+            ${{ runner.temp }}/pocketpc-wine-build/guest-package/guest-tool-manifest.json
+            ${{ runner.temp }}/pocketpc-wine-build/wine-build-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-build/wine-pocketpc-driver-overlay-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-build/wine-x86_64-driver-package-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-build/*.log
+            ${{ runner.temp }}/pocketpc-wine-driver-load-smoke/*.json
+            ${{ runner.temp }}/pocketpc-wine-driver-load-smoke/*.log
+            ${{ runner.temp }}/pocketpc-wine-window-surface-smoke/*.json
+            ${{ runner.temp }}/pocketpc-wine-window-surface-smoke/*.log
+          if-no-files-found: warn
+
+      - name: Prove build did not enter app tree
+        if: always()
+        run: |
+          test -z "$(find app -type f \( -name 'wine' -o -name 'wineboot' -o -name '*.exe' \) -print)"
+          git diff --exit-code -- app third_party scripts

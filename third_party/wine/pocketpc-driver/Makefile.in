@@ -1,0 +1,27 @@
+MODULE = winepocketpc.drv
+UNIXLIB = winepocketpc.so
+UNIX_LIBS = -lwin32u $(PTHREAD_LIBS)
+IMPORTS = user32 win32u
+
+SOURCES = \
+	dllmain.c \
+	input.c \
+	pocketpcdrv_main.c \
+	surface.c \
+	vulkan.c \
+	window.c \
+	pocketpc_display_bridge.c \
+	pocketpc_graphics_session_client.c \
+	pocketpc_graphics_transport.c \
+	pocketpc_graphics_ack.c \
+	pocketpc_fd_transport.c \
+	pocketpc_graphics_handle_binding.c \
+	pocketpc_guest_graphics_receive.c \
+	pocketpc_external_image_fd_protocol.c \
+	pocketpc_guest_vulkan_import.c \
+	pocketpc_guest_external_image_ownership.c \
+	pocketpc_external_timeline_semaphore_fd_protocol.c \
+	pocketpc_guest_vulkan_timeline_semaphore.c \
+	pocketpc_surface_writer.c \
+	pocketpc_wine_window_map.c \
+	pocketpc_wine_window_bridge.c

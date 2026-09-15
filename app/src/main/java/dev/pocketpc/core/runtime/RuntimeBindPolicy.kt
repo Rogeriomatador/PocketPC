@@ -106,17 +106,147 @@ object RuntimeBindPolicy {
     }
 }
 
-class RuntimeBindPlanner(private val context: Context) {
-    fun base(runtime: InstalledRuntime): List<RuntimeBindSpec> {
-        val home = File(
-            context.filesDir,
-            "runtime-home/${runtime.manifest.id}/${runtime.manifest.version}",
-        ).apply { require(mkdirs() || isDirectory) }
+/**
+ * Resolves a stable user HOME for one runtime family.
+ *
+ * Runtime binaries/rootfs remain versioned, but user state must not be. The
+ * hidden `.user` directory is intentionally outside VersionedInstallPruner's
+ * candidate set, so Wine prefixes, registry, application state and account
+ * sessions survive a runtime-version replacement.
+ *
+ * Older PocketPC builds stored HOME under `<runtimeId>/<runtimeVersion>`. On
+ * first use after this migration we move the unambiguous legacy HOME into the
+ * stable location. Ambiguous legacy state fails closed instead of guessing.
+ */
+internal object RuntimeUserHomeLayout {
+    private const val RUNTIME_HOME_ROOT = "runtime-home"
+    private const val STABLE_USER_HOME = ".user"
 
-        val temp = File(
+    fun resolve(
+        filesDir: File,
+        runtimeId: String,
+        runtimeVersion: String,
+    ): File {
+        requireSafeSegment(runtimeId, "runtimeId")
+        requireSafeSegment(runtimeVersion, "runtimeVersion")
+
+        val filesRoot = filesDir.canonicalFile
+        require(filesRoot.isDirectory || filesRoot.mkdirs()) {
+            "RUNTIME_USER_HOME_FILES_ROOT_UNAVAILABLE"
+        }
+
+        val homeRoot = File(filesRoot, RUNTIME_HOME_ROOT).canonicalFile
+        require(homeRoot.parentFile == filesRoot) {
+            "RUNTIME_USER_HOME_ROOT_ESCAPED"
+        }
+        require(homeRoot.isDirectory || homeRoot.mkdirs()) {
+            "RUNTIME_USER_HOME_ROOT_CREATE_FAILED"
+        }
+
+        val runtimeRoot = File(homeRoot, runtimeId).canonicalFile
+        require(runtimeRoot.parentFile == homeRoot) {
+            "RUNTIME_USER_HOME_RUNTIME_ESCAPED"
+        }
+        require(runtimeRoot.isDirectory || runtimeRoot.mkdirs()) {
+            "RUNTIME_USER_HOME_RUNTIME_CREATE_FAILED"
+        }
+        require(SafeTreeOps.isPlainDirectory(runtimeRoot.toPath())) {
+            "RUNTIME_USER_HOME_RUNTIME_NOT_PLAIN_DIRECTORY"
+        }
+
+        val stableHome = File(runtimeRoot, STABLE_USER_HOME).canonicalFile
+        require(stableHome.parentFile == runtimeRoot) {
+            "RUNTIME_USER_HOME_STABLE_ESCAPED"
+        }
+        if (stableHome.exists()) {
+            require(SafeTreeOps.isPlainDirectory(stableHome.toPath())) {
+                "RUNTIME_USER_HOME_STABLE_NOT_PLAIN_DIRECTORY"
+            }
+            return stableHome
+        }
+
+        val legacyCandidates =
+            runtimeRoot.listFiles()
+                .orEmpty()
+                .filter { candidate ->
+                    !candidate.name.startsWith(".") &&
+                        SafeTreeOps.isPlainDirectory(candidate.toPath())
+                }
+                .map { it.canonicalFile }
+                .filter { it.parentFile == runtimeRoot }
+
+        val legacyHome =
+            legacyCandidates.firstOrNull {
+                it.name == runtimeVersion
+            } ?: when (legacyCandidates.size) {
+                0 -> null
+                1 -> legacyCandidates.single()
+                else -> error(
+                    "RUNTIME_USER_HOME_MIGRATION_AMBIGUOUS:" +
+                        legacyCandidates
+                            .map(File::getName)
+                            .sorted()
+                            .joinToString(",")
+                )
+            }
+
+        if (legacyHome != null) {
+            require(legacyHome.renameTo(stableHome)) {
+                "RUNTIME_USER_HOME_MIGRATION_FAILED"
+            }
+        } else {
+            require(stableHome.mkdirs() || stableHome.isDirectory) {
+                "RUNTIME_USER_HOME_CREATE_FAILED"
+            }
+        }
+
+        require(SafeTreeOps.isPlainDirectory(stableHome.toPath())) {
+            "RUNTIME_USER_HOME_STABLE_NOT_PLAIN_DIRECTORY"
+        }
+        return stableHome
+    }
+
+    private fun requireSafeSegment(
+        value: String,
+        label: String,
+    ) {
+        require(
+            value.isNotBlank() &&
+                value != "." &&
+                value != ".." &&
+                !value.startsWith(".") &&
+                '/' !in value &&
+                '\\' !in value &&
+                '\u0000' !in value,
+        ) {
+            "RUNTIME_USER_HOME_UNSAFE_SEGMENT:$label"
+        }
+    }
+}
+
+class RuntimeBindPlanner(private val context: Context) {
+    fun homeDirectory(
+        runtime: InstalledRuntime,
+    ): File =
+        RuntimeUserHomeLayout.resolve(
+            filesDir = context.filesDir,
+            runtimeId = runtime.manifest.id,
+            runtimeVersion = runtime.manifest.version,
+        )
+
+    private fun tempDirectory(
+        runtime: InstalledRuntime,
+    ): File =
+        File(
             context.cacheDir,
             "runtime-tmp/${runtime.manifest.id}/${runtime.manifest.version}",
-        ).apply { require(mkdirs() || isDirectory) }
+        ).apply {
+            require(mkdirs() || isDirectory)
+        }
+
+    fun base(runtime: InstalledRuntime): List<RuntimeBindSpec> {
+        val home = homeDirectory(runtime)
+        val temp = tempDirectory(runtime)
 
         return listOf(
             RuntimeBindSpec(
