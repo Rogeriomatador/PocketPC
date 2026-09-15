@@ -6,7 +6,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -57,12 +59,15 @@ internal class BrowserSessionStore(
     fun save(
         snapshot: DurableBrowserSession,
     ) {
+        // commit() is intentional: package replacement may kill the process at
+        // any moment. Callers perform this on Dispatchers.IO so the tiny session
+        // record is durably on disk without blocking Compose's UI thread.
         prefs.edit()
             .putString(
                 BROWSER_SESSION_KEY,
                 encode(snapshot),
             )
-            .apply()
+            .commit()
     }
 
     private fun encode(
@@ -260,7 +265,11 @@ internal fun rememberPersistentBrowserSession(
                 activeIndex = activeIndex,
                 desktopMode = session.desktopMode,
             )
-        }.collect(store::save)
+        }.collect { snapshot ->
+            withContext(Dispatchers.IO) {
+                store.save(snapshot)
+            }
+        }
     }
 
     return session
