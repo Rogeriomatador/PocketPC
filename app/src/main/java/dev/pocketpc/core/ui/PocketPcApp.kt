@@ -713,7 +713,7 @@ private fun DesktopWindowView(
     val compactMobile = layout.compact
     val taskbarHeightDp = layout.taskbarHeightDp.dp
     val taskbarHeightPx =
-        with(density) { taskbarHeightHeightDp.dp.toPx() }
+        with(density) { taskbarHeightDp.toPx() }
     val workspaceHeightPx =
         (screenHeightPx - taskbarHeightPx).coerceAtLeast(1f)
     val spec = window.app.windowSpec()
