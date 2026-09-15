@@ -132,7 +132,7 @@ def main() -> int:
             "RuntimeDisplayFramePixels(",
             "argb = argb",
             "frame.argb.size == expectedPixels",
-            "!visibleFrame",
+            "visibleFrame ||",
             'fields["visible_frame"] == "1"',
             "VULKAN_HOST_CONSUMER_FAILED",
         ),
