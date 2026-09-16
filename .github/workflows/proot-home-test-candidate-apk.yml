@@ -47,6 +47,32 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Derive installable candidate identity
+        id: version
+        run: |
+          python3 - <<'PY'
+          import os
+          import subprocess
+
+          commit_count = int(
+              subprocess.check_output(
+                  ['git', 'rev-list', '--count', 'HEAD'],
+                  text=True,
+              ).strip()
+          )
+          code = 220000 + commit_count
+          if code >= 230000:
+              raise SystemExit('PROOT_HOME_TEST_ALPHA22_VERSION_RANGE_EXHAUSTED')
+          name = f'0.1.0-alpha22.proot.{commit_count}'
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              out.write(f'code={code}\n')
+              out.write(f'name={name}\n')
+          print(
+              'PROOT_HOME_TEST_VERSION '
+              f'commit_count={commit_count} code={code} name={name}'
+          )
+          PY
+
       - name: Gate candidate signing credentials
         id: signing
         env:
@@ -202,6 +228,8 @@ jobs:
       - name: Build signed release APK with explicit PRoot validation candidate
         env:
           POCKETPC_SOURCE_REVISION: ${{ github.sha }}
+          POCKETPC_VERSION_CODE: ${{ steps.version.outputs.code }}
+          POCKETPC_VERSION_NAME: ${{ steps.version.outputs.name }}
           POCKETPC_SIGNING_STORE_PASSWORD: ${{ secrets.POCKETPC_SIGNING_STORE_PASSWORD }}
           POCKETPC_SIGNING_KEY_ALIAS: ${{ secrets.POCKETPC_SIGNING_KEY_ALIAS }}
           POCKETPC_SIGNING_KEY_PASSWORD: ${{ secrets.POCKETPC_SIGNING_KEY_PASSWORD }}
@@ -213,6 +241,9 @@ jobs:
 
       - name: Verify signed candidate and packaged PRoot payload
         id: verify
+        env:
+          EXPECTED_VERSION_CODE: ${{ steps.version.outputs.code }}
+          EXPECTED_VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
           APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' ! -name '*-unsigned.apk' -print | head -n 1)"
           test -n "$APK"
@@ -235,6 +266,8 @@ jobs:
 
           apk = Path(os.environ['APK'])
           signer_sha = os.environ['SIGNER_SHA'].strip().lower()
+          expected_version_code = int(os.environ['EXPECTED_VERSION_CODE'])
+          expected_version_name = os.environ['EXPECTED_VERSION_NAME'].strip()
           candidate = Path(os.environ['RUNNER_TEMP']) / 'pocketpc-proot-device-validation'
           expected = json.loads((candidate / 'assets/proot-device-validation.json').read_text(encoding='utf-8'))
 
@@ -278,11 +311,17 @@ jobs:
           text = generated.read_text(encoding='utf-8')
           if 'POCKETPC_PROOT_VALIDATION_CANDIDATE_PACKAGED = true' not in text:
               raise SystemExit('PROOT_HOME_TEST_BUILDCONFIG_FLAG_NOT_TRUE')
+          if f'VERSION_CODE = {expected_version_code}' not in text:
+              raise SystemExit('PROOT_HOME_TEST_VERSION_CODE_MISMATCH')
+          if f'VERSION_NAME = "{expected_version_name}"' not in text:
+              raise SystemExit('PROOT_HOME_TEST_VERSION_NAME_MISMATCH')
 
           evidence = {
-              'schemaVersion': 2,
+              'schemaVersion': 3,
               'sourceRevision': os.environ['GITHUB_SHA'].lower(),
               'apk': apk.name,
+              'versionCode': expected_version_code,
+              'versionName': expected_version_name,
               'apkSigned': True,
               'signatureVerified': True,
               'signingCertificateSha256': signer_sha,
@@ -305,6 +344,11 @@ jobs:
           out = Path(os.environ['RUNNER_TEMP']) / 'proot-home-test-candidate-apk-evidence.json'
           out.write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
           print('PROOT_HOME_TEST_SIGNED_APK_CANDIDATE_OK')
+          print(
+              'PROOT_HOME_TEST_INSTALLABLE_IDENTITY '
+              f'versionCode={expected_version_code} '
+              f'versionName={expected_version_name}'
+          )
           print('PHYSICAL_EXECUTION=NOT_EXECUTED')
           PY
           echo "apk=$APK" >> "$GITHUB_OUTPUT"
