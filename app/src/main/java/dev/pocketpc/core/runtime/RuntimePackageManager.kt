@@ -89,13 +89,20 @@ class RuntimePackageManager(private val context: Context) {
                 File(tempDir, "VERIFIED").writeText("sha256=$hash\nbytes=$total\n")
 
                 promoteVerified(tempDir, targetDir)
-
-                StagedRuntime(
-                    manifest = manifest,
-                    directory = targetDir,
-                    archive = File(targetDir, "rootfs.archive"),
-                    stagedBytes = total,
-                )
+                val staged =
+                    loadStagedRuntime(targetDir)
+                        ?: error("RUNTIME_STAGED_PROMOTED_BUT_NOT_LOADABLE")
+                val cleanup =
+                    VersionedInstallPruner.prune(
+                        containerRoot = runtimeRoot,
+                        componentId = staged.manifest.id,
+                        keepVersion = staged.manifest.version,
+                    )
+                require(cleanup.failedVersions.isEmpty()) {
+                    "RUNTIME_STAGED_SUPERSEDED_CLEANUP_FAILED:" +
+                        cleanup.failedVersions.joinToString(",")
+                }
+                staged
             } catch (error: Throwable) {
                 tempDir.deleteRecursively()
                 throw error
@@ -109,7 +116,10 @@ class RuntimePackageManager(private val context: Context) {
         runtimeRoot.listFiles()
             .orEmpty()
             .filter { it.isDirectory && !it.name.startsWith(".") }
-            .flatMap { idDir -> idDir.listFiles().orEmpty().filter(File::isDirectory) }
+            .flatMap { idDir ->
+                idDir.listFiles().orEmpty()
+                    .filter { it.isDirectory && !it.name.startsWith(".") }
+            }
             .mapNotNull { directory ->
                 loadStagedRuntime(directory)
             }

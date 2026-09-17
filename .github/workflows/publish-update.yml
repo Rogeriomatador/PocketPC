@@ -37,6 +37,12 @@ jobs:
           fetch-depth: 0
           ref: ${{ env.POCKETPC_RELEASE_SOURCE_SHA }}
 
+      - name: Require exact-revision physical Roblox gameplay evidence
+        run: |
+          python3 scripts/test-public-release-readiness.py
+          python3 scripts/verify-public-release-readiness.py \
+            --expected-revision "$POCKETPC_RELEASE_SOURCE_SHA"
+
       - name: Decide whether publishing is possible
         id: gate
         env:

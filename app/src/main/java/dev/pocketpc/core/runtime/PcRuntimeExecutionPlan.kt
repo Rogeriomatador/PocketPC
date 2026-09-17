@@ -1,9 +1,37 @@
 package dev.pocketpc.core.runtime
 
+enum class PcApplicationGraphicsProfile {
+    WINDOWED_GDI,
+    D3D_DXVK,
+    ;
+
+    companion object {
+        /**
+         * Keep arbitrary Windows targets fail-closed behind the full D3D/DXVK
+         * path. Only the explicitly staged WinRAR validation target may use the
+         * earlier GDI/window-driver path before Vulkan WSI is production-ready.
+         */
+        fun forFileName(fileName: String): PcApplicationGraphicsProfile {
+            val normalized =
+                fileName.trim().lowercase()
+            return if (
+                normalized.startsWith("winrar") &&
+                normalized.endsWith(".exe")
+            ) {
+                WINDOWED_GDI
+            } else {
+                D3D_DXVK
+            }
+        }
+    }
+}
+
 data class PcApplicationTarget(
     val uri: String,
     val fileName: String,
     val sizeBytes: Long,
+    val graphicsProfile: PcApplicationGraphicsProfile =
+        PcApplicationGraphicsProfile.forFileName(fileName),
 )
 
 enum class PcRuntimeExecutionGateState {
@@ -24,6 +52,7 @@ data class PcRuntimeExecutionPlan(
     val gates: List<PcRuntimeExecutionGate>,
     val launchEligible: Boolean,
     val nextAction: String,
+    val attemptEligible: Boolean = false,
 )
 
 object PcRuntimeExecutionPlanner {
@@ -77,28 +106,56 @@ object PcRuntimeExecutionPlanner {
 
         val gates =
             runtimeGates + applicationGate
+        /*
+         * An application cannot become integration-validated before its first
+         * controlled run. GDI validation targets only need the windowed Wine
+         * path; arbitrary/D3D targets retain the stricter graphics gate.
+         */
+        val attemptEligible =
+            when (target.graphicsProfile) {
+                PcApplicationGraphicsProfile.WINDOWED_GDI ->
+                    readiness.windowedAttemptReady
+                PcApplicationGraphicsProfile.D3D_DXVK ->
+                    readiness.graphicsAttemptReady
+            }
         val launchEligible =
-            readiness.executableReady &&
-                compatibility.runtimeReady &&
+            attemptEligible &&
                 compatibility.applicationValidated
 
         val firstPending =
             gates.firstOrNull {
                 it.state !=
-                    PcRuntimeExecutionGateState.READY
+                    PcRuntimeExecutionGateState.READY &&
+                    !(
+                        target.graphicsProfile ==
+                            PcApplicationGraphicsProfile.WINDOWED_GDI &&
+                            it.id == "graphics-bridge"
+                        )
             }
 
         return PcRuntimeExecutionPlan(
             target = target,
             gates = gates,
+            attemptEligible =
+                attemptEligible,
             launchEligible = launchEligible,
             nextAction =
-                if (firstPending == null) {
-                    "Todos os gates estão READY. O próximo passo " +
-                        "é uma tentativa de execução registrada."
-                } else {
-                    "Próximo gate: ${firstPending.label}. " +
-                        firstPending.detail
+                when {
+                    attemptEligible &&
+                        !compatibility
+                            .applicationValidated ->
+                        "Runtime base READY para uma tentativa " +
+                            "controlada e registrada. A integração " +
+                            "do aplicativo continua UNVALIDATED " +
+                            "até existir evidência real."
+
+                    firstPending == null ->
+                        "Todos os gates exigidos para este perfil estão READY. " +
+                            "O próximo passo é uma execução validada registrada."
+
+                    else ->
+                        "Próximo gate: ${firstPending.label}. " +
+                            firstPending.detail
                 },
         )
     }

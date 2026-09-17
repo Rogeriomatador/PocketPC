@@ -1,0 +1,453 @@
+{
+  "schemaVersion": 1,
+  "status": "PROTOCOL_V4_SURFACE_QUALIFIED_ACK_IMPLEMENTED_NOT_INTEGRATION_TESTED",
+  "wire": {
+    "magicHex": "0x31424450",
+    "magicAsciiLittleEndian": "PDB1",
+    "version": 4,
+    "headerBytes": 20,
+    "maxPayloadBytes": 1048576,
+    "byteOrder": "little-endian"
+  },
+  "hello": {
+    "typeId": 1,
+    "ackTypeId": 2,
+    "sequence": 0,
+    "tokenBytes": 32,
+    "runtimeIdentityAsciiBytes": 64,
+    "capabilitiesBytes": 4,
+    "payloadBytes": 100,
+    "ackPayloadBytes": 4
+  },
+  "messageTypes": {
+    "HELLO": 1,
+    "HELLO_ACK": 2,
+    "WINDOW_CREATE": 10,
+    "WINDOW_GEOMETRY": 11,
+    "WINDOW_DESTROY": 12,
+    "SURFACE_AVAILABLE": 20,
+    "POINTER_EVENT": 30,
+    "KEY_EVENT": 31,
+    "GAMEPAD_EVENT": 32,
+    "FRAME_PRESENTED": 40,
+    "ERROR": 255,
+    "FRAME_READY": 21,
+    "SURFACE_REQUEST": 19,
+    "WINDOW_COMMAND": 13
+  },
+  "capabilities": {
+    "WINDOW_SURFACE": 1,
+    "POINTER": 2,
+    "KEYBOARD": 4,
+    "GAMEPAD": 8,
+    "FRAME_ACK": 16,
+    "HOST_BASELINE": 23,
+    "GUEST_IMPLEMENTED": 23,
+    "GUEST_REQUIRED": 23
+  },
+  "evidence": {
+    "hostImplementation": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeProtocol.kt",
+    "hostBroker": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeHost.kt",
+    "sessionAuth": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayBridgeSession.kt",
+    "x8664ClientBuilder": "scripts/build-box64-aarch64.py",
+    "hostSurfaceRegistry": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySurfaceRegistry.kt",
+    "hostProcessor": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayHostProcessor.kt",
+    "frameReader": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayFrameReader.kt",
+    "compositorModel": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplayCompositorModel.kt",
+    "sessionController": "app/src/main/java/dev/pocketpc/core/runtime/RuntimeDisplaySessionController.kt",
+    "composePreview": "app/src/main/java/dev/pocketpc/core/ui/RuntimeDisplayFramePreview.kt"
+  },
+  "gates": {
+    "x8664ClientBuilt": false,
+    "guestHandshakeExecuted": false,
+    "surfaceRoundTrip": false,
+    "pointerRoundTrip": false,
+    "keyboardRoundTrip": false,
+    "wineDriverBuilt": false,
+    "surfaceWriterNativeSoftwareTestExecuted": false,
+    "hostSurfaceRegistryImplemented": true,
+    "hostSurfaceRegistrySoftwareTestExecuted": false,
+    "singleBufferOwnershipAckImplemented": true,
+    "doubleBufferingImplemented": false,
+    "surfaceVisibilityCrossProcessSoftwareTestExecuted": false,
+    "hostProcessorImplemented": true,
+    "frameReaderImplemented": true,
+    "compositorModelImplemented": true,
+    "continuousSessionControllerImplemented": true,
+    "composePreviewImplemented": true,
+    "hostProcessorSoftwareTestExecuted": false,
+    "frameReaderSoftwareTestExecuted": false,
+    "compositorModelSoftwareTestExecuted": false,
+    "sessionControllerSoftwareTestExecuted": false,
+    "composePreviewDeviceTestExecuted": false,
+    "windowCommandProtocolImplemented": true,
+    "windowCommandWineDispatchImplemented": true,
+    "windowCommandSoftwareTestExecuted": false,
+    "asyncFrameAckDrainImplemented": true,
+    "singleBufferAsyncOwnershipImplemented": true,
+    "androidToWin32KeyMappingImplemented": true,
+    "androidToWin32KeyMappingSoftwareTestExecuted": false,
+    "protocolV4NativeIntegrationExecuted": false,
+    "processEventsMaskPreservationImplemented": true,
+    "processEventsMaskPreservationSoftwareTestExecuted": false,
+    "frameFailureFailClosedImplemented": true,
+    "frameFailureFailClosedSoftwareTestExecuted": false,
+    "windowLifecyclePostSendFailClosedImplemented": true,
+    "windowLifecyclePostSendFailClosedSoftwareTestExecuted": false,
+    "bridgeReadySynchronizationImplemented": true,
+    "bridgeReadySynchronizationSoftwareTestExecuted": false,
+    "frameAckControlPlaneDrainImplemented": true,
+    "frameAckControlPlaneDrainSoftwareTestExecuted": false,
+    "surfaceRegistryPublishFailClosedImplemented": true,
+    "surfaceRegistryPublishFailClosedSoftwareTestExecuted": false,
+    "authTimeoutScopedToHandshakeImplemented": true,
+    "authTimeoutScopedToHandshakeSoftwareTestExecuted": false,
+    "guestCapabilityBaselineNegotiationImplemented": true,
+    "guestCapabilityBaselineNegotiationSoftwareTestExecuted": false,
+    "controlledWindowsAttemptPlanningImplemented": true,
+    "controlledWindowsAttemptPlanningSoftwareTestExecuted": false,
+    "pcTargetMaterializationImplemented": true,
+    "pcTargetMaterializationSoftwareTestExecuted": false,
+    "runtimeEvidenceIdentityCoherenceImplemented": true,
+    "runtimeEvidenceIdentityCoherenceSoftwareTestExecuted": false,
+    "continuousAppDesktopBridgeImplemented": true,
+    "continuousAppDesktopBridgeSoftwareTestExecuted": false,
+    "dxvkLaunchOverrideImplemented": true,
+    "dxvkLaunchOverrideSoftwareTestExecuted": false,
+    "winePocketPcWindowProbeBrokerImplemented": true,
+    "winePocketPcWindowProbeBrokerSoftwareTestExecuted": false,
+    "winePocketPcWindowEvidenceImplemented": true,
+    "winePocketPcWindowEvidenceSoftwareTestExecuted": false,
+    "wineGraphicsDriverSelectionImplemented": true,
+    "wineGraphicsDriverSelectionSoftwareTestExecuted": false,
+    "wineDriverAbiLockImplemented": true,
+    "wineDriverAbiLockSoftwareTestExecuted": false,
+    "wineGraphicsConfigurationIsolationImplemented": true,
+    "wineGraphicsConfigurationIsolationSoftwareTestExecuted": false,
+    "wineProcessWindowNamespaceImplemented": true,
+    "wineProcessWindowNamespaceSoftwareTestExecuted": false,
+    "multiPeerDesktopRoutingImplemented": true,
+    "multiPeerDesktopRoutingSoftwareTestExecuted": false,
+    "multiPeerDisplayExecutionImplemented": true,
+    "multiPeerDisplayExecutionSoftwareTestExecuted": false,
+    "wineLauncherChildDisplayHandoffImplemented": true,
+    "wineLauncherChildDisplayHandoffSoftwareTestExecuted": false,
+    "processFamilySupervisionImplemented": true,
+    "processFamilySupervisionSoftwareTestExecuted": false,
+    "displayPeerProcessFamilyAssociationImplemented": true,
+    "displayPeerProcessFamilyAssociationSoftwareTestExecuted": false,
+    "taskManagerProcessFamilyUiImplemented": true,
+    "taskManagerProcessFamilyUiSoftwareTestExecuted": false,
+    "taskManagerIndividualProcessControlImplemented": true,
+    "taskManagerIndividualProcessControlSoftwareTestExecuted": false,
+    "vulkanWsiImplemented": false,
+    "vulkanWsiSoftwareTestExecuted": false,
+    "vulkanWsiPhysicalTestExecuted": false,
+    "d3d11PresentProbeFailClosedImplemented": true,
+    "d3d11PresentProbeSoftwareTestExecuted": false
+  },
+  "direction": {
+    "HELLO": "guest-to-host",
+    "HELLO_ACK": "host-to-guest",
+    "WINDOW_CREATE": "guest-to-host",
+    "WINDOW_GEOMETRY": "guest-to-host",
+    "WINDOW_DESTROY": "guest-to-host",
+    "SURFACE_AVAILABLE": "host-to-guest",
+    "POINTER_EVENT": "host-to-guest",
+    "KEY_EVENT": "host-to-guest",
+    "GAMEPAD_EVENT": "host-to-guest",
+    "FRAME_PRESENTED": "host-to-guest",
+    "ERROR": "bidirectional",
+    "FRAME_READY": "guest-to-host",
+    "SURFACE_REQUEST": "guest-to-host",
+    "WINDOW_COMMAND": "host-to-guest"
+  },
+  "payloadLayouts": {
+    "WINDOW_CREATE": {
+      "bytes": 28,
+      "fields": [
+        "windowId:u64",
+        "parentId:u64",
+        "flags:u32",
+        "width:i32",
+        "height:i32"
+      ]
+    },
+    "WINDOW_GEOMETRY": {
+      "bytes": 40,
+      "fields": [
+        "windowId:u64",
+        "x:i32",
+        "y:i32",
+        "width:i32",
+        "height:i32",
+        "visible:u32",
+        "zOrderFlags:u32",
+        "insertAfterWindowId:u64"
+      ]
+    },
+    "WINDOW_DESTROY": {
+      "bytes": 8,
+      "fields": [
+        "windowId:u64"
+      ]
+    },
+    "POINTER_EVENT": {
+      "bytes": 32,
+      "fields": [
+        "windowId:u64",
+        "action:u32",
+        "x:i32",
+        "y:i32",
+        "buttons:u32",
+        "verticalScroll:i32",
+        "modifiers:u32"
+      ]
+    },
+    "KEY_EVENT": {
+      "bytes": 28,
+      "fields": [
+        "windowId:u64",
+        "action:u32",
+        "keyCode:u32",
+        "scanCode:u32",
+        "modifiers:u32",
+        "repeatCount:u32"
+      ]
+    },
+    "FRAME_PRESENTED": {
+      "bytes": 36,
+      "fields": [
+        "windowId:u64",
+        "surfaceId:u64",
+        "generation:u64",
+        "frameId:u64",
+        "status:u32"
+      ]
+    },
+    "SURFACE_AVAILABLE": {
+      "bytes": 56,
+      "fields": [
+        "windowId:u64",
+        "surfaceId:u64",
+        "generation:u64",
+        "width:i32",
+        "height:i32",
+        "strideBytes:i32",
+        "pixelFormat:u32",
+        "token:bytes16"
+      ]
+    },
+    "FRAME_READY": {
+      "bytes": 32,
+      "fields": [
+        "windowId:u64",
+        "surfaceId:u64",
+        "generation:u64",
+        "frameId:u64"
+      ]
+    },
+    "SURFACE_REQUEST": {
+      "bytes": 32,
+      "fields": [
+        "windowId:u64",
+        "generation:u64",
+        "width:i32",
+        "height:i32",
+        "pixelFormat:u32",
+        "flags:u32"
+      ]
+    },
+    "WINDOW_COMMAND": {
+      "bytes": 16,
+      "fields": [
+        "windowId:u64",
+        "command:u32",
+        "flags:u32"
+      ]
+    }
+  },
+  "sharedFramebuffer": {
+    "pixelFormat": "BGRA8888",
+    "pixelFormatId": 1,
+    "guestPathTemplate": "/tmp/.pocketpc-surface-<tokenHex>.bgra",
+    "tokenBytes": 16,
+    "smokeWidth": 64,
+    "smokeHeight": 64,
+    "smokePattern": "B=x&255,G=y&255,R=(x xor y)&255,A=255",
+    "transport": "host temp file bound into guest /tmp",
+    "productionReplacement": "AHardwareBuffer/Vulkan after shared-framebuffer integration evidence",
+    "requestOrdering": "WINDOW_CREATE -> SURFACE_REQUEST -> SURFACE_AVAILABLE -> WINDOW_GEOMETRY -> FRAME_READY",
+    "generationRule": "guest generation must strictly increase per window; FRAME_READY must match latest requested generation",
+    "hostCurrentMaxDimension": 4096,
+    "hostCurrentMaxBytes": 67108864,
+    "coherence": "MAP_SHARED page-cache visibility ordered by FRAME_READY; no per-frame MS_SYNC",
+    "frameRule": "frameId must strictly increase for the active windowId/surfaceId/generation",
+    "resizeRule": "new backing surface is allocated before the previous backing file is released",
+    "ownershipRule": "single buffer: at most one FRAME_READY may be in flight per active Wine surface; guest must not modify backing bytes until matching FRAME_PRESENTED releases ownership",
+    "frameAckDemux": "FRAME_PRESENTED is drained asynchronously by pProcessEvents or by the bounded SURFACE_AVAILABLE transaction demux. pProcessEvents may consume socket input that does not match the current Wine queue mask, but preserves pointer/key events in a bounded queue instead of dropping them, allowing FRAME_PRESENTED behind them to release the exact in-flight windowId/surfaceId/generation/frameId.",
+    "buffering": "single-buffer-v4-async-exact-ack; double/triple buffering not implemented",
+    "hostAckPoint": "successful frame bytes are copied to host ARGB memory before FRAME_PRESENTED(status=0)",
+    "coalescingRule": "if Wine flushes while a frame is still in flight, the driver leaves the shared mmap untouched and returns FALSE so win32u retains dirty bounds; the normal Wine flush/idle path retries after the matching surface-qualified FRAME_PRESENTED releases ownership",
+    "frameAckIdentityRule": "FRAME_PRESENTED must exactly match windowId, surfaceId, generation and frameId of the in-flight FRAME_READY",
+    "lateAckRule": "ACK from a replaced/destroyed surface cannot release ownership of a newer surface even when frameId is reused",
+    "inputMaskRule": "Pointer/key events received while the current pProcessEvents mask excludes them are retained in the bounded host-event queue. Eligible events may be selected past deferred events, matching Wine queue-mask semantics; queue overflow or an unexpected transaction event fails the bridge closed.",
+    "frameFailureRule": "FRAME_PRESENTED with non-zero status, wrong active identity or wrong in-flight frame is fatal for the current bridge session; the guest closes the transport instead of silently releasing ownership and continuing.",
+    "bridgeReadinessRule": "Bridge readiness is read through the driver mutex and requires both pocketpc_bridge_ready and a non-negative transport fd. Callbacks re-check readiness under the mutex immediately before IPC.",
+    "frameAckMaskRule": "FRAME_PRESENTED is control-plane ownership traffic and remains eligible for pProcessEvents under every Wine queue mask. Pointer/key/window-command events that are not eligible for the current mask are retained in the bounded host-event queue.",
+    "surfacePublishFailureRule": "After SURFACE_AVAILABLE has been accepted, failure to publish the corresponding guest surface registry entry is fatal to the current bridge session because host and guest would disagree about the active surface generation."
+  },
+  "zOrder": {
+    "model": "single-choice flags",
+    "flags": {
+      "NO_CHANGE": 1,
+      "TOP": 2,
+      "BOTTOM": 4,
+      "TOPMOST": 8,
+      "NOTOPMOST": 16,
+      "AFTER_WINDOW": 32
+    },
+    "rules": [
+      "exactly one flag must be set",
+      "AFTER_WINDOW requires non-zero insertAfterWindowId different from windowId",
+      "all other flags require insertAfterWindowId=0"
+    ],
+    "wineBinding": {
+      "sourceCommit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+      "sourceDriver": "dlls/wineandroid.drv",
+      "referenceCallbacks": [
+        "pCreateWindow",
+        "pDestroyWindow",
+        "pWindowPosChanging",
+        "pCreateWindowSurface",
+        "pWindowPosChanged"
+      ],
+      "reusePolicy": "signature/behavior reference only; do not reuse wineandroid.drv binary or Java/JNI ABI"
+    },
+    "postSendFailureRule": "After WINDOW_CREATE/WINDOW_GEOMETRY/WINDOW_DESTROY is successfully sent, any failure to record the corresponding local lifecycle transition invalidates the bridge connection. Pre-send local validation failures do not tear down the session."
+  },
+  "inputSemantics": {
+    "pointer": {
+      "actions": {
+        "MOVE": 0,
+        "DOWN": 1,
+        "UP": 2,
+        "SCROLL": 3
+      },
+      "buttons": {
+        "PRIMARY": 1,
+        "SECONDARY": 2,
+        "MIDDLE": 4
+      },
+      "coordinates": "window-relative integer pixels",
+      "verticalScroll": "Windows WHEEL_DELTA units; zero unless action=SCROLL",
+      "modifiers": "bitmask from inputSemantics.modifiers; unknown bits invalid"
+    },
+    "keyboard": {
+      "actions": {
+        "DOWN": 1,
+        "UP": 2,
+        "REPEAT": 3
+      },
+      "keyCode": "Win32 virtual-key code",
+      "scanCode": "Win32 scan code; bit 0x100 marks extended key",
+      "repeatCount": "0 means one event for DOWN/UP; REPEAT uses max(1, repeatCount)",
+      "modifiers": "bitmask from inputSemantics.modifiers; unknown bits invalid"
+    },
+    "modifiers": {
+      "SHIFT": 1,
+      "CONTROL": 2,
+      "ALT": 4,
+      "META": 8
+    }
+  },
+  "windowCommands": {
+    "commands": {
+      "ACTIVATE": 1,
+      "MINIMIZE": 2,
+      "RESTORE": 3,
+      "MAXIMIZE": 4,
+      "CLOSE": 5
+    },
+    "flags": "must be 0",
+    "wineBinding": {
+      "ACTIVATE": "NtUserShowWindow(SW_RESTORE) + NtUserSetForegroundWindow",
+      "MINIMIZE": "NtUserShowWindow(SW_MINIMIZE)",
+      "RESTORE": "NtUserShowWindow(SW_RESTORE)",
+      "MAXIMIZE": "NtUserShowWindow(SW_MAXIMIZE)",
+      "CLOSE": "NtUserPostMessage(WM_CLOSE)"
+    },
+    "transactionRule": "commands may be queued while SURFACE_AVAILABLE/FRAME_PRESENTED transactions are pending"
+  },
+  "transport": {
+    "authenticationReadTimeout": "bounded during unauthenticated HELLO/HELLO_ACK only",
+    "establishedSessionReadTimeout": "disabled (blocking read); established desktop idleness must not terminate the bridge",
+    "capabilityNegotiation": "guest HELLO advertises only host-offered capabilities that are implemented by the guest; production authentication requires WINDOW_SURFACE|POINTER|KEYBOARD|FRAME_ACK and rejects incomplete baselines"
+  },
+  "controlledWindowsAttempt": {
+    "status": "IMPLEMENTED_BUT_DXVK_APP_ATTEMPT_BLOCKED_BY_VULKAN_WSI",
+    "targetMaterialization": "content:// SAF target is copied into /home/pocket/windows-targets through a verified host file, SHA-256 named, bounded and no-follow checked",
+    "executionChain": "phase 1: PRoot -> fixed /bin/sh positional exec -> Box64/Wine reg.exe add Graphics=pocketpc without Display Bridge; phase 2 only after exit=0: authenticated Display Bridge -> PRoot -> fixed /bin/sh positional exec -> Box64/Wine -> materialized EXE/MSI",
+    "shellSafety": "dynamic Box64/Wine/target values are positional arguments and are never interpolated into shell source",
+    "evidenceRule": "all required smoke evidence must come from one runtime/tool/layer identity; application compatibility remains UNVALIDATED after a mere attempt",
+    "desktopRule": "continuous RuntimeDisplaySessionController publishes compositor windows through RuntimeDesktopBridge",
+    "graphicsRoute": "DXVK device creation is a separate capability from Vulkan WSI presentation. Controlled DXVK app execution is fail-closed with VULKAN_WSI_NOT_IMPLEMENTED until winepocketpc.drv exposes a real pVulkanInit backend and a Present round-trip is proven.",
+    "wineDriverGate": "attempt remains blocked until WINE_POCKETPC_WINDOW_SMOKE records an identity-bound round trip proving winepocketpc.drv window creation, GDI pixels, pointer/key input and window destruction through the Android broker",
+    "evidenceNamespace": "runtime-probe-evidence-v9; v8 Present evidence is intentionally invalidated because it did not prove Wine Vulkan WSI",
+    "graphicsDriverSelection": "graphics configuration has its own ProotInvocationPlan and must pass before RuntimeDisplayExecutionController starts, preventing a configuration utility from authenticating as the application display peer",
+    "graphicsDriverEvidence": "WINE_POCKETPC_WINDOW_SMOKE evidence is recorded only when output includes wine_graphics_driver_config=pocketpc and the identity-bound window/frame/input round trip passes"
+  },
+  "wineDriverAbiLock": {
+    "status": "STATICALLY_REVIEWED_NOT_COMPILED",
+    "wineVersion": "11.0",
+    "wineCommit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+    "checkedContracts": [
+      "user_driver_funcs callback signatures",
+      "window_surface_funcs signatures",
+      "__wine_set_user_driver + WINE_GDI_DRIVER_VERSION",
+      "NtUserSendHardwareInput signature",
+      "PE dllmain versus #pragma makedep unix source classification"
+    ]
+  },
+  "multiProcessDisplay": {
+    "status": "IMPLEMENTED_STATICALLY_NOT_EXECUTED",
+    "windowIdentity": "guest windowId = (positive 31-bit Linux PID namespace << 32) | monotonic 32-bit local window counter",
+    "peerLimit": 16,
+    "desktopRouting": "RuntimeDesktopBridge keeps concurrent bindings, maps every windowId to one owning binding, and routes window commands, pointer events and keyboard events to that owner",
+    "sessionLifecycle": "RuntimeDisplayExecutionController requires the first authenticated peer, then continues accepting authenticated peers until the launched PRoot/Wine session exits",
+    "zOrderMerge": "per-peer compositor order is merged; topmost windows stay above non-topmost windows and global zIndex is reassigned",
+    "evidence": "source/unit/native smoke prepared; CI/physical execution remains false until a runner/device executes it",
+    "launcherChildHandoff": "if the supervised root/launcher exits before a first graphical peer, wait up to 5000 ms for a child peer; after authentication keep the host alive while any peer session remains active, then require 5000 ms of peer quiescence before teardown",
+    "rootProcessLimitation": "family supervision is now implemented statically, but no Android physical execution has yet proven /proc discovery, signals, launcher handoff or orphan cleanup",
+    "processFamilySupervision": {
+      "status": "IMPLEMENTED_STATICALLY_NOT_EXECUTED",
+      "discovery": "scan /proc while the supervised root is alive; retain PID+startTimeTicks identities and recursively discover descendants",
+      "pidReuseSafety": "a member is acted on only when its current /proc startTimeTicks still matches the observed identity",
+      "launcherExit": "retain an empty family for 5000 ms after root exit so a child PID embedded in a namespaced windowId can attach during display handoff",
+      "displayAssociation": "windowId high 32 bits carry the positive Wine PID namespace; authenticated display windows associate that PID with the active supervised family",
+      "termination": "signal descendants deepest-first with SIGTERM/SIGKILL and terminate the registered root last",
+      "taskManager": "show family process count, aggregate RSS/threads, family PIDs and family-wide terminate controls",
+      "individualControl": "Task Manager exposes observed non-root members with command name, PID, RSS and thread count; terminateMember validates current PID+startTimeTicks and family membership before SIGTERM/SIGKILL"
+    }
+  },
+  "vulkanWsi": {
+    "status": "NOT_IMPLEMENTED",
+    "wineVersion": "11.0",
+    "wineCommit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+    "wineVulkanDriverVersion": 47,
+    "wineEntryPoint": "user_driver_funcs.pVulkanInit",
+    "requiredDriverCallbacks": [
+      "p_vulkan_surface_create",
+      "p_get_physical_device_presentation_support",
+      "p_map_instance_extensions",
+      "p_map_device_extensions"
+    ],
+    "currentPocketPcDriver": "winepocketpc.drv has GDI/shared-framebuffer window_surface support but no pVulkanInit implementation",
+    "pinnedWineAndroidFinding": "wineandroid.drv in the pinned Wine 11 source exposes pOpenGLInit but not pVulkanInit; reusing it would not supply DXVK Vulkan WSI",
+    "correctnessRule": "GDI window_surface.flush must never be treated as proof that a DXGI/Vulkan swapchain was presented",
+    "presentProbeRule": "D3D11_PRESENT_SMOKE remains structurally blocked with VULKAN_WSI_NOT_IMPLEMENTED and is excluded from the runnable full diagnostic suite until a real WSI backend is implemented",
+    "evidenceNamespace": "runtime-probe-evidence-v9",
+    "softwareTestExecuted": false,
+    "physicalTestExecuted": false
+  }
+}

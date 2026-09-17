@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -32,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +58,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun WallpaperEditorDialog(
     uri: String,
@@ -64,9 +69,10 @@ internal fun WallpaperEditorDialog(
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    var transform by remember(
+    var transform by rememberSaveable(
         uri,
         initialTransform,
+        stateSaver = WallpaperTransform.Saver,
     ) {
         mutableStateOf(
             initialTransform.sanitized()
@@ -122,10 +128,9 @@ internal fun WallpaperEditorDialog(
                     minOf(
                         maxWidth,
                         widthFromHeight,
-                    ).coerceAtLeast(180.dp)
+                    ).coerceAtLeast(1.dp)
                 val previewHeight =
                     (previewWidth / screenAspect)
-                        .coerceAtLeast(120.dp)
 
                 Column(
                     modifier = Modifier.verticalScroll(
@@ -173,7 +178,6 @@ internal fun WallpaperEditorDialog(
                                 .pointerInput(
                                     bitmap,
                                     transform.fitMode,
-                                    transform.zoom,
                                 ) {
                                     detectTransformGestures {
                                             _,
@@ -282,8 +286,7 @@ internal fun WallpaperEditorDialog(
                                         .align(
                                             Alignment.Center
                                         )
-                                        .width(renderedWidth)
-                                        .height(renderedHeight)
+                                        .requiredSize(renderedWidth, renderedHeight)
                                         .offset {
                                             IntOffset(
                                                 (
@@ -365,7 +368,7 @@ internal fun WallpaperEditorDialog(
                         valueRange = 1f..3f,
                     )
 
-                    Row(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement =
                             Arrangement.spacedBy(8.dp),
@@ -379,13 +382,13 @@ internal fun WallpaperEditorDialog(
                                         offsetY = 0f,
                                     )
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.heightIn(min = 48.dp),
                         ) {
                             Text("Centralizar")
                         }
                         OutlinedButton(
                             onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.heightIn(min = 48.dp),
                         ) {
                             Text("Cancelar")
                         }
@@ -396,7 +399,7 @@ internal fun WallpaperEditorDialog(
                                 )
                             },
                             enabled = bitmap != null,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.heightIn(min = 48.dp),
                         ) {
                             Text("Aplicar")
                         }

@@ -24,7 +24,7 @@ import java.net.URL
 import java.security.MessageDigest
 
 private const val UPDATE_FEED_URL =
-    "https://raw.githubusercontent.com/Rogeriomatador/PocketPC/main/updates/stable.json"
+    "https://raw.githubusercontent.com/Rogeriomatador/PocketPC-Updates/main/latest.json"
 
 data class PocketPcUpdateManifest(
     val schemaVersion: Int,
@@ -48,6 +48,7 @@ data class PocketPcUpdateCheck(
 data class PocketPcUpdateDownload(
     val id: Long,
     val status: Int,
+    val reason: Int,
     val bytesDownloaded: Long,
     val totalBytes: Long,
     val localFile: File,
@@ -260,6 +261,22 @@ class PocketPcUpdater(
         prefs.getLong(KEY_DOWNLOAD_ID, -1L)
             .takeIf { it >= 0L }
 
+    fun cancelPendingDownload(): Boolean {
+        val id = pendingDownloadId()
+        val removed =
+            if (id != null) {
+                val manager =
+                    appContext.getSystemService(
+                        Context.DOWNLOAD_SERVICE
+                    ) as DownloadManager
+                manager.remove(id) > 0
+            } else {
+                false
+            }
+        clearPendingDownload()
+        return removed
+    }
+
     fun clearPendingDownload() {
         prefs.edit()
             .remove(KEY_DOWNLOAD_ID)
@@ -402,6 +419,12 @@ class PocketPcUpdater(
                         DownloadManager.COLUMN_STATUS
                     )
                 )
+            val reason =
+                it.getInt(
+                    it.getColumnIndexOrThrow(
+                        DownloadManager.COLUMN_REASON
+                    )
+                )
             val downloaded =
                 it.getLong(
                     it.getColumnIndexOrThrow(
@@ -428,6 +451,7 @@ class PocketPcUpdater(
             return PocketPcUpdateDownload(
                 id = id,
                 status = status,
+                reason = reason,
                 bytesDownloaded = downloaded,
                 totalBytes = total,
                 localFile = file,
@@ -1035,6 +1059,55 @@ class PocketPcUpdater(
             64 * 1024
     }
 }
+
+internal fun pocketPcDownloadStatusText(
+    status: Int,
+    reason: Int,
+): String =
+    when (status) {
+        DownloadManager.STATUS_PENDING ->
+            "Aguardando início do download."
+        DownloadManager.STATUS_RUNNING ->
+            "Baixando atualização."
+        DownloadManager.STATUS_PAUSED ->
+            when (reason) {
+                DownloadManager.PAUSED_WAITING_TO_RETRY ->
+                    "Download pausado; o Android tentará novamente."
+                DownloadManager.PAUSED_WAITING_FOR_NETWORK ->
+                    "Download aguardando conexão com a internet."
+                DownloadManager.PAUSED_QUEUED_FOR_WIFI ->
+                    "Download aguardando uma rede Wi-Fi."
+                else ->
+                    "Download temporariamente pausado."
+            }
+        DownloadManager.STATUS_SUCCESSFUL ->
+            "Download concluído."
+        DownloadManager.STATUS_FAILED ->
+            when (reason) {
+                DownloadManager.ERROR_INSUFFICIENT_SPACE ->
+                    "Download falhou: armazenamento insuficiente."
+                DownloadManager.ERROR_DEVICE_NOT_FOUND ->
+                    "Download falhou: armazenamento indisponível."
+                DownloadManager.ERROR_CANNOT_RESUME ->
+                    "Download falhou e não pôde continuar; tente novamente."
+                DownloadManager.ERROR_HTTP_DATA_ERROR ->
+                    "Download falhou por erro de conexão HTTP."
+                DownloadManager.ERROR_TOO_MANY_REDIRECTS ->
+                    "Download bloqueado por redirecionamentos excessivos."
+                DownloadManager.ERROR_UNHANDLED_HTTP_CODE ->
+                    "Download falhou: resposta HTTP não suportada."
+                DownloadManager.ERROR_FILE_ALREADY_EXISTS ->
+                    "Download falhou porque o arquivo já existe."
+                DownloadManager.ERROR_FILE_ERROR ->
+                    "Download falhou ao gravar o APK."
+                in 400..599 ->
+                    "Download falhou: servidor respondeu HTTP $reason."
+                else ->
+                    "Download falhou por erro do Android ($reason)."
+            }
+        else ->
+            "Estado de download desconhecido ($status)."
+    }
 
 internal fun shouldAutoInstallUpdate(
     enabled: Boolean,

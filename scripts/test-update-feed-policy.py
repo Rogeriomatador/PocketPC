@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -20,12 +21,16 @@ MAIN_ACTIVITY = ROOT / "app" / "src" / "main" / "java" / "dev" / "pocketpc" / "c
 AUTO_TEST = ROOT / "app" / "src" / "test" / "java" / "dev" / "pocketpc" / "core" / "update" / "PocketPcUpdaterPolicyTest.kt"
 PREPARE = ROOT / "scripts" / "prepare-update-feed.py"
 PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-update.yml"
+HOME_PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-home-test-update.yml"
+HOME_BOOTSTRAP_WINDOWS = ROOT / "scripts" / "bootstrap-home-test-ota-windows.ps1"
+HOME_BOOTSTRAP_AUTO = ROOT / "scripts" / "bootstrap-home-test-ota-windows-auto.ps1"
 BOOTSTRAP_SIGNER = ROOT / "updates" / "bootstrap-signer.json"
 VERIFY_BOOTSTRAP_SIGNER = ROOT / "scripts" / "verify-bootstrap-signer.py"
 TEST_BOOTSTRAP_SIGNER = ROOT / "scripts" / "test-bootstrap-signer-verifier.py"
 BOOTSTRAP_WINDOWS = ROOT / "scripts" / "bootstrap-update-signing-windows.ps1"
 LOCAL_PUBLISHER = ROOT / "scripts" / "publish-update-local-windows.ps1"
 BUILD_GRADLE = ROOT / "app" / "build.gradle.kts"
+PAIRED_V52_POLICY = ROOT / "scripts" / "test-paired-v52-home-test-policy.py"
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 REVISION_RE = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -64,18 +69,12 @@ def main() -> int:
     published = bool(feed.get("published"))
 
     if feed_code > expected_code:
-        failures.append(
-            "stable feed versionCode must not be ahead of the source lock"
-        )
+        failures.append("stable feed versionCode must not be ahead of the source lock")
     elif feed_code == expected_code:
         if feed_version != expected_version:
-            failures.append(
-                "stable feed versionName must match build lock at equal versionCode"
-            )
+            failures.append("stable feed versionName must match build lock at equal versionCode")
     elif not published:
-        failures.append(
-            "an unpublished bootstrap feed must match the current source version"
-        )
+        failures.append("an unpublished bootstrap feed must match the current source version")
 
     min_api = int(feed.get("minApi") or -1)
     if min_api < 26:
@@ -94,9 +93,7 @@ def main() -> int:
             failures.append("published update must pin a 40-hex sourceRevision")
     else:
         if apk_url or apk_sha:
-            failures.append(
-                "unpublished bootstrap feed must not expose APK URL/hash"
-            )
+            failures.append("unpublished bootstrap feed must not expose APK URL/hash")
 
     try:
         bootstrap_signer = json.loads(load_text(BOOTSTRAP_SIGNER))
@@ -109,17 +106,13 @@ def main() -> int:
     if bootstrap_signer.get("packageName") != expected_package:
         failures.append("bootstrap signer packageName must match build lock")
 
-    allowed_signers = bootstrap_signer.get(
-        "allowedSigningCertificateSha256"
-    )
+    allowed_signers = bootstrap_signer.get("allowedSigningCertificateSha256")
     if not isinstance(allowed_signers, list) or not allowed_signers:
         failures.append("bootstrap signer allow-list must be non-empty")
     else:
         for signer in allowed_signers:
             if not SHA256_RE.fullmatch(str(signer)):
-                failures.append(
-                    "bootstrap signer allow-list contains invalid SHA-256"
-                )
+                failures.append("bootstrap signer allow-list contains invalid SHA-256")
 
     required = {
         MANIFEST: (
@@ -133,7 +126,7 @@ def main() -> int:
             "pocketPcSourceRevisionPinned",
         ),
         UPDATER: (
-            "raw.githubusercontent.com/Rogeriomatador/PocketPC/main/updates/stable.json",
+            "raw.githubusercontent.com/Rogeriomatador/PocketPC-Updates/main/latest.json",
             'manifest.apkUrl.startsWith("https://")',
             "SHA-256 do APK não confere.",
             "archiveInfo.packageName",
@@ -202,9 +195,9 @@ def main() -> int:
             "6,",
             "TimeUnit.HOURS",
             "PocketPcUpdateScheduler",
-            "shouldAutoInstallUpdate",
             "verifyPendingDownload",
             "beginDownload",
+            "foreground PocketPC UI owns",
         ),
         AUTO_TEST: (
             "firstAutomaticCheckRunsImmediately",
@@ -232,10 +225,16 @@ def main() -> int:
             "UPDATE_FEED_PREPARED",
             "UNPUBLISHED_FAIL_CLOSED",
             "hashlib.sha256",
-            "apk URL must be an absolute HTTPS URL",
+            "artifact URL must be an absolute HTTPS URL",
             "source revision must be exactly 40 hexadecimal characters",
             "--publish",
             '"published": bool(args.publish)',
+        ),
+        PAIRED_V52_POLICY: (
+            "POCKETPC_PAIRED_V52_HOME_TEST_POLICY_OK",
+            "PAIRED_IN_APP_OFFER_IMPLEMENTED=1",
+            "INSTALL_IDENTITY_REVALIDATION_IMPLEMENTED=1",
+            "NORMAL_OTA_REMAINS_APK_ONLY=1",
         ),
         BUILD_GRADLE: (
             'androidx.work:work-runtime:2.11.2',
@@ -298,6 +297,37 @@ def main() -> int:
             "updates/stable.json",
             "HEAD:main",
         ),
+        HOME_PUBLISH_WORKFLOW: (
+            "PocketPC Home Test OTA",
+            "improve/alpha22-desktop-continuity",
+            "Rogeriomatador/PocketPC-Updates",
+            "POCKETPC_OTA_PUBLISH_TOKEN",
+            "POCKETPC_VERSION_CODE",
+            "POCKETPC_VERSION_NAME",
+            ":app:testDebugUnitTest",
+            ":app:assembleRelease",
+            "prepare-update-feed.py",
+            "--channel development",
+            "latest.json",
+        ),
+        HOME_BOOTSTRAP_WINDOWS: (
+            "Rogeriomatador/PocketPC-Updates",
+            "improve/alpha22-desktop-continuity",
+            "POCKETPC_OTA_PUBLISH_TOKEN",
+            "POCKETPC_VERSION_CODE",
+            "POCKETPC_VERSION_NAME",
+            ":app:testDebugUnitTest",
+            ":app:assembleRelease",
+            "prepare-update-feed.py",
+            '"development"',
+            "latest.json",
+            'adb @("install", "-r", $namedApk)',
+        ),
+        HOME_BOOTSTRAP_AUTO: (
+            "bootstrap-home-test-ota-windows.ps1",
+            "GitHub CLI: READY",
+            "gh auth login",
+        ),
         PUBLISH_WORKFLOW: (
             "PUBLISH_UPDATE_BLOCKED_SIGNING_NOT_CONFIGURED",
             "PUBLISH_UPDATE_READY_NEWER_VERSION",
@@ -327,9 +357,18 @@ def main() -> int:
 
         for sentinel in sentinels:
             if sentinel not in text:
-                failures.append(
-                    f"{path.relative_to(ROOT)} missing sentinel: {sentinel}"
-                )
+                failures.append(f"{path.relative_to(ROOT)} missing sentinel: {sentinel}")
+
+    paired_policy = subprocess.run(
+        [sys.executable, str(PAIRED_V52_POLICY)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if paired_policy.returncode != 0:
+        detail = (paired_policy.stderr or paired_policy.stdout).strip()
+        failures.append("paired v52 policy failed: " + detail)
 
     if failures:
         print("UPDATE_FEED_POLICY_FAILED", file=sys.stderr)

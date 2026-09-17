@@ -56,7 +56,7 @@ def main() -> int:
 
     if record.get("schemaVersion") != 1:
         failures.append("unsupported schemaVersion")
-    if record.get("classification") != "PHYSICAL_DEVICE_CHAIN_VERIFIED":
+    if record.get("classification") != "PHYSICAL_HOST_SUBSTRATE_READINESS_VERIFIED":
         failures.append("unexpected physical validation classification")
 
     commit = str(record.get("sourceCommit", "")).lower()
@@ -104,6 +104,15 @@ def main() -> int:
         failures.append("runtimeLinkSemanticsReady must be boolean")
     if record.get("nativeHostLoaded") is not True:
         failures.append("nativeHostLoaded is not true")
+    for field in (
+        "prootExecuted",
+        "rootfsExecuted",
+        "box64Executed",
+        "wineExecuted",
+        "winePocketPcWindowExecuted",
+    ):
+        if record.get(field) is not False:
+            failures.append(f"{field} must be false for host-substrate readiness")
 
     if not isinstance(record.get("desktopOrientationLandscape"), bool):
         failures.append("desktopOrientationLandscape must be boolean")

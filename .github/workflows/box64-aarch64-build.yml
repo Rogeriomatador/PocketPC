@@ -1,0 +1,57 @@
+name: Box64 AArch64 Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'third_party/box64/**'
+      - 'scripts/build-box64-aarch64.py'
+      - 'scripts/test-display-bridge-protocol-lock.py'
+      - 'scripts/test-display-bridge-native-integration.py'
+      - 'third_party/wine/POCKETPC_DISPLAY_BRIDGE_PROTOCOL.json'
+      - 'third_party/wine/pocketpc-display-bridge/**'
+      - 'scripts/test-pc-runtime-source-locks.py'
+      - '.github/workflows/box64-aarch64-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install AArch64 cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc libc6-dev gcc-aarch64-linux-gnu binutils cmake make git
+
+      - name: Validate runtime source locks
+        run: python3 scripts/test-pc-runtime-source-locks.py
+
+      - name: Validate display bridge protocol lock
+        run: python3 scripts/test-display-bridge-protocol-lock.py
+
+      - name: Build pinned Box64 for Linux AArch64
+        run: |
+          python3 scripts/build-box64-aarch64.py \
+            --work "$RUNNER_TEMP/pocketpc-box64"
+
+      - name: Retain review evidence and binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Box64-AArch64-review
+          path: |
+            ${{ runner.temp }}/pocketpc-box64/box64-build-evidence.json
+            ${{ runner.temp }}/pocketpc-box64/*.log
+            ${{ runner.temp }}/pocketpc-box64/quarantine/box64
+            ${{ runner.temp }}/pocketpc-box64/guest-package.zip
+            ${{ runner.temp }}/pocketpc-box64/guest-package/guest-tool-manifest.json
+          if-no-files-found: error
+
+      - name: Prove build did not enter runtime tree
+        run: |
+          test -z "$(find app -type f \( -name 'box64' -o -name 'libbox64*.so' \) -print)"
+          git diff --exit-code -- app third_party

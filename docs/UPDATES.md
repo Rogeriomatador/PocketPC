@@ -63,8 +63,9 @@ Implemented in source:
 17. result receiver for success/failure/pending user action;
 18. fallback to Android confirmation when required.
 
-The current Alpha 21 stable feed remains `published=false`. Therefore no remote APK is
-currently advertised to installed devices.
+The production/stable feed remains a separate gated channel. The Alpha 22 Home Test app
+uses the public development feed at
+`PocketPC-Updates/main/latest.json`, which advertises signed prerelease APKs.
 
 ## Signing and release publication
 
@@ -109,14 +110,19 @@ Expected protected secrets:
 
 No private signing key is committed to the repository.
 
-Until a compatible long-lived signing identity is configured:
+Current evidence:
 
 - updater source: IMPLEMENTED;
 - WorkManager scheduling: IMPLEMENTED;
 - PackageInstaller staging: IMPLEMENTED;
-- signed remote release publication: BLOCKED;
-- Alpha 21 software test: NOT_EXECUTED;
-- Alpha 21 physical auto-update: NOT_EXECUTED.
+- compatible Home Test signing identity: CONFIGURED outside the repositories;
+- signed Home Test release publication: SOFTWARE TEST — PASS for published revisions;
+- public feed and immutable asset integration: INTEGRATION TEST — PASS for the validated
+  publication chain;
+- in-app Home Test update to `0.1.0-alpha22.home.1592` on the POCO X7 5G:
+  PHYSICAL TEST — PASS;
+- later revisions do not inherit that physical result and remain NOT_EXECUTED on-device
+  until observed.
 
 ## Current Alpha 20 installation and signing migration
 
@@ -184,6 +190,29 @@ source changes
 ```
 
 No ADB or PowerShell command is intended for routine future updates.
+
+## Alpha 22 Home Test OTA smoke
+
+The Home Test path uses the public `PocketPC-Updates/latest.json` development feed and
+an immutable signed release asset. A successful bootstrap publication/install is only
+the first half of the end-to-end test: the installed phone build and the feed initially
+have the same `versionCode`, so no update should be offered yet.
+
+To prove the steady-state updater, publish a later source revision with a strictly higher
+Alpha 22 monotonic versionCode, then open PocketPC on the phone and validate, in order:
+
+1. the app detects the newer development feed;
+2. the update is surfaced in the UI;
+3. the APK downloads through DownloadManager;
+4. SHA-256, package, version, source revision and signer checks all pass;
+5. PackageInstaller accepts the in-place update;
+6. Android either completes automatically or presents only the platform-required
+   confirmation;
+7. application data remains present after the update.
+
+Those observations were captured for `0.1.0-alpha22.home.1592`, so that exact update
+path is PHYSICAL TEST — PASS. Publication/build evidence alone is still insufficient for
+newer revisions; every later build remains NOT_EXECUTED on-device until observed.
 
 ## Local publisher fallback
 

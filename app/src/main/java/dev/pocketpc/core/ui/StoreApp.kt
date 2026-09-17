@@ -3,6 +3,8 @@ package dev.pocketpc.core.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -66,7 +68,7 @@ fun StoreApp() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement =
             Arrangement.spacedBy(10.dp),
     ) {
@@ -79,7 +81,7 @@ fun StoreApp() {
                 Text(
                     "Loja",
                     style =
-                        MaterialTheme.typography.titleLarge,
+                        MaterialTheme.typography.titleMedium,
                 )
                 Text(
                     "Apps e jogos usando a loja oficial do Android",
@@ -212,7 +214,7 @@ fun StoreApp() {
             )
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(8.dp))
 
         Button(
             onClick = { openSearch("") },
