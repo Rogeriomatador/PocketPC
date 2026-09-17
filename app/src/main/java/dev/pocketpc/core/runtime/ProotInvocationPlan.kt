@@ -16,6 +16,16 @@ object ProotInvocationPlanner {
             GuestRuntimeProbe.ROOTFS,
         )
 
+    private fun permitsDeviceValidationProbe(
+        substrate: ExecutionSubstrateStatus,
+        probe: GuestRuntimeProbe,
+        allowDeviceValidationCandidate: Boolean,
+    ): Boolean =
+        allowDeviceValidationCandidate &&
+            !substrate.prootReady &&
+            substrate.deviceValidationReady &&
+            probe in deviceValidationProbes
+
     fun buildProbe(
         runtime: InstalledRuntime,
         substrate: ExecutionSubstrateStatus,
@@ -31,14 +41,15 @@ object ProotInvocationPlanner {
          * remember a separate opt-in. The scope remains fail-closed here:
          * only SHELL/ROOTFS are eligible, production readiness stays false,
          * and ProotExecutionController still requires explicit user approval.
+         * Generic build() below never inherits this validation exception.
          */
         val validationCandidateSelected =
-            allowDeviceValidationCandidate &&
-                !substrate.prootReady &&
-                substrate
-                    .deviceValidationReady &&
-                probe in
-                    deviceValidationProbes
+            permitsDeviceValidationProbe(
+                substrate = substrate,
+                probe = probe,
+                allowDeviceValidationCandidate =
+                    allowDeviceValidationCandidate,
+            )
 
         return buildInternal(
             runtime =
