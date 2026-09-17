@@ -77,6 +77,70 @@ class RuntimeTestReadinessTest {
     }
 
     @Test
+    fun deviceValidationCandidateMovesOnlyToRootfsGate() {
+        val result =
+            RuntimeTestReadinessProbe.assess(
+                nativeHost = loadedHost,
+                substrate =
+                    substrate(
+                        prootReady = false,
+                        deviceValidationReady = true,
+                    ),
+                runtime = null,
+                installedTools =
+                    emptyList(),
+                deployedLayers =
+                    emptyList(),
+            )
+
+        val proot =
+            result.prerequisites
+                .first {
+                    it.id == "proot"
+                }
+        val box64 =
+            result.prerequisites
+                .first {
+                    it.id == "box64"
+                }
+        val wine =
+            result.prerequisites
+                .first {
+                    it.id == "wine"
+                }
+        val dxvk =
+            result.prerequisites
+                .first {
+                    it.id == "dxvk"
+                }
+
+        assertTrue(proot.ready)
+        assertTrue(
+            proot.detail.contains(
+                "Shell/Rootfs",
+            ),
+        )
+        assertEquals(
+            "rootfs",
+            result.firstBlocker?.id,
+        )
+        assertEquals(
+            "rootfs",
+            result.firstCoreBlocker?.id,
+        )
+        assertFalse(box64.ready)
+        assertFalse(wine.ready)
+        assertFalse(dxvk.ready)
+        assertTrue(
+            box64.detail.contains(
+                "somente Shell/Rootfs",
+            ),
+        )
+        assertFalse(result.coreRuntimeReady)
+        assertFalse(result.d3dRuntimeReady)
+    }
+
+    @Test
     fun rootfsIsNextBlockerAfterProot() {
         val result =
             RuntimeTestReadinessProbe.assess(
@@ -169,6 +233,7 @@ class RuntimeTestReadinessTest {
 
     private fun substrate(
         prootReady: Boolean,
+        deviceValidationReady: Boolean = false,
     ): ExecutionSubstrateStatus =
         ExecutionSubstrateStatus(
             nativeLibraryDir = "/native",
@@ -176,10 +241,15 @@ class RuntimeTestReadinessTest {
             prootReady = prootReady,
             components = emptyList(),
             state =
-                if (prootReady) {
-                    "READY"
-                } else {
-                    "BLOCKED"
+                when {
+                    prootReady ->
+                        "READY"
+
+                    deviceValidationReady ->
+                        "DEVICE_VALIDATION_CANDIDATE_ATTESTED_NOT_PRODUCTION_APPROVED"
+
+                    else ->
+                        "BLOCKED"
                 },
             artifactContractApproved =
                 prootReady,
@@ -187,5 +257,13 @@ class RuntimeTestReadinessTest {
                 prootReady,
             artifactIntegrityVerified =
                 prootReady,
+            deviceValidationReady =
+                deviceValidationReady,
+            deviceValidationState =
+                if (deviceValidationReady) {
+                    "DEVICE_VALIDATION_CANDIDATE_ATTESTED_NOT_PRODUCTION_APPROVED"
+                } else {
+                    "DEVICE_VALIDATION_NOT_AVAILABLE"
+                },
         )
 }
