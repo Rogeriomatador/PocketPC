@@ -72,6 +72,17 @@ object RuntimeTestReadinessProbe {
                     .assess(it)
                     .ready
             } == true
+        val productionProotReady =
+            substrate.prootReady
+        val validationProotReady =
+            productionProotReady ||
+                substrate.deviceValidationReady
+        val rootfsValidationReady =
+            validationProotReady &&
+                rootfsReady
+        val productionPcRuntimeUnlocked =
+            productionProotReady &&
+                rootfsReady
         val toolIds =
             installedTools
                 .map {
@@ -84,6 +95,24 @@ object RuntimeTestReadinessProbe {
                     it.manifest.id
                 }
                 .toSet()
+        val box64Installed =
+            "box64" in toolIds
+        val wineInstalled =
+            "wine" in toolIds
+        val dxvkDeployed =
+            "dxvk" in layerIds
+        val box64Ready =
+            productionPcRuntimeUnlocked &&
+                box64Installed
+        val wineReady =
+            productionPcRuntimeUnlocked &&
+                wineInstalled
+        val dxvkReady =
+            productionPcRuntimeUnlocked &&
+                dxvkDeployed
+        val validationOnly =
+            substrate.deviceValidationReady &&
+                !productionProotReady
 
         return RuntimeTestReadiness(
             prerequisites =
@@ -108,14 +137,17 @@ object RuntimeTestReadinessProbe {
                         id = "proot",
                         label = "PRoot",
                         ready =
-                            substrate.prootReady,
+                            validationProotReady,
                         detail =
-                            if (
-                                substrate.prootReady
-                            ) {
-                                "Substrate aprovado, íntegro e executável."
-                            } else {
-                                "PRoot ainda não está aprovado/verificado nesta instalação."
+                            when {
+                                productionProotReady ->
+                                    "Substrate aprovado, íntegro e executável."
+
+                                substrate.deviceValidationReady ->
+                                    "Candidato PRoot atestado para validação física de Shell/Rootfs; produção permanece bloqueada."
+
+                                else ->
+                                    "PRoot ainda não está aprovado/verificado nesta instalação."
                             },
                     ),
                     RuntimeTestPrerequisite(
@@ -123,62 +155,77 @@ object RuntimeTestReadinessProbe {
                         label =
                             "Ubuntu rootfs",
                         ready =
-                            rootfsReady,
+                            rootfsValidationReady,
                         detail =
-                            if (
-                                rootfsReady
-                            ) {
-                                "Rootfs e links preparados."
-                            } else {
-                                "Rootfs ainda não está pronto para execução."
+                            when {
+                                rootfsValidationReady ->
+                                    "Rootfs e links preparados para o gate atual."
+
+                                rootfsReady ->
+                                    "Rootfs preparado, aguardando um PRoot autorizado para este gate."
+
+                                else ->
+                                    "Rootfs ainda não está pronto para execução."
                             },
                     ),
                     RuntimeTestPrerequisite(
                         id = "box64",
                         label = "Box64",
                         ready =
-                            "box64" in
-                                toolIds,
+                            box64Ready,
                         detail =
-                            if (
-                                "box64" in
-                                    toolIds
-                            ) {
-                                "Pacote Box64 instalado e atestado."
-                            } else {
-                                "Pacote Box64 ainda não está instalado."
+                            when {
+                                validationOnly ->
+                                    "BLOQUEADO neste candidato: somente Shell/Rootfs estão autorizados."
+
+                                box64Ready ->
+                                    "Pacote Box64 instalado e atestado."
+
+                                !box64Installed ->
+                                    "Pacote Box64 ainda não está instalado."
+
+                                else ->
+                                    "Box64 aguarda PRoot/rootfs aprovados para o runtime PC."
                             },
                     ),
                     RuntimeTestPrerequisite(
                         id = "wine",
                         label = "Wine 11",
                         ready =
-                            "wine" in
-                                toolIds,
+                            wineReady,
                         detail =
-                            if (
-                                "wine" in
-                                    toolIds
-                            ) {
-                                "Pacote Wine instalado e atestado."
-                            } else {
-                                "Wine é necessário para os probes Win64."
+                            when {
+                                validationOnly ->
+                                    "BLOQUEADO neste candidato: Wine não é autorizado antes dos gates Shell/Rootfs."
+
+                                wineReady ->
+                                    "Pacote Wine instalado e atestado."
+
+                                !wineInstalled ->
+                                    "Wine é necessário para os probes Win64."
+
+                                else ->
+                                    "Wine aguarda PRoot/rootfs aprovados para o runtime PC."
                             },
                     ),
                     RuntimeTestPrerequisite(
                         id = "dxvk",
                         label = "DXVK",
                         ready =
-                            "dxvk" in
-                                layerIds,
+                            dxvkReady,
                         detail =
-                            if (
-                                "dxvk" in
-                                    layerIds
-                            ) {
-                                "DXVK implantado neste prefixo."
-                            } else {
-                                "DXVK não bloqueia o core/GDI; ele passa a ser obrigatório apenas nos probes D3D11."
+                            when {
+                                validationOnly ->
+                                    "BLOQUEADO neste candidato: Direct3D permanece fora do gate Shell/Rootfs."
+
+                                dxvkReady ->
+                                    "DXVK implantado neste prefixo."
+
+                                !dxvkDeployed ->
+                                    "DXVK não bloqueia o core/GDI; ele passa a ser obrigatório apenas nos probes D3D11."
+
+                                else ->
+                                    "DXVK aguarda PRoot/rootfs aprovados para os probes D3D11."
                             },
                     ),
                 ),
