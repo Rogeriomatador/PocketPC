@@ -29,6 +29,7 @@ class PcRuntimeReadinessTest {
                         artifactIntegrityVerified = true,
                     ),
                 installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
             )
 
         assertEquals(3, result.readyCount)
@@ -38,7 +39,7 @@ class PcRuntimeReadinessTest {
                 it.id == "x86-64-translation" &&
                     it.state ==
                         PcRuntimeStageState
-                            .NOT_IMPLEMENTED
+                            .BLOCKED
             }
         )
         assertTrue(
@@ -70,16 +71,367 @@ class PcRuntimeReadinessTest {
                         state = "BLOCKED",
                     ),
                 installedRuntimeCount = 0,
+                preparedRuntimeCount = 0,
             )
 
         assertEquals(0, result.readyCount)
         assertFalse(result.executableReady)
-        assertEquals(
-            3,
+        assertTrue(
             result.stages.count {
                 it.state ==
                     PcRuntimeStageState.BLOCKED
-            },
+            } >= 7,
         )
     }
+    @Test
+    fun installedButUnpreparedRootfsStaysBlocked() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 0,
+            )
+
+        val rootfs = result.stages.single { it.id == "rootfs" }
+        assertEquals(PcRuntimeStageState.BLOCKED, rootfs.state)
+        assertTrue(rootfs.detail.contains("nenhum está preparado"))
+        assertFalse(result.executableReady)
+    }
+    @Test
+    fun ioFoundationIsReportedWithoutPromotingWindowsIo() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = false,
+                        components = emptyList(),
+                        state = "BLOCKED",
+                    ),
+                installedRuntimeCount = 0,
+                preparedRuntimeCount = 0,
+                ioHost =
+                    RuntimeIoHostCapabilities(
+                        networkInternetCapable = true,
+                        networkValidated = true,
+                        audioOutputCount = 2,
+                        keyboardCount = 1,
+                        mouseCount = 1,
+                        gamepadCount = 0,
+                    ),
+            )
+
+        val io = result.stages.single { it.id == "io-integration" }
+        assertEquals(PcRuntimeStageState.NOT_IMPLEMENTED, io.state)
+        assertTrue(io.detail.contains("áudio=2"))
+        assertTrue(io.detail.contains("internet=validada"))
+        assertFalse(result.executableReady)
+    }
+
+    @Test
+    fun smokeEvidencePromotesTranslationAndWineOnly() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                        windowsProcessSmokePassed = true,
+                    ),
+                windowsStateReady = true,
+            )
+
+        assertEquals(
+            PcRuntimeStageState.READY,
+            result.stages.single {
+                it.id == "x86-64-translation"
+            }.state,
+        )
+        assertEquals(
+            PcRuntimeStageState.READY,
+            result.stages.single {
+                it.id == "win32-compat"
+            }.state,
+        )
+        assertEquals(
+            PcRuntimeStageState.READY,
+            result.stages.single {
+                it.id == "windows-state"
+            }.state,
+        )
+        assertEquals(
+            PcRuntimeStageState.NOT_IMPLEMENTED,
+            result.stages.single {
+                it.id == "graphics-bridge"
+            }.state,
+        )
+        assertFalse(result.executableReady)
+    }
+
+    @Test
+    fun wineWithoutProcessIpcKeepsWindowsStateBlocked() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                        windowsProcessSmokePassed = false,
+                    ),
+                windowsStateReady = true,
+            )
+
+        val windows =
+            result.stages.single {
+                it.id == "windows-state"
+            }
+        assertEquals(
+            PcRuntimeStageState.BLOCKED,
+            windows.state,
+        )
+        assertTrue(
+            windows.detail.contains(
+                "CreateProcess/IPC",
+            ),
+        )
+    }
+
+    @Test
+    fun graphicsDeviceWithoutWsiStaysNotImplemented() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                        d3d11SmokePassed = true,
+                        graphicsPresentationSmokePassed = false,
+                        windowsProcessSmokePassed = true,
+                    ),
+                windowsStateReady = true,
+            )
+
+        val graphics =
+            result.stages.single {
+                it.id == "graphics-bridge"
+            }
+        assertEquals(
+            PcRuntimeStageState.NOT_IMPLEMENTED,
+            graphics.state,
+        )
+        assertTrue(
+            graphics.detail.contains(
+                "pVulkanInit",
+            ),
+        )
+    }
+
+    @Test
+    fun stalePresentEvidenceCannotPromoteGraphicsWithoutWsi() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                        d3d11SmokePassed = true,
+                        graphicsPresentationSmokePassed = true,
+                        windowsProcessSmokePassed = true,
+                    ),
+                windowsStateReady = true,
+            )
+
+        assertEquals(
+            PcRuntimeStageState.NOT_IMPLEMENTED,
+            result.stages.single {
+                it.id == "graphics-bridge"
+            }.state,
+        )
+        assertFalse(result.executableReady)
+        assertFalse(
+            PocketPcVulkanWsiContract
+                .implemented,
+        )
+    }
+
+    @Test
+    fun completeNonWsiEvidenceAllowsBaseAttemptButBlocksDxvkAttempt() {
+        val result =
+            PcRuntimeReadinessProbe.assess(
+                nativeHost =
+                    NativeHostStatus(
+                        loaded = true,
+                        probe = "ok",
+                        graphicsProbe = "vulkan=ok",
+                        nativeLibraryDir = "/native",
+                    ),
+                substrate =
+                    ExecutionSubstrateStatus(
+                        nativeLibraryDir = "/native",
+                        packagedHostReady = true,
+                        prootReady = true,
+                        components = emptyList(),
+                        state = "READY",
+                        artifactContractApproved = true,
+                        policyDigestsVerified = true,
+                        artifactIntegrityVerified = true,
+                    ),
+                installedRuntimeCount = 1,
+                preparedRuntimeCount = 1,
+                probeEvidence =
+                    RuntimeProbeEvidenceState(
+                        box64SmokePassed = true,
+                        wineSmokePassed = true,
+                        displayBridgeSmokePassed = true,
+                        d3d11SmokePassed = true,
+                        graphicsPresentationSmokePassed = true,
+                        windowsProcessSmokePassed = true,
+                        winePocketPcWindowSmokePassed = true,
+                    ),
+                windowsStateReady = true,
+            )
+
+        assertEquals(
+            PcRuntimeStageState.READY,
+            result.stages.single {
+                it.id == "wine-display-driver"
+            }.state,
+        )
+        assertTrue(
+            result.controlledAttemptReady,
+        )
+        assertTrue(
+            result.windowedAttemptReady,
+        )
+        assertFalse(
+            result.graphicsAttemptReady,
+        )
+        assertEquals(
+            PcRuntimeStageState.NOT_IMPLEMENTED,
+            result.stages.single {
+                it.id == "graphics-bridge"
+            }.state,
+        )
+        assertFalse(
+            result.executableReady,
+        )
+        assertEquals(
+            PcRuntimeStageState.NOT_IMPLEMENTED,
+            result.stages.single {
+                it.id == "io-integration"
+            }.state,
+        )
+        assertEquals(
+            PcRuntimeStageState.UNKNOWN,
+            result.stages.single {
+                it.id == "roblox-compatibility"
+            }.state,
+        )
+    }
+
 }

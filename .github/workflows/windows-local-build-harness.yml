@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - "scripts/build-local-windows.ps1"
+      - "toolchains/android-build-lock.json"
       - "scripts/verify-local-build-record.py"
       - "scripts/test-local-build-record-verifier.py"
       - "scripts/test-gitignore-policy.py"
@@ -13,6 +14,12 @@ on:
       - "scripts/test-update-feed-policy.py"
       - "scripts/test-pocketdrive-research-policy.py"
       - "scripts/termux-on-device-preflight.sh"
+      - "scripts/termux-ensure-aapt2.sh"
+      - "scripts/termux-kotlin-unit-test.sh"
+      - "scripts/termux-static-check.sh"
+      - "scripts/test-kotlin-source-regressions.py"
+      - "scripts/test-termux-aapt2-policy.py"
+      - "PocketPC-Termux-Update-Test.sh"
       - "updates/stable.json"
       - "updates/bootstrap-signer.json"
       - "scripts/verify-bootstrap-signer.py"
@@ -43,14 +50,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Read pinned Java version
+        id: build_lock
+        shell: pwsh
+        run: |
+          $lock = Get-Content "toolchains/android-build-lock.json" -Raw | ConvertFrom-Json
+          "jdk=$($lock.jdk.major)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Set up pinned Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ steps.build_lock.outputs.jdk }}
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install Android components from lock
         shell: pwsh
@@ -93,6 +109,12 @@ jobs:
 
       - name: PocketDrive and research policy
         run: python scripts/test-pocketdrive-research-policy.py
+
+      - name: Kotlin source regression guards
+        run: python scripts/test-kotlin-source-regressions.py
+
+      - name: Termux AAPT2 source policy
+        run: python scripts/test-termux-aapt2-policy.py
 
       - name: PowerShell 5.1 compatibility smoke
         run: python scripts/test-powershell51-compat.py

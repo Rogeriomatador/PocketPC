@@ -319,11 +319,12 @@ fun classifyPocketFile(name: String): PocketFileClass {
         ).lowercase()
 
     return when (extension) {
-        "exe", "msi", "msix", "appx", "appxbundle" ->
+        "exe", "msi", "msix", "appx", "appxbundle",
+        "bat", "cmd", "com", "scr" ->
             PocketFileClass.PC_INSTALLER
         "apk", "apks", "xapk" ->
             PocketFileClass.ANDROID_PACKAGE
-        "zip", "7z", "rar", "tar", "gz", "xz" ->
+        "zip", "7z", "rar", "tar", "gz", "xz", "bz2", "cab" ->
             PocketFileClass.ARCHIVE
         "iso", "img", "vhd", "vhdx" ->
             PocketFileClass.DISK_IMAGE

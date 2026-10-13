@@ -1,0 +1,164 @@
+name: Wine v52 Experimental PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/wine-v52-pr-validation.yml'
+      - '.github/workflows/wine-v52-driver-fast-build.yml'
+      - '.github/workflows/wine-x86_64-v52-experimental.yml'
+      - 'scripts/build-wine-x86_64-v52-experimental.py'
+      - 'scripts/build-v52-continuous-present-smoke.py'
+      - 'scripts/prepare-wine-pocketpc-driver-v51.py'
+      - 'scripts/prepare-wine-pocketpc-v51-compile-fix.py'
+      - 'scripts/prepare-wine-pocketpc-driver-v52.py'
+      - 'scripts/prepare-wine-pocketpc-continuous-present-v52.py'
+      - 'scripts/prepare-wine-pocketpc-v52-compile-fix.py'
+      - 'scripts/verify-wine-x86_64-driver-package.py'
+      - 'scripts/run-wine-pocketpc-driver-load-smoke.py'
+      - 'scripts/run-wine-pocketpc-window-surface-smoke.py'
+      - 'scripts/run-wine-pocketpc-vulkan-headless-smoke.py'
+      - 'scripts/test-vulkan-continuous-present-v52-policy.py'
+      - 'scripts/test-wine-x86_64-v52-source-integration.py'
+      - 'scripts/test-wine-v52-fast-build-policy.py'
+      - 'scripts/test-runtime-v52-present-selection-policy.py'
+      - 'scripts/test-v52-package-revision-binding.py'
+      - 'third_party/wine/pocketpc-display-bridge/**'
+      - 'third_party/wine/pocketpc-driver/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wine-v52-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-v52-experimental:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Wine build toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential flex bison git \
+            gcc-mingw-w64-x86-64 libvulkan-dev mesa-vulkan-drivers
+
+      - name: Validate v52 source policies
+        run: |
+          python3 -m py_compile \
+            scripts/build-wine-x86_64-v52-experimental.py \
+            scripts/build-v52-continuous-present-smoke.py \
+            scripts/prepare-wine-pocketpc-driver-v51.py \
+            scripts/prepare-wine-pocketpc-v51-compile-fix.py \
+            scripts/prepare-wine-pocketpc-driver-v52.py \
+            scripts/prepare-wine-pocketpc-continuous-present-v52.py \
+            scripts/prepare-wine-pocketpc-v52-compile-fix.py \
+            scripts/verify-wine-x86_64-driver-package.py \
+            scripts/run-wine-pocketpc-driver-load-smoke.py \
+            scripts/run-wine-pocketpc-window-surface-smoke.py \
+            scripts/run-wine-pocketpc-vulkan-headless-smoke.py \
+            scripts/test-vulkan-continuous-present-v52-policy.py \
+            scripts/test-wine-x86_64-v52-source-integration.py \
+            scripts/test-wine-v52-fast-build-policy.py \
+            scripts/test-runtime-v52-present-selection-policy.py \
+            scripts/test-v52-package-revision-binding.py
+          python3 scripts/test-vulkan-continuous-present-v52-policy.py
+          python3 scripts/test-wine-x86_64-v52-source-integration.py
+          python3 scripts/test-wine-v52-fast-build-policy.py
+          python3 scripts/test-runtime-v52-present-selection-policy.py
+          python3 scripts/test-v52-package-revision-binding.py
+
+      - name: Build deterministic Win64 continuous-present smoke
+        run: |
+          python3 scripts/build-v52-continuous-present-smoke.py \
+            --output-dir "$RUNNER_TEMP/pocketpc-v52-smoke"
+
+      - name: Build pinned Wine 11 x86_64 with experimental v52 driver
+        run: |
+          python3 scripts/build-wine-x86_64-v52-experimental.py \
+            --work "$RUNNER_TEMP/pocketpc-wine-v52-experimental"
+
+      - name: Verify experimental v52 PocketPC driver pair
+        run: |
+          python3 scripts/verify-wine-x86_64-driver-package.py \
+            --build-evidence "$RUNNER_TEMP/pocketpc-wine-v52-experimental/wine-build-evidence.json" \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-v52-experimental/destdir/opt/pocketpc/wine" \
+            --evidence "$RUNNER_TEMP/pocketpc-wine-v52-experimental/wine-x86_64-driver-package-evidence.json"
+
+      - name: Prove host Wine loads experimental v52 winepocketpc.drv
+        run: |
+          python3 scripts/run-wine-pocketpc-driver-load-smoke.py \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-v52-experimental/destdir/opt/pocketpc/wine" \
+            --smoke-exe "$RUNNER_TEMP/pocketpc-wine-v52-experimental/pocketpc-window-smoke.exe" \
+            --package-evidence "$RUNNER_TEMP/pocketpc-wine-v52-experimental/wine-x86_64-driver-package-evidence.json" \
+            --work "$RUNNER_TEMP/pocketpc-wine-v52-driver-load-smoke"
+
+      - name: Prove host Wine v52 window surface and input round-trip
+        run: |
+          python3 scripts/run-wine-pocketpc-window-surface-smoke.py \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-v52-experimental/destdir/opt/pocketpc/wine" \
+            --smoke-exe "$RUNNER_TEMP/pocketpc-wine-v52-experimental/pocketpc-window-smoke.exe" \
+            --package-evidence "$RUNNER_TEMP/pocketpc-wine-v52-experimental/wine-x86_64-driver-package-evidence.json" \
+            --work "$RUNNER_TEMP/pocketpc-wine-v52-window-surface-smoke"
+
+      - name: Prove host Wine v52 Vulkan headless surface path
+        run: |
+          python3 scripts/run-wine-pocketpc-vulkan-headless-smoke.py \
+            --wine-root "$RUNNER_TEMP/pocketpc-wine-v52-experimental/destdir/opt/pocketpc/wine" \
+            --package-evidence "$RUNNER_TEMP/pocketpc-wine-v52-experimental/wine-x86_64-driver-package-evidence.json" \
+            --work "$RUNNER_TEMP/pocketpc-wine-v52-vulkan-headless-smoke"
+
+      - name: Verify evidence remains fail-closed
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'pocketpc-wine-v52-experimental'
+          evidence = json.loads((root / 'wine-v52-experimental-build-evidence.json').read_text(encoding='utf-8'))
+          assert evidence['targetPrivateWineVulkanAbi'] == 52
+          assert evidence['derivedFromPrivateWineVulkanAbi'] == 51
+          assert evidence['buildExecuted'] is True
+          assert evidence['packageCompiled'] is True
+          assert evidence['runtimeExecuted'] is False
+          assert evidence['integrationExecuted'] is False
+          assert evidence['physicalVisibleFrame'] is False
+          assert evidence['robloxExecuted'] is False
+          assert evidence['robloxRendered'] is False
+          assert evidence['robloxPlayable'] is False
+          print('POCKETPC_V52_PR_BUILD_PASS_RUNTIME_EVIDENCE_SEPARATE')
+          PY
+
+      - name: Retain v52 review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Wine11-v52-PR-review
+          path: |
+            ${{ runner.temp }}/pocketpc-v52-smoke/*
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/guest-package.zip
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/*.json
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/*.log
+            ${{ runner.temp }}/pocketpc-wine-v52-driver-load-smoke/*.json
+            ${{ runner.temp }}/pocketpc-wine-v52-driver-load-smoke/*.log
+            ${{ runner.temp }}/pocketpc-wine-v52-window-surface-smoke/*.json
+            ${{ runner.temp }}/pocketpc-wine-v52-window-surface-smoke/*.log
+            ${{ runner.temp }}/pocketpc-wine-v52-vulkan-headless-smoke/*.json
+            ${{ runner.temp }}/pocketpc-wine-v52-vulkan-headless-smoke/*.log
+          if-no-files-found: warn
+
+      - name: Prove validation did not modify tracked source
+        if: always()
+        run: git diff --exit-code -- app third_party scripts .github

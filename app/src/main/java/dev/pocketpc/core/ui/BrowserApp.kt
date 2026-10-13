@@ -1,23 +1,31 @@
 package dev.pocketpc.core.ui
 
+import android.app.Activity
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
+import android.graphics.Bitmap
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Toast
+import android.webkit.WebSettings
+import android.view.View
+import android.view.ViewGroup
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -25,16 +33,28 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.pocketpc.core.storage.PocketDownloadRegistry
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.storage.sanitizePocketImportedFileName
@@ -52,11 +72,13 @@ class BrowserSessionState {
     val tabs = mutableStateListOf(BrowserTabState(1L, "Google", POCKETPC_HOME))
     var activeTabId by mutableStateOf(1L)
     var desktopMode by mutableStateOf(true)
+    val canAddTab: Boolean get() = tabs.size < 32
 
     val activeTab: BrowserTabState
         get() = tabs.firstOrNull { it.id == activeTabId } ?: tabs.first()
 
     fun newTab(url: String = POCKETPC_HOME): BrowserTabState {
+        if (!canAddTab) return activeTab
         val tab = BrowserTabState(nextTabId++, "Nova aba", url)
         tabs += tab
         activeTabId = tab.id
@@ -65,14 +87,18 @@ class BrowserSessionState {
 
     fun selectTab(id: Long) { if (tabs.any { it.id == id }) activeTabId = id }
 
-    fun updateActive(url: String, title: String? = null) {
-        val index = tabs.indexOfFirst { it.id == activeTabId }
+    fun updateActive(url: String, title: String? = null) = updateTab(activeTabId, url, title)
+
+    fun updateTab(tabId: Long, url: String, title: String? = null) {
+        val index = tabs.indexOfFirst { it.id == tabId }
         if (index < 0) return
         val current = tabs[index]
         tabs[index] = current.copy(url = url, title = title?.takeIf { it.isNotBlank() }?.take(60) ?: current.title)
     }
 
-    fun saveWebViewState(tabId: Long, bundle: Bundle) { webViewStates[tabId] = Bundle(bundle) }
+    fun saveWebViewState(tabId: Long, bundle: Bundle) {
+        if (tabs.any { it.id == tabId }) webViewStates[tabId] = Bundle(bundle)
+    }
     fun webViewState(tabId: Long): Bundle? = webViewStates[tabId]?.let(::Bundle)
     fun clearWebViewState(tabId: Long) { webViewStates.remove(tabId) }
 
@@ -81,7 +107,7 @@ class BrowserSessionState {
         if (index < 0) return
         if (tabs.size == 1) {
             clearWebViewState(id)
-            tabs[0] = BrowserTabState(tabs[0].id, "Google", POCKETPC_HOME)
+            tabs[0] = BrowserTabState(nextTabId++, "Google", POCKETPC_HOME)
             activeTabId = tabs[0].id
             return
         }
@@ -90,6 +116,32 @@ class BrowserSessionState {
         tabs.removeAt(index)
         if (wasActive) activeTabId = tabs[index.coerceAtMost(tabs.lastIndex)].id
     }
+    companion object {
+        // Keep WebView history in memory; only lightweight tab metadata goes into saved state.
+        val Saver = listSaver<BrowserSessionState, Any>(
+            save = { session ->
+                listOf(session.activeTabId, session.desktopMode) + session.tabs.flatMap {
+                    listOf(it.id, it.title, it.url.takeIf { url -> url.length <= 4096 } ?: POCKETPC_HOME)
+                }
+            },
+            restore = { saved -> BrowserSessionState().apply {
+                val restored = saved.drop(2).chunked(3).mapNotNull { values ->
+                    if (values.size != 3) return@mapNotNull null
+                    val id = values[0] as? Long ?: return@mapNotNull null
+                    val title = values[1] as? String ?: return@mapNotNull null
+                    val url = values[2] as? String ?: return@mapNotNull null
+                    if (id <= 0 || id == Long.MAX_VALUE) return@mapNotNull null
+                    BrowserTabState(id, title.take(60), url)
+                }.distinctBy { it.id }.take(32)
+                if (restored.isNotEmpty()) { tabs.clear(); tabs.addAll(restored) }
+                nextTabId = tabs.maxOf { it.id } + 1
+                activeTabId = (saved.firstOrNull() as? Long)
+                    ?.takeIf { id -> tabs.any { it.id == id } } ?: tabs.first().id
+                desktopMode = saved.getOrNull(1) as? Boolean ?: true
+            } },
+        )
+    }
+
 }
 
 data class BrowserWindowActions(
@@ -103,386 +155,370 @@ data class BrowserWindowActions(
 fun BrowserApp(
     session: BrowserSessionState,
     storage: StorageRepository,
+    onOpenDownloads: () -> Unit,
+    isActive: Boolean = true,
     windowActions: BrowserWindowActions? = null,
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val compactWindowControls =
-        configuration.screenWidthDp < 700 ||
-            configuration.screenHeightDp < 500
-    val integratedWindowControls =
-        windowActions != null &&
-            (
-                compactWindowControls ||
-                    windowActions.maximized
-            )
+    val compactWindowControls = LocalDesktopLayout.current.compact
+    val integratedWindowControls = windowActions != null &&
+        (compactWindowControls || windowActions.maximized)
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var webView by remember { mutableStateOf<WebView?>(null) }
     var address by remember(session.activeTabId) { mutableStateOf(session.activeTab.url) }
-    var progress by remember { mutableFloatStateOf(0f) }
+    var editingAddress by remember { mutableStateOf(false) }
+    var progress by remember(session.activeTabId) { mutableFloatStateOf(0f) }
+    var canGoBack by remember(session.activeTabId) { mutableStateOf(false) }
+    var canGoForward by remember(session.activeTabId) { mutableStateOf(false) }
+    var loadError by remember(session.activeTabId) { mutableStateOf<String?>(null) }
+    var downloadStatus by remember { mutableStateOf<String?>(null) }
     var mobileUserAgent by remember { mutableStateOf<String?>(null) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var customVideoView by remember { mutableStateOf<View?>(null) }
+    var customVideoCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
+    val tabsScroll = rememberLazyListState()
 
+    fun hideCustomVideo() {
+        val activity = context as? Activity
+        val view = customVideoView
+        if (activity != null && view != null) {
+            (activity.window.decorView as? ViewGroup)?.removeView(view)
+            @Suppress("DEPRECATION")
+            activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+        }
+        customVideoView = null
+        customVideoCallback?.onCustomViewHidden()
+        customVideoCallback = null
+    }
     fun navigate(raw: String) {
         val target = browserTarget(raw)
+        focusManager.clearFocus()
+        keyboard?.hide()
+        editingAddress = false
+        loadError = null
         address = target
         session.updateActive(target)
         webView?.loadUrl(target)
     }
-    fun saveState() {
-        val view = webView ?: return
-        session.saveWebViewState(session.activeTabId, Bundle().also(view::saveState))
-    }
-    fun loadTab(tab: BrowserTabState) {
-        saveState()
-        session.selectTab(tab.id)
-        address = tab.url
+    fun toggleDesktopMode() {
+        session.desktopMode = !session.desktopMode
         webView?.let { view ->
-            val restored = session.webViewState(tab.id)?.let(view::restoreState)
-            if (restored == null) { view.clearHistory(); view.loadUrl(tab.url) }
+            val base = mobileUserAgent ?: view.settings.userAgentString.orEmpty()
+            view.settings.userAgentString = if (session.desktopMode) desktopUserAgent(base) else base
+            view.settings.useWideViewPort = session.desktopMode
+            view.settings.loadWithOverviewMode = session.desktopMode
+            view.reload()
         }
+    }
+    fun openOutsidePocketPc() {
+        runCatching {
+            context.startActivity(
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(webView?.url ?: address),
+                )
+            )
+        }.onFailure {
+            loadError =
+                "O Android não encontrou outro navegador para abrir esta página."
+        }
+    }
+    BackHandler(enabled = isActive && customVideoView != null) { hideCustomVideo() }
+    BackHandler(enabled = isActive && customVideoView == null && canGoBack) { webView?.goBack() }
+    LaunchedEffect(session.activeTabId) {
+        editingAddress = false
+        focusManager.clearFocus()
+        tabsScroll.animateScrollToItem(session.tabs.indexOfFirst { it.id == session.activeTabId }.coerceAtLeast(0))
+    }
+    DisposableEffect(webView, lifecycleOwner) {
+        val view = webView
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> view?.onResume()
+                Lifecycle.Event.ON_STOP -> view?.onPause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Column(Modifier.fillMaxSize()) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(30.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .horizontalScroll(
-                            rememberScrollState()
-                        )
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment =
-                        Alignment.CenterVertically,
-                    horizontalArrangement =
-                        Arrangement.spacedBy(3.dp),
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                LazyRow(
+                    state = tabsScroll,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    session.tabs.forEach { tab ->
-                    val active = tab.id == session.activeTabId
-                    Surface(
-                        Modifier.widthIn(min = 104.dp, max = 210.dp).height(28.dp).clickable { loadTab(tab) },
-                        shape = RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp),
-                        color = if (active) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
-                    ) {
-                        Row(Modifier.padding(start = 9.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(tab.title.ifBlank { "Nova aba" }, Modifier.weight(1f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            TextButton(onClick = {
-                                val closingActive = session.activeTabId == tab.id
-                                session.closeTab(tab.id)
-                                if (closingActive) {
-                                    address = session.activeTab.url
-                                    webView?.let { view ->
-                                        val restored = session.webViewState(session.activeTabId)?.let(view::restoreState)
-                                        if (restored == null) { view.clearHistory(); view.loadUrl(session.activeTab.url) }
-                                    }
-                                }
-                            }, modifier = Modifier.size(24.dp), contentPadding = PaddingValues(0.dp)) { Text("×", fontSize = 12.sp) }
-                        }
-                    }
-                }
-                    TextButton(
-                        onClick = {
-                            saveState()
-                            loadTab(session.newTab())
-                        },
-                        modifier = Modifier.size(26.dp),
-                        contentPadding = PaddingValues(0.dp),
-                    ) {
-                        Text("+", fontSize = 15.sp)
-                    }
-                }
-
-                if (integratedWindowControls) {
-                    BrowserWindowControl("—") {
-                        windowActions?.minimized?.invoke()
-                    }
-                    BrowserWindowControl(
-                        if (windowActions?.maximized == true) {
-                            "▣"
-                        } else {
-                            "□"
-                        }
-                    ) {
-                        windowActions?.toggleMaximize?.invoke()
-                    }
-                    BrowserWindowControl(
-                        label = "×",
-                        danger = true,
-                    ) {
-                        windowActions?.close?.invoke()
-                    }
-                }
-            }
-        }
-
-        Surface(tonalElevation = 2.dp) {
-            BoxWithConstraints {
-                val compactToolbar = maxWidth < 700.dp
-
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            horizontal = 5.dp,
-                            vertical = 2.dp,
-                        ),
-                    verticalArrangement =
-                        Arrangement.spacedBy(3.dp),
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment =
-                            Alignment.CenterVertically,
-                        horizontalArrangement =
-                            Arrangement.spacedBy(4.dp),
-                    ) {
-                        BrowserNavButton("←") {
-                            webView
-                                ?.takeIf { it.canGoBack() }
-                                ?.goBack()
-                        }
-                        BrowserNavButton("→") {
-                            webView
-                                ?.takeIf { it.canGoForward() }
-                                ?.goForward()
-                        }
-                        BrowserNavButton("↻") {
-                            webView?.reload()
-                        }
-                        if (!compactToolbar) {
-                            BrowserNavButton("⌂") {
-                                navigate(POCKETPC_HOME)
-                            }
-                        }
-
-                        BrowserAddressField(
-                            value = address,
-                            onValueChange = {
-                                address = it
-                            },
-                            onGo = {
-                                navigate(address)
-                            },
-                            modifier =
-                                Modifier.weight(1f),
-                        )
-                        BrowserNavButton("Ir", true) {
-                            navigate(address)
-                        }
-
-                        if (!compactToolbar) {
-                            BrowserNavButton(
-                                if (session.desktopMode) {
-                                    "PC✓"
-                                } else {
-                                    "PC"
-                                },
-                                true,
-                            ) {
-                                session.desktopMode =
-                                    !session.desktopMode
-                                webView?.let { view ->
-                                    val base =
-                                        mobileUserAgent
-                                            ?: view.settings
-                                                .userAgentString
-                                                .orEmpty()
-                                    view.settings
-                                        .userAgentString =
-                                        if (
-                                            session.desktopMode
-                                        ) {
-                                            desktopUserAgent(base)
-                                        } else {
-                                            base
-                                        }
-                                    view.settings
-                                        .useWideViewPort =
-                                        session.desktopMode
-                                    view.settings
-                                        .loadWithOverviewMode =
-                                        session.desktopMode
-                                    view.reload()
-                                }
-                            }
-                            BrowserNavButton("↓") {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(
-                                            DownloadManager
-                                                .ACTION_VIEW_DOWNLOADS
-                                        ).addFlags(
-                                            Intent
-                                                .FLAG_ACTIVITY_NEW_TASK
-                                        )
-                                    )
-                                }
-                            }
-                            BrowserNavButton("↗") {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(
-                                            Intent.ACTION_VIEW,
-                                            Uri.parse(
-                                                webView?.url
-                                                    ?: address
-                                            ),
-                                        ).addFlags(
-                                            Intent
-                                                .FLAG_ACTIVITY_NEW_TASK
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    if (compactToolbar) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement =
-                                Arrangement.spacedBy(4.dp),
-                            verticalAlignment =
-                                Alignment.CenterVertically,
+                    items(session.tabs, key = { it.id }) { tab ->
+                        val active = tab.id == session.activeTabId
+                        Surface(
+                            modifier = Modifier.width(180.dp).height(48.dp)
+                                .semantics { selected = active }
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .clickable { session.selectTab(tab.id) },
+                            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+                            color = if (active) MaterialTheme.colorScheme.surface
+                                else MaterialTheme.colorScheme.surfaceContainerHigh,
                         ) {
-                            BrowserNavButton("⌂") {
-                                navigate(POCKETPC_HOME)
+                            Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(tab.title.ifBlank { "Nova aba" }, Modifier.weight(1f),
+                                    fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                BrowserNavButton("×", description = "Fechar aba ${tab.title}") { session.closeTab(tab.id) }
                             }
-                            BrowserNavButton(
-                                if (session.desktopMode) {
-                                    "PC✓"
-                                } else {
-                                    "PC"
-                                },
-                                true,
-                            ) {
-                                session.desktopMode =
-                                    !session.desktopMode
-                                webView?.let { view ->
-                                    val base =
-                                        mobileUserAgent
-                                            ?: view.settings
-                                                .userAgentString
-                                                .orEmpty()
-                                    view.settings
-                                        .userAgentString =
-                                        if (
-                                            session.desktopMode
-                                        ) {
-                                            desktopUserAgent(base)
-                                        } else {
-                                            base
-                                        }
-                                    view.settings
-                                        .useWideViewPort =
-                                        session.desktopMode
-                                    view.settings
-                                        .loadWithOverviewMode =
-                                        session.desktopMode
-                                    view.reload()
-                                }
-                            }
-                            BrowserNavButton("↓") {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(
-                                            DownloadManager
-                                                .ACTION_VIEW_DOWNLOADS
-                                        ).addFlags(
-                                            Intent
-                                                .FLAG_ACTIVITY_NEW_TASK
-                                        )
-                                    )
-                                }
-                            }
-                            BrowserNavButton("↗") {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(
-                                            Intent.ACTION_VIEW,
-                                            Uri.parse(
-                                                webView?.url
-                                                    ?: address
-                                            ),
-                                        ).addFlags(
-                                            Intent
-                                                .FLAG_ACTIVITY_NEW_TASK
-                                        )
-                                    )
-                                }
-                            }
+                        }
+                    }
+                }
+                BrowserNavButton("+", description = "Nova aba", enabled = session.canAddTab) { session.newTab() }
+                if (integratedWindowControls) {
+                    WindowControlButton("—") { windowActions.minimized.invoke() }
+                    if (!compactWindowControls) {
+                        WindowControlButton(if (windowActions.maximized) "▣" else "□") {
+                            windowActions.toggleMaximize.invoke()
+                        }
+                    }
+                    WindowControlButton("×", danger = true) { windowActions.close.invoke() }
+                }
+            }
+        }
+        Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
+            BoxWithConstraints {
+                val compactToolbar = maxWidth < 840.dp
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    BrowserNavButton("←", description = "Voltar", enabled = canGoBack) { webView?.goBack() }
+                    if (!compactToolbar) {
+                        BrowserNavButton("→", description = "Avançar", enabled = canGoForward) { webView?.goForward() }
+                        BrowserNavButton("↻", description = "Recarregar página") { webView?.reload() }
+                        BrowserNavButton("⌂", description = "Página inicial") { navigate(POCKETPC_HOME) }
+                    }
+                    BrowserAddressField(
+                        value = address,
+                        onValueChange = { address = it },
+                        onGo = { navigate(address) },
+                        onFocusChange = { editingAddress = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (!compactToolbar) {
+                        BrowserNavButton("Ir") { navigate(address) }
+                        BrowserNavButton(if (session.desktopMode) "PC✓" else "PC",
+                            description = "Alternar versão para computador", onClick = ::toggleDesktopMode)
+                        BrowserNavButton("↓", description = "Downloads do PocketPC", onClick = onOpenDownloads)
+                    }
+                    Box {
+                        BrowserNavButton("⋮", description = "Opções do navegador") { menuOpen = true }
+                        DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(text = { Text("Avançar") }, enabled = canGoForward,
+                                onClick = { menuOpen = false; webView?.goForward() })
+                            DropdownMenuItem(text = { Text("Recarregar página") },
+                                onClick = { menuOpen = false; webView?.reload() })
+                            DropdownMenuItem(text = { Text("Página inicial") },
+                                onClick = { menuOpen = false; navigate(POCKETPC_HOME) })
+                            HorizontalDivider()
+                            DropdownMenuItem(text = { Text(if (session.desktopMode) "Usar versão para celular" else "Usar versão para computador") },
+                                onClick = { menuOpen = false; toggleDesktopMode() })
+                            DropdownMenuItem(text = { Text("Downloads do PocketPC") },
+                                onClick = { menuOpen = false; onOpenDownloads() })
+                            DropdownMenuItem(
+                                text = { Text("Abrir fora do PocketPC (Android)") },
+                                onClick = { menuOpen = false; openOutsidePocketPc() },
+                            )
                         }
                     }
                 }
             }
         }
-
-        if (progress in 0.001f..0.999f) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(2.dp))
-
-        AndroidView(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            factory = { activityContext ->
-                WebView(activityContext).apply {
-                    webView = this
-                    mobileUserAgent = settings.userAgentString
-                    if (session.desktopMode) {
-                        settings.userAgentString = desktopUserAgent(settings.userAgentString.orEmpty())
-                        settings.useWideViewPort = true
-                        settings.loadWithOverviewMode = true
+        Box(Modifier.fillMaxWidth().height(2.dp)) {
+            if (progress in 0.001f..0.999f) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxSize())
+        }
+        downloadStatus?.let { message ->
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        message,
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    TextButton(onClick = onOpenDownloads) {
+                        Text("Downloads")
                     }
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.databaseEnabled = true
-                    settings.loadsImagesAutomatically = true
-                    settings.safeBrowsingEnabled = true
-                    settings.allowFileAccess = false
-                    settings.allowContentAccess = true
-                    settings.mediaPlaybackRequiresUserGesture = true
-                    settings.builtInZoomControls = true
-                    settings.displayZoomControls = false
-                    settings.setSupportZoom(true)
-                    settings.setSupportMultipleWindows(false)
-                    CookieManager.getInstance().setAcceptCookie(true)
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                    webViewClient = object : WebViewClient() {
-                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                            val uri = request?.url ?: return false
-                            if (uri.scheme.orEmpty().lowercase() in setOf("http", "https")) return false
-                            return runCatching { activityContext.startActivity(Intent(Intent.ACTION_VIEW, uri)); true }.getOrDefault(true)
-                        }
-                        override fun onPageFinished(view: WebView?, url: String?) {
-                            super.onPageFinished(view, url)
-                            if (!url.isNullOrBlank()) { address = url; session.updateActive(url, view?.title) }
-                        }
+                    TextButton(onClick = { downloadStatus = null }) {
+                        Text("Fechar")
                     }
-                    webChromeClient = object : WebChromeClient() {
-                        override fun onProgressChanged(view: WebView?, newProgress: Int) { progress = newProgress.coerceIn(0, 100) / 100f }
-                        override fun onReceivedTitle(view: WebView?, title: String?) {
-                            if (!title.isNullOrBlank()) session.updateActive(view?.url ?: session.activeTab.url, title)
-                        }
-                    }
-                    setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-                        enqueueDownload(activityContext, storage, url, userAgent, contentDisposition, mimeType)
-                    })
-                    val restored = session.webViewState(session.activeTabId)?.let(::restoreState)
-                    if (restored == null) loadUrl(session.activeTab.url)
                 }
-            },
-            update = { webView = it },
-        )
-    }
+            }
+        }
+        loadError?.let { message ->
+            Surface(color = MaterialTheme.colorScheme.errorContainer) {
+                Row(Modifier.fillMaxWidth().padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(message, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 2,
+                        overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onErrorContainer)
+                    TextButton(onClick = { loadError = null; webView?.reload() }) { Text("Tentar novamente") }
+                }
+            }
+        }
+        key(session.activeTabId) {
+            val tabId = session.activeTabId
+            AndroidView(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                factory = { activityContext ->
+                    WebView(activityContext).apply {
+                        webView = this
+                        mobileUserAgent = settings.userAgentString
+                        if (session.desktopMode) settings.userAgentString = desktopUserAgent(settings.userAgentString.orEmpty())
+                        settings.useWideViewPort = session.desktopMode
+                        settings.loadWithOverviewMode = session.desktopMode
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.loadsImagesAutomatically = true
+                        settings.safeBrowsingEnabled = true
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = true
+                        settings.mediaPlaybackRequiresUserGesture = false
+                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                        settings.cacheMode = WebSettings.LOAD_DEFAULT
+                        setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                        settings.builtInZoomControls = true
+                        settings.displayZoomControls = false
+                        settings.setSupportZoom(true)
+                        settings.setSupportMultipleWindows(false)
+                        CookieManager.getInstance().setAcceptCookie(true)
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                val uri = request?.url ?: return false
+                                val scheme = uri.scheme.orEmpty().lowercase()
+                                if (scheme in setOf("http", "https", "about", "data", "blob")) {
+                                    return false
+                                }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            saveState()
-            webView?.apply { stopLoading(); setDownloadListener(null); webChromeClient = WebChromeClient(); webViewClient = WebViewClient(); destroy() }
-            webView = null
+                                if (session.activeTabId == tabId) {
+                                    loadError =
+                                        "O site tentou abrir um link externo ($scheme:). O PocketPC bloqueou a saída automática para o Android."
+                                }
+                                return true
+                            }
+                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                if (session.activeTabId == tabId) loadError = null
+                            }
+                            override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                                if (session.activeTabId == tabId) {
+                                    canGoBack = view?.canGoBack() == true
+                                    canGoForward = view?.canGoForward() == true
+                                    if (!editingAddress && !url.isNullOrBlank()) address = url
+                                }
+                                if (!url.isNullOrBlank()) session.updateTab(tabId, url, view?.title)
+                            }
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                if (session.activeTabId == tabId) {
+                                    canGoBack = view?.canGoBack() == true
+                                    canGoForward = view?.canGoForward() == true
+                                    if (!editingAddress && !url.isNullOrBlank()) address = url
+                                }
+                                if (!url.isNullOrBlank()) session.updateTab(tabId, url, view?.title)
+                            }
+                            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                                if (request?.isForMainFrame == true && session.activeTabId == tabId) {
+                                    loadError = "Não foi possível carregar a página. Verifique a conexão ou o endereço."
+                                    progress = 0f
+                                }
+                            }
+                        }
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onShowCustomView(
+                                view: View?,
+                                callback: CustomViewCallback?,
+                            ) {
+                                val activity = activityContext as? Activity
+                                if (view == null || activity == null) {
+                                    callback?.onCustomViewHidden()
+                                    return
+                                }
+                                if (customVideoView != null) {
+                                    callback?.onCustomViewHidden()
+                                    return
+                                }
+                                val decor = activity.window.decorView as? ViewGroup
+                                if (decor == null) {
+                                    callback?.onCustomViewHidden()
+                                    return
+                                }
+                                customVideoView = view
+                                customVideoCallback = callback
+                                decor.addView(
+                                    view,
+                                    ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ),
+                                )
+                                @Suppress("DEPRECATION")
+                                activity.window.decorView.systemUiVisibility =
+                                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                                        View.SYSTEM_UI_FLAG_FULLSCREEN or
+                                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            }
+
+                            override fun onHideCustomView() {
+                                hideCustomVideo()
+                            }
+                            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                if (session.activeTabId == tabId) progress = newProgress.coerceIn(0, 100) / 100f
+                            }
+                            override fun onReceivedTitle(view: WebView?, title: String?) {
+                                val tab = session.tabs.firstOrNull { it.id == tabId } ?: return
+                                if (!title.isNullOrBlank()) session.updateTab(tabId, view?.url ?: tab.url, title)
+                            }
+                        }
+                        setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+                            enqueueDownload(
+                                context = activityContext,
+                                storage = storage,
+                                url = url,
+                                userAgent = userAgent,
+                                contentDisposition = contentDisposition,
+                                mimeType = mimeType,
+                            ).onSuccess { message ->
+                                downloadStatus = message
+                            }.onFailure { error ->
+                                downloadStatus =
+                                    "Falha no download: ${error.message ?: error.javaClass.simpleName}"
+                            }
+                        })
+                        val restored = session.webViewState(tabId)?.let(::restoreState)
+                        if (restored == null) loadUrl(session.activeTab.url)
+                        canGoBack = this.canGoBack()
+                        canGoForward = this.canGoForward()
+                    }
+                },
+                onRelease = { view ->
+                    runCatching { session.saveWebViewState(tabId, Bundle().also(view::saveState)) }
+                    if (customVideoView != null) {
+                        hideCustomVideo()
+                    }
+                    view.stopLoading()
+                    view.setDownloadListener(null)
+                    view.webChromeClient = WebChromeClient()
+                    view.webViewClient = WebViewClient()
+                    view.destroy()
+                    if (webView === view) webView = null
+                },
+                update = { webView = it },
+            )
         }
     }
 }
@@ -492,6 +528,7 @@ private fun BrowserAddressField(
     value: String,
     onValueChange: (String) -> Unit,
     onGo: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val textColor =
@@ -500,7 +537,7 @@ private fun BrowserAddressField(
         MaterialTheme.colorScheme.primary
 
     Surface(
-        modifier = modifier.height(38.dp),
+        modifier = modifier.height(48.dp),
         shape = RoundedCornerShape(12.dp),
         color =
             MaterialTheme.colorScheme
@@ -510,15 +547,19 @@ private fun BrowserAddressField(
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize()
+                .onFocusChanged { onFocusChange(it.isFocused) }
+                .semantics { contentDescription = "Endereço ou pesquisa" },
             singleLine = true,
             textStyle =
                 LocalTextStyle.current.copy(
                     color = textColor,
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                 ),
             keyboardOptions =
                 KeyboardOptions(
+                    keyboardType = KeyboardType.Uri,
+                    autoCorrectEnabled = false,
                     imeAction = ImeAction.Go
                 ),
             keyboardActions =
@@ -544,7 +585,7 @@ private fun BrowserAddressField(
                                 MaterialTheme
                                     .colorScheme
                                     .onSurfaceVariant,
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             maxLines = 1,
                         )
                     }
@@ -556,65 +597,22 @@ private fun BrowserAddressField(
 }
 
 @Composable
-private fun BrowserWindowControl(
-    label: String,
-    danger: Boolean = false,
-    onClick: () -> Unit,
-) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier
-            .height(30.dp)
-            .widthIn(min = 34.dp),
-        contentPadding = PaddingValues(0.dp),
-    ) {
-        Text(
-            label,
-            fontSize = 13.sp,
-            color =
-                if (danger) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-                },
-        )
-    }
-}
-
-@Composable
 private fun BrowserNavButton(
     label: String,
-    wide: Boolean = false,
+    description: String = label,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     TextButton(
         onClick = onClick,
-        modifier = Modifier
-            .height(34.dp)
-            .widthIn(
-                min =
-                    if (wide) {
-                        42.dp
-                    } else {
-                        32.dp
-                    }
-            ),
-        contentPadding = PaddingValues(
-            horizontal =
-                if (wide) {
-                    6.dp
-                } else {
-                    2.dp
-                },
-            vertical = 0.dp,
-        ),
+        enabled = enabled,
+        modifier = Modifier.size(48.dp)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .semantics { contentDescription = description },
+        shape = RoundedCornerShape(10.dp),
+        contentPadding = PaddingValues(0.dp),
     ) {
-        Text(
-            label,
-            fontSize = 12.sp,
-            maxLines = 1,
-        )
+        Text(label, fontSize = 16.sp, maxLines = 1)
     }
 }
 
@@ -719,46 +717,61 @@ internal fun resolvePocketDownloadFileName(
     )
 }
 
-private fun enqueueDownload(context: Context, storage: StorageRepository, url: String?, userAgent: String?, contentDisposition: String?, mimeType: String?) {
-    if (url.isNullOrBlank()) { Toast.makeText(context, "Download sem URL.", Toast.LENGTH_SHORT).show(); return }
+private fun enqueueDownload(
+    context: Context,
+    storage: StorageRepository,
+    url: String?,
+    userAgent: String?,
+    contentDisposition: String?,
+    mimeType: String?,
+): Result<String> =
     runCatching {
+        require(!url.isNullOrBlank()) {
+            "Download sem URL."
+        }
+
         val fileName =
             resolvePocketDownloadFileName(
                 url = url,
-                contentDisposition =
-                    contentDisposition,
+                contentDisposition = contentDisposition,
                 mimeType = mimeType,
             )
-        val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle(fileName)
-            .setDescription("Download pelo PocketPC")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setAllowedOverMetered(true)
-            .setAllowedOverRoaming(true)
-        if (!mimeType.isNullOrBlank()) request.setMimeType(mimeType)
-        if (!userAgent.isNullOrBlank()) request.addRequestHeader("User-Agent", userAgent)
-        CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }?.let { request.addRequestHeader("Cookie", it) }
-        val pocketDriveConfigured = storage.rootUriString != null
-        if (pocketDriveConfigured) {
-            request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "pocketpc-${System.currentTimeMillis()}-$fileName")
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-        } else {
-            request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
+        val stagingName =
+            "pocketpc-${System.currentTimeMillis()}-$fileName"
+        val request =
+            DownloadManager.Request(Uri.parse(url))
+                .setTitle(fileName)
+                .setDescription("Download pelo PocketPC")
+                .setNotificationVisibility(
+                    DownloadManager.Request.VISIBILITY_HIDDEN
+                )
+                .setAllowedOverMetered(true)
+                .setAllowedOverRoaming(true)
+                .setDestinationInExternalFilesDir(
+                    context,
+                    Environment.DIRECTORY_DOWNLOADS,
+                    stagingName,
+                )
+
+        if (!mimeType.isNullOrBlank()) {
+            request.setMimeType(mimeType)
         }
-        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        if (!userAgent.isNullOrBlank()) {
+            request.addRequestHeader("User-Agent", userAgent)
+        }
+        CookieManager.getInstance()
+            .getCookie(url)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { request.addRequestHeader("Cookie", it) }
+
+        val manager =
+            context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val downloadId = manager.enqueue(request)
         PocketDownloadRegistry(context).register(downloadId)
-        Toast.makeText(
-            context,
-            if (pocketDriveConfigured) {
-                "Baixando $fileName • será importado para P:\\Downloads quando concluir"
-            } else {
-                "Baixando $fileName • conecte um PocketDrive para importar depois"
-            },
-            Toast.LENGTH_LONG,
-        ).show()
-    }.onFailure { error ->
-        Toast.makeText(context, "Falha no download: ${error.message ?: error.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+
+        if (storage.rootUriString != null) {
+            "Baixando $fileName no PocketPC • será movido para P:\\Downloads quando concluir."
+        } else {
+            "Baixando $fileName no armazenamento temporário do PocketPC • conecte o PocketDrive para importar."
+        }
     }
-}

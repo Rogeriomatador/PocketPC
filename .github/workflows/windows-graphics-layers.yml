@@ -1,0 +1,63 @@
+name: Windows Graphics Layers
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'third_party/graphics/**'
+      - 'scripts/build-windows-graphics-layer.py'
+      - 'scripts/test-pc-runtime-source-locks.py'
+      - '.github/workflows/windows-graphics-layers.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+          - dxvk
+          - vkd3d-proton
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Win64 graphics build toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git meson ninja-build cmake pkg-config \
+            glslang-tools \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 \
+            binutils-mingw-w64-x86-64 wine64-tools
+
+      - name: Validate pinned graphics source locks
+        run: python3 scripts/test-pc-runtime-source-locks.py
+
+      - name: Build review-only Win64 layer
+        run: |
+          python3 scripts/build-windows-graphics-layer.py \
+            --component "${{ matrix.component }}" \
+            --work "$RUNNER_TEMP/pocketpc-${{ matrix.component }}"
+
+      - name: Retain package and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-${{ matrix.component }}-Win64-review
+          path: |
+            ${{ runner.temp }}/pocketpc-${{ matrix.component }}/windows-layer-package.zip
+            ${{ runner.temp }}/pocketpc-${{ matrix.component }}/windows-layer-package/windows-layer-manifest.json
+            ${{ runner.temp }}/pocketpc-${{ matrix.component }}/windows-layer-build-evidence.json
+            ${{ runner.temp }}/pocketpc-${{ matrix.component }}/*.log
+          if-no-files-found: error
+
+      - name: Prove no graphics DLL entered app tree
+        run: |
+          test -z "$(find app -type f -iname '*.dll' -print)"
+          git diff --exit-code -- app third_party

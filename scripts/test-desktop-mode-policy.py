@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+import json
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -10,7 +11,7 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/MainActivity.kt": (
         "enableEdgeToEdge()",
         "DesktopCommand.CYCLE_WINDOWS",
-        "DesktopCommand.OPEN_DESKTOP_CONTEXT",
+        ".OPEN_DESKTOP_CONTEXT",
         "MotionEvent.BUTTON_SECONDARY",
         "onKeyShortcut(",
         "onKeyDown(",
@@ -55,8 +56,9 @@ CHECKS = {
         "integratedBrowserHeader",
         "kotlinx.coroutines.launch",
         "compactMobile",
-        "configuration.screenWidthDp < 700",
-        "configuration.screenHeightDp < 500",
+        "LocalDesktopLayout.current",
+        "WindowInsets.safeDrawing",
+        ".imePadding()",
         "taskbarHeightDp",
         "!compactMobile &&",
         "PocketPcUpdateAutoCheck(",
@@ -81,7 +83,7 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt": (
         "data class BrowserTabState",
         "mutableStateListOf",
-        "session.tabs.forEach",
+        "items(session.tabs, key = { it.id })",
         "session.closeTab",
         "session.newTab",
         "Nova aba",
@@ -89,16 +91,16 @@ CHECKS = {
         "settings.useWideViewPort",
         "settings.loadWithOverviewMode",
         "compactToolbar",
-        "maxWidth < 700.dp",
+        "maxWidth < 840.dp",
         "TextButton(",
-        ".height(34.dp)",
+        "Modifier.size(48.dp)",
         "BrowserWindowActions",
-        "BrowserWindowControl",
+        "WindowControlButton",
         "BrowserAddressField",
         "BasicTextField",
         '"Pesquisar ou digitar endereço"',
         "compactWindowControls",
-        'label = "×"',
+        'WindowControlButton("×", danger = true)',
         "DownloadManager",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/FilesApp.kt": (
@@ -146,14 +148,14 @@ CHECKS = {
         "wallpaperViewportGeometry",
         "panByPixels",
         "ContentScale.FillBounds",
-        '"use pinça para ampliar/reduzir"',
+        "use pinça para ampliar/reduzir",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DesktopAppearance.kt": (
         "SOLID_BLACK",
         "SOLID_WHITE",
         "SOLID_GRAPHITE",
         "SOLID_GRAY",
-        '"SÓLIDO"',
+        'key = "solid_black"',
         "wallpaperViewportGeometry",
         "ContentScale.FillBounds",
     ),
@@ -194,10 +196,11 @@ CHECKS = {
         "PcApplicationCompatibilityProbe",
         "PcRuntimeExecutionPlanner",
         '"Alvo do Explorador"',
-        '"Execução bloqueada pelos gates"',
-        '"Executar probe ARM64?"',
-        '"Probe ARM64"',
-        "ProotInvocationPlanner.build",
+        '"Tentativa bloqueada pelos gates do runtime."',
+        '"Executar probe do runtime?"',
+        "GuestRuntimeProbe.entries",
+        "ProotInvocationPlanner",
+        ".buildProbe(",
         "ProotExecutionController",
         "RuntimeBindPlanner",
         "bindPlanner",
@@ -315,11 +318,11 @@ CHECKS = {
         "Pacote de PC",
         "PocketDriveDirectory.DOWNLOADS",
         "PcApplicationTarget",
-        '"Ver compatibilidade"',
-        "onCompatibility",
+        '"Abrir no PocketPC"',
+        "onOpenRuntime",
     ),
     "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt": (
-        "updates/stable.json",
+        "PocketPC-Updates/main/latest.json",
         "checkForUpdate",
         "beginDownload",
         "verifyPendingDownload",
@@ -360,8 +363,6 @@ CHECKS = {
     "updates/stable.json": (
         "\"schemaVersion\": 1",
         "\"channel\": \"stable\"",
-        "\"versionCode\": 21",
-        "\"versionName\": \"0.1.0-alpha21\"",
         "\"published\": false",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DesktopChrome.kt": (
@@ -372,7 +373,14 @@ CHECKS = {
         "DesktopSystemTray",
         "TaskbarAppMenu",
         "taskbarMenuTarget",
-        "DropdownMenu(",
+        "TaskbarAnchoredPopup(",
+        "TaskbarPopupPositionProvider",
+        "TaskbarSystemMenu(",
+        "desktopSecondaryClickAt",
+        '"Gerenciador de Tarefas"',
+        '"Mostrar no Gerenciador de Tarefas"',
+        '"Encaixar à esquerda"',
+        '"Encaixar à direita"',
         '"Fechar janela"',
         "targetWindow",
         '"Minimizar"',
@@ -382,7 +390,7 @@ CHECKS = {
         "taskbarHeight",
         "taskIconSize",
         "menuWidth",
-        '"Toque e segure para opções"',
+        '"Seus aplicativos"',
         "PocketPcStartButton",
         "PocketPcStartLogo",
         "StartMenuV2",
@@ -398,6 +406,28 @@ CHECKS = {
         "isSecondaryPressed",
         "collectIsHoveredAsState",
         "pointerHoverIcon(PointerIcon.Hand)",
+    ),
+    "app/src/main/java/dev/pocketpc/core/ui/TaskManagerApp.kt": (
+        "fun TaskManagerApp(",
+        "TaskManagerSection.APPLICATIONS",
+        "TaskManagerSection.PROCESSES",
+        "RuntimeProcessRegistry.snapshots()",
+        "RuntimeProcessRegistry",
+        ".terminate(",
+        "force = false",
+        "force = true",
+        "Process.myPid()",
+        '"Finalizar tarefa"',
+        '"Forçar encerramento"',
+        "heap Java • protegido",
+    ),
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeProcessSupervisor.kt": (
+        "data class RuntimeProcessSnapshot",
+        "object RuntimeProcessRegistry",
+        "fun snapshots",
+        "fun terminate(",
+        ".register(",
+        ".unregister(",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/PocketPcTheme.kt": (
         "PocketPcDarkColors",
@@ -427,7 +457,7 @@ CHECKS = {
         "custom_wallpaper_zoom",
         "custom_wallpaper_offset_x",
         "custom_wallpaper_offset_y",
-        "ContentScale.Fit",
+        "wallpaperViewportGeometry",
         "graphicsLayer",
         '"Ajustar enquadramento"',
         "performance_hud",
@@ -444,7 +474,7 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/WallpaperEditor.kt": (
         '"Ajustar papel de parede"',
         "A prévia usa a proporção atual da tela.",
-        "detectDragGestures",
+        "detectTransformGestures",
         "WallpaperFitMode.CROP",
         "WallpaperFitMode.FIT",
         "Slider(",
@@ -717,6 +747,15 @@ CHECKS = {
 
 def main() -> int:
     failures: list[str] = []
+    try:
+        feed = json.loads((ROOT / "updates/stable.json").read_text(encoding="utf-8"))
+        version = json.loads((ROOT / "toolchains/android-build-lock.json").read_text(encoding="utf-8"))["app"]
+        if not feed.get("published"):
+            for field in ("versionCode", "versionName"):
+                if feed.get(field) != version[field]:
+                    failures.append(f"unpublished update feed {field} differs from the build lock")
+    except (OSError, ValueError, KeyError) as error:
+        failures.append(f"cannot validate bootstrap feed version: {error}")
 
     for relative, sentinels in CHECKS.items():
         path = ROOT / relative
@@ -757,6 +796,21 @@ def main() -> int:
                 )
 
         if relative.endswith("DesktopChrome.kt"):
+            taskbar_start = text.find("fun TaskbarV2(")
+            taskbar_end = text.find(
+                "@Composable\nprivate fun UpdateAttentionChip",
+                taskbar_start,
+            )
+            taskbar_section = (
+                text[taskbar_start:taskbar_end]
+                if taskbar_start >= 0 and taskbar_end > taskbar_start
+                else ""
+            )
+            if "DropdownMenu(" in taskbar_section:
+                failures.append(
+                    "taskbar section must not use detached DropdownMenu; "
+                    "anchored Popup positioning is required"
+                )
             if (
                 "import androidx.compose.ui.input.pointer."
                 "awaitPointerEventScope" in text

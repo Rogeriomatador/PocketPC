@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "status": "PINNED_SOURCE_NOT_DEVICE_TESTED",
+  "id": "ubuntu-base-noble-arm64",
+  "name": "Ubuntu Base 24.04.4 ARM64",
+  "version": "24.04.4",
+  "architecture": "aarch64",
+  "sourceUrl": "https://cdimage.ubuntu.com/ubuntu-base/releases/noble/release/ubuntu-base-24.04.4-base-arm64.tar.gz",
+  "sourceSha256": "04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2",
+  "archiveFormat": "tar.gz",
+  "entrypoint": "/bin/sh",
+  "license": "Ubuntu Base redistribution subject to Ubuntu/Canonical component licenses",
+  "extractedBytesLimit": 1073741824,
+  "entryLimit": 300000,
+  "evidence": {
+    "publisher": "Canonical / Ubuntu cdimage",
+    "sha256Source": "https://cdimage.ubuntu.com/ubuntu-base/releases/noble/release/SHA256SUMS",
+    "deviceExecution": false
+  }
+}

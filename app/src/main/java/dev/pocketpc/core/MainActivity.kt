@@ -15,9 +15,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import dev.pocketpc.core.desktop.DesktopCommand
+import dev.pocketpc.core.desktop.DesktopPointerCommandBridge
+import dev.pocketpc.core.ui.PocketFileOpenOverlay
 import dev.pocketpc.core.ui.PocketPcApp
+import dev.pocketpc.core.ui.PocketPcForegroundUpdateFlow
+import dev.pocketpc.core.update.PocketPcPairedV52Prompt
 import dev.pocketpc.core.update.PocketPcUpdateScheduler
+import dev.pocketpc.core.update.clearPostUpdateNotification
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private val desktopCommands =
@@ -30,6 +36,43 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val updatePrefs =
+            getSharedPreferences(
+                "pocketpc-updater",
+                MODE_PRIVATE,
+            )
+
+        // Automatic install used to default to true without a stored preference.
+        // Migrate that implicit default to an explicit foreground choice. Anyone
+        // who deliberately enabled/disabled the switch keeps their saved value.
+        if (
+            !updatePrefs.contains(
+                "auto-install-verified"
+            )
+        ) {
+            updatePrefs.edit()
+                .putBoolean(
+                    "auto-install-verified",
+                    false,
+                )
+                .apply()
+        }
+
+        // The foreground update flow performs a fresh launch check and owns the
+        // visible prompt/progress UX. Mark the legacy six-hour checker as recent
+        // so the older background-style Toast flow does not race the modal.
+        updatePrefs.edit()
+            .putLong(
+                "last-auto-check",
+                System.currentTimeMillis(),
+            )
+            .apply()
+
+        clearPostUpdateNotification(
+            applicationContext
+        )
+
         PocketPcUpdateScheduler.schedule(
             applicationContext
         )
@@ -43,6 +86,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PocketPcApp(commandFlow = desktopCommands)
+            PocketFileOpenOverlay()
+            PocketPcForegroundUpdateFlow()
+            PocketPcPairedV52Prompt()
         }
     }
 
@@ -98,6 +144,12 @@ class MainActivity : ComponentActivity() {
                     KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
                 ),
                 KeyboardShortcutInfo(
+                    "Gerenciador de Tarefas",
+                    KeyEvent.KEYCODE_ESCAPE,
+                    KeyEvent.META_CTRL_ON or
+                        KeyEvent.META_SHIFT_ON,
+                ),
+                KeyboardShortcutInfo(
                     "Alternar janelas",
                     KeyEvent.KEYCODE_TAB,
                     KeyEvent.META_ALT_ON,
@@ -124,11 +176,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         if (
-            event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS &&
-            event.buttonState.and(MotionEvent.BUTTON_SECONDARY) != 0 &&
-            desktopCommands.tryEmit(DesktopCommand.OPEN_DESKTOP_CONTEXT)
+            event.actionMasked ==
+                MotionEvent.ACTION_BUTTON_PRESS &&
+            event.buttonState
+                .and(
+                    MotionEvent.BUTTON_SECONDARY,
+                ) != 0
         ) {
-            return true
+            DesktopPointerCommandBridge
+                .record(
+                    x = event.x.roundToInt(),
+                    y = event.y.roundToInt(),
+                )
+            if (
+                desktopCommands.tryEmit(
+                    DesktopCommand
+                        .OPEN_DESKTOP_CONTEXT,
+                )
+            ) {
+                return true
+            }
+            DesktopPointerCommandBridge.clear()
         }
         return super.onGenericMotionEvent(event)
     }
@@ -147,6 +215,12 @@ class MainActivity : ComponentActivity() {
 
             event.isMetaPressed && event.keyCode == KeyEvent.KEYCODE_B ->
                 DesktopCommand.OPEN_BROWSER
+
+            event.isCtrlPressed &&
+                event.isShiftPressed &&
+                event.keyCode ==
+                    KeyEvent.KEYCODE_ESCAPE ->
+                DesktopCommand.OPEN_TASK_MANAGER
 
             event.isCtrlPressed &&
                 event.isAltPressed &&

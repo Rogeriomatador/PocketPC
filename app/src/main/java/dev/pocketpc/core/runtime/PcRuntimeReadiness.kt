@@ -18,6 +18,9 @@ data class PcRuntimeReadiness(
     val target: String,
     val stages: List<PcRuntimeStage>,
     val executableReady: Boolean,
+    val controlledAttemptReady: Boolean = false,
+    val windowedAttemptReady: Boolean = controlledAttemptReady,
+    val graphicsAttemptReady: Boolean = controlledAttemptReady,
 ) {
     val readyCount: Int
         get() =
@@ -32,6 +35,10 @@ object PcRuntimeReadinessProbe {
         nativeHost: NativeHostStatus,
         substrate: ExecutionSubstrateStatus,
         installedRuntimeCount: Int,
+        preparedRuntimeCount: Int = installedRuntimeCount,
+        ioHost: RuntimeIoHostCapabilities? = null,
+        probeEvidence: RuntimeProbeEvidenceState? = null,
+        windowsStateReady: Boolean = false,
     ): PcRuntimeReadiness {
         val stages =
             listOf(
@@ -71,52 +78,152 @@ object PcRuntimeReadinessProbe {
                     id = "rootfs",
                     label = "Rootfs instalado",
                     state =
-                        if (installedRuntimeCount > 0) {
+                        if (preparedRuntimeCount > 0) {
                             PcRuntimeStageState.READY
                         } else {
                             PcRuntimeStageState.BLOCKED
                         },
                     detail =
-                        if (installedRuntimeCount > 0) {
-                            "$installedRuntimeCount runtime(s) de dados instalado(s)."
-                        } else {
-                            "Nenhum rootfs instalado e validado."
+                        when {
+                            preparedRuntimeCount > 0 ->
+                                "$preparedRuntimeCount de $installedRuntimeCount rootfs preparado(s) para execução."
+                            installedRuntimeCount > 0 ->
+                                "$installedRuntimeCount rootfs instalado(s), mas nenhum está preparado para execução."
+                            else ->
+                                "Nenhum rootfs instalado e validado."
                         },
                 ),
                 PcRuntimeStage(
                     id = "x86-64-translation",
                     label = "Tradução x86_64 → ARM64",
                     state =
-                        PcRuntimeStageState.NOT_IMPLEMENTED,
+                        if (
+                            probeEvidence?.box64SmokePassed ==
+                            true
+                        ) {
+                            PcRuntimeStageState.READY
+                        } else {
+                            PcRuntimeStageState.BLOCKED
+                        },
                     detail =
-                        "Candidato técnico: Box64 Android/ARM64. " +
-                            "Ainda não está aprovado, empacotado ou executado pelo PocketPC.",
+                        if (
+                            probeEvidence?.box64SmokePassed ==
+                            true
+                        ) {
+                            "Box64 executou o ELF x86-64 de smoke com evidência vinculada ao rootfs e pacote atuais."
+                        } else {
+                            "Box64 v0.4.4 possui pipeline/pacote e smoke x86-64, mas a execução atual ainda não foi comprovada."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "win32-compat",
                     label = "Camada Win32 / NT user-mode",
                     state =
-                        PcRuntimeStageState.NOT_IMPLEMENTED,
+                        if (
+                            probeEvidence?.wineSmokePassed ==
+                            true
+                        ) {
+                            PcRuntimeStageState.READY
+                        } else {
+                            PcRuntimeStageState.BLOCKED
+                        },
                     detail =
-                        "Candidato técnico: Wine WoW64 sobre o tradutor x86_64. " +
-                            "Loader PE, DLLs e APIs Win32 ainda não executam no PocketPC.",
+                        if (
+                            probeEvidence?.wineSmokePassed ==
+                            true
+                        ) {
+                            "Wine 11 executou o PE64 de smoke através do Box64 com evidência vinculada às versões atuais."
+                        } else {
+                            "Wine 11 possui build headless/pacote Win64 preparado, mas o primeiro PE64 ainda não foi comprovado."
+                        },
+                ),
+                PcRuntimeStage(
+                    id = "wine-display-driver",
+                    label = "Janelas Wine → PocketPC",
+                    state =
+                        if (
+                            probeEvidence
+                                ?.winePocketPcWindowSmokePassed ==
+                            true
+                        ) {
+                            PcRuntimeStageState.READY
+                        } else {
+                            PcRuntimeStageState.BLOCKED
+                        },
+                    detail =
+                        if (
+                            probeEvidence
+                                ?.winePocketPcWindowSmokePassed ==
+                            true
+                        ) {
+                            "winepocketpc.drv carregou uma janela GDI, apresentou pixels e recebeu mouse/teclado através da bridge com evidência vinculada à identidade atual."
+                        } else {
+                            "Ainda falta comprovar o carregamento real de winepocketpc.drv com janela, framebuffer e input de volta ao Win32."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "windows-state",
                     label = "Filesystem, registro e processos Windows",
                     state =
-                        PcRuntimeStageState.NOT_IMPLEMENTED,
+                        if (
+                            probeEvidence?.wineSmokePassed ==
+                                true &&
+                            probeEvidence.windowsProcessSmokePassed &&
+                            windowsStateReady
+                        ) {
+                            PcRuntimeStageState.READY
+                        } else {
+                            PcRuntimeStageState.BLOCKED
+                        },
                     detail =
-                        "Prefixo Windows, registry, processos filhos e IPC ainda precisam de backend.",
+                        when {
+                            probeEvidence?.wineSmokePassed !=
+                                true ->
+                                "O Wine ainda precisa passar pelo smoke Win64 antes do estado Windows ser aceito."
+                            !probeEvidence.windowsProcessSmokePassed ->
+                                "O Wine passou, mas CreateProcess/IPC por pipe ainda precisa ser comprovado."
+                            windowsStateReady ->
+                                "Prefixo Wine válido e processo filho/IPC por pipe comprovados."
+                            else ->
+                                "Wine e processo/IPC passaram, mas o prefixo não possui a estrutura Windows esperada."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "graphics-bridge",
-                    label = "Direct3D → Vulkan",
+                    label = "Direct3D → Vulkan / WSI",
                     state =
-                        PcRuntimeStageState.NOT_IMPLEMENTED,
+                        when {
+                            !PocketPcVulkanWsiContract
+                                .implemented ->
+                                PcRuntimeStageState
+                                    .NOT_IMPLEMENTED
+
+                            probeEvidence?.d3d11SmokePassed ==
+                                true &&
+                            probeEvidence
+                                .graphicsPresentationSmokePassed ->
+                                PcRuntimeStageState.READY
+
+                            else ->
+                                PcRuntimeStageState.BLOCKED
+                        },
                     detail =
-                        "Candidatos: DXVK para D3D9/10/11 e VKD3D para D3D12, " +
-                            "mas nenhuma ponte foi validada até a GPU Android.",
+                        when {
+                            !PocketPcVulkanWsiContract
+                                .implemented ->
+                                "DXVK pode criar um dispositivo Vulkan, mas winepocketpc.drv ainda não implementa pVulkanInit/Wine Vulkan WSI. GDI window_surface.flush não é evidência de swapchain Vulkan. Present permanece bloqueado fail-closed."
+
+                            probeEvidence?.d3d11SmokePassed !=
+                                true ->
+                                "O backend WSI existe, mas o smoke D3D11→Vulkan ainda precisa ser comprovado."
+
+                            !probeEvidence
+                                .graphicsPresentationSmokePassed ->
+                                "D3D11 criou dispositivo via DXVK, mas o round-trip real de janela/swapchain/Present ainda não foi comprovado."
+
+                            else ->
+                                "D3D11 e swapchain/Present passaram através do backend Vulkan WSI atual com evidência vinculada à identidade do runtime."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "io-integration",
@@ -124,7 +231,43 @@ object PcRuntimeReadinessProbe {
                     state =
                         PcRuntimeStageState.NOT_IMPLEMENTED,
                     detail =
-                        "O host Android possui recursos, mas a integração Windows ainda não existe.",
+                        if (ioHost == null) {
+                            "Capacidades Android de áudio/input/rede ainda não foram medidas nesta sessão."
+                        } else {
+                            val networkState =
+                                when {
+                                    ioHost.networkValidated -> "validada"
+                                    ioHost.networkInternetCapable -> "detectada"
+                                    else -> "indisponível"
+                                }
+                            val displayBridge =
+                                if (
+                                    probeEvidence
+                                        ?.displayBridgeSmokePassed ==
+                                    true
+                                ) "AUTH_PASS" else "PENDING"
+                            val winsock =
+                                if (
+                                    probeEvidence?.winsockSmokePassed ==
+                                    true
+                                ) "PASS_LOCAL_API" else "PENDING"
+                            val winmm =
+                                if (
+                                    probeEvidence?.winmmAudioApiSmokePassed ==
+                                    true
+                                ) "API_PASS" else "PENDING"
+                            val rawInput =
+                                if (
+                                    probeEvidence?.rawInputApiSmokePassed ==
+                                    true
+                                ) "API_PASS" else "PENDING"
+                            "Host Android: áudio=${ioHost.audioOutputCount} saída(s), " +
+                                "teclados=${ioHost.keyboardCount}, mouses=${ioHost.mouseCount}, " +
+                                "gamepads=${ioHost.gamepadCount}, internet=$networkState. " +
+                                "Bridge x86↔Android=$displayBridge. " +
+                                "Wine: Winsock=$winsock, WinMM=$winmm, RawInput=$rawInput. " +
+                                "Esses smokes não provam streaming de áudio, eventos de input nem internet externa."
+                        },
                 ),
                 PcRuntimeStage(
                     id = "roblox-compatibility",
@@ -136,9 +279,56 @@ object PcRuntimeReadinessProbe {
                 ),
             )
 
+        val windowedAttemptStageIds =
+            setOf(
+                "native-arm64-host",
+                "linux-userspace",
+                "rootfs",
+                "x86-64-translation",
+                "win32-compat",
+                "wine-display-driver",
+                "windows-state",
+            )
+        val windowedAttemptReady =
+            stages
+                .filter {
+                    it.id in
+                        windowedAttemptStageIds
+                }
+                .all {
+                    it.state ==
+                        PcRuntimeStageState.READY
+                } &&
+                probeEvidence
+                    ?.displayBridgeSmokePassed ==
+                    true
+
+        val graphicsAttemptStageIds =
+            windowedAttemptStageIds +
+                "graphics-bridge"
+        val graphicsAttemptReady =
+            stages
+                .filter {
+                    it.id in
+                        graphicsAttemptStageIds
+                }
+                .all {
+                    it.state ==
+                        PcRuntimeStageState.READY
+                } &&
+                probeEvidence
+                    ?.displayBridgeSmokePassed ==
+                    true
+
         return PcRuntimeReadiness(
             target = "Windows x64 em Android ARM64",
             stages = stages,
+            windowedAttemptReady =
+                windowedAttemptReady,
+            controlledAttemptReady =
+                windowedAttemptReady,
+            graphicsAttemptReady =
+                graphicsAttemptReady,
             executableReady =
                 stages.all {
                     it.state ==

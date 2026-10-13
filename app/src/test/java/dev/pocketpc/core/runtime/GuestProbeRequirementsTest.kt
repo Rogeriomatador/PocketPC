@@ -1,0 +1,135 @@
+package dev.pocketpc.core.runtime
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class GuestProbeRequirementsTest {
+    @Test
+    fun basicLinuxProbesNeedNoGuestTools() {
+        assertTrue(
+            GuestProbeRequirements
+                .requiredToolIds(
+                    GuestRuntimeProbe.SHELL,
+                ).isEmpty(),
+        )
+        assertTrue(
+            GuestProbeRequirements
+                .requiredToolIds(
+                    GuestRuntimeProbe.ROOTFS,
+                ).isEmpty(),
+        )
+    }
+
+    @Test
+    fun box64SmokeRequiresOnlyBox64() {
+        assertEquals(
+            setOf("box64"),
+            GuestProbeRequirements
+                .requiredToolIds(
+                    GuestRuntimeProbe.BOX64_SMOKE,
+                ),
+        )
+    }
+
+    @Test
+    fun wineSmokeRequiresBox64AndWine() {
+        assertEquals(
+            setOf("box64", "wine"),
+            GuestProbeRequirements
+                .requiredToolIds(
+                    GuestRuntimeProbe.WINE_SMOKE,
+                ),
+        )
+        val blockers =
+            GuestProbeRequirements.blockers(
+                probe = GuestRuntimeProbe.WINE_SMOKE,
+                installedToolIds = setOf("box64"),
+                overlayValid = true,
+            )
+        assertEquals(
+            listOf("GUEST_TOOL_REQUIRED_MISSING:wine"),
+            blockers,
+        )
+    }
+
+    @Test
+    fun invalidOverlayFailsClosedBeforeAdvancedProbe() {
+        val blockers =
+            GuestProbeRequirements.blockers(
+                probe = GuestRuntimeProbe.BOX64_SMOKE,
+                installedToolIds = setOf("box64"),
+                overlayValid = false,
+            )
+
+        assertTrue(
+            blockers.contains(
+                "GUEST_TOOL_OVERLAY_NOT_ATTESTED",
+            ),
+        )
+    }
+
+    @Test
+    fun d3d11SmokeRequiresDxvkDeployment() {
+        val missing =
+            GuestProbeRequirements.blockers(
+                probe =
+                    GuestRuntimeProbe.D3D11_SMOKE,
+                installedToolIds =
+                    setOf("box64", "wine"),
+                overlayValid = true,
+                installedWindowsLayerIds =
+                    emptySet(),
+            )
+        assertEquals(
+            listOf(
+                "WINDOWS_LAYER_REQUIRED_MISSING:dxvk",
+            ),
+            missing,
+        )
+
+        val ready =
+            GuestProbeRequirements.blockers(
+                probe =
+                    GuestRuntimeProbe.D3D11_SMOKE,
+                installedToolIds =
+                    setOf("box64", "wine"),
+                overlayValid = true,
+                installedWindowsLayerIds =
+                    setOf("dxvk"),
+            )
+        assertTrue(ready.isEmpty())
+    }
+
+    @Test
+    fun d3d11PresentFailsClosedUntilVulkanWsiExists() {
+        val blockers =
+            GuestProbeRequirements.blockers(
+                probe =
+                    GuestRuntimeProbe
+                        .D3D11_PRESENT_SMOKE,
+                installedToolIds =
+                    setOf("box64", "wine"),
+                overlayValid = true,
+                installedWindowsLayerIds =
+                    setOf("dxvk"),
+            )
+
+        assertEquals(
+            listOf(
+                "VULKAN_WSI_NOT_IMPLEMENTED",
+            ),
+            blockers,
+        )
+        assertFalse(
+            PocketPcVulkanWsiContract
+                .implemented,
+        )
+        assertEquals(
+            50,
+            PocketPcVulkanWsiContract
+                .WINE_VULKAN_DRIVER_VERSION,
+        )
+    }
+}

@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "channel": "stable",
   "published": false,
-  "versionCode": 21,
-  "versionName": "0.1.0-alpha21",
+  "versionCode": 22,
+  "versionName": "0.1.0-alpha22",
   "sourceRevision": "",
   "packageName": "dev.pocketpc.core",
   "minApi": 26,
   "apkUrl": "",
   "apkSha256": "",
-  "notes": "Alpha 21 introduces PocketDrive and the in-app update bootstrap. A signed APK asset must be published before this feed is activated."
+  "notes": "Alpha 22 improves desktop continuity, browser tabs, wallpaper and downloads. A signed APK asset must be published before this feed is activated."
 }

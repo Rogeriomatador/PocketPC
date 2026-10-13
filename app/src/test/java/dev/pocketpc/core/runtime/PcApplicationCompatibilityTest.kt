@@ -67,6 +67,7 @@ class PcApplicationCompatibilityTest {
                         )
                     ),
                 executableReady = true,
+                controlledAttemptReady = true,
             )
 
         val result =

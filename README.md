@@ -1,10 +1,43 @@
-# PocketPC — 0.1.0-alpha21
+# PocketPC — 0.1.0-alpha22 (Home Test)
+
+**Created by Rogério Martins ([@Rogeriomatador](https://github.com/Rogeriomatador)).**
+
+## Baixar o PocketPC
+
+A versão Home Test assinada mais recente pode ser baixada na página pública:
+
+**[Baixar APK pelo GitHub](https://github.com/Rogeriomatador/PocketPC-Updates/releases)**
+
+Abra a versão mais recente e toque no arquivo `.apk`. O Android ou o Google Play
+Protect ainda pode exigir uma verificação e uma confirmação de instalação. Esta é uma
+versão de desenvolvimento e não representa validação física completa do runtime Windows
+ou do Roblox.
+
+
 
 PocketPC is an experimental Android desktop/runtime project whose goal is to turn a
 phone into a practical PC-like workspace while keeping strict evidence boundaries.
 It can cooperate with Android desktop/freeform/display APIs, but it does not pretend
 that Android applications are Windows processes or that unsupported runtime features
 already work.
+
+## Alpha 22 — Linux bootstrap and PC application controls
+
+The current development branch fixes the Android linker path for packaged PRoot
+dependencies, exposes exact Linux kernel resources and private shared memory,
+and supplies DNS from the active Android network. Wine version queries run through
+Box64 instead of attempting to execute an x86-64 ELF directly on ARM64.
+
+PC applications now have persistent GDI/DXVK profiles and literal launch arguments.
+EXE launch checks inspect the actual PE architecture and verify the staged file's
+hash; x86/WoW64 and Windows ARM64 remain unsupported until their own runtime paths
+are implemented and validated. Windows windows use one aspect-preserving desktop
+transform, reuse bitmap storage, release keys on focus loss, and expose a basic
+touch keyboard with Ctrl/Alt/Shift shortcuts.
+
+See [the October runtime validation record](docs/PC_RUNTIME_ADVANCE_2026-10-12.md)
+for builds, tests and remaining device gates. These changes do not establish
+Roblox Desktop compatibility or a production Windows runtime.
 
 ## Alpha 21 — PocketDrive + self-update bootstrap
 
@@ -53,27 +86,17 @@ Alpha 21 also introduces the first PocketPC Update Center:
   otherwise hide the required Android confirmation;
 - never treats a mismatched/unverified APK as an update.
 
-The current Alpha 21 feed is intentionally `published=false`. Automatic delivery is
-therefore **BLOCKED** until a correctly signed APK is hosted and the feed is activated.
+The public Alpha 22 Home Test channel is active through
+[`PocketPC-Updates/latest.json`](https://raw.githubusercontent.com/Rogeriomatador/PocketPC-Updates/main/latest.json)
+and immutable prerelease assets in
+[GitHub Releases](https://github.com/Rogeriomatador/PocketPC-Updates/releases).
+The production/stable channel remains a separate gate and must not inherit Home Test
+evidence automatically.
 
-A fail-closed GitHub Actions publisher is now implemented for that future steady-state
-path. It only publishes when a long-lived compatible signing identity is supplied as
-protected secrets; the signing private key is never stored in the repository.
-
-The updater does not embed a signing private key. A compatible signing key must be
-configured outside the repository before server-built releases can safely update an
-installed PocketPC.
-
-A fail-closed Windows bootstrap now exists at
-`scripts/bootstrap-update-signing-windows.ps1`. It verifies the keystore certificate
-against the physically observed Alpha 20 signer before it can configure protected GitHub
-Actions Secrets.
-
-Alpha 21 is the bootstrap version: because the installed Alpha 20 does not contain the
-new updater, Alpha 21 still has to be installed once. After that transition, routine
-future updates are designed to be discovered/downloaded/verified from inside PocketPC,
-with only Android's own installation confirmation remaining when the platform requires
-one.
+The publisher uses a compatible long-lived signing identity stored only in protected
+GitHub Actions secrets or in the local Windows publisher environment. The private key is
+never embedded in the app or committed to either repository. The updater still validates
+the downloaded APK fail-closed before handing it to Android.
 
 ## Alpha 20 — Desktop UX Overhaul
 
@@ -200,15 +223,21 @@ The physical result established the Alpha 20 host baseline: landscape PASS, app 
 PASS, native host PASS and host filesystem PASS. Linux/rootfs link semantics remained
 BLOCKED because Android denied the direct hardlink capability.
 
-### Alpha 21 current HEAD
+### Alpha 22 Home Test
 
 - DESIGN: advanced;
-- IMPLEMENTED: yes;
-- STATICALLY VALIDATED: ongoing source/policy audit;
-- SOFTWARE TEST: NOT_EXECUTED after Alpha 21 PocketDrive/updater changes;
-- INTEGRATION TEST: NOT_EXECUTED after Alpha 21 PocketDrive/updater changes;
-- PHYSICAL: NOT_EXECUTED for Alpha 21;
-- Linux/PRoot execution: BLOCKED by its independent runtime/artifact/link gates.
+- IMPLEMENTED: updater, public Home Test feed, signed prereleases and foreground
+  download/verification/install handoff;
+- STATICALLY VALIDATED: source and policy checks exist, but each new revision must pass
+  its own CI;
+- SOFTWARE TEST: signed Home Test APKs have been built and published;
+- INTEGRATION TEST: the public feed, immutable APK URL, SHA-256, package, source revision
+  and signer chain have been exercised;
+- PHYSICAL: the in-app OTA path was observed PASS on the POCO X7 5G for
+  `0.1.0-alpha22.home.1592`;
+- later builds, including `0.1.0-alpha22.home.2257`, do not inherit that physical PASS;
+- Linux/PRoot, Wine, Box64, DXVK and Roblox execution remain BLOCKED or NOT_EXECUTED at
+  their independent gates.
 
 The physical host filesystem evidence remains:
 

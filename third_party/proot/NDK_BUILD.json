@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "status": "EXPERIMENTAL_NDK_BUILD_NOT_APPROVED",
+  "ndkVersion": "29.0.14206865",
+  "androidApi": 26,
+  "androidAbi": "arm64-v8a",
+  "hostTag": "linux-x86_64",
+  "recipes": {
+    "proot": "d8ef12ff5eeaec16007a7547640ab27895d8e09ffad8e8f606f1ebfe88669d44",
+    "libtalloc": "a7a5a81dc99a271ae919ba8b92861f305f1bb0c11c24d618f0accad2a6046224",
+    "libandroid-shmem": "db55b10b90c54dd4d39b76b5b074835c09c7c7534a84a12bc29c6a63717ff2fd"
+  },
+  "patches": {
+    "third_party/proot/patches/proot-ndk-r29-headers.patch": "45e8dc9c59457f7a1e08356bf201c13dff8ae4487f0e1d9cc6a045edeaebc487",
+    "third_party/proot/patches/proot-posix-awk.patch": "34584aad3ce2bc9cef94d7a0424aa60ea10925a699f27820509eb6a942ffdd00",
+    "third_party/proot/patches/shmem-private-temp.patch": "5e410fa5de73777e3f7b59c5779e3b067b5b3b9e85dd791b5186502b2c7d2145"
+  },
+  "crossAnswersSha256": "ae01677757fe5c703e0262518e24ca2f0d1ae5082bcffbb18c8b34aa7ea1266b",
+  "notes": [
+    "Uses upstream cross-configuration answers, with WORDS_BIGENDIAN=FAIL for little-endian AArch64. Configure answers are build assumptions, not executed Android tests.",
+    "Relinks the upstream shared talloc object with SONAME libtalloc.so; PRoot links against that exact filename.",
+    "libandroid-shmem uses PROOT_TMP_DIR, supplied by the validated app-private /tmp bind.",
+    "Produces review-only binaries outside app/src and never writes approval manifests."
+  ]
+}

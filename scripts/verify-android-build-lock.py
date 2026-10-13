@@ -121,16 +121,91 @@ def main() -> int:
         f'ndkVersion = "{ndk}"',
         "app/build.gradle.kts",
     )
+    locked_version_name = str(app.get("versionName", ""))
+    locked_version_code = app.get("versionCode")
+
+    if (
+        not locked_version_name
+        or not re.fullmatch(
+            r"[A-Za-z0-9._+-]+",
+            locked_version_name,
+        )
+    ):
+        failures.append(
+            "app.versionName is invalid"
+        )
+    if (
+        not isinstance(locked_version_code, int)
+        or locked_version_code <= 0
+    ):
+        failures.append(
+            "app.versionCode is invalid"
+        )
+
     require_contains(
         failures,
         app_gradle,
-        f'versionName = "{app.get("versionName")}"',
+        'val pocketPcVersionCode =',
         "app/build.gradle.kts",
     )
     require_contains(
         failures,
         app_gradle,
-        f'versionCode = {app.get("versionCode")}',
+        'providers.environmentVariable("POCKETPC_VERSION_CODE")',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        "?.toIntOrNull()",
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        "?.takeIf { it > 0 }",
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        f"?: {locked_version_code}",
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        'val pocketPcVersionName =',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        'providers.environmentVariable("POCKETPC_VERSION_NAME")',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        'Regex("^[A-Za-z0-9._+-]+$").matches(it)',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        f'?: "{locked_version_name}"',
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        "versionCode = pocketPcVersionCode",
+        "app/build.gradle.kts",
+    )
+    require_contains(
+        failures,
+        app_gradle,
+        "versionName = pocketPcVersionName",
         "app/build.gradle.kts",
     )
     require_contains(
@@ -140,36 +215,31 @@ def main() -> int:
         "app/build.gradle.kts",
     )
 
-    require_contains(
-        failures,
-        android_ci,
-        f"gradle-version: '{gradle_version}'",
-        "android-ci.yml",
+    # CI must consume the pinned values from android-build-lock.json instead
+    # of duplicating toolchain versions in workflow YAML. This keeps the lock
+    # authoritative and avoids drift between policy checks and the actual CI.
+    ci_lock_sentinels = (
+        'Path("toolchains/android-build-lock.json")',
+        '"jdk": str(lock["jdk"]["major"])',
+        '"gradle": str(lock["gradle"]["version"])',
+        '"platform": str(android["platformPackage"])',
+        '"build_tools": str(android["buildTools"])',
+        '"ndk": str(android["ndk"])',
+        '"cmake": str(android["cmake"])',
+        "java-version: ${{ steps.build_lock.outputs.jdk }}",
+        "gradle-version: ${{ steps.build_lock.outputs.gradle }}",
+        '"${{ steps.build_lock.outputs.platform }}"',
+        '"build-tools;${{ steps.build_lock.outputs.build_tools }}"',
+        '"ndk;${{ steps.build_lock.outputs.ndk }}"',
+        '"cmake;${{ steps.build_lock.outputs.cmake }}"',
     )
-    require_contains(
-        failures,
-        android_ci,
-        f'"{platform_package}"',
-        "android-ci.yml",
-    )
-    require_contains(
-        failures,
-        android_ci,
-        f'"build-tools;{build_tools}"',
-        "android-ci.yml",
-    )
-    require_contains(
-        failures,
-        android_ci,
-        f'"ndk;{ndk}"',
-        "android-ci.yml",
-    )
-    require_contains(
-        failures,
-        android_ci,
-        f'"cmake;{cmake}"',
-        "android-ci.yml",
-    )
+    for sentinel in ci_lock_sentinels:
+        require_contains(
+            failures,
+            android_ci,
+            sentinel,
+            "android-ci.yml",
+        )
 
     require_contains(
         failures,
@@ -189,7 +259,18 @@ def main() -> int:
         return 1
 
     print("ANDROID_BUILD_LOCK_OK")
-    print(f"app_version={app.get('versionName')}")
+    print(
+        "app_default_version="
+        f"{locked_version_name}"
+    )
+    print(
+        "app_default_version_code="
+        f"{locked_version_code}"
+    )
+    print(
+        "app_dynamic_version_environment="
+        "POCKETPC_VERSION_NAME,POCKETPC_VERSION_CODE"
+    )
     print(f"gradle={gradle_version}")
     print(f"gradle_sha256={gradle_sha}")
     print(f"compile_sdk={compile_sdk}")

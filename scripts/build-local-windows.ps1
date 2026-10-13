@@ -382,6 +382,7 @@ function Invoke-PythonPolicyChecks {
         "scripts\test-python-script-syntax.py",
         "scripts\verify-android-build-lock.py",
         "scripts\test-gitignore-policy.py",
+        "scripts\test-python-syntax.py",
         "scripts\test-proot-artifact-policy.py",
         "scripts\verify-proot-approval.py",
         "scripts\test-device-evidence-bundle-verifier.py",
@@ -395,10 +396,14 @@ function Invoke-PythonPolicyChecks {
         "scripts\test-powershell51-compat.py",
         "scripts\test-desktop-mode-policy.py",
         "scripts\test-desktop-enum-coverage.py",
+        "scripts\test-taskbar-task-manager-policy.py",
+        "scripts\test-wine-pocketpc-driver-policy.py",
         "scripts\test-ci-version-policy.py",
         "scripts\test-update-feed-policy.py",
         "scripts\test-bootstrap-signer-verifier.py",
-        "scripts\test-pocketdrive-research-policy.py"
+        "scripts\test-pocketdrive-research-policy.py",
+        "scripts\test-kotlin-source-regressions.py",
+        "scripts\test-termux-aapt2-policy.py"
     )
 
     $oldPocketPcReadelf = $env:POCKETPC_READELF

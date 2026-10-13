@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "status": "PINNED_SOURCE_NOT_RUNTIME_TESTED",
+  "component": "box64",
+  "version": "0.4.4",
+  "repository": "https://github.com/ptitSeb/box64.git",
+  "tag": "v0.4.4",
+  "commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+  "license": "MIT",
+  "target": {
+    "guestOs": "linux",
+    "guestArchitecture": "aarch64",
+    "translatedArchitecture": "x86_64",
+    "runtime": "PocketPC PRoot guest"
+  },
+  "build": {
+    "cmake": {
+      "ARM64": true,
+      "BAD_SIGNAL": true,
+      "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+      "BOX32": false,
+      "WOW64": false
+    },
+    "compilerFamily": "aarch64-linux-gnu"
+  },
+  "gates": {
+    "sourcePinned": true,
+    "licenseIdentified": true,
+    "compiled": false,
+    "elfAudited": false,
+    "rootfsIntegrated": false,
+    "guestExecuted": false,
+    "x86_64ProgramExecuted": false
+  }
+}

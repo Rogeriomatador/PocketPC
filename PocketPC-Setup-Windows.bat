@@ -2,7 +2,7 @@
 setlocal
 title PocketPC Windows Setup
 
-set "REPO=D:\Projetos\PocketPC"
+set "REPO=%~dp0"
 
 echo ============================================================
 echo PocketPC Windows Setup
@@ -10,11 +10,12 @@ echo ============================================================
 echo.
 
 if not exist "%REPO%\.git" (
-  echo Repositorio PocketPC nao encontrado em:
+  echo Este arquivo precisa ser executado dentro de um clone do PocketPC.
+  echo Pasta atual:
   echo %REPO%
   echo.
-  echo Clone primeiro:
-  echo git clone https://github.com/Rogeriomatador/PocketPC.git D:\Projetos\PocketPC
+  echo Baixe ou clone:
+  echo https://github.com/Rogeriomatador/PocketPC
   echo.
   pause
   exit /b 1

@@ -3,6 +3,8 @@ package dev.pocketpc.core.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -11,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -47,12 +50,12 @@ fun FilesApp(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current.applicationContext
 
-    var pathStack by remember(rootUri) {
+    var pathStack by rememberSaveable(rootUri) {
         mutableStateOf(
             rootUri?.let { listOf(it) } ?: emptyList()
         )
     }
-    val currentUri = pathStack.lastOrNull()
+    val currentUri = if (pathStack.firstOrNull() == rootUri) pathStack.lastOrNull() else rootUri
 
     var listing by remember(currentUri) {
         mutableStateOf<StorageListing?>(null)
@@ -67,8 +70,8 @@ fun FilesApp(
         mutableStateOf<PocketDriveMount?>(null)
     }
     var refreshToken by remember { mutableIntStateOf(0) }
-    var query by remember(currentUri) { mutableStateOf("") }
-    var selectedUri by remember(currentUri) {
+    var query by rememberSaveable(currentUri) { mutableStateOf("") }
+    var selectedUri by rememberSaveable(currentUri) {
         mutableStateOf<String?>(null)
     }
     var createFolderOpen by remember { mutableStateOf(false) }
@@ -77,11 +80,20 @@ fun FilesApp(
     var renameName by remember { mutableStateOf("") }
     var deleteOpen by remember { mutableStateOf(false) }
 
+    BackHandler(enabled = pathStack.size > 1 && !createFolderOpen && !renameOpen && !deleteOpen) {
+        pathStack = pathStack.dropLast(1)
+        selectedUri = null
+    }
+
     val selected =
         listing?.entries
             ?.firstOrNull { it.uri == selectedUri }
 
     LaunchedEffect(rootUri) {
+        if (pathStack.firstOrNull() != rootUri) {
+            pathStack = rootUri?.let { listOf(it) } ?: emptyList()
+            selectedUri = null
+        }
         driveMount = null
         if (rootUri != null) {
             repository.ensurePocketDrive(rootUri)
@@ -242,6 +254,8 @@ fun FilesApp(
             Column(
                 modifier = Modifier.weight(1f),
             ) {
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                item(key = "explorer-controls") {
                 ExplorerToolbar(
                     compact = compactExplorer,
                     canGoBack = pathStack.size > 1,
@@ -316,13 +330,14 @@ fun FilesApp(
                     compact = compactExplorer,
                 )
 
+                }
                 if (
                     !loading &&
                     error == null &&
                     visibleEntries.isEmpty()
                 ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
+                    item(key = "empty") { Box(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -335,12 +350,8 @@ fun FilesApp(
                                 MaterialTheme.typography.bodyMedium,
                         )
                     }
+                    }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                    ) {
                         items(
                             items = visibleEntries,
                             key = { it.uri },
@@ -661,7 +672,7 @@ private fun ExplorerSidebar(
         tonalElevation = 2.dp,
     ) {
         Column(
-            modifier = Modifier.padding(9.dp),
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(9.dp),
             verticalArrangement =
                 Arrangement.spacedBy(3.dp),
         ) {

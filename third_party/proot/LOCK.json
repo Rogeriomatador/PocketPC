@@ -57,7 +57,7 @@
     {
       "id": "libtalloc",
       "version": "2.4.3",
-      "license": "UNRESOLVED_SOURCE_AUDIT_REQUIRED",
+      "license": "LGPL-3.0-or-later",
       "homepage": "https://talloc.samba.org/talloc/doc/html/index.html",
       "recipePath": "packages/libtalloc/build.sh",
       "sourceUrl": "https://www.samba.org/ftp/talloc/talloc-2.4.3.tar.gz",
@@ -73,8 +73,16 @@
       ],
       "recipeLicense": "GPL-3.0",
       "licenseEvidence": {
-        "status": "CONFLICTING_METADATA",
-        "note": "Termux recipe says GPL-3.0; multiple current distributions identify talloc 2.4.3 library as LGPL-3.0-or-later. Verify the pinned source archive LICENSE/COPYING before redistribution."
+        "status": "LIBRARY_LICENSE_IDENTIFIED_SOURCE_ARCHIVE_REVIEW_PENDING",
+        "libraryLicense": "LGPL-3.0-or-later",
+        "upstreamEvidence": [
+          "Samba talloc.h states that the LGPL applies to the talloc library and permits version 3 or later.",
+          "Samba talloc.c carries the same library license notice."
+        ],
+        "recipeMetadataNote": "The pinned Termux recipe declares GPL-3.0 at package level; this does not override the library source-file LGPL notice.",
+        "exactSourceArchiveAuditComplete": false,
+        "redistributionApproved": false,
+        "reason": "Exact pinned standalone source archive/license bundle must still be audited before PocketPC redistributes the candidate in an APK."
       }
     }
   ],

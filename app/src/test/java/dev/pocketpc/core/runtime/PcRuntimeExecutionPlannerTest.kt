@@ -6,6 +6,30 @@ import org.junit.Test
 
 class PcRuntimeExecutionPlannerTest {
     @Test
+    fun selectingGdiCannotUnlockKnownDirect3DRobloxPlayer() {
+        val readiness = PcRuntimeReadiness("fixture", emptyList(), false,
+            controlledAttemptReady = true, windowedAttemptReady = true, graphicsAttemptReady = false)
+        val target = PcApplicationTarget("content://fixture/player", "RobloxPlayerBeta.exe", 1,
+            graphicsProfile = PcApplicationGraphicsProfile.WINDOWED_GDI)
+        val compatibility = PcApplicationCompatibilityProbe.assess(target.fileName, readiness, target.graphicsProfile)
+        assertFalse(compatibility.runtimeReady)
+        assertFalse(PcRuntimeExecutionPlanner.build(target, readiness, compatibility).attemptEligible)
+    }
+
+    @Test
+    fun explicitGdiProfileAllowsClassicApplicationWithoutPromotingCompatibility() {
+        val readiness = PcRuntimeReadiness("fixture", emptyList(), false,
+            controlledAttemptReady = true, windowedAttemptReady = true, graphicsAttemptReady = false)
+        val target = PcApplicationTarget("content://fixture/editor", "editor.exe", 1,
+            graphicsProfile = PcApplicationGraphicsProfile.WINDOWED_GDI)
+        val compatibility = PcApplicationCompatibilityProbe.assess(target.fileName, readiness, target.graphicsProfile)
+        val plan = PcRuntimeExecutionPlanner.build(target, readiness, compatibility)
+        assertTrue(plan.attemptEligible)
+        assertFalse(plan.launchEligible)
+        assertFalse(compatibility.applicationValidated)
+    }
+
+    @Test
     fun robloxTargetStopsAtFirstMissingRuntimeGate() {
         val readiness =
             PcRuntimeReadiness(
@@ -95,4 +119,52 @@ class PcRuntimeExecutionPlannerTest {
             plan.nextAction.contains("integração")
         )
     }
+    @Test
+    fun controlledAttemptDoesNotPromoteApplicationValidation() {
+        val readiness =
+            PcRuntimeReadiness(
+                target = "Windows x64 em Android ARM64",
+                stages =
+                    listOf(
+                        PcRuntimeStage(
+                            id = "runtime",
+                            label = "Runtime base",
+                            state = PcRuntimeStageState.READY,
+                            detail = "ok",
+                        )
+                    ),
+                executableReady = false,
+                controlledAttemptReady = true,
+            )
+        val target =
+            PcApplicationTarget(
+                uri = "content://downloads/setup",
+                fileName = "setup.exe",
+                sizeBytes = 1L,
+            )
+        val compatibility =
+            PcApplicationCompatibilityProbe.assess(
+                fileName = target.fileName,
+                readiness = readiness,
+            )
+
+        val plan =
+            PcRuntimeExecutionPlanner.build(
+                target = target,
+                readiness = readiness,
+                compatibility = compatibility,
+            )
+
+        assertTrue(plan.attemptEligible)
+        assertFalse(plan.launchEligible)
+        assertFalse(
+            compatibility.applicationValidated,
+        )
+        assertTrue(
+            plan.nextAction.contains(
+                "UNVALIDATED",
+            )
+        )
+    }
+
 }

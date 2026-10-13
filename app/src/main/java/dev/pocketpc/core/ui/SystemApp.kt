@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -34,6 +35,7 @@ private enum class PcInfoTab(
     UPDATES("Atualizações"),
     RESEARCH("Pesquisa"),
     DIAGNOSTICS("Diagnóstico"),
+    ABOUT("Sobre"),
 }
 
 @Composable
@@ -107,13 +109,13 @@ fun SystemApp(
     Column(
         modifier = Modifier.fillMaxSize(),
     ) {
-        PcHeader(snapshot)
-
-        PcSummaryCards(snapshot)
+        Text("Este PC", Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.titleMedium)
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp),
             horizontalArrangement =
                 Arrangement.spacedBy(6.dp),
@@ -148,7 +150,9 @@ fun SystemApp(
                 Arrangement.spacedBy(10.dp),
         ) {
             when (tab) {
-                PcInfoTab.OVERVIEW ->
+                PcInfoTab.OVERVIEW -> {
+                    PcHeader(snapshot)
+                    PcSummaryCards(snapshot)
                     OverviewTab(
                         snapshot = snapshot,
                         storageConfigured =
@@ -157,6 +161,7 @@ fun SystemApp(
                         substrate = substrate,
                     )
 
+                }
                 PcInfoTab.HARDWARE ->
                     HardwareTab(snapshot)
 
@@ -219,8 +224,31 @@ fun SystemApp(
                             )
                         },
                     )
+
+                PcInfoTab.ABOUT ->
+                    AboutTab()
             }
         }
+    }
+}
+
+@Composable
+private fun AboutTab() {
+    InfoSection("PocketPC") {
+        ValueRow("Criador", "Rogério Martins")
+        ValueRow("GitHub", "@Rogeriomatador")
+        ValueRow("Versão", BuildConfig.VERSION_NAME)
+        Text(
+            "Ambiente desktop para Android criado por Rogério Martins. " +
+                "Fonte oficial: github.com/Rogeriomatador/PocketPC",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "Copyright © 2026 Rogério Martins. Todos os direitos reservados.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -268,6 +296,7 @@ private fun PcHeader(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PcSummaryCards(
     snapshot: SystemSnapshot,
@@ -283,7 +312,9 @@ private fun PcSummaryCards(
                 snapshot.availableRamBytes
         ).coerceAtLeast(0L)
 
-    Row(
+    FlowRow(
+        maxItemsInEachRow = if (LocalAppViewport.current.widthDp < 500f) 2 else 4,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(

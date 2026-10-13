@@ -162,4 +162,112 @@ class DesktopControllerTest {
             saved,
         )
     }
+
+    @Test
+    fun taskbarClickMinimizesActiveAndRestoresSameWindow() {
+        val controller = DesktopController()
+        controller.open(DesktopApp.FILES)
+        val id = controller.windows.single().id
+        controller.activateFromTaskbar(DesktopApp.FILES)
+        assertTrue(controller.windows.single().minimized)
+        controller.activateFromTaskbar(DesktopApp.FILES)
+        assertFalse(controller.windows.single().minimized)
+        assertEquals(id, controller.activeWindow?.id)
+    }
+
+    @Test
+    fun taskbarClickRaisesBackgroundWindowWithoutMinimizingIt() {
+        val controller = DesktopController()
+        controller.open(DesktopApp.FILES)
+        controller.open(DesktopApp.BROWSER)
+        controller.activateFromTaskbar(DesktopApp.FILES)
+        assertEquals(DesktopApp.FILES, controller.activeWindow?.app)
+        assertEquals(2, controller.windows.size)
+        assertTrue(controller.windows.none { it.minimized })
+    }
+    @Test
+    fun taskManagerUsesSingleManagedWindow() {
+        val controller =
+            DesktopController()
+
+        controller.open(
+            DesktopApp.TASK_MANAGER,
+        )
+        val id =
+            controller.windows
+                .single()
+                .id
+
+        controller.minimize(id)
+        controller.open(
+            DesktopApp.TASK_MANAGER,
+        )
+
+        assertEquals(
+            1,
+            controller.windows.size,
+        )
+        assertEquals(
+            DesktopApp.TASK_MANAGER,
+            controller.activeWindow?.app,
+        )
+        assertFalse(
+            controller.windows
+                .single()
+                .minimized,
+        )
+        assertEquals(
+            id,
+            controller.windows
+                .single()
+                .id,
+        )
+    }
+
+    @Test
+    fun contextMenuAnchorIsClearedOnDismiss() {
+        val controller =
+            DesktopController()
+
+        controller.openContextMenu(
+            app = DesktopApp.BROWSER,
+            anchorX = 321,
+            anchorY = 654,
+        )
+
+        assertTrue(
+            controller.contextMenuOpen,
+        )
+        assertEquals(
+            DesktopApp.BROWSER,
+            controller.contextMenuTarget,
+        )
+        assertEquals(
+            321,
+            controller.contextMenuAnchorX,
+        )
+        assertEquals(
+            654,
+            controller.contextMenuAnchorY,
+        )
+
+        controller.closeContextMenu()
+
+        assertFalse(
+            controller.contextMenuOpen,
+        )
+        assertEquals(
+            null,
+            controller.contextMenuTarget,
+        )
+        assertEquals(
+            null,
+            controller.contextMenuAnchorX,
+        )
+        assertEquals(
+            null,
+            controller.contextMenuAnchorY,
+        )
+    }
+
 }
