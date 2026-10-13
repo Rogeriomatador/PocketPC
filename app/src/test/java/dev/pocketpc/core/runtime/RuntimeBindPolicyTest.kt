@@ -10,6 +10,7 @@ import org.junit.Test
 class RuntimeBindPolicyTest {
     @Test
     fun kernelResourcesRequireExactSystemOwnedHostGuestPairs() {
+        org.junit.Assume.assumeTrue(File.separatorChar == '/' && File("/proc").isDirectory)
         val proc = RuntimeBindSpec(File("/proc"), "/proc", false, "kernel", BindAuthority.SYSTEM)
         assertTrue(RuntimeBindPolicy.isKernelResourceBind(proc))
         assertTrue(RuntimeBindPolicy.validate(listOf(proc), emptyList()).valid)

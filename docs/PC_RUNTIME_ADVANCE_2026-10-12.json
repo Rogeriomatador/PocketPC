@@ -44,7 +44,7 @@
   "prootSourceLicenseAudit": "SOURCE_LICENSE_AUDIT_PASS",
   "validationApk": {
     "bytes": 17374132,
-    "sha256": "a4844add0d158178094ff45f943d0e60acf972dc9fc22eba34a72a9cb78ab8ff",
+    "sha256": "c02d3f8b8cdced18b18e9511132b89da79b9b5d494230e82f46201296e2d6d27",
     "sourceMetadata": "LOCAL_UNPINNED",
     "signing": "development/debug",
     "packagedEntriesSha256": {
@@ -110,8 +110,8 @@
     "app/src/test/java/dev/pocketpc/core/runtime/GuestRuntimeProbeTest.kt": "09e49de0a2ec9fa0b31ab13a2b08f5ee07dc7e4530e634d49740d2c8fe150811",
     "app/src/test/java/dev/pocketpc/core/runtime/PcLaunchArgumentParserTest.kt": "dcbf355de112d03ff250ece2fb76751240d39678f0aac7185d7358fc79b790e8",
     "app/src/test/java/dev/pocketpc/core/runtime/PcRuntimeExecutionPlannerTest.kt": "e449263aae8a64236d939e688d1397925d047ed375fa16dec0bb8c713f0ba7b0",
-    "app/src/test/java/dev/pocketpc/core/runtime/PcWindowsLaunchAttemptPlannerTest.kt": "159028716b986f99f1d40be6fa3e0cedab6d9c1f232c33b4db76e23d3b1f3782",
-    "app/src/test/java/dev/pocketpc/core/runtime/RuntimeBindPolicyTest.kt": "531c40d36e4f7a54f089b5de29899e6ce66116cea287b53a8d942c7a90c93c2e",
+    "app/src/test/java/dev/pocketpc/core/runtime/PcWindowsLaunchAttemptPlannerTest.kt": "dda1384e40cba50bdc93684290eb8a4abbfb6b708b4e5d698809c3f2da3f804c",
+    "app/src/test/java/dev/pocketpc/core/runtime/RuntimeBindPolicyTest.kt": "66c131c34954a425914d1511a134740cc8aa2d8ce6fa709897d5787537c2923b",
     "app/src/test/java/dev/pocketpc/core/runtime/RuntimeEnvironmentTest.kt": "3b23ea42c952e838d2c363aeec8f3b509f4f0faa3ee48ce7d155aa67b83d04ff",
     "app/src/test/java/dev/pocketpc/core/runtime/RuntimeGuestDnsTest.kt": "9db867eade0ca49b998621bba26f6d68cb7ce275710facb608ab88dcfd59efdf",
     "app/src/test/java/dev/pocketpc/core/runtime/RuntimePressedKeyStateTest.kt": "c743e6ed07603f3098d6664411c75e913015f939aa0de80dcfa83a5654f92087",
@@ -124,11 +124,15 @@
     "scripts/test-pocket-file-routing-policy.py": "a8d448e176b9fec34672cd2f11d40788f4e7e0e4ee10659e10e3f395d5751e4b",
     "scripts/test-wine-present-context-observer-policy.py": "6fa5360253619c3a6f66a2c8a6dfde945ff239e3953e7b48de1a9989908c84fb",
     "scripts/test-wine-x86_64-v50-integration.py": "268cb45edc37b2c0e2b5443360c73506158e3de8e5797701e08e8800ee8ae687",
-    "scripts/test-display-bridge-protocol-lock.py": "08bad94bc8faba7c008dc48e709d05231dcd3f92c276ea69e8191ef505b9d3cb"
+    "scripts/test-display-bridge-protocol-lock.py": "08bad94bc8faba7c008dc48e709d05231dcd3f92c276ea69e8191ef505b9d3cb",
+    "scripts/test-vulkan-wsi-policy.py": "549f6e522104bfdf40a4bb021a29f408b75b32f1e710283e21e4e9e81af31a69",
+    "third_party/wine/POCKETPC_DISPLAY_BRIDGE_PROTOCOL.json": "5f40ec0528dddb77acfe844646a237d296adb11079c34c67a121c4705d7b1842"
   },
   "ciFollowup": {
-    "reason": "Protocol source guard must require v10 probe storage after the Linux launch contract change",
-    "sourceCheck": "PASS",
+    "reason": "Protocol/WSI source guards and protocol metadata require v10 probe storage; POSIX-only JVM fixtures skip on hosts lacking /proc or /bin/sh",
+    "sourceChecksPassed": 72,
+    "linuxJvmRetest": "574 PASS, zero skips",
+    "metadataApkRebuild": "PASS",
     "initialCommit": "9c482a1c88682cf804482ab136bd65f13f88ede1"
   }
 }

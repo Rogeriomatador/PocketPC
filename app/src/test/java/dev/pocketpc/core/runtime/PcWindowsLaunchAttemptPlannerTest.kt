@@ -8,6 +8,7 @@ import org.junit.Test
 class PcWindowsLaunchAttemptPlannerTest {
     @Test
     fun workingDirectoryAndArgumentsActuallyRemainLiteralInHostShellFixture() {
+        org.junit.Assume.assumeTrue(java.io.File("/bin/sh").canExecute())
         val root = java.nio.file.Files.createTempDirectory("pocketpc-positional-").toFile()
         try {
             val directory = java.io.File(root, "portable $(touch marker); space").apply { mkdirs() }

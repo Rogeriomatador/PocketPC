@@ -393,7 +393,7 @@
     "desktopRule": "continuous RuntimeDisplaySessionController publishes compositor windows through RuntimeDesktopBridge",
     "graphicsRoute": "DXVK device creation is a separate capability from Vulkan WSI presentation. Controlled DXVK app execution is fail-closed with VULKAN_WSI_NOT_IMPLEMENTED until winepocketpc.drv exposes a real pVulkanInit backend and a Present round-trip is proven.",
     "wineDriverGate": "attempt remains blocked until WINE_POCKETPC_WINDOW_SMOKE records an identity-bound round trip proving winepocketpc.drv window creation, GDI pixels, pointer/key input and window destruction through the Android broker",
-    "evidenceNamespace": "runtime-probe-evidence-v9; v8 Present evidence is intentionally invalidated because it did not prove Wine Vulkan WSI",
+    "evidenceNamespace": "runtime-probe-evidence-v10; v8 Present evidence is intentionally invalidated because it did not prove Wine Vulkan WSI",
     "graphicsDriverSelection": "graphics configuration has its own ProotInvocationPlan and must pass before RuntimeDisplayExecutionController starts, preventing a configuration utility from authenticating as the application display peer",
     "graphicsDriverEvidence": "WINE_POCKETPC_WINDOW_SMOKE evidence is recorded only when output includes wine_graphics_driver_config=pocketpc and the identity-bound window/frame/input round trip passes"
   },
@@ -446,7 +446,7 @@
     "pinnedWineAndroidFinding": "wineandroid.drv in the pinned Wine 11 source exposes pOpenGLInit but not pVulkanInit; reusing it would not supply DXVK Vulkan WSI",
     "correctnessRule": "GDI window_surface.flush must never be treated as proof that a DXGI/Vulkan swapchain was presented",
     "presentProbeRule": "D3D11_PRESENT_SMOKE remains structurally blocked with VULKAN_WSI_NOT_IMPLEMENTED and is excluded from the runnable full diagnostic suite until a real WSI backend is implemented",
-    "evidenceNamespace": "runtime-probe-evidence-v9",
+    "evidenceNamespace": "runtime-probe-evidence-v10",
     "softwareTestExecuted": false,
     "physicalTestExecuted": false
   }

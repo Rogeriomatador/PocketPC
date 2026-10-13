@@ -62,7 +62,7 @@ def main() -> int:
     legacy_wsi = protocol.get("vulkanWsi") or {}
     if legacy_wsi.get("wineVulkanDriverVersion") != 47:
         failures.append("Display protocol Wine Vulkan ABI version changed")
-    if legacy_wsi.get("evidenceNamespace") != "runtime-probe-evidence-v9":
+    if legacy_wsi.get("evidenceNamespace") != "runtime-probe-evidence-v10":
         failures.append("runtime Vulkan evidence namespace changed")
 
     # v52 is a DESIGN contract only. Its presence must never silently promote
@@ -151,7 +151,7 @@ def main() -> int:
     ))
     require(failures, "evidence invalidation", texts["evidence"], (
         "PocketPcVulkanWsiContract",
-        '"runtime-probe-evidence-v9"',
+        '"runtime-probe-evidence-v10"',
         "D3D11_PRESENT_SMOKE",
     ))
     require(failures, "diagnostic suite", texts["suite"], (
