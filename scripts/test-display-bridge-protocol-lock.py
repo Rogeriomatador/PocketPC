@@ -614,7 +614,7 @@ def main() -> int:
             "WINE_POCKETPC_WINDOW_SMOKE",
             "winePocketPcWindowSmokePassed",
             "wine-pocketpc-window-smoke-key",
-            "runtime-probe-evidence-v9",
+            "runtime-probe-evidence-v10",
             "WINE_POCKETPC_WINDOW_NOT_VALIDATED",
             "wine-display-driver",
             "POCKETPC_WINE_DRIVER_HOST_FRAME_OK",

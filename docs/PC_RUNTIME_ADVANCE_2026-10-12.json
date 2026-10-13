@@ -123,6 +123,12 @@
     "scripts/test-pocket-download-importer.py": "1e17e87725d50ac9db87ecb468df870ad5411937fddacebae2a24c47c9d1ed67",
     "scripts/test-pocket-file-routing-policy.py": "a8d448e176b9fec34672cd2f11d40788f4e7e0e4ee10659e10e3f395d5751e4b",
     "scripts/test-wine-present-context-observer-policy.py": "6fa5360253619c3a6f66a2c8a6dfde945ff239e3953e7b48de1a9989908c84fb",
-    "scripts/test-wine-x86_64-v50-integration.py": "268cb45edc37b2c0e2b5443360c73506158e3de8e5797701e08e8800ee8ae687"
+    "scripts/test-wine-x86_64-v50-integration.py": "268cb45edc37b2c0e2b5443360c73506158e3de8e5797701e08e8800ee8ae687",
+    "scripts/test-display-bridge-protocol-lock.py": "08bad94bc8faba7c008dc48e709d05231dcd3f92c276ea69e8191ef505b9d3cb"
+  },
+  "ciFollowup": {
+    "reason": "Protocol source guard must require v10 probe storage after the Linux launch contract change",
+    "sourceCheck": "PASS",
+    "initialCommit": "9c482a1c88682cf804482ab136bd65f13f88ede1"
   }
 }
