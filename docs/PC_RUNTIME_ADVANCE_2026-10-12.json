@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "dateLocal": "2026-10-12",
+  "timezone": "America/Sao_Paulo",
+  "baseRevision": "d3a823c3df7824040ee48c001777b6a736b583dd",
+  "validationScope": "precommit local source validation; modified source hashes identify the tested changes",
+  "jvmTests": {
+    "tests": 574,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 128,
+    "hints": 3
+  },
+  "nativeHost": {
+    "arm64-v8a": "COMPILE_PASS",
+    "x86_64": "COMPILE_PASS",
+    "ndk": "29.0.14206865",
+    "api": 26
+  },
+  "prootBuild": {
+    "status": "COMPILED_NOT_DEVICE_TESTED_NOT_APPROVED",
+    "sourceLockSha256": "e0849e5c1704ca91c80d557c9513d57b10f564f5096c0d8f2d6372778de4c22a",
+    "buildRecipeSha256": "815bf2f379db60d9c1fc8735d2ebc0e8fbf6a449312760f28c22d871c254a86f",
+    "buildScriptSha256": "60275d45b336e9da1624ad05144209456921c767bbeea8a4565fc02acd3436ef",
+    "artifacts": {
+      "libandroid-shmem.so": "4a977b12a4880496e0f4d92b420c10a81e2eaa148fe063e16d235f1282cd0187",
+      "libtalloc.so": "e0e2d30e0a61f16bf6420de2f73f7b7259568989ac9e83db19053c087e47ff0e",
+      "loader": "9851ac9137c3053926ccce7cfe90ec489a839543f261bb19f5269d6a9cbfdabb",
+      "proot": "71f3e6577c4942cad54f3728003633daecc73de1f6b8e15e57a39177582bafd7"
+    },
+    "notExecuted": [
+      "Android execution",
+      "PRoot guest execution",
+      "Box64/Wine",
+      "Roblox"
+    ],
+    "crossConfigureAnswersAreRuntimeTests": false
+  },
+  "prootElfAuditStatus": "ELF_VALID_REVIEW_REQUIRED",
+  "prootSourceLicenseAudit": "SOURCE_LICENSE_AUDIT_PASS",
+  "validationApk": {
+    "bytes": 17374132,
+    "sha256": "a4844add0d158178094ff45f943d0e60acf972dc9fc22eba34a72a9cb78ab8ff",
+    "sourceMetadata": "LOCAL_UNPINNED",
+    "signing": "development/debug",
+    "packagedEntriesSha256": {
+      "lib/arm64-v8a/libpocketpc_runtime.so": "e21d3be356a7737bc6966457c6a7ab29a56155393ac6d5cd46a698b8921aad4b",
+      "lib/x86_64/libpocketpc_runtime.so": "d44647636e35cc4bdeae87392842b207d624d6e02c94d95a601f95878145ca6f",
+      "lib/arm64-v8a/libproot.so": "71f3e6577c4942cad54f3728003633daecc73de1f6b8e15e57a39177582bafd7",
+      "lib/arm64-v8a/libproot_loader.so": "9851ac9137c3053926ccce7cfe90ec489a839543f261bb19f5269d6a9cbfdabb",
+      "lib/arm64-v8a/libtalloc.so": "e0e2d30e0a61f16bf6420de2f73f7b7259568989ac9e83db19053c087e47ff0e",
+      "lib/arm64-v8a/libandroid-shmem.so": "4a977b12a4880496e0f4d92b420c10a81e2eaa148fe063e16d235f1282cd0187",
+      "assets/proot-device-validation.json": "1ea8e07d2a1e2d4a357592e2cb11c67637fd2e6d4df7c9b6d4eb6f914a25f403"
+    }
+  },
+  "pythonChecks": {
+    "passed": 72,
+    "attempted": 74,
+    "notCompleted": [
+      {
+        "check": "test-wine-pocketpc-driver-load-broker.py",
+        "reason": "AF_UNIX socket creation denied by execution environment"
+      },
+      {
+        "check": "test-wine-pocketpc-surface-broker.py",
+        "reason": "AF_UNIX socket creation denied by execution environment"
+      }
+    ],
+    "additionalNativeIntegration": "NOT_COMPLETED: AF_UNIX socket creation denied"
+  },
+  "androidExecution": {
+    "installation": "NOT_EXECUTED",
+    "nativeHost": "NOT_EXECUTED",
+    "proot": "NOT_EXECUTED",
+    "rootfsShell": "NOT_EXECUTED",
+    "box64": "NOT_EXECUTED",
+    "wine": "NOT_EXECUTED",
+    "gdiInput": "NOT_EXECUTED",
+    "dxvkPresent": "NOT_EXECUTED",
+    "audio": "NOT_EXECUTED",
+    "externalNetwork": "NOT_EXECUTED",
+    "roblox": "NOT_EXECUTED"
+  },
+  "productionApprovalChanged": false,
+  "sourceFilesSha256": {
+    "README.md": "5a5e50d9869a216a99cb22e3f92d30cf2c41c7dfa0f88a131adcac9ddbcb35ee",
+    "app/src/main/java/dev/pocketpc/core/runtime/GuestRuntimeProbe.kt": "381427627faa52927d369d107e53760481b1b3b92fa30b8781d86b12fcbf080d",
+    "app/src/main/java/dev/pocketpc/core/runtime/PcApplicationCompatibility.kt": "70cb358f08c2bbefcf6a64111bd9aef20339ae9856fc80dad12b6b320dadbe94",
+    "app/src/main/java/dev/pocketpc/core/runtime/PcApplicationLaunchProfile.kt": "18dd0099dc5a07cb5d3f72e54590345ec4f6d2d9ff7ad7bd129d7abaf6b4e82f",
+    "app/src/main/java/dev/pocketpc/core/runtime/PcRuntimeExecutionPlan.kt": "c6cd9dd058c835c4872a46c1a69673bb3e3cf83dac0d0d881ea701fac402c0a1",
+    "app/src/main/java/dev/pocketpc/core/runtime/PcWindowsLaunchAttemptPlan.kt": "518b8cde3ed611baebdd8a85e52606b6f0cd4f0e2f8c111260111959f380e035",
+    "app/src/main/java/dev/pocketpc/core/runtime/ProotInvocationPlan.kt": "95e4d956392de592fa22ab9cf0a65c9e260184ff504a935a9bf4c0c04fc7ffd5",
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeBindPolicy.kt": "bd1168bad723d723c1f73fb780acb4ec5ad53e318bf40864b7649005c603627e",
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeEnvironment.kt": "3794175a2c421926c500dae4d54abc6bbac17b344d48ee6bfd85c755e300c3ec",
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeGuestDns.kt": "85b90fa0d5d82fdd103da03bef5af9bb0c3ece38219a688d8f3a29b5b31ec17d",
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimePressedKeyState.kt": "426097e1333e85b71ad9d032bea682aa26f94e4de6b8c2455c039b1719df54d2",
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeProbeEvidenceStore.kt": "66dc9c6d9c4828066e3ccdcde19130233e9a8417d76b513d641361d91e9922f6",
+    "app/src/main/java/dev/pocketpc/core/runtime/RuntimeVirtualKeyboard.kt": "3646b27da600aec41569bda0aeeafa0d9ea76824eed83e8a027fb132b08782f4",
+    "app/src/main/java/dev/pocketpc/core/runtime/WindowsExecutableInspector.kt": "fa460a91d2006f943b056d753267bcc95b5c6fc8c94dded72bd807e03a8b7682",
+    "app/src/main/java/dev/pocketpc/core/runtime/WineLaunchPlan.kt": "492885b904da8f151e4184dd7a8dd19a5b939242f5c1e19b5bb408df6467e984",
+    "app/src/main/java/dev/pocketpc/core/ui/RuntimeApp.kt": "53c55ceb11df78b1f5c56aca083bc894115982b170a8836b1e9a753cfaeb223b",
+    "app/src/main/java/dev/pocketpc/core/ui/RuntimeDesktopViewport.kt": "a8877f40b2fe68002c9b0bfe6617e90b8eed62fb0ebfdc0724c401fdadade276",
+    "app/src/main/java/dev/pocketpc/core/ui/RuntimeDesktopWindowLayer.kt": "50bc0d4d0cf1d9cab5816f0d85e93a674dd8187137b7edd9f20b56845f6406e5",
+    "app/src/main/java/dev/pocketpc/core/ui/RuntimeDisplayFramePreview.kt": "5c21b45e65367de70429996bb2c5ec7d990c8384f573384337286463496e2f56",
+    "app/src/main/java/dev/pocketpc/core/ui/RuntimeOnScreenKeyboard.kt": "0622382506810c86dc2fd63b79865a0a610104d3cafb58a1d8a4e0d473965522",
+    "app/src/test/java/dev/pocketpc/core/runtime/GuestRuntimeProbeTest.kt": "09e49de0a2ec9fa0b31ab13a2b08f5ee07dc7e4530e634d49740d2c8fe150811",
+    "app/src/test/java/dev/pocketpc/core/runtime/PcLaunchArgumentParserTest.kt": "dcbf355de112d03ff250ece2fb76751240d39678f0aac7185d7358fc79b790e8",
+    "app/src/test/java/dev/pocketpc/core/runtime/PcRuntimeExecutionPlannerTest.kt": "e449263aae8a64236d939e688d1397925d047ed375fa16dec0bb8c713f0ba7b0",
+    "app/src/test/java/dev/pocketpc/core/runtime/PcWindowsLaunchAttemptPlannerTest.kt": "159028716b986f99f1d40be6fa3e0cedab6d9c1f232c33b4db76e23d3b1f3782",
+    "app/src/test/java/dev/pocketpc/core/runtime/RuntimeBindPolicyTest.kt": "531c40d36e4f7a54f089b5de29899e6ce66116cea287b53a8d942c7a90c93c2e",
+    "app/src/test/java/dev/pocketpc/core/runtime/RuntimeEnvironmentTest.kt": "3b23ea42c952e838d2c363aeec8f3b509f4f0faa3ee48ce7d155aa67b83d04ff",
+    "app/src/test/java/dev/pocketpc/core/runtime/RuntimeGuestDnsTest.kt": "9db867eade0ca49b998621bba26f6d68cb7ce275710facb608ab88dcfd59efdf",
+    "app/src/test/java/dev/pocketpc/core/runtime/RuntimePressedKeyStateTest.kt": "c743e6ed07603f3098d6664411c75e913015f939aa0de80dcfa83a5654f92087",
+    "app/src/test/java/dev/pocketpc/core/runtime/RuntimeVirtualKeyboardTest.kt": "31f25e88b3e9221d0d4ddc74e5bcad37205a6579cc2df54761b6e4678e362424",
+    "app/src/test/java/dev/pocketpc/core/runtime/WindowsExecutableInspectorTest.kt": "dd73e20d8fbd5388226987692899632437bd0d0064ee93925f8f73ca1b8115c0",
+    "app/src/test/java/dev/pocketpc/core/ui/RuntimeDesktopViewportTest.kt": "183d96163dde242ae11360e077a3508354783d90cac365d295b98b08ec8e0115",
+    "docs/PC_RUNTIME_ADVANCE_2026-10-12.md": "ccd5d4cdd4a098c53866a75f9a432865bcd3b094de18966fb7d192418c0cf553",
+    "scripts/test-android-exit-boundary-policy.py": "c06a2128038690696ed2cb79cf91665cd92b6f42a34d71fff28e5c8d0611f077",
+    "scripts/test-pocket-download-importer.py": "1e17e87725d50ac9db87ecb468df870ad5411937fddacebae2a24c47c9d1ed67",
+    "scripts/test-pocket-file-routing-policy.py": "a8d448e176b9fec34672cd2f11d40788f4e7e0e4ee10659e10e3f395d5751e4b",
+    "scripts/test-wine-present-context-observer-policy.py": "6fa5360253619c3a6f66a2c8a6dfde945ff239e3953e7b48de1a9989908c84fb",
+    "scripts/test-wine-x86_64-v50-integration.py": "268cb45edc37b2c0e2b5443360c73506158e3de8e5797701e08e8800ee8ae687"
+  }
+}

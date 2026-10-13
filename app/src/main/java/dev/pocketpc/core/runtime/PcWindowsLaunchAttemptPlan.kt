@@ -31,8 +31,19 @@ object PcWindowsLaunchAttemptPlanner {
         val blockers =
             mutableListOf<String>()
         val requiresDxvk =
-            target.source.graphicsProfile ==
+            PcApplicationGraphicsProfile.resolve(target.source.fileName, target.source.graphicsProfile) ==
                 PcApplicationGraphicsProfile.D3D_DXVK
+
+        val integrityVerified = runCatching {
+            SafeTreeOps.isPlainFile(target.hostFile.toPath()) &&
+                target.hostFile.length() == target.bytes &&
+                target.hostFile.inputStream().use {
+                    Sha256.digest(it, maxBytes = target.bytes).sha256 == target.sha256
+                }
+        }.getOrDefault(false)
+        if (!integrityVerified) {
+            blockers += "WINDOWS_TARGET_INTEGRITY_CHANGED"
+        }
 
         if (
             !evidence.displayBridgeSmokePassed
@@ -56,7 +67,7 @@ object PcWindowsLaunchAttemptPlanner {
         blockers +=
             graphicsRuntimeBlockers(
                 profile =
-                    target.source.graphicsProfile,
+                    PcApplicationGraphicsProfile.resolve(target.source.fileName, target.source.graphicsProfile),
                 evidence = evidence,
                 deployedLayers = deployedLayers,
             )
@@ -83,10 +94,12 @@ object PcWindowsLaunchAttemptPlanner {
 
         when (extension) {
             "exe" -> {
+                val inspection = WindowsExecutableInspector.inspect(target.hostFile)
+                inspection.blocker?.let(blockers::add)
                 executable =
                     target.guestPath
                 windowsArgs =
-                    emptyList()
+                    target.source.launchArguments
             }
 
             "msi" -> {
@@ -96,7 +109,7 @@ object PcWindowsLaunchAttemptPlanner {
                     listOf(
                         "/i",
                         target.guestPath,
-                    )
+                    ) + target.source.launchArguments
             }
 
             else -> {
@@ -205,6 +218,7 @@ object PcWindowsLaunchAttemptPlanner {
                 buildInvocation(
                     shellArguments(
                         wine.argv,
+                        workingDirectory = target.guestPath.substringBeforeLast('/'),
                     ),
                 )
             } else {
@@ -296,6 +310,7 @@ object PcWindowsLaunchAttemptPlanner {
 
     internal fun shellArguments(
         wineArgv: List<String>,
+        workingDirectory: String? = null,
     ): List<String> =
         buildList {
             require(
@@ -304,10 +319,20 @@ object PcWindowsLaunchAttemptPlanner {
                 "WINDOWS_LAUNCH_ARGV_INVALID"
             }
             add("-c")
-            add("exec \"\$@\"")
+            if (workingDirectory != null) {
+                require(workingDirectory.startsWith("/") &&
+                    RuntimeBindPolicy.normalizeGuestPath(workingDirectory) == workingDirectory &&
+                    '\u0000' !in workingDirectory && '\n' !in workingDirectory) {
+                    "WINDOWS_WORKING_DIRECTORY_INVALID"
+                }
+                add("cd -- \"\$1\" || exit 72; shift; exec \"\$@\"")
+            } else {
+                add("exec \"\$@\"")
+            }
             add(
                 "pocketpc-windows-launch",
             )
+            workingDirectory?.let(::add)
             addAll(wineArgv)
         }
 

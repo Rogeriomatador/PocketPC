@@ -24,6 +24,9 @@ import dev.pocketpc.core.runtime.InstalledRuntime
 import dev.pocketpc.core.runtime.NativeHostStatus
 import dev.pocketpc.core.runtime.PcApplicationCompatibilityProbe
 import dev.pocketpc.core.runtime.PcApplicationTarget
+import dev.pocketpc.core.runtime.PcApplicationGraphicsProfile
+import dev.pocketpc.core.runtime.PcApplicationLaunchProfileStore
+import dev.pocketpc.core.runtime.PcLaunchArgumentParser
 import dev.pocketpc.core.runtime.PcApplicationTargetMaterializer
 import dev.pocketpc.core.runtime.PcWindowsLaunchAttemptPlan
 import dev.pocketpc.core.runtime.PcWindowsLaunchAttemptPlanner
@@ -144,6 +147,16 @@ fun RuntimeApp(
     val scope = rememberCoroutineScope()
     val appContext =
         LocalContext.current.applicationContext
+    val profileStore = remember(appContext) { PcApplicationLaunchProfileStore(appContext) }
+    val savedProfile = remember(target?.uri, profileStore) { target?.let(profileStore::load) }
+    var targetGraphics by remember(target?.uri) {
+        mutableStateOf(savedProfile?.graphics ?: PcApplicationGraphicsProfile.D3D_DXVK)
+    }
+    var targetArgumentsText by rememberSaveable(target?.uri) {
+        mutableStateOf(savedProfile?.argumentsText.orEmpty())
+    }
+    var profileStatus by remember(target?.uri) { mutableStateOf("") }
+    val targetArguments = remember(targetArgumentsText) { PcLaunchArgumentParser.parse(targetArgumentsText) }
     val bindPlanner =
         remember(appContext) {
             RuntimeBindPlanner(appContext)
@@ -767,15 +780,21 @@ fun RuntimeApp(
         }
 
         target?.let { selectedTarget ->
+            val effectiveGraphics = PcApplicationGraphicsProfile.resolve(selectedTarget.fileName, targetGraphics)
+            val configuredTarget = selectedTarget.copy(
+                graphicsProfile = effectiveGraphics,
+                launchArguments = targetArguments.getOrDefault(emptyList()),
+            )
             val compatibility =
                 PcApplicationCompatibilityProbe.assess(
                     fileName =
                         selectedTarget.fileName,
                     readiness = pcReadiness,
+                    graphicsProfile = effectiveGraphics,
                 )
             val executionPlan =
                 PcRuntimeExecutionPlanner.build(
-                    target = selectedTarget,
+                    target = configuredTarget,
                     readiness = pcReadiness,
                     compatibility = compatibility,
                 )
@@ -859,6 +878,47 @@ fun RuntimeApp(
                             MaterialTheme.typography
                                 .bodySmall,
                     )
+                    Text("Perfil do aplicativo", style = MaterialTheme.typography.titleSmall)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = effectiveGraphics == PcApplicationGraphicsProfile.WINDOWED_GDI,
+                            enabled = !PcApplicationGraphicsProfile.requiresDirect3D(selectedTarget.fileName),
+                            onClick = { targetGraphics = PcApplicationGraphicsProfile.WINDOWED_GDI },
+                            label = { Text("Aplicativo clássico (GDI)") },
+                        )
+                        FilterChip(
+                            selected = effectiveGraphics == PcApplicationGraphicsProfile.D3D_DXVK,
+                            onClick = { targetGraphics = PcApplicationGraphicsProfile.D3D_DXVK },
+                            label = { Text("Jogo / Direct3D (DXVK)") },
+                        )
+                    }
+                    Text(
+                        "Use GDI para programas com interface clássica. Jogos que usam Direct3D precisam de DXVK. " +
+                            "A escolha do perfil não comprova compatibilidade.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedTextField(
+                        value = targetArgumentsText,
+                        onValueChange = { targetArgumentsText = it; profileStatus = "" },
+                        label = { Text("Argumentos de inicialização") },
+                        placeholder = { Text("-windowed \"argumento com espaços\"") },
+                        singleLine = true,
+                        isError = targetArguments.isFailure,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (targetArguments.isFailure) {
+                        Text("Confira as aspas e use no máximo 64 argumentos em uma linha.",
+                            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(enabled = !busy && targetArguments.isSuccess, onClick = {
+                        scope.launch {
+                            profileStatus = withContext(Dispatchers.IO) {
+                                profileStore.save(selectedTarget, targetGraphics, targetArgumentsText)
+                                    .fold({ "Perfil salvo para este aplicativo." }, { "Não foi possível salvar o perfil." })
+                            }
+                        }
+                    }) { Text("Salvar perfil") }
+                    if (profileStatus.isNotEmpty()) Text(profileStatus, style = MaterialTheme.typography.bodySmall)
                     Text(
                         executionPlan.nextAction,
                         style =
@@ -917,14 +977,14 @@ fun RuntimeApp(
                         pcRuntimeCandidate != null
                     ) {
                         Button(
-                            enabled = !busy,
+                            enabled = !busy && targetArguments.isSuccess,
                             onClick = {
                                 busy = true
                                 status =
                                     "PC_WINDOWS_ATTEMPT_PREPARING"
                                 scope.launch {
                                     preparePcApplicationAttempt(
-                                        selectedTarget,
+                                        configuredTarget,
                                     ).onSuccess {
                                         prepared ->
                                         pendingPcApplicationAttempt =

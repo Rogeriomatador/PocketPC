@@ -6,10 +6,19 @@ enum class PcApplicationGraphicsProfile {
     ;
 
     companion object {
+        fun requiresDirect3D(fileName: String): Boolean =
+            RobloxWindowsArtifactClassifier.classify(fileName).kind in setOf(
+                RobloxWindowsArtifactKind.PLAYER_EXECUTABLE,
+                RobloxWindowsArtifactKind.STUDIO_EXECUTABLE,
+            )
+
+        fun resolve(fileName: String, requested: PcApplicationGraphicsProfile): PcApplicationGraphicsProfile =
+            if (requiresDirect3D(fileName)) D3D_DXVK else requested
+
         /**
          * Keep arbitrary Windows targets fail-closed behind the full D3D/DXVK
-         * path. Only the explicitly staged WinRAR validation target may use the
-         * earlier GDI/window-driver path before Vulkan WSI is production-ready.
+         * path. An explicit per-application profile may select GDI without
+         * implying that the application is compatible or that DXVK is ready.
          */
         fun forFileName(fileName: String): PcApplicationGraphicsProfile {
             val normalized =
@@ -32,6 +41,7 @@ data class PcApplicationTarget(
     val sizeBytes: Long,
     val graphicsProfile: PcApplicationGraphicsProfile =
         PcApplicationGraphicsProfile.forFileName(fileName),
+    val launchArguments: List<String> = emptyList(),
 )
 
 enum class PcRuntimeExecutionGateState {
@@ -78,6 +88,7 @@ object PcRuntimeExecutionPlanner {
                     detail = stage.detail,
                 )
             }
+        val graphicsProfile = PcApplicationGraphicsProfile.resolve(target.fileName, target.graphicsProfile)
 
         val applicationGate =
             PcRuntimeExecutionGate(
@@ -112,7 +123,7 @@ object PcRuntimeExecutionPlanner {
          * path; arbitrary/D3D targets retain the stricter graphics gate.
          */
         val attemptEligible =
-            when (target.graphicsProfile) {
+            when (graphicsProfile) {
                 PcApplicationGraphicsProfile.WINDOWED_GDI ->
                     readiness.windowedAttemptReady
                 PcApplicationGraphicsProfile.D3D_DXVK ->
@@ -127,7 +138,7 @@ object PcRuntimeExecutionPlanner {
                 it.state !=
                     PcRuntimeExecutionGateState.READY &&
                     !(
-                        target.graphicsProfile ==
+                        graphicsProfile ==
                             PcApplicationGraphicsProfile.WINDOWED_GDI &&
                             it.id == "graphics-bridge"
                         )

@@ -553,7 +553,10 @@ class RuntimeProbeEvidenceStore(
     companion object {
         private const val
             PREFS =
-            "runtime-probe-evidence-v9"
+            // Linux kernel binds and the Android linker/Box64 launch
+            // environment changed. Old probe results cannot validate this
+            // execution contract. User files and Wine prefixes are separate.
+            "runtime-probe-evidence-v10"
         private const val
             KEY_BOX64 =
             "box64-smoke-key"

@@ -21,6 +21,24 @@ It can cooperate with Android desktop/freeform/display APIs, but it does not pre
 that Android applications are Windows processes or that unsupported runtime features
 already work.
 
+## Alpha 22 — Linux bootstrap and PC application controls
+
+The current development branch fixes the Android linker path for packaged PRoot
+dependencies, exposes exact Linux kernel resources and private shared memory,
+and supplies DNS from the active Android network. Wine version queries run through
+Box64 instead of attempting to execute an x86-64 ELF directly on ARM64.
+
+PC applications now have persistent GDI/DXVK profiles and literal launch arguments.
+EXE launch checks inspect the actual PE architecture and verify the staged file's
+hash; x86/WoW64 and Windows ARM64 remain unsupported until their own runtime paths
+are implemented and validated. Windows windows use one aspect-preserving desktop
+transform, reuse bitmap storage, release keys on focus loss, and expose a basic
+touch keyboard with Ctrl/Alt/Shift shortcuts.
+
+See [the October runtime validation record](docs/PC_RUNTIME_ADVANCE_2026-10-12.md)
+for builds, tests and remaining device gates. These changes do not establish
+Roblox Desktop compatibility or a production Windows runtime.
+
 ## Alpha 21 — PocketDrive + self-update bootstrap
 
 Alpha 21 separates PocketPC storage into logical volumes instead of treating the

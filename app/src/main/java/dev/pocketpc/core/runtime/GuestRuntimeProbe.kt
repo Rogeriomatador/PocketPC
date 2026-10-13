@@ -43,6 +43,19 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 printf 'kernel_path=/proc state=present\n'
                 [ -d /dev ] || { printf 'kernel_path=/dev state=missing\n'; exit 5; }
                 printf 'kernel_path=/dev state=present\n'
+                [ -r /proc/self/maps ] || { printf 'proc_self=unavailable\n'; exit 5; }
+                printf 'proc_self=readable\n'
+                [ -c /dev/null ] && [ -w /dev/null ] && : > /dev/null || { printf 'device_null=unavailable\n'; exit 5; }
+                printf 'device_null=usable\n'
+                [ -c /dev/urandom ] && [ -r /dev/urandom ] && dd if=/dev/urandom of=/dev/null bs=16 count=1 2>/dev/null || { printf 'device_random=unavailable\n'; exit 5; }
+                printf 'device_random=usable\n'
+                [ -d /dev/shm ] && [ -w /dev/shm ] || { printf 'shared_memory=unavailable\n'; exit 5; }
+                printf 'shared_memory=writable\n'
+                if grep -q '^nameserver ' /etc/resolv.conf 2>/dev/null; then
+                    printf 'dns_config=present\n'
+                else
+                    printf 'dns_config=unavailable\n'
+                fi
                 rm -f /tmp/.pocketpc-runtime-probe
                 if (umask 077 && : > /tmp/.pocketpc-runtime-probe && rm -f /tmp/.pocketpc-runtime-probe); then
                     printf 'tmp_write=ok\n'
@@ -71,7 +84,9 @@ enum class GuestRuntimeProbe(val label: String, val description: String) {
                 printf '\ncomponent=wine\n'
                 if [ -x /opt/pocketpc/wine/bin/wine ]; then
                     printf 'path=/opt/pocketpc/wine/bin/wine\n'
-                    if /opt/pocketpc/wine/bin/wine --version; then
+                    if [ ! -x /opt/pocketpc/box64/bin/box64 ]; then
+                        printf 'state=translator_missing\n'
+                    elif /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine --version; then
                         printf 'version_exit=0\n'
                     else
                         printf 'version_exit=nonzero\n'

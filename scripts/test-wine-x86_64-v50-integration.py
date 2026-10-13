@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static policy lock for the Wine x86_64 v50 package composition."""
+"""Keep the historical v50 preparer valid without pinning the active v51 runtime back to v50."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -41,11 +41,11 @@ def main() -> int:
 
     require(build, "build-wine-x86_64.py", "base_build")
     require(build, "module.DRIVER_PREPARER = V50_PREPARER", "preparer_override")
-    require(workflow, "python3 scripts/build-wine-x86_64-v50.py", "workflow_v50_build")
-    require(workflow, "python3 scripts/test-wine-x86_64-v50-integration.py", "workflow_policy")
+    require(workflow, "python3 scripts/build-wine-x86_64-v51.py", "active_workflow_v51_build")
+    require(workflow, "python3 scripts/test-wine-x86_64-v51-integration.py", "active_workflow_v51_policy")
     require(workflow, "wine-pocketpc-driver-overlay-evidence.json", "overlay_evidence_retained")
 
-    require(runtime_contract, "const val privateWineVulkanAbi = 50", "runtime_abi_50")
+    require(runtime_contract, "const val privateWineVulkanAbi = 51", "active_runtime_abi_51")
     require(
         runtime_contract,
         "const val exactPresentedImageSourceIntegrated = true",
@@ -58,8 +58,8 @@ def main() -> int:
     )
     require(
         runtime_contract,
-        "const val pixelCopyImplemented = false",
-        "runtime_pixel_copy_fail_closed",
+        "const val pixelCopyExecuted = false",
+        "runtime_pixel_copy_execution_fail_closed",
     )
     require(
         runtime_contract,
@@ -88,6 +88,7 @@ def main() -> int:
     )
 
     print("WINE_X86_64_V50_INTEGRATION_POLICY_OK")
+    print("v50=historical_source_only active_runtime=v51 execution_evidence=false")
     return 0
 
 

@@ -51,7 +51,7 @@ object ProotInvocationPlanner {
                     allowDeviceValidationCandidate,
             )
 
-        return buildInternal(
+        val plan = buildInternal(
             runtime =
                 runtime.copy(
                     manifest =
@@ -71,6 +71,12 @@ object ProotInvocationPlanner {
                 substrate.prootReady ||
                     validationCandidateSelected,
         )
+        return if (probe == GuestRuntimeProbe.TOOLCHAIN ||
+            "wine" in GuestProbeRequirements.requiredToolIds(probe)) {
+            plan.copy(environment = plan.environment + RuntimeEnvironment.windowsTools())
+        } else {
+            plan
+        }
     }
 
     fun build(

@@ -1,7 +1,11 @@
 package dev.pocketpc.core.runtime
 
 import android.content.Context
+import android.net.ConnectivityManager
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.nio.file.AtomicMoveNotSupportedException
 
 enum class BindAuthority {
     SYSTEM,
@@ -22,6 +26,17 @@ data class BindValidation(
 )
 
 object RuntimeBindPolicy {
+    // Exact kernel resources only. Never allow all of /dev or a host root.
+    internal val kernelResources = setOf(
+        "/proc", "/dev/null", "/dev/zero", "/dev/random", "/dev/urandom",
+    )
+
+    internal fun isKernelResourceBind(bind: RuntimeBindSpec): Boolean =
+        bind.authority == BindAuthority.SYSTEM &&
+            bind.guestPath in kernelResources &&
+            bind.hostPath.path == bind.guestPath &&
+            bind.hostPath.canonicalPath == bind.guestPath
+
     private val userReserved = setOf(
         "/",
         "/proc",
@@ -50,7 +65,9 @@ object RuntimeBindPolicy {
                 val allowed = normalizedRoots.any { root ->
                     host == root || host.path.startsWith(root.path + File.separator)
                 }
-                if (!allowed) errors += "bind[$index] host fora da allowlist."
+                if (!allowed && !isKernelResourceBind(bind)) {
+                    errors += "bind[$index] host fora da allowlist."
+                }
                 if (hasReservedHostSyntax(host.path)) {
                     errors += "bind[$index] host contém caractere incompatível."
                 }
@@ -61,7 +78,10 @@ object RuntimeBindPolicy {
                 errors += "bind[$index] guest inválido."
             } else {
                 if (!seenGuest.add(guest)) errors += "bind[$index] guest duplicado: $guest"
-                if (bind.authority == BindAuthority.USER && guest in userReserved) {
+                if (bind.authority == BindAuthority.USER && userReserved.any {
+                        reserved -> guest == reserved ||
+                            (reserved != "/" && guest.startsWith("$reserved/"))
+                    }) {
                     errors += "bind[$index] guest reservado ao sistema: $guest"
                 }
                 if (':' in guest || '!' in guest) {
@@ -225,6 +245,28 @@ internal object RuntimeUserHomeLayout {
 }
 
 class RuntimeBindPlanner(private val context: Context) {
+    private fun resolverBind(): RuntimeBindSpec? {
+        val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return null
+        val servers = try {
+            connectivity.activeNetwork?.let(connectivity::getLinkProperties)?.dnsServers.orEmpty()
+        } catch (_: SecurityException) { return null }
+        val configuration = RuntimeGuestDns.configuration(servers) ?: return null
+        val directory = File(context.cacheDir, "runtime-network").apply { require(mkdirs() || isDirectory) }
+        val temporary = Files.createTempFile(directory.toPath(), ".resolver-", ".tmp")
+        val destination = File(directory, "resolv.conf")
+        try {
+            Files.write(temporary, configuration.toByteArray(Charsets.US_ASCII))
+            try {
+                Files.move(temporary, destination.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary, destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            Files.deleteIfExists(temporary)
+        }
+        return RuntimeBindSpec(destination, "/etc/resolv.conf", false, "active Android network resolver", BindAuthority.SYSTEM)
+    }
+
     fun homeDirectory(
         runtime: InstalledRuntime,
     ): File =
@@ -263,7 +305,24 @@ class RuntimeBindPlanner(private val context: Context) {
                 purpose = "runtime temp",
                 authority = BindAuthority.SYSTEM,
             ),
-        )
+            RuntimeBindSpec(
+                hostPath = File(temp, "shm").apply {
+                    require(mkdirs() || isDirectory)
+                },
+                guestPath = "/dev/shm",
+                readOnly = false,
+                purpose = "runtime shared memory",
+                authority = BindAuthority.SYSTEM,
+            ),
+        ) + RuntimeBindPolicy.kernelResources.map { path ->
+            RuntimeBindSpec(
+                hostPath = File(path),
+                guestPath = path,
+                readOnly = false,
+                purpose = "runtime kernel resource",
+                authority = BindAuthority.SYSTEM,
+            )
+        } + listOfNotNull(resolverBind())
     }
 
     fun allowedHostRoots(): List<File> =

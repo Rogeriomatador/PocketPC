@@ -114,7 +114,8 @@ def main() -> int:
     for sentinel in (
         "fun PocketFileOpenOverlay()",
         "PocketFileOpenCoordinator",
-        'Text("Entendi")',
+        'fun requestClose()',
+        'onDismissRequest = ::requestClose',
         '"O arquivo continua dentro do PocketPC.',
     ):
         require(overlay, sentinel, "PocketFileOpenOverlay.kt")
@@ -126,7 +127,8 @@ def main() -> int:
 
     require(storage, "planPocketFileOpen(", "StorageRepository.kt")
     require(storage, "PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED", "StorageRepository.kt")
-    require(storage, "PocketFileOpenCoordinator.present(plan)", "StorageRepository.kt")
+    require(storage, "PocketFileOpenCoordinator.present(", "StorageRepository.kt")
+    require(storage, "uri = entry.uri", "StorageRepository.kt")
     require(storage, "Intent.ACTION_INSTALL_PACKAGE", "StorageRepository.kt")
     forbid(storage, "Intent(Intent.ACTION_VIEW)", "StorageRepository.kt")
     forbid(storage, "Intent.ACTION_VIEW).apply", "StorageRepository.kt")
@@ -135,7 +137,8 @@ def main() -> int:
         "planPocketFileOpen(",
         "PocketFileOpenCapability.WINDOWS_RUNTIME_REQUIRED",
         "PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED",
-        "PocketFileOpenCoordinator.present(plan)",
+        "PocketFileOpenCoordinator.present(",
+        "plan = plan",
         'Text("Fila PocketPC")',
         "PcApplicationTarget",
     ):
@@ -168,7 +171,8 @@ def main() -> int:
     require(association_tests, "PocketFileHandler.WEB_DOCUMENT", "PocketFileAssociationsTest.kt")
     require(association_tests, "PocketFileHandler.NONE", "PocketFileAssociationsTest.kt")
     require(open_plan_tests, "winrar-x64.exe", "PocketFileOpenPlanTest.kt")
-    require(open_plan_tests, "INTERNAL_HANDLER_PENDING", "PocketFileOpenPlanTest.kt")
+    require(open_plan_tests, "PocketFileHandlerReadiness.ROUTE_ONLY", "PocketFileOpenPlanTest.kt")
+    require(open_plan_tests, "assertImplementedInternal(", "PocketFileOpenPlanTest.kt")
     require(open_plan_tests, "assertFalse(plan.leavesPocketPc)", "PocketFileOpenPlanTest.kt")
     require(drive_tests, 'classifyPocketFile("bootstrap.bat")', "PocketDriveTest.kt")
     require(drive_tests, 'classifyPocketFile("package.cab")', "PocketDriveTest.kt")

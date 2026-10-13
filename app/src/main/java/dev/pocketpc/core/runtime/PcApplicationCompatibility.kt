@@ -25,6 +25,7 @@ object PcApplicationCompatibilityProbe {
     fun assess(
         fileName: String,
         readiness: PcRuntimeReadiness,
+        graphicsProfile: PcApplicationGraphicsProfile = PcApplicationGraphicsProfile.forFileName(fileName),
     ): PcApplicationCompatibility {
         val cleanName =
             fileName.trim()
@@ -52,7 +53,10 @@ object PcApplicationCompatibilityProbe {
                 .map { it.label }
 
         val baseRuntimeReady =
-            readiness.controlledAttemptReady
+            when (PcApplicationGraphicsProfile.resolve(cleanName, graphicsProfile)) {
+                PcApplicationGraphicsProfile.WINDOWED_GDI -> readiness.windowedAttemptReady
+                PcApplicationGraphicsProfile.D3D_DXVK -> readiness.graphicsAttemptReady
+            }
         val artifactRuntimeReady =
             baseRuntimeReady &&
                 robloxArtifact.kind !=
@@ -126,7 +130,10 @@ object PcApplicationCompatibilityProbe {
             runtimeReady = artifactRuntimeReady,
             applicationValidated = false,
             missingRuntimeStages = missingStages,
-            detail = detail,
+            detail = detail + if (kind == PcApplicationKind.ROBLOX_DESKTOP) {
+                " O Roblox não oferece suporte oficial a Linux/Wine. " +
+                    "Preparar o runtime não garante acesso ao jogo."
+            } else "",
         )
     }
 }

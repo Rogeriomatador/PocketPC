@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -41,6 +45,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -51,6 +56,8 @@ import dev.pocketpc.core.runtime.RuntimeDesktopBridge
 import dev.pocketpc.core.runtime.RuntimeDisplayBridgePayloadCodec
 import dev.pocketpc.core.runtime.RuntimeDisplayCompositorWindow
 import dev.pocketpc.core.runtime.RuntimeWindowsKeyMapper
+import dev.pocketpc.core.runtime.RuntimePressedKeyState
+import dev.pocketpc.core.runtime.RuntimeVirtualKeyboard
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -80,20 +87,33 @@ internal fun RuntimeDesktopWindowLayer(
         remember {
             mutableMapOf<Long, Int>()
         }
+    val pressedKeys = remember(bridge) { RuntimePressedKeyState() }
+    var showKeyboard by remember { mutableStateOf(false) }
+    var keyboardHeightPx by remember { mutableStateOf(0) }
+    fun releaseKeys(windowId: Long? = null) {
+        pressedKeys.release(windowId).forEach { bridge.sendKey(it) }
+    }
+    DisposableEffect(bridge) {
+        onDispose { releaseKeys() }
+    }
 
     LaunchedEffect(
         windows.map {
-            it.windowId
+            it.windowId to it.geometry?.visible
         },
     ) {
+        val visibleIds = windows.filter { it.geometry?.visible == true }.map { it.windowId }.toSet()
+        pressedPointerButtons.keys.toList().filterNot(visibleIds::contains).forEach(pressedPointerButtons::remove)
         val current =
             focusedWindowId
         if (
             current != null &&
             windows.none {
-                it.windowId == current
+                it.windowId == current && it.geometry?.visible == true
             }
         ) {
+            releaseKeys(current)
+            pressedPointerButtons.remove(current)
             focusedWindowId = null
         }
     }
@@ -110,12 +130,23 @@ internal fun RuntimeDesktopWindowLayer(
             ).dp.toPx()
         }.coerceAtLeast(1f)
 
+    val viewport = RuntimeDesktopViewport.fit(
+        windows.mapNotNull { window ->
+            window.geometry?.takeIf { it.visible }?.let {
+                RuntimeWindowRectangle(it.x, it.y, it.width, it.height)
+            }
+        },
+        workspaceWidthPx,
+        (workspaceHeightPx - if (showKeyboard) keyboardHeightPx else 0).coerceAtLeast(1f),
+    )
+
     Box(
         modifier =
             modifier
                 .focusRequester(
                     keyboardFocusRequester,
                 )
+                .onFocusChanged { if (!it.hasFocus) releaseKeys() }
                 .onPreviewKeyEvent {
                     composeEvent ->
                     val windowId =
@@ -193,8 +224,7 @@ internal fun RuntimeDesktopWindowLayer(
                                     .META_META_ON
                     }
 
-                    bridge.sendKey(
-                        RuntimeBridgeKeyEvent(
+                    val event = RuntimeBridgeKeyEvent(
                             windowId =
                                 windowId,
                             action =
@@ -213,8 +243,10 @@ internal fun RuntimeDesktopWindowLayer(
                                     .nativeKeyEvent
                                     .repeatCount
                                     .coerceAtLeast(0),
-                        ),
-                    ).isSuccess
+                        )
+                    val sent = bridge.sendKey(event).isSuccess
+                    if (sent) pressedKeys.accepted(event)
+                    sent
                 }
                 .focusable(),
     ) {
@@ -231,44 +263,11 @@ internal fun RuntimeDesktopWindowLayer(
                     window.geometry
                         ?: return@forEach
 
-                val widthPx =
-                    geometry.width
-                        .toFloat()
-                        .coerceIn(
-                            1f,
-                            workspaceWidthPx,
-                        )
-                val heightPx =
-                    geometry.height
-                        .toFloat()
-                        .coerceIn(
-                            1f,
-                            workspaceHeightPx,
-                        )
-                val xPx =
-                    geometry.x
-                        .toFloat()
-                        .coerceIn(
-                            0f,
-                            (
-                                workspaceWidthPx -
-                                    widthPx
-                            ).coerceAtLeast(
-                                0f,
-                            ),
-                        )
-                val yPx =
-                    geometry.y
-                        .toFloat()
-                        .coerceIn(
-                            0f,
-                            (
-                                workspaceHeightPx -
-                                    heightPx
-                            ).coerceAtLeast(
-                                0f,
-                            ),
-                        )
+                if (geometry.width <= 0 || geometry.height <= 0) return@forEach
+                val widthPx = (geometry.width * viewport.scale).coerceAtLeast(1f)
+                val heightPx = (geometry.height * viewport.scale).coerceAtLeast(1f)
+                val xPx = viewport.x(geometry.x)
+                val yPx = viewport.y(geometry.y)
 
                 val widthDp =
                     with(density) {
@@ -357,6 +356,7 @@ internal fun RuntimeDesktopWindowLayer(
                                                         )
 
                                                 fun focusRuntimeWindow() {
+                                                    if (focusedWindowId != window.windowId) releaseKeys()
                                                     focusedWindowId =
                                                         window.windowId
                                                     keyboardFocusRequester
@@ -663,6 +663,15 @@ internal fun RuntimeDesktopWindowLayer(
                                         .labelSmall,
                             )
                             RuntimeWindowControl(
+                                "⌨",
+                            ) {
+                                releaseKeys()
+                                focusedWindowId = window.windowId
+                                bridge.activate(window.windowId)
+                                keyboardFocusRequester.requestFocus()
+                                showKeyboard = !showKeyboard
+                            }
+                            RuntimeWindowControl(
                                 "—",
                             ) {
                                 bridge.minimize(
@@ -688,6 +697,27 @@ internal fun RuntimeDesktopWindowLayer(
                     }
                 }
             }
+        if (showKeyboard) {
+            RuntimeOnScreenKeyboard(
+                enabled = focusedWindowId != null,
+                onKey = { code, shift, control, alt ->
+                    focusedWindowId?.let { id ->
+                        releaseKeys()
+                        for (event in RuntimeVirtualKeyboard.keyPress(id, code, shift, control, alt)) {
+                            if (bridge.sendKey(event).isSuccess) {
+                                pressedKeys.accepted(event)
+                            } else {
+                                releaseKeys(id)
+                                break
+                            }
+                        }
+                    }
+                },
+                onClose = { showKeyboard = false },
+                modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth()
+                    .zIndex(100_000f).onSizeChanged { keyboardHeightPx = it.height },
+            )
+        }
     }
 }
 

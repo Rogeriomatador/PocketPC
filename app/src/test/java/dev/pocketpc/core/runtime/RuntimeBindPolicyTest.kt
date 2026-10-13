@@ -9,6 +9,30 @@ import org.junit.Test
 
 class RuntimeBindPolicyTest {
     @Test
+    fun kernelResourcesRequireExactSystemOwnedHostGuestPairs() {
+        val proc = RuntimeBindSpec(File("/proc"), "/proc", false, "kernel", BindAuthority.SYSTEM)
+        assertTrue(RuntimeBindPolicy.isKernelResourceBind(proc))
+        assertTrue(RuntimeBindPolicy.validate(listOf(proc), emptyList()).valid)
+        assertFalse(RuntimeBindPolicy.isKernelResourceBind(proc.copy(authority = BindAuthority.USER)))
+        assertFalse(RuntimeBindPolicy.isKernelResourceBind(proc.copy(guestPath = "/mnt/proc")))
+        assertFalse(RuntimeBindPolicy.isKernelResourceBind(proc.copy(hostPath = File("/"))))
+        assertFalse(RuntimeBindPolicy.validate(listOf(proc.copy(hostPath = File("/dev"), guestPath = "/dev")), emptyList()).valid)
+    }
+
+    @Test
+    fun userCannotReplaceReservedSubdirectories() {
+        val root = Files.createTempDirectory("pocketpc-reserved-bind-").toFile()
+        try {
+            for (guest in listOf("/proc/self", "/dev/shm", "/home/pocket/windows-prefixes", "/tmp/child")) {
+                assertFalse(guest, RuntimeBindPolicy.validate(listOf(
+                    RuntimeBindSpec(root, guest, false, "override", BindAuthority.USER)), listOf(root)).valid)
+            }
+            assertTrue(RuntimeBindPolicy.validate(listOf(
+                RuntimeBindSpec(root, "/home/pocket-games", false, "user games", BindAuthority.USER)), listOf(root)).valid)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
     fun acceptsSystemBindInsideAllowlistedHostRoot() {
         val root = Files.createTempDirectory("pocketpc-bind-").toFile()
         try {

@@ -3,6 +3,14 @@ package dev.pocketpc.core.runtime
 import java.io.File
 
 object RuntimeEnvironment {
+    /** Search paths for translated child processes, including Wine's wineserver. */
+    fun windowsTools(): Map<String, String> = linkedMapOf(
+        "BOX64_PATH" to "/opt/pocketpc/wine/bin",
+        "BOX64_LD_LIBRARY_PATH" to
+            "/opt/pocketpc/wine/lib:/opt/pocketpc/wine/lib64:" +
+                "/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu",
+    )
+
     fun minimal(
         home: String = "/home/pocket",
         term: String = "xterm-256color",
@@ -20,6 +28,10 @@ object RuntimeEnvironment {
 
     fun forProot(nativeLibraryDir: String, hostTempDirectory: String? = null): Map<String, String> =
         LinkedHashMap(minimal()).apply {
+            // libproot.so is an executable, not a JVM-loaded JNI library. The
+            // Android linker needs an explicit search path for its packaged
+            // libtalloc/libandroid-shmem DT_NEEDED dependencies (no RUNPATH).
+            put("LD_LIBRARY_PATH", nativeLibraryDir)
             hostTempDirectory?.let { put("PROOT_TMP_DIR", it) }
             put(
                 "PROOT_LOADER",

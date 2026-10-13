@@ -75,6 +75,31 @@ class GuestRuntimeProbeTest {
         assertTrue(script.contains("/opt/pocketpc/box64/bin/box64"))
         assertTrue(script.contains("/opt/pocketpc/wine/bin/wine"))
         assertTrue(script.contains("application_compatibility=not_tested"))
+        assertTrue(script.contains("elif /opt/pocketpc/box64/bin/box64 /opt/pocketpc/wine/bin/wine --version"))
+    }
+
+    @Test
+    fun toolchainVersionQueryGoesThroughTranslatorFixture() = runBlocking {
+        assumeTrue(File("/bin/sh").canExecute())
+        val root = java.nio.file.Files.createTempDirectory("pocketpc-translator-fixture-").toFile()
+        try {
+            val box = File(root, "box64").apply {
+                writeText("#!/bin/sh\nif [ \"\$1\" = --version ]; then echo BOX_VERSION_FIXTURE; else echo TRANSLATED_VERSION_FIXTURE; fi\n")
+                setExecutable(true)
+            }
+            val wine = File(root, "wine").apply {
+                writeText("#!/bin/sh\necho DIRECT_WINE_MUST_NOT_RUN\nexit 99\n")
+                setExecutable(true)
+            }
+            val script = GuestRuntimeProbe.TOOLCHAIN.script
+                .replace("/opt/pocketpc/box64/bin/box64", box.path)
+                .replace("/opt/pocketpc/wine/bin/wine", wine.path)
+            val result = RuntimeProcessSupervisor().runOneShot(ProcessRunSpec(
+                argv = listOf("/bin/sh", "-c", script), environment = mapOf("PATH" to "/usr/bin:/bin")))
+            assertEquals(0, result.exitCode)
+            assertTrue(result.output.contains("TRANSLATED_VERSION_FIXTURE"))
+            assertFalse(result.output.contains("DIRECT_WINE_MUST_NOT_RUN"))
+        } finally { root.deleteRecursively() }
     }
 
     @Test

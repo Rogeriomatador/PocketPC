@@ -7,6 +7,27 @@ import org.junit.Test
 
 class PcWindowsLaunchAttemptPlannerTest {
     @Test
+    fun workingDirectoryAndArgumentsActuallyRemainLiteralInHostShellFixture() {
+        val root = java.nio.file.Files.createTempDirectory("pocketpc-positional-").toFile()
+        try {
+            val directory = java.io.File(root, "portable $(touch marker); space").apply { mkdirs() }
+            val payload = "; touch marker"
+            val args = PcWindowsLaunchAttemptPlanner.shellArguments(
+                listOf("/bin/sh", "-c", "printf 'directory=%s\\n' \"\$PWD\"; printf 'argument=%s\\n' \"\$1\"", "fixture", payload),
+                workingDirectory = directory.path,
+            )
+            val process = ProcessBuilder(listOf("/bin/sh") + args).redirectErrorStream(true).start()
+            assertTrue(process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS))
+            val output = process.inputStream.bufferedReader().readText()
+            assertEquals(0, process.exitValue())
+            assertTrue(output.contains("directory=${directory.path}"))
+            assertTrue(output.contains("argument=$payload"))
+            assertFalse(java.io.File(directory, "marker").exists())
+            assertFalse(java.io.File(root, "marker").exists())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
     fun targetPathRemainsPositionalAndNeverEntersShellSource() {
         val target =
             "/home/pocket/windows-targets/" +

@@ -25,7 +25,7 @@ def main() -> int:
 
     if lock.get("version") != "11.0" or lock.get("commit") != "db11d0fe6a169c457e23d007e20404643d067aa8":
         failures.append("Wine source lock changed")
-    if arch.get("schemaVersion") != 6:
+    if arch.get("schemaVersion") != 8:
         failures.append("Vulkan architecture schema changed")
 
     require(failures, preparer, (

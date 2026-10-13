@@ -23,6 +23,9 @@ internal fun RuntimeDisplayFramePreview(
     contentScale: ContentScale =
         ContentScale.Fit,
 ) {
+    val bitmap = remember(frame.width, frame.height) {
+        Bitmap.createBitmap(frame.width, frame.height, Bitmap.Config.ARGB_8888)
+    }
     val image =
         remember(
             frame.width,
@@ -31,12 +34,16 @@ internal fun RuntimeDisplayFramePreview(
             frameId,
             externalFrameIdentity,
         ) {
-            Bitmap.createBitmap(
+            bitmap.setPixels(
                 frame.argb,
+                0,
+                frame.width,
+                0,
+                0,
                 frame.width,
                 frame.height,
-                Bitmap.Config.ARGB_8888,
-            ).asImageBitmap()
+            )
+            bitmap.asImageBitmap()
         }
 
     Image(

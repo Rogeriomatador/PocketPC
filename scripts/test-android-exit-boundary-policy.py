@@ -8,6 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SOURCE_ROOT = ROOT / "app/src/main/java"
 
 BROWSER = pathlib.Path("dev/pocketpc/core/ui/BrowserApp.kt")
+STORE = pathlib.Path("dev/pocketpc/core/ui/StoreApp.kt")
 STORAGE = pathlib.Path("dev/pocketpc/core/storage/StorageRepository.kt")
 UPDATER = pathlib.Path("dev/pocketpc/core/update/PocketPcUpdater.kt")
 
@@ -58,7 +59,7 @@ def main() -> int:
 
     require_exact(
         action_view,
-        {BROWSER: 1},
+        {BROWSER: 1, STORE: 2},
         "generic ACTION_VIEW",
     )
 
@@ -88,6 +89,10 @@ def main() -> int:
         fail(f"unknown-source settings escaped allowlist: {actual}")
 
     browser_text = (SOURCE_ROOT / BROWSER).read_text(encoding="utf-8")
+    store_text = (SOURCE_ROOT / STORE).read_text(encoding="utf-8")
+    for sentinel in ('private fun openStoreTarget(', '"Abrir Google Play"', 'market.resolveActivity('):
+        if sentinel not in store_text:
+            fail(f"Store explicit Google Play handoff missing: {sentinel}")
     if '"Abrir fora do PocketPC (Android)"' not in browser_text:
         fail("Browser explicit Android exit is not visibly labelled")
     if "O PocketPC bloqueou a saída automática para o Android" not in browser_text:
@@ -97,7 +102,8 @@ def main() -> int:
     for sentinel in (
         "planPocketFileOpen(",
         "PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED",
-        "PocketFileOpenCoordinator.present(plan)",
+        "PocketFileOpenCoordinator.present(",
+        "uri = entry.uri",
         "requestAndroidPackageInstall(",
     ):
         if sentinel not in storage_text:
@@ -105,7 +111,7 @@ def main() -> int:
 
     print("ANDROID_EXIT_BOUNDARY_POLICY_OK")
     print(f"kotlin_files_scanned={len(kotlin_files)}")
-    print("generic_action_view=browser_explicit_only")
+    print("generic_action_view=browser_explicit_and_google_play_only")
     print("generic_file_dispatch_to_android=false")
     print("file_open_dispatch=PocketPC_coordinator")
     print("android_package_install=storage_explicit_only")

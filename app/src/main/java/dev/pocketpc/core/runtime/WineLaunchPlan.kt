@@ -74,6 +74,7 @@ object WineLaunchPlanner {
                     "HOME" to "/home/pocket",
                     "TMPDIR" to "/tmp",
                 ).apply {
+                    putAll(RuntimeEnvironment.windowsTools())
                     if (enableDxvk) {
                         put(
                             "WINEDLLOVERRIDES",
