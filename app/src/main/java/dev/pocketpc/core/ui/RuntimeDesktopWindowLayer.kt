@@ -47,16 +47,20 @@ import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.pocketpc.core.runtime.RuntimeBridgeKeyEvent
 import dev.pocketpc.core.runtime.RuntimeBridgePointerEvent
 import dev.pocketpc.core.runtime.RuntimeDesktopBridge
 import dev.pocketpc.core.runtime.RuntimeDisplayBridgePayloadCodec
 import dev.pocketpc.core.runtime.RuntimeDisplayCompositorWindow
 import dev.pocketpc.core.runtime.RuntimeWindowsKeyMapper
-import dev.pocketpc.core.runtime.RuntimePressedKeyState
+import dev.pocketpc.core.runtime.RuntimeKeyInputRouter
 import dev.pocketpc.core.runtime.RuntimeVirtualKeyboard
 import kotlin.math.roundToInt
 
@@ -87,14 +91,30 @@ internal fun RuntimeDesktopWindowLayer(
         remember {
             mutableMapOf<Long, Int>()
         }
-    val pressedKeys = remember(bridge) { RuntimePressedKeyState() }
+    val keyInput = remember(bridge) { RuntimeKeyInputRouter { bridge.sendKey(it).isSuccess } }
+    var showGameControls by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val hostView = LocalView.current
     var showKeyboard by remember { mutableStateOf(false) }
     var keyboardHeightPx by remember { mutableStateOf(0) }
     fun releaseKeys(windowId: Long? = null) {
-        pressedKeys.release(windowId).forEach { bridge.sendKey(it) }
+        keyInput.release(windowId)
     }
-    DisposableEffect(bridge) {
-        onDispose { releaseKeys() }
+    DisposableEffect(keyInput, lifecycleOwner, hostView) {
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) releaseKeys()
+        }
+        val focusObserver = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
+            if (!hasFocus) releaseKeys()
+        }
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+        val viewTreeObserver = hostView.viewTreeObserver
+        viewTreeObserver.addOnWindowFocusChangeListener(focusObserver)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+            if (viewTreeObserver.isAlive) viewTreeObserver.removeOnWindowFocusChangeListener(focusObserver)
+            releaseKeys()
+        }
     }
 
     LaunchedEffect(
@@ -137,7 +157,7 @@ internal fun RuntimeDesktopWindowLayer(
             }
         },
         workspaceWidthPx,
-        (workspaceHeightPx - if (showKeyboard) keyboardHeightPx else 0).coerceAtLeast(1f),
+        (workspaceHeightPx - if (showKeyboard || showGameControls) keyboardHeightPx else 0).coerceAtLeast(1f),
     )
 
     Box(
@@ -244,8 +264,8 @@ internal fun RuntimeDesktopWindowLayer(
                                     .repeatCount
                                     .coerceAtLeast(0),
                         )
-                    val sent = bridge.sendKey(event).isSuccess
-                    if (sent) pressedKeys.accepted(event)
+                    val sent = keyInput.send("hardware", event)
+                    if (!sent) releaseKeys(windowId)
                     sent
                 }
                 .focusable(),
@@ -669,7 +689,16 @@ internal fun RuntimeDesktopWindowLayer(
                                 focusedWindowId = window.windowId
                                 bridge.activate(window.windowId)
                                 keyboardFocusRequester.requestFocus()
+                                showGameControls = false
                                 showKeyboard = !showKeyboard
+                            }
+                            RuntimeWindowControl("Jogo") {
+                                releaseKeys()
+                                focusedWindowId = window.windowId
+                                bridge.activate(window.windowId)
+                                keyboardFocusRequester.requestFocus()
+                                showKeyboard = false
+                                showGameControls = !showGameControls
                             }
                             RuntimeWindowControl(
                                 "—",
@@ -697,23 +726,40 @@ internal fun RuntimeDesktopWindowLayer(
                     }
                 }
             }
+        if (showGameControls) {
+            RuntimeTouchGameControls(
+                windowId = focusedWindowId,
+                onKey = { id, code, down, owner ->
+                    if (!down || id == focusedWindowId) {
+                        val mapped = RuntimeWindowsKeyMapper.map(code)
+                        if (mapped != null) {
+                            val event = RuntimeBridgeKeyEvent(id,
+                                if (down) RuntimeDisplayBridgePayloadCodec.KEY_ACTION_DOWN
+                                else RuntimeDisplayBridgePayloadCodec.KEY_ACTION_UP,
+                                mapped.virtualKey, mapped.scanCode, 0, 0)
+                            if (!keyInput.send(owner, event)) releaseKeys(id)
+                        }
+                    }
+                },
+                onClose = { releaseKeys(); showGameControls = false },
+                modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth()
+                    .zIndex(100_000f).onSizeChanged { keyboardHeightPx = it.height },
+            )
+        }
         if (showKeyboard) {
             RuntimeOnScreenKeyboard(
                 enabled = focusedWindowId != null,
                 onKey = { code, shift, control, alt ->
                     focusedWindowId?.let { id ->
-                        releaseKeys()
                         for (event in RuntimeVirtualKeyboard.keyPress(id, code, shift, control, alt)) {
-                            if (bridge.sendKey(event).isSuccess) {
-                                pressedKeys.accepted(event)
-                            } else {
+                            if (!keyInput.send("keyboard-tap", event)) {
                                 releaseKeys(id)
                                 break
                             }
                         }
                     }
                 },
-                onClose = { showKeyboard = false },
+                onClose = { releaseKeys(); showKeyboard = false },
                 modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth()
                     .zIndex(100_000f).onSizeChanged { keyboardHeightPx = it.height },
             )
