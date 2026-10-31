@@ -40,6 +40,11 @@ The final Android Gradle JVM suite passed **587 tests, zero failures, errors or
 skips**, including all 13 new router tests. Kotlin/Java compilation and
 `assembleDebug` also passed with native rebuilding disabled.
 
+The final combined Gradle run completed successfully with `--offline` after
+dependency resolution: **lintDebug PASS, zero errors and 133 warnings**. Warnings
+remain, including an optional Modifier default in the new touch panel; this is
+not a warning-free lint result. No Android execution evidence is inferred from it.
+
 Reproduction with the pinned toolchain and Android SDK:
 
 ```sh
