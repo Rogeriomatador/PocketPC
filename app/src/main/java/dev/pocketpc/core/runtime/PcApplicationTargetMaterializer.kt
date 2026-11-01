@@ -14,6 +14,7 @@ data class MaterializedPcApplicationTarget(
     val guestPath: String,
     val bytes: Long,
     val sha256: String,
+    val programDirectory: File? = null,
 )
 
 class PcApplicationTargetMaterializer(
@@ -25,6 +26,7 @@ class PcApplicationTargetMaterializer(
     fun materialize(
         target: PcApplicationTarget,
         runtimeHome: File,
+        checkActive: () -> Unit = {},
     ): Result<MaterializedPcApplicationTarget> =
         runCatching {
             require(
@@ -87,6 +89,18 @@ class PcApplicationTargetMaterializer(
                     target.fileName,
                 )
 
+            target.directoryUri?.let { directoryUri ->
+                val source = SafPcProgramDirectorySource(appContext, Uri.parse(directoryUri))
+                val imported = PcProgramDirectoryImporter().importProgram(
+                    source, source.selectedId(sourceUri), target.fileName, target.sizeBytes,
+                    canonicalRoot, checkActive,
+                ).getOrThrow()
+                val guestPath = "/home/pocket/$TARGET_DIRECTORY/${imported.directory.name}/${imported.relativePath}"
+                require(RuntimeBindPolicy.normalizeGuestPath(guestPath) == guestPath) { "PC_TARGET_GUEST_PATH_INVALID" }
+                return@runCatching MaterializedPcApplicationTarget(target, imported.executable,
+                    guestPath, imported.bytes, imported.sha256, imported.directory)
+            }
+
             val temporary =
                 Files.createTempFile(
                     canonicalRoot.toPath(),
@@ -116,6 +130,7 @@ class PcApplicationTargetMaterializer(
                                     COPY_BUFFER_BYTES,
                                 )
                             while (true) {
+                                checkActive()
                                 val read =
                                     input.read(buffer)
                                 if (read < 0)

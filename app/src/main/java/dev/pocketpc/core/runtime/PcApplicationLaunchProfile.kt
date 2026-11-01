@@ -7,6 +7,7 @@ data class PcApplicationLaunchProfile(
     val graphics: PcApplicationGraphicsProfile,
     val arguments: List<String> = emptyList(),
     val argumentsText: String = "",
+    val directoryUri: String? = null,
 )
 
 /** Profiles are preferences, never runtime execution evidence. */
@@ -20,13 +21,18 @@ class PcApplicationLaunchProfileStore(context: Context) {
             ?: target.graphicsProfile
         val text = preferences.getString("$key.arguments", "").orEmpty()
         val arguments = PcLaunchArgumentParser.parse(text).getOrDefault(emptyList())
-        return PcApplicationLaunchProfile(PcApplicationGraphicsProfile.resolve(target.fileName, graphics), arguments, text)
+        val directory = preferences.getString("$key.directory", target.directoryUri)
+        return PcApplicationLaunchProfile(PcApplicationGraphicsProfile.resolve(target.fileName, graphics), arguments, text, directory)
     }
 
-    fun save(target: PcApplicationTarget, graphics: PcApplicationGraphicsProfile, argumentsText: String): Result<Unit> =
+    fun save(target: PcApplicationTarget, graphics: PcApplicationGraphicsProfile, argumentsText: String,
+             directoryUri: String? = target.directoryUri): Result<Unit> =
         PcLaunchArgumentParser.parse(argumentsText).mapCatching {
+            require(directoryUri == null || (directoryUri.startsWith("content://") && directoryUri.length <= 16_384 &&
+                directoryUri.none { it == '\u0000' || it == '\n' || it == '\r' })) { "PC_PROGRAM_TREE_URI_INVALID" }
             val key = key(target.uri)
             check(preferences.edit().putString("$key.graphics", graphics.name)
+                .putString("$key.directory", directoryUri)
                 .putString("$key.arguments", argumentsText).commit()) { "PC_LAUNCH_PROFILE_SAVE_FAILED" }
         }
 

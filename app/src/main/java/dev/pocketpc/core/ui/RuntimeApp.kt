@@ -1,5 +1,9 @@
 package dev.pocketpc.core.ui
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -28,6 +32,7 @@ import dev.pocketpc.core.runtime.PcApplicationGraphicsProfile
 import dev.pocketpc.core.runtime.PcApplicationLaunchProfileStore
 import dev.pocketpc.core.runtime.PcLaunchArgumentParser
 import dev.pocketpc.core.runtime.PcApplicationTargetMaterializer
+import dev.pocketpc.core.runtime.SafeTreeOps
 import dev.pocketpc.core.runtime.PcWindowsLaunchAttemptPlan
 import dev.pocketpc.core.runtime.PcWindowsLaunchAttemptPlanner
 import dev.pocketpc.core.runtime.PcRuntimeExecutionGateState
@@ -64,6 +69,8 @@ import dev.pocketpc.core.runtime.DeployedWindowsRuntimeLayer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -156,6 +163,24 @@ fun RuntimeApp(
         mutableStateOf(savedProfile?.argumentsText.orEmpty())
     }
     var profileStatus by remember(target?.uri) { mutableStateOf("") }
+    var targetDirectoryUri by rememberSaveable(target?.uri) {
+        mutableStateOf(savedProfile?.directoryUri ?: target?.directoryUri)
+    }
+    var directoryStatus by rememberSaveable(target?.uri) { mutableStateOf("") }
+    var directoryPickerTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    val programDirectoryPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null && directoryPickerTarget != null && directoryPickerTarget == target?.uri) {
+            runCatching {
+                appContext.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }.onSuccess {
+                targetDirectoryUri = uri.toString()
+                directoryStatus = "Pasta selecionada. DLLs e dados serão incluídos na próxima importação."
+            }.onFailure {
+                directoryStatus = "Não foi possível manter acesso à pasta. Selecione-a novamente."
+            }
+        }
+        directoryPickerTarget = null
+    }
     val targetArguments = remember(targetArgumentsText) { PcLaunchArgumentParser.parse(targetArgumentsText) }
     val bindPlanner =
         remember(appContext) {
@@ -528,6 +553,8 @@ fun RuntimeApp(
         selectedTarget: PcApplicationTarget,
     ): Result<PendingPcApplicationAttempt> =
         withContext(Dispatchers.IO) {
+            val importContext = currentCoroutineContext()
+            var importedProgram: File? = null
             runCatching {
                 val candidate =
                     pcRuntimeCandidate
@@ -553,8 +580,10 @@ fun RuntimeApp(
                                 selectedTarget,
                             runtimeHome =
                                 runtimeHome,
+                            checkActive = { importContext.ensureActive() },
                         )
                         .getOrThrow()
+                importedProgram = materialized.programDirectory
                 val prefix =
                     WindowsPrefixPlanner
                         .plan(
@@ -593,6 +622,7 @@ fun RuntimeApp(
                         plan.blockers
                             .joinToString(",")
                 }
+                importContext.ensureActive()
 
                 PendingPcApplicationAttempt(
                     runtime = runtime,
@@ -600,7 +630,7 @@ fun RuntimeApp(
                         candidate.layers,
                     plan = plan,
                 )
-            }
+            }.onFailure { importedProgram?.let(SafeTreeOps::deleteNoFollow) }
         }
 
     val scrollState = rememberLazyListState()
@@ -784,6 +814,7 @@ fun RuntimeApp(
             val configuredTarget = selectedTarget.copy(
                 graphicsProfile = effectiveGraphics,
                 launchArguments = targetArguments.getOrDefault(emptyList()),
+                directoryUri = targetDirectoryUri,
             )
             val compatibility =
                 PcApplicationCompatibilityProbe.assess(
@@ -879,6 +910,23 @@ fun RuntimeApp(
                                 .bodySmall,
                     )
                     Text("Perfil do aplicativo", style = MaterialTheme.typography.titleSmall)
+                    Text("Pasta do programa", style = MaterialTheme.typography.titleSmall)
+                    Text("Escolha a pasta que contém este EXE ou MSI para incluir DLLs e arquivos de dados. " +
+                        "O arquivo selecionado precisa estar dentro dela.", style = MaterialTheme.typography.bodySmall)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(enabled = !busy, onClick = {
+                            directoryPickerTarget = selectedTarget.uri
+                            programDirectoryPicker.launch(null)
+                        }) { Text(if (targetDirectoryUri == null) "Selecionar pasta do programa" else "Trocar pasta") }
+                        if (targetDirectoryUri != null) TextButton(enabled = !busy, onClick = {
+                            targetDirectoryUri = null
+                            directoryStatus = "Importação somente do arquivo selecionado."
+                        }) { Text("Usar somente este arquivo") }
+                    }
+                    if (targetDirectoryUri != null && directoryStatus.isEmpty()) {
+                        Text("Pasta do programa associada ao perfil.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (directoryStatus.isNotEmpty()) Text(directoryStatus, style = MaterialTheme.typography.bodySmall)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = effectiveGraphics == PcApplicationGraphicsProfile.WINDOWED_GDI,
@@ -913,7 +961,7 @@ fun RuntimeApp(
                     TextButton(enabled = !busy && targetArguments.isSuccess, onClick = {
                         scope.launch {
                             profileStatus = withContext(Dispatchers.IO) {
-                                profileStore.save(selectedTarget, targetGraphics, targetArgumentsText)
+                                profileStore.save(selectedTarget, targetGraphics, targetArgumentsText, targetDirectoryUri)
                                     .fold({ "Perfil salvo para este aplicativo." }, { "Não foi possível salvar o perfil." })
                             }
                         }
@@ -993,6 +1041,14 @@ fun RuntimeApp(
                                             "PC_WINDOWS_ATTEMPT_READY_FOR_CONFIRMATION"
                                     }.onFailure {
                                         failure ->
+                                        directoryStatus = when (failure.message) {
+                                            "PC_PROGRAM_TARGET_NOT_IN_FOLDER" -> "O arquivo escolhido não está nesta pasta. Escolha a pasta correta."
+                                            "PC_PROGRAM_TARGET_NOT_DOCUMENT_URI" -> "Abra o EXE no Explorador a partir de uma pasta selecionada pelo Android para associar seus dados."
+                                            "PC_PROGRAM_NAME_COLLISION", "PC_PROGRAM_NAME_INVALID" -> "A pasta contém nomes incompatíveis ou em conflito no Windows. Confira os arquivos."
+                                            "PC_PROGRAM_SIZE_LIMIT", "PC_PROGRAM_DECLARED_SIZE_INVALID" -> "O programa ultrapassa o limite de importação de 16 GiB."
+                                            "PC_PROGRAM_SOURCE_SIZE_CHANGED", "PC_PROGRAM_TARGET_SIZE_CHANGED", "PC_PROGRAM_TARGET_NAME_CHANGED" -> "Um arquivo mudou durante a cópia. Aguarde o download terminar e selecione o programa novamente."
+                                            else -> if (failure is SecurityException) "O acesso à pasta foi perdido. Selecione-a novamente." else directoryStatus
+                                        }
                                         status =
                                             "PC_WINDOWS_ATTEMPT_PREPARE_FAILED: " +
                                                 (
@@ -2116,6 +2172,9 @@ fun RuntimeApp(
         ) ->
         AlertDialog(
             onDismissRequest = {
+                attempt.target.programDirectory?.let { directory ->
+                    scope.launch(Dispatchers.IO) { SafeTreeOps.deleteNoFollow(directory) }
+                }
                 pendingPcApplicationAttempt =
                     null
             },
@@ -2442,6 +2501,9 @@ fun RuntimeApp(
             dismissButton = {
                 TextButton(
                     onClick = {
+                        attempt.target.programDirectory?.let { directory ->
+                            scope.launch(Dispatchers.IO) { SafeTreeOps.deleteNoFollow(directory) }
+                        }
                         pendingPcApplicationAttempt =
                             null
                     },

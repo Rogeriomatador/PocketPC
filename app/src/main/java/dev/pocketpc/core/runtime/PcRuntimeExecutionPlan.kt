@@ -42,6 +42,7 @@ data class PcApplicationTarget(
     val graphicsProfile: PcApplicationGraphicsProfile =
         PcApplicationGraphicsProfile.forFileName(fileName),
     val launchArguments: List<String> = emptyList(),
+    val directoryUri: String? = null,
 )
 
 enum class PcRuntimeExecutionGateState {
