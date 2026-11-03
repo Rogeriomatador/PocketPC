@@ -13,6 +13,8 @@ data class RuntimeDisplaySurfaceState(
 
 class RuntimeDisplaySurfaceRegistry(
     private val hostTempDirectory: File,
+    private val maxAggregateFramebufferBytes: Long =
+        DEFAULT_MAX_AGGREGATE_FRAMEBUFFER_BYTES,
 ) : Closeable {
     private val surfaces =
         LinkedHashMap<
@@ -23,6 +25,9 @@ class RuntimeDisplaySurfaceRegistry(
     private var nextSurfaceId = 1L
 
     init {
+        require(maxAggregateFramebufferBytes in 1L..(1024L * 1024L * 1024L)) {
+            "DISPLAY_SURFACE_BUDGET_INVALID"
+        }
         require(
             SafeTreeOps.isPlainDirectory(
                 hostTempDirectory.toPath(),
@@ -82,6 +87,22 @@ class RuntimeDisplaySurfaceRegistry(
                 ) {
                     "DISPLAY_SURFACE_GENERATION_STALE"
                 }
+            }
+
+            // The framebuffer is a guest-writable file. The per-frame limit
+            // alone would allow dozens of 64 MiB windows to consume gigabytes
+            // of app-private storage. Check the aggregate *before* creating
+            // another file; replacement counts only the final surface.
+            require(request.width in 1..4096 && request.height in 1..4096) {
+                "DISPLAY_SURFACE_DIMENSION_INVALID"
+            }
+            val requestedBytes =
+                request.width.toLong() * request.height.toLong() * 4L
+            val retainedBytes =
+                surfaces.values.sumOf { it.framebuffer.descriptor.bytes } -
+                    (previous?.framebuffer?.descriptor?.bytes ?: 0L)
+            require(requestedBytes + retainedBytes <= maxAggregateFramebufferBytes) {
+                "DISPLAY_SURFACE_AGGREGATE_BYTES_LIMIT"
             }
 
             val surfaceId =
@@ -257,5 +278,7 @@ class RuntimeDisplaySurfaceRegistry(
 
     companion object {
         const val MAX_SURFACES = 64
+        const val DEFAULT_MAX_AGGREGATE_FRAMEBUFFER_BYTES =
+            96L * 1024L * 1024L
     }
 }
