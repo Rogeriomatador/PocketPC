@@ -27,6 +27,24 @@ class RuntimeDisplaySessionController(
         )
     private val compositor =
         RuntimeDisplayCompositorModel()
+    private val inputDispatcher =
+        RuntimeDisplayInputDispatcher(
+            transmit = { command ->
+                when (command) {
+                    is RuntimeDisplayOutboundInput.Pointer ->
+                        processor.sendPointer(command.value)
+                    is RuntimeDisplayOutboundInput.Key ->
+                        processor.sendKey(command.value)
+                    is RuntimeDisplayOutboundInput.Window ->
+                        processor.sendWindowCommand(command.value)
+                }
+            },
+            onFailure = {
+                // Closing the socket interrupts a stalled guest read/write;
+                // the session loop then exits and releases its windows.
+                (endpoint as? Closeable)?.close()
+            },
+        )
     private val desktopBinding =
         desktopBridge?.bind(
             commandSender = {
@@ -35,9 +53,7 @@ class RuntimeDisplaySessionController(
                     check(!closed.get()) {
                         "DISPLAY_SESSION_CLOSED"
                     }
-                    processor.sendWindowCommand(
-                        command,
-                    )
+                    inputDispatcher.window(command).getOrThrow()
                 }
             },
             pointerSender = {
@@ -46,9 +62,7 @@ class RuntimeDisplaySessionController(
                     check(!closed.get()) {
                         "DISPLAY_SESSION_CLOSED"
                     }
-                    processor.sendPointer(
-                        event,
-                    )
+                    inputDispatcher.pointer(event).getOrThrow()
                 }
             },
             keySender = {
@@ -57,9 +71,7 @@ class RuntimeDisplaySessionController(
                     check(!closed.get()) {
                         "DISPLAY_SESSION_CLOSED"
                     }
-                    processor.sendKey(
-                        event,
-                    )
+                    inputDispatcher.key(event).getOrThrow()
                 }
             },
             externalVulkanFrameSender = {
@@ -166,7 +178,7 @@ class RuntimeDisplaySessionController(
             check(!closed.get()) {
                 "DISPLAY_SESSION_CLOSED"
             }
-            processor.sendPointer(event)
+            inputDispatcher.pointer(event).getOrThrow()
         }
 
     fun sendKey(
@@ -176,7 +188,7 @@ class RuntimeDisplaySessionController(
             check(!closed.get()) {
                 "DISPLAY_SESSION_CLOSED"
             }
-            processor.sendKey(event)
+            inputDispatcher.key(event).getOrThrow()
         }
 
     fun commandWindow(
@@ -195,7 +207,7 @@ class RuntimeDisplaySessionController(
             ) {
                 "DISPLAY_SESSION_WINDOW_MISSING"
             }
-            processor.sendWindowCommand(
+            inputDispatcher.window(
                 RuntimeBridgeWindowCommand(
                     windowId = windowId,
                     command = command,
@@ -255,6 +267,7 @@ class RuntimeDisplaySessionController(
                 true,
             )
         ) {
+            inputDispatcher.close()
             processor.close()
             compositor.clear()
             mutableWindows.value =
