@@ -228,7 +228,7 @@ class RuntimeDisplaySessionController(
                     windowId = windowId,
                     command = command,
                 ),
-            )
+            ).getOrThrow()
         }
 
     fun activateWindow(
