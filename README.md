@@ -32,6 +32,17 @@ dispositivo e ainda não existe validação física de Roblox Studio no Android.
 Plano com gates mensuráveis e sem promoção indevida:
 [Execução local do Windows](docs/LOCAL_WINDOWS_EXECUTION_GOAL_2026-11-03.md).
 
+## Comunicação Android ↔ Windows sem bloqueio da UI (experimental)
+
+A branch de desenvolvimento agora separa o envio de mouse/teclado/comandos
+de janela da thread principal, com fila limitada e coalescência de movimentos.
+Para frames BGRA de software, aplica pacing de ACK por FPS e resolução.
+No encerramento, fecha primeiro o socket para liberar leituras bloqueantes.
+
+Essas mudanças são de **código**, não comprovam ausência de ANR nem execução
+de aplicativos Windows em aparelho real. Os testes e gates estão em
+[Estabilidade Android/guest](docs/ANDROID_GUEST_STABILITY_2026-11-03.md).
+
 ## Alpha 22 — Linux bootstrap and PC application controls
 
 The current development branch fixes the Android linker path for packaged PRoot
