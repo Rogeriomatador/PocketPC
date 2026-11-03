@@ -37,6 +37,7 @@ enum class DesktopApp(
     val accentArgb: Long,
 ) {
     BROWSER("Navegador", "WWW", 0xFF1677FF),
+    REMOTE_DESKTOP("PC remoto", "VNC", 0xFF009688),
     FILES("Arquivos", "DIR", 0xFFFFB020),
     TERMINAL("Terminal", ">_", 0xFF30343B),
     APPS("Aplicativos", "APP", 0xFF7C4DFF),
@@ -54,6 +55,18 @@ enum class DesktopApp(
 fun DesktopApp.windowSpec(): DesktopWindowSpec =
     when (this) {
         DesktopApp.BROWSER ->
+            DesktopWindowSpec(
+                defaultWidthFraction = 0.94f,
+                defaultHeightFraction = 0.88f,
+                minWidthDp = 560,
+                minHeightDp = 320,
+                defaultXFraction = 0.03f,
+                defaultYFraction = 0.03f,
+                maxWidthFraction = 1.0f,
+                maxHeightFraction = 1.0f,
+                contentPaddingDp = 0,
+            )
+        DesktopApp.REMOTE_DESKTOP ->
             DesktopWindowSpec(
                 defaultWidthFraction = 0.94f,
                 defaultHeightFraction = 0.88f,
@@ -119,6 +132,7 @@ fun defaultDesktopPins(): List<DesktopApp> =
 fun defaultDesktopShortcuts(): List<DesktopApp> =
     listOf(
         DesktopApp.BROWSER,
+        DesktopApp.REMOTE_DESKTOP,
         DesktopApp.FILES,
         DesktopApp.APPS,
         DesktopApp.STORE,
