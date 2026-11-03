@@ -86,6 +86,70 @@ class RuntimeDisplaySurfaceRegistryTest {
     }
 
     @Test
+    fun aggregateSurfaceBudgetRejectsOversizedAdditionalWindowWithoutLeakingFiles() {
+        val temp = Files.createTempDirectory("pocketpc-surface-budget-").toFile()
+        try {
+            RuntimeDisplaySurfaceRegistry(
+                hostTempDirectory = temp,
+                maxAggregateFramebufferBytes = 48L * 1024L,
+            ).use { registry ->
+                val first = registry.allocate(request(windowId = 1L)).getOrThrow()
+                assertEquals(64, first.width)
+                val second = registry.allocate(request(windowId = 2L)).getOrThrow()
+                assertEquals(64, second.width)
+                val originalFiles = registry.snapshot()
+                    .map { it.framebuffer.descriptor.hostFile }
+                assertEquals(2, originalFiles.size)
+                // 64x64x4 + 64x64x4 + 128x64x4 = 64 KiB > 48 KiB.
+                val rejected = registry.allocate(
+                    request(windowId = 3L, width = 128, height = 64),
+                )
+                assertTrue(rejected.isFailure)
+                assertTrue(
+                    rejected.exceptionOrNull()?.message.orEmpty()
+                        .contains("DISPLAY_SURFACE_AGGREGATE_BYTES_LIMIT"),
+                )
+                assertEquals(2, registry.snapshot().size)
+                assertTrue(originalFiles.all { it.exists() })
+                assertEquals(2, temp.listFiles()?.size)
+            }
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun resizingReplacesPriorSurfaceWithinFinalBudgetAndFreesOldFile() {
+        val temp = Files.createTempDirectory("pocketpc-surface-resize-budget-").toFile()
+        try {
+            RuntimeDisplaySurfaceRegistry(
+                hostTempDirectory = temp,
+                maxAggregateFramebufferBytes = 48L * 1024L,
+            ).use { registry ->
+                registry.allocate(request(windowId = 1L)).getOrThrow()
+                registry.allocate(request(windowId = 2L)).getOrThrow()
+                val oldFile = registry.snapshot()
+                    .first { it.request.windowId == 1L }
+                    .framebuffer.descriptor.hostFile
+
+                // Replacing 16 KiB with 32 KiB makes 48 KiB total.
+                val replacement = registry.allocate(
+                    request(windowId = 1L, generation = 2L, width = 128, height = 64),
+                ).getOrThrow()
+                assertEquals(2L, replacement.generation)
+                assertFalse(oldFile.exists())
+                assertEquals(2, registry.snapshot().size)
+                assertEquals(
+                    48L * 1024L,
+                    registry.snapshot().sumOf { it.framebuffer.descriptor.bytes },
+                )
+            }
+        } finally {
+            temp.deleteRecursively()
+        }
+    }
+
+    @Test
     fun staleGenerationFailsClosed() {
         val temp =
             Files.createTempDirectory(
