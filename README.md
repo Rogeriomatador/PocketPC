@@ -21,6 +21,17 @@ It can cooperate with Android desktop/freeform/display APIs, but it does not pre
 that Android applications are Windows processes or that unsupported runtime features
 already work.
 
+## Objetivo: programas Windows **no próprio celular** (sem PC remoto)
+
+PocketPC busca executar aplicativos Windows x64 localmente no Android ARM64
+através de PRoot/rootfs + Box64 + Wine + bridge gráfica, mantendo sua
+própria área de trabalho e janelas. Transmissão da tela de outro computador
+**não** faz parte do caminho principal. Os requisitos variam conforme o
+dispositivo e ainda não existe validação física de Roblox Studio no Android.
+
+Plano com gates mensuráveis e sem promoção indevida:
+[Execução local do Windows](docs/LOCAL_WINDOWS_EXECUTION_GOAL_2026-11-03.md).
+
 ## Alpha 22 — Linux bootstrap and PC application controls
 
 The current development branch fixes the Android linker path for packaged PRoot
