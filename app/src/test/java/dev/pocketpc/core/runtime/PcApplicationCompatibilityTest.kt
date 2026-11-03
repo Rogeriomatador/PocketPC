@@ -53,6 +53,36 @@ class PcApplicationCompatibilityTest {
     }
 
     @Test
+    fun studioIsASeparateLocalWindowsTargetAndNeverAutoValidated() {
+        val readiness =
+            PcRuntimeReadiness(
+                target = "Windows x64 em Android ARM64",
+                stages =
+                    listOf(
+                        PcRuntimeStage(
+                            id = "graphics-bridge",
+                            label = "Graphics",
+                            state = PcRuntimeStageState.BLOCKED,
+                            detail = "not validated",
+                        )
+                    ),
+                executableReady = false,
+                controlledAttemptReady = false,
+            )
+        val result = PcApplicationCompatibilityProbe.assess(
+            fileName = "RobloxStudioBeta.exe",
+            readiness = readiness,
+        )
+        assertEquals(PcApplicationKind.ROBLOX_STUDIO, result.kind)
+        assertEquals("Roblox Studio (Windows)", result.displayName)
+        assertEquals(PcApplicationCompatibilityState.RUNTIME_BLOCKED, result.state)
+        assertFalse(result.runtimeReady)
+        assertFalse(result.applicationValidated)
+        assertTrue(result.detail.contains("não tem suporte oficial"))
+        assertTrue(result.detail.contains("Direct3D/Present"))
+    }
+
+    @Test
     fun readyBaseStillRequiresApplicationValidation() {
         val readiness =
             PcRuntimeReadiness(
