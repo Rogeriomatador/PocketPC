@@ -39,11 +39,31 @@ ACKs de frame e alocação de surfaces **não** são transportados pela fila de 
 
 Esses valores são conservadores para o caminho BGRA e poderão ser alterados com medições reais. São limites de **produção de frames**, não contadores de FPS físico ou garantia de ausência de travamentos.
 
-### 3) Encerramento seguro
+### 3) Limite agregado de superfícies
+
+O limite anterior de uma superfície BGRA (até 64 MiB) não impedia
+que muitas janelas acumulassem vários gigabytes de arquivos de framebuffer.
+`RuntimeDisplaySurfaceRegistry` agora impõe **96 MiB por sessão** para
+as superfícies ativas, calculando largura × altura × 4 e validando
+**antes** de criar um novo arquivo. Redimensionamentos consideram o
+orçamento **após a substituição** da surface anterior; em caso de
+recusa, a surface existente não é apagada.
+
+O orçamento de framebuffer não é o limite total de RAM consumida, já que
+os arrays de pixels, Bitmaps, Wine e driver possuem custos independentes.
+Este limite é por sessão/peer, não é um orçamento global para todos os
+processos do aparelho; múltiplas sessões ainda exigem medição física.
+
+`RuntimeDisplaySurfaceRegistryTest` verifica limite, não vazamento
+de arquivo e redimensionamento transacional.
+
+### 4) Encerramento seguro
 
 `RuntimeDisplaySessionController.close()` fecha o canal de input e o socket do peer **antes** de aguardar o encerramento dos recursos sincronizados. Assim, uma leitura bloqueante do socket pode ser interrompida, evitando o ciclo de espera no desligamento. Requer teste de concorrência real no dispositivo.
 
 ## Testes adicionados
+
+- `RuntimeDisplaySurfaceRegistryTest`: limite agregado de surfaces, recusa sem vazamento e substituição transacional.
 
 - `RuntimeDisplayInputMailboxTest`: combinar movimentos, preservar clique e KEY_UP, não misturar janelas, descartar apenas movimento, encerrar em saturação.
 - `RuntimeDisplayInputDispatcherTest`: simular uma escrita de socket bloqueada e verificar que a thread chamadora consegue enviar KEY_UP sem esperar pela conclusão da escrita; fila cheia de comandos essenciais dispara desligamento.
