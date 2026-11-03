@@ -3,6 +3,8 @@ package dev.pocketpc.core.runtime
 import java.io.Closeable
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import dev.pocketpc.core.performance.RuntimePerformanceController
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +29,7 @@ class RuntimeDisplaySessionController(
         )
     private val compositor =
         RuntimeDisplayCompositorModel()
+    private val softwareFramePacer = RuntimeDisplayFramePacer()
     private val inputDispatcher =
         RuntimeDisplayInputDispatcher(
             transmit = { command ->
@@ -116,9 +119,22 @@ class RuntimeDisplaySessionController(
                         step.presentedFrame !=
                             null
                     ) {
+                        // Acknowledge after an adjustable software-frame
+                        // budget. This applies backpressure to the guest and
+                        // keeps heavy frame copies off the UI thread.
+                        val requestedRate =
+                            RuntimePerformanceController.current()
+                                .effectiveDxvkFrameRate()
+                        val waitMillis =
+                            softwareFramePacer.recommendedDelayMillis(
+                                nowNanos = System.nanoTime(),
+                                requestedFramesPerSecond = requestedRate,
+                            )
+                        if (waitMillis > 0L) delay(waitMillis)
                         processor
                             .acknowledgePendingFrame()
                             .getOrThrow()
+                        softwareFramePacer.recordAcknowledgement(System.nanoTime())
                     }
                 }
             }.recoverCatching {
@@ -268,20 +284,16 @@ class RuntimeDisplaySessionController(
             )
         ) {
             inputDispatcher.close()
+            // Close the socket BEFORE taking the processor's synchronized
+            // lock: processNext may be blocked inside a socket read.
+            // Reversing the order risks a lifecycle/main-thread deadlock.
+            (endpoint as? Closeable)?.let {
+                runCatching { it.close() }
+            }
             processor.close()
             compositor.clear()
-            mutableWindows.value =
-                emptyList()
+            mutableWindows.value = emptyList()
             desktopBinding?.close()
-
-            (
-                endpoint as?
-                    Closeable
-            )?.let {
-                runCatching {
-                    it.close()
-                }
-            }
         }
     }
 
