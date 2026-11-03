@@ -16,7 +16,7 @@ internal class RuntimeDisplayFramePacer {
         requestedFramesPerSecond: Int?,
     ): Long {
         val last = lastAcknowledgedNanos ?: return 0L
-        if (nowNanos <= last) return 0L
+        if (nowNanos < last) return 0L
         // Software BGRA copies can be more expensive than a GPU swapchain.
         // Manual 90/120 FPS applies to graphics launch settings, but does not
         // force software framebuffer copies above 60 FPS on the Android UI.
