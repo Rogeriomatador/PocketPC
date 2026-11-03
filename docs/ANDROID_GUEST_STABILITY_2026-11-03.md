@@ -61,6 +61,18 @@ de arquivo e redimensionamento transacional.
 
 `RuntimeDisplaySessionController.close()` fecha o canal de input e o socket do peer **antes** de aguardar o encerramento dos recursos sincronizados. Assim, uma leitura bloqueante do socket pode ser interrompida, evitando o ciclo de espera no desligamento. Requer teste de concorrência real no dispositivo.
 
+### 5) Atualização consistente do compositor
+
+`RuntimeDisplaySessionController` agora sincroniza as operações de
+`compositor.apply(...)`, `applyExternalVulkanFrame(...)`, a publicação do
+snapshot e o `clear()` no encerramento usando o mesmo lock.
+
+Sem essa exclusão mútua, a coroutine do socket Wine e a rota gráfica Vulkan
+poderiam atualizar o modelo compartilhado de janelas simultaneamente.
+O lock protege a **consistência do modelo**, não prova GPU, FPS ou execução de
+janelas físicas. Testes com frames concorrentes e troca de sessão ainda são
+necessários no aparelho.
+
 ## Testes adicionados
 
 - `RuntimeDisplaySurfaceRegistryTest`: limite agregado de surfaces, recusa sem vazamento e substituição transacional.
