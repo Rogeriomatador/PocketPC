@@ -129,6 +129,8 @@ class RuntimeDisplaySessionController(
                             softwareFramePacer.recommendedDelayMillis(
                                 nowNanos = System.nanoTime(),
                                 requestedFramesPerSecond = requestedRate,
+                                frameWidth = step.presentedFrame.pixels.width,
+                                frameHeight = step.presentedFrame.pixels.height,
                             )
                         if (waitMillis > 0L) delay(waitMillis)
                         processor
