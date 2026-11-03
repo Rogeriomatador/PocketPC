@@ -2,6 +2,7 @@ package dev.pocketpc.core.runtime
 
 enum class PcApplicationKind {
     ROBLOX_DESKTOP,
+    ROBLOX_STUDIO,
     WINDOWS_INSTALLER,
 }
 
@@ -39,10 +40,13 @@ object PcApplicationCompatibilityProbe {
                     RobloxWindowsChannel.STUDIO
 
         val kind =
-            if (isSupportedRobloxPlayerArtifact) {
-                PcApplicationKind.ROBLOX_DESKTOP
-            } else {
-                PcApplicationKind.WINDOWS_INSTALLER
+            when {
+                robloxArtifact.channel == RobloxWindowsChannel.STUDIO ->
+                    PcApplicationKind.ROBLOX_STUDIO
+                isSupportedRobloxPlayerArtifact ->
+                    PcApplicationKind.ROBLOX_DESKTOP
+                else ->
+                    PcApplicationKind.WINDOWS_INSTALLER
             }
 
         val missingStages =
@@ -74,6 +78,8 @@ object PcApplicationCompatibilityProbe {
             when (kind) {
                 PcApplicationKind.ROBLOX_DESKTOP ->
                     "Roblox desktop"
+                PcApplicationKind.ROBLOX_STUDIO ->
+                    "Roblox Studio (Windows)"
                 PcApplicationKind.WINDOWS_INSTALLER ->
                     "Aplicativo Windows"
             }
@@ -86,10 +92,12 @@ object PcApplicationCompatibilityProbe {
                         "mas MSIX/AppX ainda não possui instalador implementado " +
                         "no PocketPC. O arquivo permanece bloqueado."
 
-                robloxArtifact.kind ==
-                    RobloxWindowsArtifactKind.STUDIO_EXECUTABLE ->
-                    "Roblox Studio foi identificado separadamente. " +
-                        "Este fluxo é do Player e não promove Studio como cliente de jogo."
+                kind == PcApplicationKind.ROBLOX_STUDIO ->
+                    "Roblox Studio foi identificado separadamente do Roblox Player. " +
+                        "A execução local depende de Windows x64 sobre Box64/Wine, " +
+                        "janela, Direct3D/Present e recursos Win32 funcionando no aparelho. " +
+                        "Reconhecer o arquivo não significa compatibilidade comprovada; " +
+                        "o Studio não tem suporte oficial a Android ou Wine."
 
                 robloxArtifact.kind ==
                     RobloxWindowsArtifactKind.UNKNOWN_ROBLOX ->
