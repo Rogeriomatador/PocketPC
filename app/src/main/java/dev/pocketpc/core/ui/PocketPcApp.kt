@@ -447,6 +447,7 @@ fun PocketPcApp(commandFlow: Flow<DesktopCommand>) {
                                             window.maximized,
                                     ),
                             )
+                        DesktopApp.REMOTE_DESKTOP -> RemoteDesktopApp()
                         DesktopApp.FILES -> FilesApp(
                             repository = storage,
                             rootUri = storageRoot,
