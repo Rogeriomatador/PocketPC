@@ -29,6 +29,9 @@ class RuntimeDisplaySessionController(
         )
     private val compositor =
         RuntimeDisplayCompositorModel()
+    // Both the guest socket coroutine and the external Vulkan broker publish
+    // into the same mutable compositor. Apply+publish must be atomic.
+    private val compositorLock = Any()
     private val softwareFramePacer = RuntimeDisplayFramePacer()
     private val inputDispatcher =
         RuntimeDisplayInputDispatcher(
@@ -111,9 +114,12 @@ class RuntimeDisplaySessionController(
                         processor.processNext()
                             .getOrThrow()
 
-                    compositor.apply(step)
-                        .getOrThrow()
-                    publishSnapshot()
+                    synchronized(compositorLock) {
+                        if (!closed.get()) {
+                            compositor.apply(step).getOrThrow()
+                            publishSnapshot()
+                        }
+                    }
 
                     if (
                         step.presentedFrame !=
@@ -164,20 +170,24 @@ class RuntimeDisplaySessionController(
             require(value.structurallyValid) {
                 "DISPLAY_SESSION_EXTERNAL_VULKAN_FRAME_INVALID"
             }
-            require(
-                windows.value.any {
-                    it.windowId == value.windowId
-                },
-            ) {
-                "DISPLAY_SESSION_WINDOW_MISSING"
+            synchronized(compositorLock) {
+                check(!closed.get()) {
+                    "DISPLAY_SESSION_CLOSED"
+                }
+                require(
+                    windows.value.any {
+                        it.windowId == value.windowId
+                    },
+                ) {
+                    "DISPLAY_SESSION_WINDOW_MISSING"
+                }
+                compositor.applyExternalVulkanFrame(
+                    windowId = value.windowId,
+                    identity = value.identity,
+                    frame = value.frame,
+                ).getOrThrow()
+                publishSnapshot()
             }
-
-            compositor.applyExternalVulkanFrame(
-                windowId = value.windowId,
-                identity = value.identity,
-                frame = value.frame,
-            ).getOrThrow()
-            publishSnapshot()
 
             RuntimeGraphicsEvidenceLog.desktopModelFrameDelivered(
                 windowId = value.windowId,
@@ -293,9 +303,11 @@ class RuntimeDisplaySessionController(
                 runCatching { it.close() }
             }
             processor.close()
-            compositor.clear()
-            mutableWindows.value = emptyList()
-            desktopBinding?.close()
+            synchronized(compositorLock) {
+                compositor.clear()
+                mutableWindows.value = emptyList()
+                desktopBinding?.close()
+            }
         }
     }
 
