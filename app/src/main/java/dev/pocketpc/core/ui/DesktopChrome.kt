@@ -307,6 +307,37 @@ fun AppIconTile(
                     )
                 }
 
+                DesktopApp.REMOTE_DESKTOP -> {
+                    drawRoundRect(
+                        color = white,
+                        topLeft = Offset(w * 0.10f, h * 0.16f),
+                        size = Size(w * 0.80f, h * 0.56f),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                            w * 0.06f, w * 0.06f,
+                        ),
+                        style = stroke,
+                    )
+                    drawLine(
+                        white,
+                        Offset(center.x, h * 0.72f),
+                        Offset(center.x, h * 0.86f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        white,
+                        Offset(w * 0.33f, h * 0.87f),
+                        Offset(w * 0.67f, h * 0.87f),
+                        line,
+                        StrokeCap.Round,
+                    )
+                    drawCircle(
+                        color = white,
+                        radius = w * 0.08f,
+                        center = Offset(center.x, h * 0.44f),
+                    )
+                }
+
                 DesktopApp.FILES -> {
                     val top = h * 0.27f
                     drawRoundRect(
