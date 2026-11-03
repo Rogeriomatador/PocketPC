@@ -641,8 +641,14 @@ fun RuntimeApp(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item(key = "heading") {
-            Text("Runtimes", style = MaterialTheme.typography.titleMedium)
-            Text("Role para ver todas as etapas e opções.", style = MaterialTheme.typography.bodySmall)
+            Text("Windows local (experimental)", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Executar programas Windows no próprio celular, sem transmitir a tela de outro PC. " +
+                    "Android ARM64 → PRoot/Linux → Box64 → Wine → janelas e gráficos. " +
+                    "O primeiro marco é um aplicativo Win64 simples; depois Direct3D e Roblox Studio. " +
+                    "Somente testes físicos podem comprovar que cada etapa funciona.",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
 
         item(
