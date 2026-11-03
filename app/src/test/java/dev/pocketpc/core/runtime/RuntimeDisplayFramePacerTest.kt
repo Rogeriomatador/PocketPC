@@ -29,6 +29,34 @@ class RuntimeDisplayFramePacerTest {
     }
 
     @Test
+    fun highResolutionFramesHaveLowerThroughputBudget() {
+        val pacer = RuntimeDisplayFramePacer()
+        pacer.recordAcknowledgement(1_000_000_000L)
+        // 1080p is limited by the software copy budget even with 120 FPS
+        // requested. 60,000,000 / 2,073,600 = 28 FPS.
+        assertEquals(
+            36L,
+            pacer.recommendedDelayMillis(
+                1_000_000_000L, 120, frameWidth = 1920, frameHeight = 1080,
+            ),
+        )
+        // Extremely large surfaces are limited to five copies per second.
+        assertEquals(
+            200L,
+            pacer.recommendedDelayMillis(
+                1_000_000_000L, 120, frameWidth = 4096, frameHeight = 4096,
+            ),
+        )
+        // Small GDI windows keep the ordinary 60 FPS software limit.
+        assertEquals(
+            17L,
+            pacer.recommendedDelayMillis(
+                1_000_000_000L, 120, frameWidth = 640, frameHeight = 480,
+            ),
+        )
+    }
+
+    @Test
     fun resettingMonotonicTimeDoesNotCauseAnUnboundedWait() {
         val pacer = RuntimeDisplayFramePacer()
         pacer.recordAcknowledgement(500L)
