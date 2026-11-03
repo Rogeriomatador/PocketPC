@@ -21,6 +21,19 @@ It can cooperate with Android desktop/freeform/display APIs, but it does not pre
 that Android applications are Windows processes or that unsupported runtime features
 already work.
 
+## PC remoto para Roblox Studio (desenvolvimento, ainda sem teste físico)
+
+A branch experimental agora oferece o ícone **PC remoto** no desktop. Ele abre,
+dentro do PocketPC, um gateway web HTTPS de desktop remoto, por exemplo noVNC
+ou Apache Guacamole. O Roblox Studio continua executando no **Windows remoto**,
+não no Android. O endereço-base pode ser salvo; credenciais e tokens não podem
+ser embutidos nele. Não há cliente RDP/VNC nativo embutido nem servidor remoto
+provisionado automaticamente.
+
+Esta funcionalidade está **IMPLEMENTED no código, mas NOT_EXECUTED no aparelho**.
+Configuração segura, dependências e validação:
+[PC remoto / Roblox Studio](docs/REMOTE_DESKTOP_STUDIO_2026-11-03.md).
+
 ## Alpha 22 — Linux bootstrap and PC application controls
 
 The current development branch fixes the Android linker path for packaged PRoot
