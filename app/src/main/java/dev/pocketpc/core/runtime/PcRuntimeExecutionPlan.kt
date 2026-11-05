@@ -24,8 +24,9 @@ enum class PcApplicationGraphicsProfile {
             val normalized =
                 fileName.trim().lowercase()
             return if (
-                normalized.startsWith("winrar") &&
-                normalized.endsWith(".exe")
+                (normalized.startsWith("winrar") &&
+                    normalized.endsWith(".exe")) ||
+                normalized == "pocket-mines-win64.exe"
             ) {
                 WINDOWED_GDI
             } else {
