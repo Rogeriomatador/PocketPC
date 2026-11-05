@@ -445,9 +445,8 @@ class StorageRepository(private val context: Context) {
         mimeType: String?,
         source: InputStream,
     ): Result<StorageEntry> = withContext(Dispatchers.IO) {
-        DRIVE_MUTEX.withLock {
-            runCatching {
-                val mount = ensurePocketDrive().getOrThrow()
+        runCatching {
+            val mount = ensurePocketDrive().getOrThrow()
                 val directoryUri = requireNotNull(mount.uriFor(directory)) {
                     "Diretório lógico indisponível: " +
                         directory.displayName
@@ -495,7 +494,6 @@ class StorageRepository(private val context: Context) {
                     throw failure
                 }
             }
-        }
     }
 
     fun openFile(entry: StorageEntry): Result<Unit> =
