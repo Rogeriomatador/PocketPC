@@ -1,0 +1,51 @@
+name: PocketPC First PC Game - Win64 GDI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'examples/windows/pocket-mines.c'
+      - 'scripts/build-pocket-mines.py'
+      - 'scripts/test-build-pocket-mines.py'
+      - '.github/workflows/first-pc-game.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-pocket-mines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify offline PE builder tests
+        run: python3 scripts/test-build-pocket-mines.py
+      - name: Install MinGW-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+      - name: Compile original Pocket Mines for Windows
+        run: python3 scripts/build-pocket-mines.py --output-dir "$RUNNER_TEMP/pocket-mines"
+      - name: Verify build evidence and SHA-256
+        run: |
+          cd "$RUNNER_TEMP/pocket-mines"
+          sha256sum --check pocket-mines-win64.exe.sha256
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          record = json.loads(Path('pocket-mines-build-evidence.json').read_text())
+          assert record['architecture'] == 'windows-x86_64'
+          assert record['graphics'] == 'GDI'
+          assert record['pe'] == {'machine': 0x8664, 'optionalMagic': 0x20b, 'subsystem': 2}
+          assert record['runtimeOnAndroid'] == 'NOT_EXECUTED'
+          print('POCKET_MINES_PE64_GDI_VERIFIED_NOT_ANDROID_TESTED')
+          PY
+      - name: Publish Windows executable (not an Android APK)
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Pocket-Mines-Win64-GDI
+          path: |
+            ${{ runner.temp }}/pocket-mines/pocket-mines-win64.exe
+            ${{ runner.temp }}/pocket-mines/pocket-mines-win64.exe.sha256
+            ${{ runner.temp }}/pocket-mines/pocket-mines-build-evidence.json
+          if-no-files-found: error
