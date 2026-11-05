@@ -258,6 +258,14 @@ class StorageRepository(private val context: Context) {
         )
     }
 
+    private fun pocketSafGateway(): PocketSafGateway =
+        PocketSafGateway(
+            context,
+            requireNotNull(rootUriString) {
+                "Conecte o PocketDrive antes de usar o Explorador."
+            },
+        )
+
     private fun releasePersistedPermission(uri: Uri) {
         val readWrite = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         runCatching { context.contentResolver.releasePersistableUriPermission(uri, readWrite) }
@@ -266,49 +274,40 @@ class StorageRepository(private val context: Context) {
             }
     }
 
-    suspend fun list(uriString: String): Result<StorageListing> = withContext(Dispatchers.IO) {
-        runCatching {
-            val uri = Uri.parse(uriString)
-            val directory = runCatching { DocumentFile.fromTreeUri(context, uri) }.getOrNull()
-                ?: DocumentFile.fromSingleUri(context, uri)
-                ?: error("Não foi possível abrir esta pasta.")
-
-            if (!directory.exists()) error("A pasta autorizada não existe mais.")
-            if (!directory.isDirectory) error("O URI selecionado não representa uma pasta.")
-
-            val entries = directory.listFiles()
-                .map { file ->
-                    StorageEntry(
-                        name = file.name ?: "(sem nome)",
-                        uri = file.uri.toString(),
-                        directory = file.isDirectory,
-                        size = file.length(),
-                        mimeType = file.type,
-                        lastModified = file.lastModified(),
-                    )
+    suspend fun list(uriString: String): Result<StorageListing> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val saf = pocketSafGateway()
+                val directory = saf.info(uriString)
+                check(directory.directory) {
+                    "O URI selecionado não representa uma pasta."
                 }
-                .sortedWith(
-                    compareByDescending<StorageEntry> { it.directory }
-                        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }
+                StorageListing(
+                    directoryName = directory.name,
+                    entries = saf.children(uriString),
                 )
-
-            StorageListing(
-                directoryName = directory.name ?: "Pasta",
-                entries = entries,
-            )
+            }
         }
-    }
 
     suspend fun createDirectory(
         parentUriString: String,
         name: String,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
+            val saf = pocketSafGateway()
             val cleanName = validateStorageName(name)
-            val parent = resolveDirectory(parentUriString)
-            checkNotNull(parent.createDirectory(cleanName)) {
-                "O provedor de arquivos recusou criar a pasta."
+            check(
+                saf.children(parentUriString).none {
+                    it.name.equals(cleanName, ignoreCase = true)
+                }
+            ) {
+                "Já existe um item com este nome na pasta."
             }
+            saf.create(
+                parentUriString,
+                android.provider.DocumentsContract.Document.MIME_TYPE_DIR,
+                cleanName,
+            )
             Unit
         }
     }
@@ -318,24 +317,16 @@ class StorageRepository(private val context: Context) {
         newName: String,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val cleanName = validateStorageName(newName)
-            val document =
-                DocumentFile.fromSingleUri(
-                    context,
-                    Uri.parse(entry.uri),
-                ) ?: error("Não foi possível acessar o item.")
-            check(document.renameTo(cleanName)) {
-                "O provedor de arquivos recusou renomear o item."
-            }
-
-            PocketPcPackageRegistry(context)
-                .update(
-                    oldUri = entry.uri,
-                    entry =
-                        entry.copy(
-                            name = cleanName,
-                        ),
-                )
+            val saf = pocketSafGateway()
+            val renamed = saf.rename(
+                saf.canonical(entry.uri),
+                validateStorageName(newName),
+            )
+            val updated = saf.info(renamed.toString())
+            PocketPcPackageRegistry(context).update(
+                oldUri = entry.uri,
+                entry = updated,
+            )
             Unit
         }
     }
@@ -343,109 +334,169 @@ class StorageRepository(private val context: Context) {
     suspend fun delete(entry: StorageEntry): Result<Unit> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val document =
-                    DocumentFile.fromSingleUri(
-                        context,
-                        Uri.parse(entry.uri),
-                    ) ?: error("Não foi possível acessar o item.")
-                check(document.delete()) {
+                val saf = pocketSafGateway()
+                check(saf.delete(saf.canonical(entry.uri))) {
                     "O provedor de arquivos recusou excluir o item."
                 }
-                PocketPcPackageRegistry(context)
-                    .remove(entry.uri)
+                PocketPcPackageRegistry(context).remove(entry.uri)
                 Unit
             }
         }
+
+    /**
+     * File-only transactional transfer. The source survives failures during
+     * streaming or destination finalization; CUT removes it only after the
+     * new item is complete. No file is overwritten.
+     */
+    suspend fun transferFile(
+        entry: StorageEntry,
+        sourceParentUri: String,
+        destinationUri: String,
+        move: Boolean,
+    ): Result<StorageEntry> = withContext(Dispatchers.IO) {
+        DRIVE_MUTEX.withLock {
+            runCatching {
+                val saf = pocketSafGateway()
+                val source = saf.info(entry.uri)
+                check(!source.directory) {
+                    "Cópia de pastas ainda não está disponível."
+                }
+                check(
+                    saf.children(sourceParentUri).any {
+                        it.uri == source.uri
+                    }
+                ) {
+                    "O arquivo de origem mudou de lugar."
+                }
+                check(source.name == entry.name) {
+                    "O arquivo foi renomeado desde a seleção."
+                }
+                val parent = saf.canonical(destinationUri)
+                check(saf.info(parent.toString()).directory) {
+                    "O destino não é uma pasta."
+                }
+                if (move) {
+                    check(
+                        saf.canonical(sourceParentUri) != parent
+                    ) {
+                        "O arquivo já está nesta pasta."
+                    }
+                }
+                val targetName = allocatePocketTransferName(
+                    source.name,
+                    saf.children(parent.toString()).map { it.name },
+                )
+                val temporaryName =
+                    ".pocketpc-transfer-" +
+                        java.util.UUID.randomUUID().toString()
+                var unfinished: Uri? = null
+                try {
+                    val temporary = saf.create(
+                        parent.toString(),
+                        source.mimeType
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "application/octet-stream",
+                        temporaryName,
+                    )
+                    unfinished = temporary
+                    context.contentResolver
+                        .openInputStream(saf.canonical(source.uri))
+                        ?.use { input ->
+                            context.contentResolver
+                                .openOutputStream(temporary, "w")
+                                ?.use { output ->
+                                    input.copyTo(output, 256 * 1024)
+                                    output.flush()
+                                }
+                                ?: error("O destino não aceita gravação.")
+                        }
+                        ?: error("A origem não pode ser lida.")
+
+                    val finalized = saf.rename(temporary, targetName)
+                    unfinished = finalized
+                    val result = saf.info(finalized.toString())
+                    check(result.name == targetName) {
+                        "O provedor alterou o nome do arquivo."
+                    }
+                    unfinished = null
+
+                    if (move) {
+                        check(saf.delete(saf.canonical(source.uri))) {
+                            "A cópia foi concluída, mas o original não pôde " +
+                                "ser removido. Ambos os arquivos foram preservados."
+                        }
+                        PocketPcPackageRegistry(context).remove(source.uri)
+                    }
+                    PocketPcPackageRegistry(context).record(result)
+                    result
+                } catch (failure: Throwable) {
+                    unfinished?.let { candidate ->
+                        runCatching { saf.delete(candidate) }
+                    }
+                    throw failure
+                }
+            }
+        }
+    }
 
     suspend fun importIntoPocketDrive(
         directory: PocketDriveDirectory,
         fileName: String,
         mimeType: String?,
         source: InputStream,
-    ): Result<StorageEntry> =
-        withContext(Dispatchers.IO) {
+    ): Result<StorageEntry> = withContext(Dispatchers.IO) {
+        DRIVE_MUTEX.withLock {
             runCatching {
-                val mount =
-                    ensurePocketDrive().getOrThrow()
-                val directoryUri =
-                    requireNotNull(
-                        mount.uriFor(directory)
-                    ) {
-                        "Diretório lógico indisponível: " +
-                            directory.displayName
-                    }
-                val parent =
-                    resolveDirectory(directoryUri)
-                val cleanName =
-                    sanitizePocketImportedFileName(
-                        fileName
-                    )
-                val finalName =
-                    uniqueChildName(
-                        parent,
-                        cleanName,
-                    )
+                val mount = ensurePocketDrive().getOrThrow()
+                val directoryUri = requireNotNull(mount.uriFor(directory)) {
+                    "Diretório lógico indisponível: " +
+                        directory.displayName
+                }
+                val saf = pocketSafGateway()
+                val cleanName = sanitizePocketImportedFileName(fileName)
+                val finalName = allocatePocketTransferName(
+                    cleanName,
+                    saf.children(directoryUri).map { it.name },
+                )
                 val temporaryName =
                     ".pocketpc-part-" +
-                        System.nanoTime() +
-                        "-" +
-                        finalName
-                var target: DocumentFile? = null
-
+                        java.util.UUID.randomUUID().toString()
+                var unfinished: Uri? = null
                 try {
-                    target =
-                        checkNotNull(
-                            parent.createFile(
-                                mimeType
-                                    ?.takeIf {
-                                        it.isNotBlank()
-                                    }
-                                    ?: "application/octet-stream",
-                                temporaryName,
-                            )
-                        ) {
-                            "O provedor recusou criar o arquivo temporário."
-                        }
-
+                    val temporary = saf.create(
+                        directoryUri,
+                        mimeType?.takeIf { it.isNotBlank() }
+                            ?: "application/octet-stream",
+                        temporaryName,
+                    )
+                    unfinished = temporary
                     context.contentResolver
-                        .openOutputStream(
-                            target.uri,
-                            "w",
-                        )
+                        .openOutputStream(temporary, "w")
                         ?.use { output ->
-                            source.copyTo(
-                                output,
-                                bufferSize = 256 * 1024,
-                            )
+                            source.copyTo(output, 256 * 1024)
                             output.flush()
                         }
                         ?: error(
-                            "Não foi possível abrir o destino " +
-                                "para escrita."
+                            "Não foi possível abrir o destino para escrita."
                         )
 
-                    check(target.renameTo(finalName)) {
-                        "O download foi gravado, mas o provedor " +
-                            "recusou finalizar o nome do arquivo."
+                    val finalized = saf.rename(temporary, finalName)
+                    unfinished = finalized
+                    val result = saf.info(finalized.toString())
+                    check(result.name == finalName) {
+                        "O provedor alterou o nome do download."
                     }
-
-                    StorageEntry(
-                        name = target.name ?: finalName,
-                        uri = target.uri.toString(),
-                        directory = false,
-                        size = target.length(),
-                        mimeType = target.type ?: mimeType,
-                        lastModified =
-                            target.lastModified(),
-                    )
-                } catch (error: Throwable) {
-                    runCatching {
-                        target?.delete()
+                    unfinished = null
+                    result
+                } catch (failure: Throwable) {
+                    unfinished?.let { candidate ->
+                        runCatching { saf.delete(candidate) }
                     }
-                    throw error
+                    throw failure
                 }
             }
         }
+    }
 
     fun openFile(entry: StorageEntry): Result<Unit> =
         runCatching {
