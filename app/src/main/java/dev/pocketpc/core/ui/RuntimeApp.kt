@@ -157,7 +157,11 @@ fun RuntimeApp(
     val profileStore = remember(appContext) { PcApplicationLaunchProfileStore(appContext) }
     val savedProfile = remember(target?.uri, profileStore) { target?.let(profileStore::load) }
     var targetGraphics by remember(target?.uri) {
-        mutableStateOf(savedProfile?.graphics ?: PcApplicationGraphicsProfile.D3D_DXVK)
+        mutableStateOf(
+            savedProfile?.graphics
+                ?: target?.graphicsProfile
+                ?: PcApplicationGraphicsProfile.D3D_DXVK
+        )
     }
     var targetArgumentsText by rememberSaveable(target?.uri) {
         mutableStateOf(savedProfile?.argumentsText.orEmpty())
