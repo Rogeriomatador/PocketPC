@@ -25,7 +25,6 @@ static int near_count[GRID][GRID];
 static int started = 0;
 static int ended = 0;
 static int won = 0;
-static int lives = 1;
 static int flags = 0;
 static int cleared = 0;
 
@@ -39,7 +38,6 @@ static void new_game(void) {
     ZeroMemory(flagged, sizeof flagged);
     ZeroMemory(near_count, sizeof near_count);
     started = ended = won = flags = cleared = 0;
-    lives = 1;
 }
 
 static void place_mines(int safe_x, int safe_y) {
@@ -88,7 +86,6 @@ static void reveal(int x, int y) {
     if (mine[y][x]) {
         ended = 1;
         won = 0;
-        lives = 0;
         return;
     }
     cleared++;
