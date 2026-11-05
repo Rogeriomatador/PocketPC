@@ -63,7 +63,7 @@
 - rename;
 - delete;
 - safe storage-name validation and JVM tests;
-- nested SAF document URI handling, avoiding fallback to the PocketDrive root;
+- explicit nested SAF document URI handling anchored to the selected tree;
 - file-only copy, cut and paste with temporary destination, unique naming and
   source-deletion-after-finalization;
 - transfer collision naming unit tests (physical validation pending).
