@@ -1,0 +1,186 @@
+{
+  "baseRevision": "74f79ebed5f8b4bfad528b1f803f90a332a67499",
+  "status": "COMPILED_AND_STATICALLY_VALIDATED",
+  "buildResult": {
+    "status": "COMPILED_NOT_DEVICE_TESTED_NOT_APPROVED",
+    "sourceLockSha256": "33bd4370ba2d752e39f28ced30c33d87ebd4b1cbf539a9a59958ddd940322a7f",
+    "buildRecipeSha256": "815bf2f379db60d9c1fc8735d2ebc0e8fbf6a449312760f28c22d871c254a86f",
+    "buildScriptSha256": "60275d45b336e9da1624ad05144209456921c767bbeea8a4565fc02acd3436ef",
+    "artifacts": {
+      "libandroid-shmem.so": "4a977b12a4880496e0f4d92b420c10a81e2eaa148fe063e16d235f1282cd0187",
+      "libtalloc.so": "e0e2d30e0a61f16bf6420de2f73f7b7259568989ac9e83db19053c087e47ff0e",
+      "loader": "9851ac9137c3053926ccce7cfe90ec489a839543f261bb19f5269d6a9cbfdabb",
+      "proot": "71f3e6577c4942cad54f3728003633daecc73de1f6b8e15e57a39177582bafd7"
+    },
+    "notExecuted": [
+      "Android execution",
+      "PRoot guest execution",
+      "Box64/Wine",
+      "Roblox"
+    ],
+    "crossConfigureAnswersAreRuntimeTests": false
+  },
+  "elfAudit": {
+    "schemaVersion": 1,
+    "status": "ELF_VALID_DEPENDENCIES_REVIEW_REQUIRED",
+    "contractStatus": "QUARANTINE_AUDIT_CONTRACT",
+    "artifactDirectory": "/workspace/scratch/d601841d4565/runtime-ndk-verified/quarantine/arm64-v8a",
+    "readelf": "/workspace/scratch/d601841d4565/android-check/sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf",
+    "artifacts": {
+      "proot": {
+        "fileName": "proot",
+        "bytes": 271656,
+        "sha256": "71f3e6577c4942cad54f3728003633daecc73de1f6b8e15e57a39177582bafd7",
+        "elf": {
+          "class": 2,
+          "endianness": 1,
+          "type": 3,
+          "machine": 183
+        },
+        "dynamic": {
+          "needed": [
+            "libandroid-shmem.so",
+            "libc.so",
+            "libdl.so",
+            "libtalloc.so"
+          ],
+          "soname": null,
+          "rpath": null,
+          "runpath": null
+        }
+      },
+      "loader64": {
+        "fileName": "loader",
+        "bytes": 18520,
+        "sha256": "9851ac9137c3053926ccce7cfe90ec489a839543f261bb19f5269d6a9cbfdabb",
+        "elf": {
+          "class": 2,
+          "endianness": 1,
+          "type": 2,
+          "machine": 183
+        },
+        "dynamic": {
+          "needed": [],
+          "soname": null,
+          "rpath": null,
+          "runpath": null
+        }
+      },
+      "libandroid-shmem": {
+        "fileName": "libandroid-shmem.so",
+        "bytes": 18792,
+        "sha256": "4a977b12a4880496e0f4d92b420c10a81e2eaa148fe063e16d235f1282cd0187",
+        "elf": {
+          "class": 2,
+          "endianness": 1,
+          "type": 3,
+          "machine": 183
+        },
+        "dynamic": {
+          "needed": [
+            "libandroid.so",
+            "libc.so",
+            "libdl.so",
+            "liblog.so"
+          ],
+          "soname": "libandroid-shmem.so",
+          "rpath": null,
+          "runpath": null
+        }
+      },
+      "libtalloc": {
+        "fileName": "libtalloc.so",
+        "bytes": 43808,
+        "sha256": "e0e2d30e0a61f16bf6420de2f73f7b7259568989ac9e83db19053c087e47ff0e",
+        "elf": {
+          "class": 2,
+          "endianness": 1,
+          "type": 3,
+          "machine": 183
+        },
+        "dynamic": {
+          "needed": [
+            "libc.so",
+            "libdl.so"
+          ],
+          "soname": "libtalloc.so",
+          "rpath": null,
+          "runpath": null
+        }
+      }
+    },
+    "failures": [],
+    "unreviewedNeeded": [
+      "libandroid-shmem.so",
+      "libtalloc.so"
+    ],
+    "androidPackagingBlockers": []
+  },
+  "segmentAlignment": {
+    "libandroid-shmem.so": {
+      "loadSegmentAlignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "allAtLeast16KiB": true
+    },
+    "libtalloc.so": {
+      "loadSegmentAlignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "allAtLeast16KiB": true
+    },
+    "loader": {
+      "loadSegmentAlignments": [
+        16384,
+        16384
+      ],
+      "allAtLeast16KiB": true
+    },
+    "proot": {
+      "loadSegmentAlignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "allAtLeast16KiB": true
+    }
+  },
+  "loaderOffsetCheck": {
+    "expected": 1120,
+    "matchedGeneratedC": true
+  },
+  "notes": [
+    "Cross-compile assumptions are not Android runtime tests.",
+    "Upstream compiler warnings are retained in logs.",
+    "No artifact approval or APK packaging was performed."
+  ],
+  "notExecuted": [
+    "Android PRoot execution",
+    "Linux guest integration",
+    "Box64",
+    "Wine",
+    "Roblox"
+  ],
+  "applicationValidation": {
+    "jvmTests": 152,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pythonChecksPassed": 18,
+    "lintErrors": 0,
+    "lintWarnings": 69,
+    "lintHints": 1,
+    "nativeAssembleDebug": "BUILD SUCCESSFUL",
+    "nativeAbis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "apkSha256": "34fb1499d298cfd16b5c83d30c44f8b8e9db64b118b5a1efeeec8712eb41964a",
+    "apkIncludesProot": false,
+    "deviceExecution": "NOT_EXECUTED"
+  }
+}

@@ -23,9 +23,14 @@ object RuntimeLaunchPlanner {
     fun assess(
         runtime: InstalledRuntime,
         substrate: ExecutionSubstrateStatus,
+        substrateExecutionReady: Boolean =
+            substrate.prootReady,
     ): RuntimeLaunchAssessment {
         val blockers = linkedSetOf<LaunchBlocker>()
-        if (!substrate.prootReady) blockers += LaunchBlocker.SUBSTRATE_MISSING
+        if (!substrateExecutionReady) {
+            blockers +=
+                LaunchBlocker.SUBSTRATE_MISSING
+        }
 
         if (runtime.stats.linksRecorded > 0) {
             if (!runtime.linksPrepared) {

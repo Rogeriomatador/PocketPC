@@ -1,0 +1,25 @@
+--- a/src/loader/loader-info.awk
++++ b/src/loader/loader-info.awk
+@@ -1,7 +1,17 @@
+-# Note: This file is included only for targets which have pokedata workaround
+-/\ypokedata_workaround\y/{pokedata_workaround=strtonum("0x" $2)}
+-/\y_start\y/{start=strtonum("0x" $2)}
++# POSIX awk equivalent of the upstream GNU awk symbol-offset generator.
++function hex(s, n, i, digit) {
++    n = 0
++    for (i = 1; i <= length(s); i++) {
++        digit = index("0123456789abcdef", tolower(substr(s, i, 1))) - 1
++        if (digit < 0) { invalid = 1; return 0 }
++        n = n * 16 + digit
++    }
++    return n
++}
++$8 == "pokedata_workaround" { workaround = hex($2); have_workaround = 1 }
++$8 == "_start" { start = hex($2); have_start = 1 }
+ END {
+-	print "#include <unistd.h>"
+-	print "const ssize_t offset_to_pokedata_workaround=" (pokedata_workaround-start) ";"
++    if (invalid || !have_workaround || !have_start) exit 1
++    print "#include <unistd.h>"
++    printf "const ssize_t offset_to_pokedata_workaround=%.0f;\n", workaround - start
+ }

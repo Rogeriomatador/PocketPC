@@ -1,0 +1,167 @@
+name: Experimental Wine 11 x86_64 PocketPC v52 Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-v52-experimental:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Wine build toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential flex bison git \
+            gcc-mingw-w64-x86-64 libvulkan-dev
+
+      - name: Validate v52 source policy before experimental build
+        run: |
+          python3 -m py_compile \
+            scripts/build-wine-x86_64-v52-experimental.py \
+            scripts/build-v52-continuous-present-smoke.py \
+            scripts/prepare-wine-pocketpc-driver-v52.py \
+            scripts/prepare-wine-pocketpc-continuous-present-v52.py \
+            scripts/test-vulkan-continuous-present-v52-policy.py \
+            scripts/test-wine-x86_64-v52-source-integration.py \
+            scripts/test-runtime-v52-present-selection-policy.py \
+            scripts/test-v52-package-revision-binding.py \
+            scripts/validate-v52-continuous-present-integration.py \
+            scripts/test-v52-continuous-present-integration-validator.py
+          python3 scripts/test-vulkan-continuous-present-v52-policy.py
+          python3 scripts/test-wine-x86_64-v52-source-integration.py
+          python3 scripts/test-runtime-v52-present-selection-policy.py
+          python3 scripts/test-v52-package-revision-binding.py
+
+      - name: Build deterministic Win64 v52 multi-present smoke
+        run: |
+          python3 scripts/build-v52-continuous-present-smoke.py \
+            --output-dir "$RUNNER_TEMP/pocketpc-v52-smoke"
+
+      - name: Verify smoke build evidence is still runtime fail-closed
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "pocketpc-v52-smoke"
+          evidence = json.loads(
+              (root / "pocketpc-v52-continuous-present-smoke-build-evidence.json").read_text(encoding="utf-8")
+          )
+          assert evidence["compiled"] is True
+          assert evidence["expectedFrameCount"] == 8
+          assert evidence["expectedFrameSequences"] == [1, 2, 3, 4, 5, 6, 7, 8]
+          assert evidence["expectedGuestReadyValues"] == [1, 3, 5, 7, 9, 11, 13, 15]
+          assert evidence["expectedHostConsumedValues"] == [2, 4, 6, 8, 10, 12, 14, 16]
+          assert evidence["wineExecuted"] is False
+          assert evidence["continuousPresentExecuted"] is False
+          assert evidence["hostFramesObserved"] is False
+          assert evidence["physicalVisibleFrame"] is False
+          assert evidence["robloxExecuted"] is False
+          print("POCKETPC_V52_SMOKE_BUILD_EVIDENCE_OK")
+          print("SMOKE_COMPILED=1")
+          print("SMOKE_EXECUTED=0")
+          PY
+
+      - name: Build pinned Wine 11 x86_64 package with experimental PocketPC v52 driver
+        run: |
+          python3 scripts/build-wine-x86_64-v52-experimental.py \
+            --work "$RUNNER_TEMP/pocketpc-wine-v52-experimental"
+
+      - name: Verify v52 build evidence remains experimental
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "pocketpc-wine-v52-experimental"
+          overlay = json.loads(
+              (root / "wine-pocketpc-driver-overlay-evidence.json").read_text(encoding="utf-8")
+          )
+          build = json.loads(
+              (root / "wine-v52-experimental-build-evidence.json").read_text(encoding="utf-8")
+          )
+          expected_pocketpc_revision = os.environ["GITHUB_SHA"].strip().lower()
+          assert len(expected_pocketpc_revision) == 40
+          assert all(ch in "0123456789abcdef" for ch in expected_pocketpc_revision)
+
+          assert overlay["privateWineVulkanAbi"] == 52
+          assert overlay["derivedFromPrivateAbi"] == 51
+          assert overlay["officialBuildSelected"] is False
+          assert overlay["continuousPresentSourceImplemented"] is True
+          assert overlay["compiled"] is False
+          assert overlay["runtimeExecuted"] is False
+          assert overlay["integrationExecuted"] is False
+          assert overlay["physicalVisibleFrame"] is False
+          assert overlay["robloxExecuted"] is False
+          assert overlay["robloxRendered"] is False
+          assert overlay["robloxPlayable"] is False
+          assert overlay["timelineOwnership"]["guestSignalsHostConsumedEven"] is False
+
+          capability = build["verifiedRuntimeGraphicsCapability"]
+          assert capability["wineVulkanAbi"] == 52
+          assert capability["capabilities"] == ["pocketpc.vulkan.continuous-present.v52"]
+          assert capability["pocketPcSourceRevision"] == expected_pocketpc_revision
+          capability_path = root / "guest-package" / capability["path"]
+          assert capability_path.is_file()
+          capability_json = json.loads(capability_path.read_text(encoding="utf-8"))
+          assert capability_json["pocketPcSourceRevision"] == expected_pocketpc_revision
+          assert capability_json["wineVulkanAbi"] == 52
+          assert capability_json["capabilities"] == ["pocketpc.vulkan.continuous-present.v52"]
+
+          assert build["targetPrivateWineVulkanAbi"] == 52
+          assert build["derivedFromPrivateWineVulkanAbi"] == 51
+          assert build["officialBuildSelected"] is False
+          assert build["buildExecuted"] is True
+          assert build["packageCompiled"] is True
+          assert build["pocketPcSourceRevision"] == expected_pocketpc_revision
+          assert build["runtimeExecuted"] is False
+          assert build["integrationExecuted"] is False
+          assert build["physicalVisibleFrame"] is False
+          assert build["robloxExecuted"] is False
+          assert build["robloxRendered"] is False
+          assert build["robloxPlayable"] is False
+          assert build["classification"]["build"] == "SOFTWARE_BUILD_EXECUTED"
+          assert build["classification"]["runtime"] == "NOT_EXECUTED"
+          assert build["classification"]["integration"] == "NOT_EXECUTED"
+          assert build["classification"]["physical"] == "NOT_EXECUTED"
+          assert build["classification"]["roblox"] == "NOT_EXECUTED"
+
+          print("POCKETPC_WINE_V52_EXPERIMENTAL_BUILD_EVIDENCE_OK")
+          print(f"POCKETPC_SOURCE_REVISION={expected_pocketpc_revision}")
+          print("OFFICIAL_BUILD_SELECTED=0")
+          print("BUILD_EXECUTED=1")
+          print("RUNTIME_EXECUTED=0")
+          print("PHYSICAL_VISIBLE_FRAME=0")
+          print("ROBLOX_EXECUTED=0")
+          PY
+
+      - name: Retain experimental v52 review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPC-Wine11-x86_64-v52-experimental-review
+          path: |
+            ${{ runner.temp }}/pocketpc-v52-smoke/pocketpc-v52-continuous-present-smoke.exe
+            ${{ runner.temp }}/pocketpc-v52-smoke/pocketpc-v52-continuous-present-smoke-build-evidence.json
+            ${{ runner.temp }}/pocketpc-v52-smoke/pocketpc-v52-continuous-present-smoke-build.log
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/guest-package.zip
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/wine-build-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/wine-pocketpc-driver-overlay-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/wine-v52-experimental-build-evidence.json
+            ${{ runner.temp }}/pocketpc-wine-v52-experimental/*.log
+          if-no-files-found: warn
+
+      - name: Prove experimental build did not modify tracked source
+        if: always()
+        run: git diff --exit-code -- app third_party scripts .github

@@ -63,7 +63,8 @@ class ProotInvocationPlannerTest {
                     readOnly = false,
                     purpose = "home",
                     authority = BindAuthority.SYSTEM,
-                )
+                ),
+                RuntimeBindSpec(home, "/tmp", false, "temp", BindAuthority.SYSTEM),
             )
 
             val plan = ProotInvocationPlanner.build(
@@ -72,6 +73,19 @@ class ProotInvocationPlannerTest {
                 binds = binds,
                 allowedHostRoots = listOf(base),
             )
+
+            assertEquals(home.canonicalPath, plan.environment["PROOT_TMP_DIR"])
+            assertEquals("/tmp", plan.environment["TMPDIR"])
+            val missingTemp = ProotInvocationPlanner.build(runtime, substrate, binds.take(1), listOf(base))
+            assertTrue("HOST_TEMP_BIND_MISSING" in missingTemp.blockers)
+            assertTrue(missingTemp.argv.isEmpty())
+
+            val probe = ProotInvocationPlanner.buildProbe(runtime, substrate, binds, listOf(base), GuestRuntimeProbe.SHELL)
+            assertEquals(listOf("/bin/sh") + GuestRuntimeProbe.SHELL.arguments, probe.argv.takeLast(3))
+            assertEquals(listOf("EXECUTION_REQUIRES_USER_APPROVAL"), probe.blockers)
+            val invalid = ProotInvocationPlanner.build(runtime, substrate, binds, listOf(base), listOf("bad\u0000arg"))
+            assertTrue(invalid.argv.isEmpty())
+            assertTrue("INVALID_GUEST_ARGUMENTS" in invalid.blockers)
 
             assertFalse(plan.ready)
             assertEquals(listOf("EXECUTION_REQUIRES_USER_APPROVAL"), plan.blockers)

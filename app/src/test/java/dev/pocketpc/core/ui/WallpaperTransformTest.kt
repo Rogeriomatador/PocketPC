@@ -4,6 +4,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class WallpaperTransformTest {
+    @org.junit.Test
+    fun nonFiniteValuesCannotReachTheRenderer() {
+        val safe = WallpaperTransform(zoom = Float.NaN, offsetX = Float.POSITIVE_INFINITY, offsetY = Float.NaN).sanitized()
+        org.junit.Assert.assertEquals(1f, safe.zoom, 0f)
+        org.junit.Assert.assertEquals(0f, safe.offsetX, 0f)
+        org.junit.Assert.assertEquals(0f, safe.offsetY, 0f)
+    }
+
     @Test
     fun sanitizeClampsZoomAndOffsets() {
         val safe =

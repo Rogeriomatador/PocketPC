@@ -29,27 +29,14 @@ class PocketPcUpdateWorker(
             pending?.status ==
             DownloadManager.STATUS_SUCCESSFUL
         ) {
-            val verified =
-                updater.verifyPendingDownload()
-                    .getOrNull()
-
-            if (
-                verified != null &&
-                shouldAutoInstallUpdate(
-                    enabled =
-                        updater
-                            .autoInstallVerifiedEnabled(),
-                    verified = true,
-                    canInstallPackages =
-                        updater
-                            .canRequestPackageInstalls(),
-                    alreadyAttempted =
-                        updater
-                            .installAttemptedForPending(),
-                )
-            ) {
-                updater.requestInstall(verified)
-            }
+            // Background work may verify a completed update, but it must not
+            // silently start the install flow. The foreground PocketPC UI owns
+            // the explicit "Atualizar agora / Depois" decision and can then
+            // show progress, request any Android confirmation and reopen after
+            // replacement. This prevents an update from being noticed only as
+            // a system notification while the user is doing something else.
+            updater.verifyPendingDownload()
+                .getOrNull()
 
             return Result.success()
         }

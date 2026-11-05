@@ -1,0 +1,1463 @@
+{
+  "kind": "local-ui-validation",
+  "recordedAtUtc": "2026-09-08T17:30:06.285695+00:00",
+  "sourceRevision": "5bb598351c0cafdc9270dc6d7ce33abcda0c5bb4",
+  "sourceTree": "2f8a4bfd1a1c224ab996a6be4d38c6275fb1d392",
+  "sourceVerification": {
+    "matchingGitBlobs": 227,
+    "mismatchedFiles": [],
+    "notDownloaded": [
+      "dist/PocketPC-Windows-Setup.zip"
+    ],
+    "note": "Local source snapshot compared with GitHub blob hashes; not a full Git checkout. The omitted distribution ZIP is not a Gradle input."
+  },
+  "toolchain": {
+    "java": "OpenJDK 17.0.20, installed compiler modules exposed by local launchers",
+    "gradle": "9.6.0; distribution SHA-256 verified against repository lock",
+    "compileSdk": "37",
+    "buildTools": "36.0.0"
+  },
+  "command": [
+    "gradle",
+    "--no-daemon",
+    "--console=plain",
+    "--stacktrace",
+    "--max-workers=4",
+    "-Ppocketpc.skipNativeBuild=true",
+    ":app:testDebugUnitTest",
+    ":app:lintDebug"
+  ],
+  "gradle": {
+    "exitCode": 0,
+    "summary": "BUILD SUCCESSFUL in 4m 34s; 35 actionable tasks: 25 executed, 10 up-to-date",
+    "logSha256": "71d65acd84581e9dae94eb4c875cf591f135065c6e33d87160ae27761158a8f9",
+    "taskOutput": [
+      "> Task :app:preBuild UP-TO-DATE",
+      "> Task :app:preDebugBuild UP-TO-DATE",
+      "> Task :app:generateDebugBuildConfig UP-TO-DATE",
+      "> Task :app:generateDebugResources UP-TO-DATE",
+      "> Task :app:packageDebugResources UP-TO-DATE",
+      "> Task :app:processDebugNavigationResources UP-TO-DATE",
+      "> Task :app:parseDebugLocalResources UP-TO-DATE",
+      "> Task :app:generateDebugRFile UP-TO-DATE",
+      "> Task :app:compileDebugKotlin",
+      "> Task :app:javaPreCompileDebug UP-TO-DATE",
+      "> Task :app:checkDebugAarMetadata UP-TO-DATE",
+      "> Task :app:mapDebugSourceSetPaths UP-TO-DATE",
+      "> Task :app:compileDebugNavigationResources UP-TO-DATE",
+      "> Task :app:createDebugCompatibleScreenManifests",
+      "> Task :app:extractDeepLinksDebug",
+      "> Task :app:processDebugMainManifest",
+      "> Task :app:mergeDebugResources",
+      "> Task :app:processDebugManifest",
+      "> Task :app:preDebugUnitTestBuild UP-TO-DATE",
+      "> Task :app:preDebugAndroidTestBuild SKIPPED",
+      "> Task :app:javaPreCompileDebugUnitTest",
+      "> Task :app:extractProguardFiles",
+      "> Task :app:processDebugManifestForPackage",
+      "> Task :app:processDebugResources",
+      "> Task :app:compileDebugKotlin",
+      "> Task :app:compileDebugJavaWithJavac",
+      "> Task :app:processDebugJavaRes",
+      "> Task :app:bundleDebugClassesToCompileJar",
+      "> Task :app:bundleDebugClassesToRuntimeJar",
+      "> Task :app:generateDebugLintReportModel",
+      "> Task :app:compileDebugUnitTestKotlin",
+      "> Task :app:generateDebugAndroidTestLintModel",
+      "> Task :app:generateDebugUnitTestLintModel",
+      "> Task :app:lintAnalyzeDebug",
+      "> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE",
+      "> Task :app:processDebugUnitTestJavaRes",
+      "> Task :app:testDebugUnitTest",
+      "> Task :app:lintAnalyzeDebugAndroidTest",
+      "> Task :app:lintAnalyzeDebugUnitTest",
+      "> Task :app:lintReportDebug",
+      "> Task :app:lintDebug",
+      "BUILD SUCCESSFUL in 4m 34s"
+    ]
+  },
+  "unitTests": {
+    "totals": {
+      "tests": 140,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "suites": [
+      {
+        "name": "dev.pocketpc.core.desktop.DesktopControllerTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "closeActiveClosesHighestZWindow",
+          "maximizeClearsWindowSnap",
+          "closeRemovesWindow",
+          "maximizeAlsoRestoresMinimizedWindow",
+          "openingSameAppRestoresExistingWindowInsteadOfDuplicating",
+          "focusRaisesWindowAbovePreviouslyFocusedWindow",
+          "restoreSnapReturnsWindowToFreeform",
+          "pinnedAppsCanBeToggled",
+          "minimizeAllKeepsWindowsButHidesThem",
+          "pinChangesInvokePersistenceCallbackInCurrentOrder",
+          "snapActiveLeftAndRightMovesActiveWindowBetweenHalves"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.desktop.DesktopLaunchPolicyTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "noCapabilitiesFallsBackToCurrentDisplayWithoutFreeform",
+          "userCanKeepExternalDisplayButDisableFreeformBounds",
+          "userCanPreferCurrentDisplayWhileStillRequestingFreeform",
+          "presentationDisplayIsPreferredOverGenericExternalDisplay"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.desktop.DesktopSessionStateTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "recreationPreservesWindowsAndTheirModes",
+          "emptyDesktopSurvivesRecreation"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.desktop.GameCompatibilityProfileTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "newGameStartsUntestedWithoutConfirmedDesktopInput",
+          "anyConfirmedInputMarksDesktopInputAsObserved",
+          "optimizedRatingDoesNotFabricateInputEvidence"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.desktop.WindowGeometryTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "validGeometryIsPreservedInsideAppContract",
+          "invalidGeometryIsClampedToAppAndDesktopBounds",
+          "browserAllowsFullWorkspaceGeometry"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.performance.PerformanceGovernorTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "lowMemoryRequestsLoadReduction",
+          "severeThermalHeadroomRequestsAggressiveReduction",
+          "watchBandStartsAtPointEightFive",
+          "unavailableThermalDataDoesNotInventThrottling"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.research.PocketPcResearchProbeTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "reportsNoneWithoutConfirmedHardwareEncoder",
+          "ignoresSoftwareOnlyCodecForRemotePreference",
+          "doesNotBorrowResolutionSupportFromLowerPriorityCodec",
+          "reportsNoAdvertisedProfileWithoutHardwareSurfaceEncoder",
+          "prefersHardwareAv1OverOtherCodecs",
+          "choosesHighestAdvertisedProfileForPreferredCodec"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.FilesystemEvidenceProbeTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "selfTestPassesOnHostFilesystemWithoutFollowingExternalTarget"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.PcApplicationCompatibilityTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "readyBaseStillRequiresApplicationValidation",
+          "robloxInstallerIsRecognizedButRemainsFailClosed"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.PcRuntimeExecutionPlannerTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "readyRuntimeStillRequiresApplicationIntegration",
+          "robloxTargetStopsAtFirstMissingRuntimeGate"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.PcRuntimeReadinessTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "windowsExecutionRemainsFailClosedWithoutTranslationAndWin32",
+          "missingHostSubstrateAndRootfsStayBlocked"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.ProotExecutionControllerTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "explicitApprovalIsRequiredBeforeProcessStart",
+          "structuralBlockerCannotBeOverriddenByApproval"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.ProotInvocationPlannerTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "blocksReadOnlyBindUntilSemanticsAreImplemented",
+          "buildsArgumentVectorButKeepsExecutorDisabled"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.RootfsGuestResolverTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "resolvesRelativeDirectorySymlinkInsideGuestRoot",
+          "detectsHardlinkCycle",
+          "rejectsSymlinkThatWalksAboveGuestRoot"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.RootfsLinkManagerTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "preparesAndVerifiesSymlinkAndHardlink",
+          "safeDeleteDoesNotFollowAbsoluteGuestSymlink",
+          "recoversInterruptedLinkCreationBeforeRetry"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.RuntimeBindPolicyTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "rejectsGuestTraversal",
+          "rejectsHostOutsideAllowlist",
+          "rejectsUserBindToReservedGuestPath",
+          "acceptsSystemBindInsideAllowlistedHostRoot"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.RuntimeEnvironmentTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "minimalEnvironmentIsValid",
+          "rejectsInvalidVariableName",
+          "prootEnvironmentPinsPackagedLoaderAlias",
+          "rejectsNewlineInjection"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.RuntimeLaunchPlannerTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "alpha5NeverClaimsReadyWithoutExecutor"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.RuntimeManifestV2Test",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "acceptsExtractableSchemaV2",
+          "rejectsInvalidEntryLimit",
+          "rejectsUnknownArchiveFormat"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.RuntimeManifestValidatorTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "rejectsEntrypointTraversal",
+          "acceptsSafeArm64Manifest",
+          "rejectsVersionPathTraversal",
+          "rejectsUnsupportedDeviceAbi",
+          "rejectsMalformedHash"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.RuntimeProcessSupervisorTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "capturesOneShotOutput",
+          "timesOutLongRunningProcess"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.SafeTarExtractorTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "rejectsEntryBelowRecordedSymlink",
+          "rejectsPathTraversal",
+          "extractsFilesButRecordsLinksWithoutMaterializingThem",
+          "enforcesExtractedByteLimit",
+          "rejectsCorruptedHeaderChecksum"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.Sha256Test",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "enforcesMaximumBytes",
+          "computesKnownDigestAndByteCount"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.runtime.SubstrateApprovalModelTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "policyDigestFailureBlocksArtifactHashingGate",
+          "deniedManifestIsValidOnlyWhenEmpty",
+          "attestsExactApprovedFiles",
+          "rejectsVersionedTallocFilenameAsAndroidPackagingAlias",
+          "rejectsUnexpectedSensitiveArtifact"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.storage.PocketDriveTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "prefixesWindowsReservedDeviceNames",
+          "keepsLegitimateSemicolonWhenItIsNotDispositionMetadata",
+          "rejectsInvalidPocketDriveVolumeIdentity",
+          "sanitizesDownloadedLeafNameWithoutChangingPackageType",
+          "buildsStablePocketPaths",
+          "stripsMalformedContentDispositionTailFromImportedName",
+          "sanitizesImportedLeafNamesForPcNamespace",
+          "classifiesWindowsInstallerAsPcPackage",
+          "keepsGenericFilesGeneric",
+          "pocketDriveMetadataRoundTripsWithoutLosingIdentity",
+          "userVolumeContainsExpectedDesktopFolders",
+          "distinguishesAndroidPackage",
+          "importedFilenameNeverCarriesParentPath",
+          "rejectsFuturePocketDriveSchemaFailClosed"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.storage.StorageNameValidationTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "prefixesWindowsReservedDeviceNames",
+          "sanitizesServerFileNamesForPocketDrive",
+          "trimsValidNames",
+          "emptyImportedNameGetsStableFallback",
+          "rejectsEmptyName",
+          "rejectsParentTraversalName",
+          "rejectsPathSeparator"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.terminal.ShellBuiltinsTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "cdTrimsAndUnquotesPath",
+          "nonCdCommandIsNotIntercepted",
+          "cdWithoutArgumentMapsToHome"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.ui.BrowserDownloadNameTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "readsQuotedClassicFilename",
+          "absentFilenameReturnsNull",
+          "acceptsObservedAndroidFilenameUnderscoreVariant",
+          "decodesRfc5987Utf8Filename"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.ui.BrowserNavigationTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "newBrowserSessionStartsInDesktopMode",
+          "bareHostnameGetsHttps",
+          "tabSessionCreatesSelectsAndClosesTabsDeterministically",
+          "freeTextBecomesGoogleSearch",
+          "desktopUserAgentDropsMobileAndWebViewMarkers",
+          "fullHttpsUrlIsPreserved"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.ui.BrowserSessionStateTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "recreationRestoresSelectionModeAndUniqueIds",
+          "oldPageCallbacksCannotOverwriteANewTab",
+          "tabLimitPreservesTheActivePage",
+          "closingLastTabCreatesANewIdentity"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.ui.DesktopLayoutTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "keyboardAndSplitScreenLeaveMenuInsideAvailableSpace",
+          "resizingToSmallWindowDoesNotKeepDesktopSizedMenu",
+          "phoneAndLandscapeUseFullWorkspaceWindows"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.ui.FormatBytesTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "formatsHumanReadableSizes"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.ui.WallpaperTransformTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "defaultTransformIsCenteredCrop",
+          "simpleSolidWallpaperPresetsRemainAvailable",
+          "sanitizeClampsZoomAndOffsets",
+          "nonFiniteValuesCannotReachTheRenderer"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.ui.WallpaperViewportMathTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "zoomCreatesAdditionalPanRange",
+          "landscapePhotoCanPanHorizontallyAtCropZoomOne",
+          "fitAtZoomOneStaysCenteredWhenThereIsNoOverflow",
+          "portraitPhotoCanPanVerticallyAtCropZoomOne"
+        ]
+      },
+      {
+        "name": "dev.pocketpc.core.update.PocketPcUpdaterPolicyTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "cases": [
+          "automaticCheckIsThrottledInsideInterval",
+          "autoInstallRejectsDuplicateAttempt",
+          "disabledAutomaticCheckNeverRuns",
+          "autoInstallRequiresAllSafetyConditions",
+          "autoInstallRejectsMissingInstallerPermission",
+          "autoInstallRejectsUnverifiedApk",
+          "firstAutomaticCheckRunsImmediately",
+          "clockRollbackDoesNotBlockUpdatesForever",
+          "automaticCheckRunsAtIntervalBoundary"
+        ]
+      }
+    ]
+  },
+  "lint": {
+    "result": "PASS_WITH_WARNINGS",
+    "counts": {
+      "Warning": 69,
+      "Hint": 1
+    },
+    "issues": [
+      {
+        "id": "DefaultLocale",
+        "severity": "Warning",
+        "message": "Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/WallpaperEditor.kt",
+            "line": "347"
+          }
+        ]
+      },
+      {
+        "id": "InlinedApi",
+        "severity": "Warning",
+        "message": "Field requires API level 27 (current min is 26): `android.content.pm.PackageManager#FEATURE_PC`",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/desktop/DesktopCapabilityProbe.kt",
+            "line": "78"
+          }
+        ]
+      },
+      {
+        "id": "InlinedApi",
+        "severity": "Warning",
+        "message": "Field requires API level 27 (current min is 26): `android.content.pm.PackageManager#FEATURE_PC`",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/research/PocketPcResearchProbe.kt",
+            "line": "136"
+          }
+        ]
+      },
+      {
+        "id": "InlinedApi",
+        "severity": "Warning",
+        "message": "Field requires API level 28 (current min is 26): `android.content.pm.PackageManager#GET_SIGNING_CERTIFICATES`",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "896"
+          }
+        ]
+      },
+      {
+        "id": "InlinedApi",
+        "severity": "Warning",
+        "message": "Field requires API level 28 (current min is 26): `android.content.pm.PackageManager#GET_SIGNING_CERTIFICATES`",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "924"
+          }
+        ]
+      },
+      {
+        "id": "ConfigurationScreenWidthHeight",
+        "severity": "Warning",
+        "message": "Using Configuration.screenWidthDp instead of LocalWindowInfo.current.containerSize",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/WallpaperEditor.kt",
+            "line": "113"
+          }
+        ]
+      },
+      {
+        "id": "ConfigurationScreenWidthHeight",
+        "severity": "Warning",
+        "message": "Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/WallpaperEditor.kt",
+            "line": "115"
+          }
+        ]
+      },
+      {
+        "id": "ModifierParameter",
+        "severity": "Warning",
+        "message": "Modifier parameter should be the first optional parameter",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/DesktopAppearance.kt",
+            "line": "319"
+          }
+        ]
+      },
+      {
+        "id": "ModifierParameter",
+        "severity": "Warning",
+        "message": "Modifier parameter should be the first optional parameter",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/DesktopChrome.kt",
+            "line": "665"
+          }
+        ]
+      },
+      {
+        "id": "DiscouragedApi",
+        "severity": "Warning",
+        "message": "Fixed screen orientations will be ignored in most cases, starting from Android 16. Android is moving toward a model where apps are expected to adapt to various orientations, display sizes, and aspect ratios.",
+        "locations": [
+          {
+            "file": "app/src/debug/AndroidManifest.xml",
+            "line": "10"
+          }
+        ]
+      },
+      {
+        "id": "DiscouragedApi",
+        "severity": "Warning",
+        "message": "Fixed screen orientations will be ignored in most cases, starting from Android 16. Android is moving toward a model where apps are expected to adapt to various orientations, display sizes, and aspect ratios.",
+        "locations": [
+          {
+            "file": "app/src/main/AndroidManifest.xml",
+            "line": "47"
+          }
+        ]
+      },
+      {
+        "id": "SetJavaScriptEnabled",
+        "severity": "Warning",
+        "message": "Using `setJavaScriptEnabled` can introduce XSS vulnerabilities into your application, review carefully",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt",
+            "line": "336"
+          }
+        ]
+      },
+      {
+        "id": "DataExtractionRules",
+        "severity": "Warning",
+        "message": "The attribute `android:allowBackup` is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute `android:dataExtractionRules` specifying an `@xml` resource which configures cloud backups and device transfers on Android 12 and higher.",
+        "locations": [
+          {
+            "file": "app/src/main/AndroidManifest.xml",
+            "line": "22"
+          }
+        ]
+      },
+      {
+        "id": "ObsoleteSdkInt",
+        "severity": "Warning",
+        "message": "Unnecessary; `SDK_INT` is always >= 26",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/research/PocketPcResearchProbe.kt",
+            "line": "167"
+          }
+        ]
+      },
+      {
+        "id": "ObsoleteSdkInt",
+        "severity": "Warning",
+        "message": "Unnecessary; `SDK_INT` is never < 26",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "128"
+          }
+        ]
+      },
+      {
+        "id": "ObsoleteSdkInt",
+        "severity": "Warning",
+        "message": "Unnecessary; `SDK_INT` is always >= 26",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "600"
+          }
+        ]
+      },
+      {
+        "id": "ObsoleteSdkInt",
+        "severity": "Warning",
+        "message": "Unnecessary; `SDK_INT` is always >= 26",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "520"
+          }
+        ]
+      },
+      {
+        "id": "AutoboxingStateCreation",
+        "severity": "Hint",
+        "message": "Prefer `mutableLongStateOf` instead of `mutableStateOf`",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt",
+            "line": "71"
+          }
+        ]
+      },
+      {
+        "id": "MissingApplicationIcon",
+        "severity": "Warning",
+        "message": "Should explicitly set `android:icon`, there is no default",
+        "locations": [
+          {
+            "file": "app/src/main/AndroidManifest.xml",
+            "line": "21"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt",
+            "line": "200"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt",
+            "line": "619"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/DesktopAppearance.kt",
+            "line": "244"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/DesktopAppearance.kt",
+            "line": "252"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/DesktopAppearance.kt",
+            "line": "270"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/DesktopAppearance.kt",
+            "line": "295"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/DesktopAppearance.kt",
+            "line": "306"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/DesktopAppearance.kt",
+            "line": "361"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/desktop/DesktopPinStore.kt",
+            "line": "34"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/desktop/DesktopWindowLayoutStore.kt",
+            "line": "65"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/desktop/DesktopWindowLayoutStore.kt",
+            "line": "75"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/desktop/DesktopWindowLayoutStore.kt",
+            "line": "84"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/desktop/GameCompatibilityProfile.kt",
+            "line": "61"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/desktop/GameCompatibilityProfile.kt",
+            "line": "75"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX function `createBitmap` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/InstalledAppsApp.kt",
+            "line": "572"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/PocketDownloadBridge.kt",
+            "line": "46"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/PocketPcApp.kt",
+            "line": "442"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/PocketPcFirstRun.kt",
+            "line": "51"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcInstallReceiver.kt",
+            "line": "42"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcInstallReceiver.kt",
+            "line": "81"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcInstallReceiver.kt",
+            "line": "155"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcInstallReceiver.kt",
+            "line": "206"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/PocketPcPackageRegistry.kt",
+            "line": "133"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/PocketPcProfileBackup.kt",
+            "line": "125"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "88"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "102"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "119"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "156"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "251"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "264"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "315"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "345"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "564"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "609"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "735"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/update/PocketPcUpdater.kt",
+            "line": "746"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/runtime/RuntimePackageManager.kt",
+            "line": "62"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/runtime/RuntimePackageManager.kt",
+            "line": "174"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "26"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "40"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "51"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "115"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "271"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "325"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "349"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "460"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "529"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt",
+            "line": "612"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/StoreApp.kt",
+            "line": "268"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/StoreApp.kt",
+            "line": "277"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "locations": [
+          {
+            "file": "app/src/main/java/dev/pocketpc/core/ui/WallpaperEditor.kt",
+            "line": "87"
+          }
+        ]
+      }
+    ]
+  },
+  "pythonPolicies": [
+    {
+      "script": "test-bootstrap-signer-verifier.py",
+      "exitCode": 0,
+      "stdout": "BOOTSTRAP_SIGNER_SELFTEST_OK\npositive_signer=1f57477603981f0bd7673f338818f47b9dbc286db02e20fe1d61bb4031f439c7\nnegative_signer_rejected=true\nmalformed_signer_rejected=true\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-ci-version-policy.py",
+      "exitCode": 0,
+      "stdout": "CI_VERSION_POLICY_OK\nlocked_version=0.1.0-alpha22\nlocked_version_code=22\nworkflows_checked=2\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-desktop-enum-coverage.py",
+      "exitCode": 0,
+      "stdout": "DESKTOP_ENUM_COVERAGE_OK\napps=12\ncommands=11\ndefault_shortcuts=8\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-desktop-mode-policy.py",
+      "exitCode": 0,
+      "stdout": "DESKTOP_MODE_POLICY_OK\nfiles_checked=64\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-device-chain-verifier.py",
+      "exitCode": 0,
+      "stdout": "POCKETPC_DEVICE_CHAIN_SELFTEST_OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-device-evidence-bundle-verifier.py",
+      "exitCode": 0,
+      "stdout": "POCKETPC_EVIDENCE_BUNDLE_SELFTEST_OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-device-install-record-verifier.py",
+      "exitCode": 0,
+      "stdout": "DEVICE_INSTALL_RECORD_SELFTEST_OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-failure-triage-verifier.py",
+      "exitCode": 0,
+      "stdout": "TRIAGE_RECORD_SELFTEST_OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-first-physical-test-record-verifier.py",
+      "exitCode": 0,
+      "stdout": "FIRST_PHYSICAL_TEST_RECORD_SELFTEST_OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-gitignore-policy.py",
+      "exitCode": 0,
+      "stdout": "GITIGNORE_POLICY_OK\ngenerated_paths=18\nsource_paths=7\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-local-build-record-verifier.py",
+      "exitCode": 0,
+      "stdout": "LOCAL_BUILD_RECORD_SELFTEST_OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-physical-validation-record-verifier.py",
+      "exitCode": 0,
+      "stdout": "PHYSICAL_VALIDATION_RECORD_SELFTEST_OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-pocketdrive-research-policy.py",
+      "exitCode": 0,
+      "stdout": "POCKETDRIVE_RESEARCH_POLICY_OK\nchecks=248\nfiles=27\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-powershell51-compat.py",
+      "exitCode": 0,
+      "stdout": "POWERSHELL51_COMPAT_OK\nscripts_checked=13\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-preflight-record-verifier.py",
+      "exitCode": 0,
+      "stdout": "PREFLIGHT_RECORD_SELFTEST_OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-proot-artifact-policy.py",
+      "exitCode": 0,
+      "stdout": "PROOT_ELF_POLICY_SELFTEST_OK\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-python-script-syntax.py",
+      "exitCode": 0,
+      "stdout": "PYTHON_SCRIPT_SYNTAX_OK\nscripts_checked=33\n",
+      "stderr": ""
+    },
+    {
+      "script": "test-update-feed-policy.py",
+      "exitCode": 0,
+      "stdout": "UPDATE_FEED_POLICY_OK\nchannel=stable\npublished=false\nversion=0.1.0-alpha22\nversion_code=22\n",
+      "stderr": ""
+    },
+    {
+      "script": "verify-android-build-lock.py",
+      "exitCode": 0,
+      "stdout": "ANDROID_BUILD_LOCK_OK\napp_version=0.1.0-alpha22\ngradle=9.6.0\ngradle_sha256=bbaeb2fef8710818cf0e261201dab964c572f92b942812df0c3620d62a529a01\ncompile_sdk=37\nplatform_package=platforms;android-37.0\n",
+      "stderr": ""
+    },
+    {
+      "script": "verify-proot-approval.py",
+      "exitCode": 0,
+      "stdout": "PROOT_APPROVAL_POLICY_OK state=LOCKED_NOT_APPROVED\n",
+      "stderr": ""
+    }
+  ],
+  "notExecuted": [
+    "full native APK build",
+    "APK installation",
+    "physical visual/accessibility/gesture validation",
+    "benchmarks"
+  ],
+  "ci": {
+    "result": "NO_RUNNER_NO_STEPS",
+    "workflowRunIds": [
+      34254010736,
+      34254010739
+    ]
+  },
+  "limitations": [
+    "skipNativeBuild excludes native runtime compilation and packaging.",
+    "No APK is delivered or claimed as device-tested by this record.",
+    "BuildConfig source revision was LOCAL_UNPINNED; source identity is established by Git blob comparison, not by a generated APK attestation."
+  ]
+}

@@ -20,7 +20,16 @@ class RuntimeEnvironmentTest {
             environment["PROOT_LOADER"] ==
                 File(dir, "libproot_loader.so").path
         )
+        assertTrue(environment["LD_LIBRARY_PATH"] == dir.path)
         assertTrue(RuntimeEnvironment.validate(environment).isEmpty())
+    }
+
+    @Test
+    fun wineChildToolsUseGuestSearchPathsOnly() {
+        val env = RuntimeEnvironment.windowsTools()
+        assertTrue(env["BOX64_PATH"] == "/opt/pocketpc/wine/bin")
+        assertTrue(env["BOX64_LD_LIBRARY_PATH"]!!.contains("/opt/pocketpc/wine/lib"))
+        assertTrue(RuntimeEnvironment.validate(env).isEmpty())
     }
 
     @Test
@@ -35,5 +44,13 @@ class RuntimeEnvironmentTest {
     fun rejectsInvalidVariableName() {
         val errors = RuntimeEnvironment.validate(mapOf("LD-PRELOAD" to "x"))
         assertFalse(errors.isEmpty())
+    }
+
+    @Test
+    fun prootHostTempDoesNotReplaceGuestTmpdir() {
+        val env = RuntimeEnvironment.forProot("/native", "/data/user/0/dev.pocketpc.core/cache/runtime-tmp")
+        assertTrue(env["PROOT_TMP_DIR"] == "/data/user/0/dev.pocketpc.core/cache/runtime-tmp")
+        assertTrue(env["TMPDIR"] == "/tmp")
+        assertTrue(RuntimeEnvironment.validate(env).isEmpty())
     }
 }

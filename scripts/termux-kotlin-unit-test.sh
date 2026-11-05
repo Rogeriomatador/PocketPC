@@ -18,7 +18,7 @@ need() {
     }
 }
 
-for tool in git python java gradle aapt2; do
+for tool in git python java gradle; do
     need "$tool"
 done
 
@@ -26,6 +26,30 @@ if [ ! -f "$LOCK" ]; then
     echo "LOCK_MISSING=$LOCK" >&2
     exit 2
 fi
+
+LOCAL_AAPT2="$HOME/.local/pocketpc/android-build-tools/16.0.0.4/bin/aapt2"
+
+if ! command -v aapt2 >/dev/null 2>&1 && [ ! -x "$LOCAL_AAPT2" ]; then
+    echo "AAPT2 is missing; invoking the Termux recovery gate."
+    bash scripts/termux-ensure-aapt2.sh
+fi
+
+select_aapt2() {
+    if [ -x "$LOCAL_AAPT2" ]; then
+        printf '%s\n' "$LOCAL_AAPT2"
+    else
+        command -v aapt2
+    fi
+}
+
+if ! AAPT2="$(select_aapt2 2>/dev/null)"; then
+    echo "AAPT2_MISSING" >&2
+    exit 2
+fi
+
+TERMUX_VARIANT="$(bash scripts/termux-detect-variant.sh --value 2>/dev/null || printf '%s' classic_or_unknown)"
+echo "termux_variant=$TERMUX_VARIANT"
+echo
 
 read_lock() {
     python - "$LOCK" "$1" <<'PY'
@@ -40,6 +64,7 @@ PY
 }
 
 COMPILE_SDK="$(read_lock android.compileSdk)"
+PLATFORM_PACKAGE="$(read_lock android.platformPackage)"
 BUILD_TOOLS="$(read_lock android.buildTools)"
 GRADLE_REQUIRED="$(read_lock gradle.version)"
 VERSION_NAME="$(read_lock app.versionName)"
@@ -53,7 +78,9 @@ else
     SOURCE_TREE_STATE="DIRTY"
 fi
 
-ANDROID_JAR="$SDK_ROOT/platforms/android-$COMPILE_SDK/android.jar"
+PLATFORM_DIR_NAME="${PLATFORM_PACKAGE#platforms;}"
+PLATFORM_DIR="$SDK_ROOT/platforms/$PLATFORM_DIR_NAME"
+ANDROID_JAR="$PLATFORM_DIR/android.jar"
 BUILD_TOOLS_DIR="$SDK_ROOT/build-tools/$BUILD_TOOLS"
 
 if [ ! -f "$ANDROID_JAR" ]; then
@@ -83,36 +110,121 @@ cat > "$ROOT/local.properties" <<EOF
 sdk.dir=$SDK_ROOT
 EOF
 
-AAPT2="$(command -v aapt2)"
+AAPT2="$(select_aapt2)"
+AAPT2_VERSION="$("$AAPT2" version 2>&1 | awk 'NR == 1 {line=$0} END {print line}')"
 
 echo "Evidence"
 echo "  source_revision=$SOURCE_REVISION"
 echo "  source_tree=$SOURCE_TREE_STATE"
 echo "  version=$VERSION_NAME"
 echo "  version_code=$VERSION_CODE"
-echo "  java=$(java -version 2>&1 | head -1)"
+echo "  java=$(java -version 2>&1 | awk 'NR == 1 {line=$0} END {print line}')"
 echo "  gradle=$GRADLE_ACTUAL"
+echo "  platform_package=$PLATFORM_PACKAGE"
+echo "  platform_dir=$PLATFORM_DIR"
 echo "  android_jar=$ANDROID_JAR"
 echo "  build_tools=$BUILD_TOOLS_DIR"
 echo "  aapt2=$AAPT2"
+echo "  aapt2_version=$AAPT2_VERSION"
 echo
-echo "Executing:"
+
+if [ "$TERMUX_VARIANT" = "googleplay" ]; then
+    echo "Google Play Termux detected: AAPT2 compatibility check is deferred until after Kotlin compile."
+    echo "This preserves a real Kotlin compiler result even when Android resource linking is unsupported."
+    echo
+else
+    echo "Validating AAPT2 against the locked Android platform before Kotlin compilation..."
+    bash scripts/termux-ensure-aapt2.sh
+    hash -r
+    AAPT2="$(select_aapt2)"
+    AAPT2_VERSION="$("$AAPT2" version 2>&1 | awk 'NR == 1 {line=$0} END {print line}')"
+    echo "  validated_aapt2=$AAPT2"
+    echo "  validated_aapt2_version=$AAPT2_VERSION"
+    echo
+fi
+
+LOG_DIR="$ROOT/build/termux"
+mkdir -p "$LOG_DIR"
+COMPILE_LOG="$LOG_DIR/compileDebugKotlin.log"
+TEST_LOG="$LOG_DIR/testDebugUnitTest.log"
+
+echo "Executing Kotlin compile gate:"
 echo "  -Ppocketpc.skipNativeBuild=true"
+echo "  :app:compileDebugKotlin"
+echo
+
+set +e
+gradle \
+    --no-daemon \
+    --console=plain \
+    -Pandroid.aapt2FromMavenOverride="$AAPT2" \
+    -Ppocketpc.skipNativeBuild=true \
+    :app:compileDebugKotlin 2>&1 | tee "$COMPILE_LOG"
+COMPILE_STATUS=${PIPESTATUS[0]}
+set -e
+
+echo
+if [ "$COMPILE_STATUS" -ne 0 ]; then
+    echo "===== KOTLIN COMPILER ERRORS ====="
+    grep -E '(^e: |Compilation error|error: )' "$COMPILE_LOG" | tail -n 120 || true
+    echo "===== END KOTLIN COMPILER ERRORS ====="
+    echo
+    echo "Classification : TERMUX_KOTLIN_COMPILE_FAIL"
+    echo "gradle_exit_code=$COMPILE_STATUS"
+    echo "compile_log=$COMPILE_LOG"
+    exit "$COMPILE_STATUS"
+fi
+
+echo "Classification : TERMUX_KOTLIN_COMPILE_PASS"
+echo
+
+if [ "$TERMUX_VARIANT" = "googleplay" ]; then
+    echo "Checking Google Play Termux AAPT2 compatibility after Kotlin compile..."
+    set +e
+    bash scripts/termux-ensure-aapt2.sh
+    AAPT2_STATUS=$?
+    set -e
+    echo
+    if [ "$AAPT2_STATUS" -ne 0 ]; then
+        if [ "$AAPT2_STATUS" -eq 11 ]; then
+            echo "Classification : TERMUX_KOTLIN_COMPILE_PASS_UNIT_TEST_BLOCKED_AAPT2"
+            echo "tested_revision=$SOURCE_REVISION"
+            echo "compile_log=$COMPILE_LOG"
+            echo "Important: Kotlin compilation passed. Android resource linking/unit tests were not executed."
+            exit 11
+        fi
+        echo "Classification : TERMUX_AAPT2_VALIDATION_FAILED_AFTER_KOTLIN_COMPILE"
+        echo "aapt2_exit_code=$AAPT2_STATUS"
+        exit "$AAPT2_STATUS"
+    fi
+    hash -r
+    AAPT2="$(select_aapt2)"
+fi
+
+echo "Executing unit-test gate:"
 echo "  :app:testDebugUnitTest"
 echo
 
 set +e
-gradle     --no-daemon     --stacktrace     -Pandroid.aapt2FromMavenOverride="$AAPT2"     -Ppocketpc.skipNativeBuild=true     :app:testDebugUnitTest
-STATUS=$?
+gradle \
+    --no-daemon \
+    --console=plain \
+    -Pandroid.aapt2FromMavenOverride="$AAPT2" \
+    -Ppocketpc.skipNativeBuild=true \
+    :app:testDebugUnitTest 2>&1 | tee "$TEST_LOG"
+TEST_STATUS=${PIPESTATUS[0]}
 set -e
 
 echo
-if [ "$STATUS" -ne 0 ]; then
+if [ "$TEST_STATUS" -ne 0 ]; then
+    echo "===== UNIT TEST FAILURE SUMMARY ====="
+    grep -E '(^e: |FAILED|FAILURE:|error: |There were failing tests)' "$TEST_LOG" | tail -n 120 || true
+    echo "===== END UNIT TEST FAILURE SUMMARY ====="
+    echo
     echo "Classification : TERMUX_KOTLIN_UNIT_TEST_FAIL"
-    echo "gradle_exit_code=$STATUS"
-    echo "Important: FAIL is evidence that the attempted software test did not pass."
-    echo "It does not prove the cause is Kotlin; inspect the Gradle error above."
-    exit "$STATUS"
+    echo "gradle_exit_code=$TEST_STATUS"
+    echo "test_log=$TEST_LOG"
+    exit "$TEST_STATUS"
 fi
 
 echo "Classification : TERMUX_KOTLIN_COMPILE_UNIT_TEST_PASS"

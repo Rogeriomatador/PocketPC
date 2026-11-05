@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.pocketpc.core.terminal.LocalShellEngine
 import dev.pocketpc.core.terminal.TerminalRecord
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
@@ -41,16 +42,20 @@ fun TerminalApp(engine: LocalShellEngine) {
         val prompt = promptFor(engine.workingDirectory.path)
         running = true
         scope.launch {
-            val result = engine.execute(command)
-            records += TerminalRecord(
-                prompt = prompt,
-                command = result.command,
-                output = result.output,
-                exitCode = result.exitCode,
-                timedOut = result.timedOut,
-            )
-            running = false
-            if (records.isNotEmpty()) listState.animateScrollToItem(records.lastIndex)
+            try {
+                val result = engine.execute(command)
+                records += TerminalRecord(prompt, result.command, result.output, result.exitCode, result.timedOut)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                records += TerminalRecord(prompt, command,
+                    "Falha ao executar: ${failure.message ?: failure.javaClass.simpleName}", null, false)
+            } finally {
+                running = false
+            }
+            while (records.size > 100) records.removeAt(0)
+            // The help item occupies index zero.
+            if (records.isNotEmpty()) listState.animateScrollToItem(records.size)
             focusRequester.requestFocus()
         }
     }
@@ -60,7 +65,7 @@ fun TerminalApp(engine: LocalShellEngine) {
             Column(Modifier.weight(1f)) {
                 Text("Pocket Terminal", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Shell local Android • app UID • sem root • timeout 8 s",
+                    "Shell Android • help para ajuda",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

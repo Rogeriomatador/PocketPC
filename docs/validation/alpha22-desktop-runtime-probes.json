@@ -1,0 +1,40 @@
+{
+  "baseRevision": "f42d5cdd9d78862ef745367a4db60266e6176237",
+  "validation": "SOFTWARE TEST",
+  "gradle": {
+    "tasks": [
+      ":app:testDebugUnitTest",
+      ":app:lintDebug"
+    ],
+    "property": "pocketpc.skipNativeBuild=true",
+    "result": "BUILD SUCCESSFUL in 1m 31s"
+  },
+  "unitTests": {
+    "tests": 151,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 69,
+    "hints": 1
+  },
+  "pythonScripts": {
+    "passed": 18,
+    "total": 18
+  },
+  "notExecuted": [
+    "native APK build",
+    "Android installation",
+    "physical UI verification",
+    "PRoot guest execution",
+    "real Box64/Wine integration",
+    "Roblox desktop execution"
+  ],
+  "environmentBlockers": [
+    "Docker unavailable for pinned PRoot build workflow",
+    "Android NDK 29.0.14206865 absent",
+    "PRoot artifact contract remains NOT_APPROVED; no binary or approval was fabricated"
+  ]
+}

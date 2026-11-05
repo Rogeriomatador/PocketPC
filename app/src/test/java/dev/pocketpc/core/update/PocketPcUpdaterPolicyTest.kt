@@ -1,5 +1,7 @@
 package dev.pocketpc.core.update
 
+import android.app.DownloadManager
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -62,6 +64,39 @@ class PocketPcUpdaterPolicyTest {
                 nowMillis = 10_000L,
                 intervalMillis = 6_000L,
             )
+        )
+    }
+
+    @Test
+    fun pausedDownloadExplainsMissingNetwork() {
+        assertEquals(
+            "Download aguardando conexão com a internet.",
+            pocketPcDownloadStatusText(
+                DownloadManager.STATUS_PAUSED,
+                DownloadManager.PAUSED_WAITING_FOR_NETWORK,
+            ),
+        )
+    }
+
+    @Test
+    fun failedDownloadExplainsInsufficientSpace() {
+        assertEquals(
+            "Download falhou: armazenamento insuficiente.",
+            pocketPcDownloadStatusText(
+                DownloadManager.STATUS_FAILED,
+                DownloadManager.ERROR_INSUFFICIENT_SPACE,
+            ),
+        )
+    }
+
+    @Test
+    fun httpFailureIncludesServerStatus() {
+        assertEquals(
+            "Download falhou: servidor respondeu HTTP 503.",
+            pocketPcDownloadStatusText(
+                DownloadManager.STATUS_FAILED,
+                503,
+            ),
         )
     }
 

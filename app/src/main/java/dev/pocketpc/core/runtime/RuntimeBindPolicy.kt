@@ -1,7 +1,11 @@
 package dev.pocketpc.core.runtime
 
 import android.content.Context
+import android.net.ConnectivityManager
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.nio.file.AtomicMoveNotSupportedException
 
 enum class BindAuthority {
     SYSTEM,
@@ -22,6 +26,17 @@ data class BindValidation(
 )
 
 object RuntimeBindPolicy {
+    // Exact kernel resources only. Never allow all of /dev or a host root.
+    internal val kernelResources = setOf(
+        "/proc", "/dev/null", "/dev/zero", "/dev/random", "/dev/urandom",
+    )
+
+    internal fun isKernelResourceBind(bind: RuntimeBindSpec): Boolean =
+        bind.authority == BindAuthority.SYSTEM &&
+            bind.guestPath in kernelResources &&
+            bind.hostPath.path == bind.guestPath &&
+            bind.hostPath.canonicalPath == bind.guestPath
+
     private val userReserved = setOf(
         "/",
         "/proc",
@@ -50,7 +65,9 @@ object RuntimeBindPolicy {
                 val allowed = normalizedRoots.any { root ->
                     host == root || host.path.startsWith(root.path + File.separator)
                 }
-                if (!allowed) errors += "bind[$index] host fora da allowlist."
+                if (!allowed && !isKernelResourceBind(bind)) {
+                    errors += "bind[$index] host fora da allowlist."
+                }
                 if (hasReservedHostSyntax(host.path)) {
                     errors += "bind[$index] host contém caractere incompatível."
                 }
@@ -61,7 +78,10 @@ object RuntimeBindPolicy {
                 errors += "bind[$index] guest inválido."
             } else {
                 if (!seenGuest.add(guest)) errors += "bind[$index] guest duplicado: $guest"
-                if (bind.authority == BindAuthority.USER && guest in userReserved) {
+                if (bind.authority == BindAuthority.USER && userReserved.any {
+                        reserved -> guest == reserved ||
+                            (reserved != "/" && guest.startsWith("$reserved/"))
+                    }) {
                     errors += "bind[$index] guest reservado ao sistema: $guest"
                 }
                 if (':' in guest || '!' in guest) {
@@ -106,17 +126,169 @@ object RuntimeBindPolicy {
     }
 }
 
-class RuntimeBindPlanner(private val context: Context) {
-    fun base(runtime: InstalledRuntime): List<RuntimeBindSpec> {
-        val home = File(
-            context.filesDir,
-            "runtime-home/${runtime.manifest.id}/${runtime.manifest.version}",
-        ).apply { require(mkdirs() || isDirectory) }
+/**
+ * Resolves a stable user HOME for one runtime family.
+ *
+ * Runtime binaries/rootfs remain versioned, but user state must not be. The
+ * hidden `.user` directory is intentionally outside VersionedInstallPruner's
+ * candidate set, so Wine prefixes, registry, application state and account
+ * sessions survive a runtime-version replacement.
+ *
+ * Older PocketPC builds stored HOME under `<runtimeId>/<runtimeVersion>`. On
+ * first use after this migration we move the unambiguous legacy HOME into the
+ * stable location. Ambiguous legacy state fails closed instead of guessing.
+ */
+internal object RuntimeUserHomeLayout {
+    private const val RUNTIME_HOME_ROOT = "runtime-home"
+    private const val STABLE_USER_HOME = ".user"
 
-        val temp = File(
+    fun resolve(
+        filesDir: File,
+        runtimeId: String,
+        runtimeVersion: String,
+    ): File {
+        requireSafeSegment(runtimeId, "runtimeId")
+        requireSafeSegment(runtimeVersion, "runtimeVersion")
+
+        val filesRoot = filesDir.canonicalFile
+        require(filesRoot.isDirectory || filesRoot.mkdirs()) {
+            "RUNTIME_USER_HOME_FILES_ROOT_UNAVAILABLE"
+        }
+
+        val homeRoot = File(filesRoot, RUNTIME_HOME_ROOT).canonicalFile
+        require(homeRoot.parentFile == filesRoot) {
+            "RUNTIME_USER_HOME_ROOT_ESCAPED"
+        }
+        require(homeRoot.isDirectory || homeRoot.mkdirs()) {
+            "RUNTIME_USER_HOME_ROOT_CREATE_FAILED"
+        }
+
+        val runtimeRoot = File(homeRoot, runtimeId).canonicalFile
+        require(runtimeRoot.parentFile == homeRoot) {
+            "RUNTIME_USER_HOME_RUNTIME_ESCAPED"
+        }
+        require(runtimeRoot.isDirectory || runtimeRoot.mkdirs()) {
+            "RUNTIME_USER_HOME_RUNTIME_CREATE_FAILED"
+        }
+        require(SafeTreeOps.isPlainDirectory(runtimeRoot.toPath())) {
+            "RUNTIME_USER_HOME_RUNTIME_NOT_PLAIN_DIRECTORY"
+        }
+
+        val stableHome = File(runtimeRoot, STABLE_USER_HOME).canonicalFile
+        require(stableHome.parentFile == runtimeRoot) {
+            "RUNTIME_USER_HOME_STABLE_ESCAPED"
+        }
+        if (stableHome.exists()) {
+            require(SafeTreeOps.isPlainDirectory(stableHome.toPath())) {
+                "RUNTIME_USER_HOME_STABLE_NOT_PLAIN_DIRECTORY"
+            }
+            return stableHome
+        }
+
+        val legacyCandidates =
+            runtimeRoot.listFiles()
+                .orEmpty()
+                .filter { candidate ->
+                    !candidate.name.startsWith(".") &&
+                        SafeTreeOps.isPlainDirectory(candidate.toPath())
+                }
+                .map { it.canonicalFile }
+                .filter { it.parentFile == runtimeRoot }
+
+        val legacyHome =
+            legacyCandidates.firstOrNull {
+                it.name == runtimeVersion
+            } ?: when (legacyCandidates.size) {
+                0 -> null
+                1 -> legacyCandidates.single()
+                else -> error(
+                    "RUNTIME_USER_HOME_MIGRATION_AMBIGUOUS:" +
+                        legacyCandidates
+                            .map(File::getName)
+                            .sorted()
+                            .joinToString(",")
+                )
+            }
+
+        if (legacyHome != null) {
+            require(legacyHome.renameTo(stableHome)) {
+                "RUNTIME_USER_HOME_MIGRATION_FAILED"
+            }
+        } else {
+            require(stableHome.mkdirs() || stableHome.isDirectory) {
+                "RUNTIME_USER_HOME_CREATE_FAILED"
+            }
+        }
+
+        require(SafeTreeOps.isPlainDirectory(stableHome.toPath())) {
+            "RUNTIME_USER_HOME_STABLE_NOT_PLAIN_DIRECTORY"
+        }
+        return stableHome
+    }
+
+    private fun requireSafeSegment(
+        value: String,
+        label: String,
+    ) {
+        require(
+            value.isNotBlank() &&
+                value != "." &&
+                value != ".." &&
+                !value.startsWith(".") &&
+                '/' !in value &&
+                '\\' !in value &&
+                '\u0000' !in value,
+        ) {
+            "RUNTIME_USER_HOME_UNSAFE_SEGMENT:$label"
+        }
+    }
+}
+
+class RuntimeBindPlanner(private val context: Context) {
+    private fun resolverBind(): RuntimeBindSpec? {
+        val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return null
+        val servers = try {
+            connectivity.activeNetwork?.let(connectivity::getLinkProperties)?.dnsServers.orEmpty()
+        } catch (_: SecurityException) { return null }
+        val configuration = RuntimeGuestDns.configuration(servers) ?: return null
+        val directory = File(context.cacheDir, "runtime-network").apply { require(mkdirs() || isDirectory) }
+        val temporary = Files.createTempFile(directory.toPath(), ".resolver-", ".tmp")
+        val destination = File(directory, "resolv.conf")
+        try {
+            Files.write(temporary, configuration.toByteArray(Charsets.US_ASCII))
+            try {
+                Files.move(temporary, destination.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary, destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            Files.deleteIfExists(temporary)
+        }
+        return RuntimeBindSpec(destination, "/etc/resolv.conf", false, "active Android network resolver", BindAuthority.SYSTEM)
+    }
+
+    fun homeDirectory(
+        runtime: InstalledRuntime,
+    ): File =
+        RuntimeUserHomeLayout.resolve(
+            filesDir = context.filesDir,
+            runtimeId = runtime.manifest.id,
+            runtimeVersion = runtime.manifest.version,
+        )
+
+    private fun tempDirectory(
+        runtime: InstalledRuntime,
+    ): File =
+        File(
             context.cacheDir,
             "runtime-tmp/${runtime.manifest.id}/${runtime.manifest.version}",
-        ).apply { require(mkdirs() || isDirectory) }
+        ).apply {
+            require(mkdirs() || isDirectory)
+        }
+
+    fun base(runtime: InstalledRuntime): List<RuntimeBindSpec> {
+        val home = homeDirectory(runtime)
+        val temp = tempDirectory(runtime)
 
         return listOf(
             RuntimeBindSpec(
@@ -133,7 +305,24 @@ class RuntimeBindPlanner(private val context: Context) {
                 purpose = "runtime temp",
                 authority = BindAuthority.SYSTEM,
             ),
-        )
+            RuntimeBindSpec(
+                hostPath = File(temp, "shm").apply {
+                    require(mkdirs() || isDirectory)
+                },
+                guestPath = "/dev/shm",
+                readOnly = false,
+                purpose = "runtime shared memory",
+                authority = BindAuthority.SYSTEM,
+            ),
+        ) + RuntimeBindPolicy.kernelResources.map { path ->
+            RuntimeBindSpec(
+                hostPath = File(path),
+                guestPath = path,
+                readOnly = false,
+                purpose = "runtime kernel resource",
+                authority = BindAuthority.SYSTEM,
+            )
+        } + listOfNotNull(resolverBind())
     }
 
     fun allowedHostRoots(): List<File> =

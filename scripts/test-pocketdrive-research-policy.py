@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -26,7 +27,7 @@ CHECKS = {
         "KEY_DRIVE_VOLUME_ID", "DRIVE_MUTEX", "systemVolume", "importIntoPocketDrive", "bufferSize = 256 * 1024",
         '".pocketpc-part-"', "renameTo(finalName)", "PocketPcPackageRegistry(context)",
         "requestAndroidPackageInstall", "canRequestPackageInstalls", "ACTION_MANAGE_UNKNOWN_APP_SOURCES",
-        "Intent.ACTION_INSTALL_PACKAGE", "Pacote de PC detectado",
+        "Intent.ACTION_INSTALL_PACKAGE", "PocketPcPackageRegistry(context)", ".remove(entry.uri)",
     ),
     "app/src/main/java/dev/pocketpc/core/storage/PocketDownloadBridge.kt": (
         "class PocketDownloadReceiver", "BroadcastReceiver", "ACTION_DOWNLOAD_COMPLETE", "goAsync()",
@@ -44,14 +45,14 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/ui/BrowserApp.kt": (
         "PocketDownloadRegistry", "setDestinationInExternalFilesDir",
-        "pocketDriveConfigured", "PocketDownloadRegistry(context).register(downloadId)",
+        "storage.rootUriString", "PocketDownloadRegistry(context).register(downloadId)",
         "contentDispositionFileName", "resolvePocketDownloadFileName",
         "sanitizePocketImportedFileName", "URLDecoder.decode",
         "Baixando $fileName",
     ),
     "app/src/main/java/dev/pocketpc/core/ui/DownloadsApp.kt": (
         "Programas de PC detectados", "PocketPcPackageRegistry",
-        "RUNTIME_REQUIRED", "Ver compatibilidade", "PcApplicationTarget",
+        "RUNTIME_REQUIRED", "repository.delete(entry)", "PcApplicationTarget",
         "PocketDownloadImporter.importReady", "PocketDriveDirectory.DOWNLOADS",
         "DownloadManager.STATUS_SUCCESSFUL", ").remove(item.id)",
         "Concluído / importando", "Download removido do PocketPC",
@@ -159,9 +160,11 @@ def main() -> int:
             failures.append(f"missing file: {relative}")
             continue
         text = path.read_text(encoding="utf-8")
+        compact_text = re.sub(r"\s+", "", text)
         for sentinel in sentinels:
             total += 1
-            if sentinel not in text:
+            compact_sentinel = re.sub(r"\s+", "", sentinel)
+            if sentinel not in text and compact_sentinel not in compact_text:
                 failures.append(f"{relative} missing sentinel: {sentinel}")
     for relative, forbidden_values in FORBIDDEN.items():
         path = ROOT / relative

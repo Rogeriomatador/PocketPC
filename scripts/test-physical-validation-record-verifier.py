@@ -78,7 +78,7 @@ def make_fixture(root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path, pathli
 
     record = {
         "schemaVersion": 1,
-        "classification": "PHYSICAL_DEVICE_CHAIN_VERIFIED",
+        "classification": "PHYSICAL_HOST_SUBSTRATE_READINESS_VERIFIED",
         "generatedAtUtc": "2026-09-06T00:00:00Z",
         "sourceCommit": commit,
         "buildRecordSha256": sha(build_record),
@@ -101,6 +101,11 @@ def make_fixture(root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path, pathli
         "nativeHostLoaded": True,
         "substrateState": "SUBSTRATE_NOT_APPROVED",
         "prootReady": False,
+        "prootExecuted": False,
+        "rootfsExecuted": False,
+        "box64Executed": False,
+        "wineExecuted": False,
+        "winePocketPcWindowExecuted": False,
     }
     record_path = physical / "physical-validation-record.json"
     record_path.write_text(json.dumps(record, indent=2), encoding="utf-8")

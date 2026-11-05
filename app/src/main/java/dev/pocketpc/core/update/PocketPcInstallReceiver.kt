@@ -162,12 +162,25 @@ class PocketPcInstallReceiver :
                     KEY_INSTALL_ATTEMPT_DOWNLOAD_ID
                 )
                 .apply()
+
+            cancelPocketPcReopenAfterUpdate(
+                context.applicationContext
+            )
         }
 
         if (
             status ==
             PackageInstaller.STATUS_PENDING_USER_ACTION
         ) {
+            // From this point Android owns the mandatory security confirmation.
+            // Try to open that confirmation directly. Only fall back to a
+            // notification if Android refuses the activity launch, avoiding a
+            // redundant high-priority notification while the installer is
+            // already visible on screen.
+            requestPocketPcReopenAfterUpdate(
+                context.applicationContext
+            )
+
             val confirmation =
                 if (
                     Build.VERSION.SDK_INT >=
@@ -191,17 +204,17 @@ class PocketPcInstallReceiver :
                     )
                 }
                 ?.let { userAction ->
-                    postUserActionNotification(
-                        context = context,
-                        confirmation = userAction,
-                        sessionId = sessionId,
-                    )
-
                     runCatching {
                         context.startActivity(
                             userAction
                         )
                     }.onFailure {
+                        postUserActionNotification(
+                            context = context,
+                            confirmation = userAction,
+                            sessionId = sessionId,
+                        )
+
                         if (downloadId >= 0L) {
                             context.applicationContext
                                 .getSharedPreferences(
@@ -238,7 +251,7 @@ private fun postUserActionNotification(
         NotificationChannel(
             UPDATE_NOTIFICATION_CHANNEL,
             "PocketPC Updates",
-            NotificationManager.IMPORTANCE_HIGH,
+            NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description =
                 "Confirmacoes exigidas pelo Android para atualizar o PocketPC."
@@ -266,10 +279,10 @@ private fun postUserActionNotification(
                 android.R.drawable.stat_sys_download_done
             )
             .setContentTitle(
-                "Atualizacao do PocketPC pronta"
+                "Atualização do PocketPC pronta"
             )
             .setContentText(
-                "Toque para confirmar a instalacao exigida pelo Android."
+                "Toque para confirmar a instalação exigida pelo Android."
             )
             .setCategory(Notification.CATEGORY_SYSTEM)
             .setAutoCancel(true)

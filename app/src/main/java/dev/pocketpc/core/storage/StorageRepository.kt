@@ -68,9 +68,6 @@ class StorageRepository(private val context: Context) {
                             "Escolha uma pasta gravável para o PocketDrive."
                     }
 
-                    // Existing metadata is validated before changing the
-                    // directory layout. A future/corrupt volume therefore
-                    // fails closed instead of being silently rewritten.
                     val existingMetadata =
                         readPocketDriveMetadata(root)
 
@@ -447,69 +444,36 @@ class StorageRepository(private val context: Context) {
             }
         }
 
+    /**
+     * Opens only explicit Android package actions outside the PocketPC desktop.
+     * Every other file route is handed to the PocketPC-owned open coordinator.
+     */
     fun openFile(entry: StorageEntry): Result<Unit> =
         runCatching {
             require(!entry.directory) {
                 "Diretórios devem ser navegados dentro do PocketPC."
             }
 
-            val lowerName =
-                entry.name.lowercase()
-            val fileClass =
-                classifyPocketFile(entry.name)
-            val uri = Uri.parse(entry.uri)
+            val plan =
+                planPocketFileOpen(
+                    name = entry.name,
+                    mimeType = entry.mimeType,
+                )
 
-            when {
-                lowerName.endsWith(".apk") -> {
-                    requestAndroidPackageInstall(uri)
-                }
-
-                lowerName.endsWith(".apks") ||
-                    lowerName.endsWith(".xapk") -> {
-                    error(
-                        "Pacote Android em bundle detectado. " +
-                            "APKS/XAPK ainda precisa de um instalador " +
-                            "de bundles compatível."
-                    )
-                }
-
-                fileClass ==
-                    PocketFileClass.PC_INSTALLER -> {
-                    error(
-                        "Pacote de PC detectado: ${entry.name}. " +
-                            "Ele está armazenado no PocketDrive, mas " +
-                            "a execução aguarda um runtime Windows " +
-                            "compatível realmente validado."
-                    )
-                }
-
-                else -> {
-                    val intent =
-                        Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(
-                                uri,
-                                entry.mimeType ?: "*/*",
-                            )
-                            addFlags(
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION
-                            )
-                            addFlags(
-                                Intent.FLAG_ACTIVITY_NEW_TASK
-                            )
-                        }
-                    try {
-                        context.startActivity(intent)
-                    } catch (
-                        error:
-                        ActivityNotFoundException
-                    ) {
-                        throw IllegalStateException(
-                            "Nenhum app instalado consegue " +
-                                "abrir este tipo de arquivo.",
-                            error,
-                        )
-                    }
-                }
+            if (
+                plan.capability ==
+                PocketFileOpenCapability.ANDROID_SYSTEM_ACTION_REQUIRED
+            ) {
+                requestAndroidPackageInstall(
+                    Uri.parse(entry.uri)
+                )
+            } else {
+                PocketFileOpenCoordinator.present(
+                    plan = plan,
+                    uri = entry.uri,
+                    mimeType = entry.mimeType,
+                    sizeBytes = entry.size,
+                )
             }
         }
 

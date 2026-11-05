@@ -8,6 +8,7 @@ enum class DesktopCommand {
     OPEN_FILES,
     OPEN_BROWSER,
     OPEN_TERMINAL,
+    OPEN_TASK_MANAGER,
     OPEN_DESKTOP_CONTEXT,
     DISMISS_OVERLAYS,
     SNAP_LEFT,

@@ -48,6 +48,7 @@ enum class DesktopApp(
     RUNTIMES("Runtimes", "RT", 0xFF8B5CF6),
     SYSTEM("Este PC", "SYS", 0xFF607D8B),
     PERFORMANCE("Desempenho", "FPS", 0xFF00A86B),
+    TASK_MANAGER("Gerenciador de Tarefas", "TASK", 0xFF3B82F6),
 }
 
 fun DesktopApp.windowSpec(): DesktopWindowSpec =
@@ -94,6 +95,16 @@ fun DesktopApp.windowSpec(): DesktopWindowSpec =
             DesktopWindowSpec(0.84f, 0.84f, 560, 340, 0.07f, 0.05f, contentPaddingDp = 10)
         DesktopApp.PERFORMANCE ->
             DesktopWindowSpec(0.60f, 0.64f, 420, 280, 0.20f, 0.12f)
+        DesktopApp.TASK_MANAGER ->
+            DesktopWindowSpec(
+                defaultWidthFraction = 0.76f,
+                defaultHeightFraction = 0.76f,
+                minWidthDp = 520,
+                minHeightDp = 320,
+                defaultXFraction = 0.12f,
+                defaultYFraction = 0.08f,
+                contentPaddingDp = 8,
+            )
     }
 
 fun defaultDesktopPins(): List<DesktopApp> =

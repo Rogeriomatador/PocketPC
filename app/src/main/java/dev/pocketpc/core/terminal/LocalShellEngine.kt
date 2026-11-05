@@ -2,11 +2,10 @@ package dev.pocketpc.core.terminal
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.concurrent.TimeUnit
+import dev.pocketpc.core.runtime.RuntimeProcessSupervisor
+import dev.pocketpc.core.runtime.ProcessRunSpec
 
 /**
  * Executes Android's local /system/bin/sh with the normal app UID.
@@ -15,6 +14,8 @@ import java.util.concurrent.TimeUnit
 class LocalShellEngine(context: Context) {
     private val home = context.filesDir.canonicalFile
     private val tmp = File(context.cacheDir, "terminal-tmp").apply { mkdirs() }
+
+    private val supervisor = RuntimeProcessSupervisor()
 
     var workingDirectory: File = home
         private set
@@ -56,48 +57,29 @@ class LocalShellEngine(context: Context) {
         return success(command, workingDirectory.path)
     }
 
-    private suspend fun runProcess(command: String): ShellResult = coroutineScope {
-        val process = ProcessBuilder("/system/bin/sh", "-c", command)
-            .directory(workingDirectory)
-            .redirectErrorStream(true)
-            .apply {
-                environment()["HOME"] = home.path
-                environment()["TMPDIR"] = tmp.path
-                environment()["TERM"] = "xterm-256color"
-            }
-            .start()
-
-        val outputDeferred = async(Dispatchers.IO) {
-            process.inputStream.bufferedReader().use { reader ->
-                val builder = StringBuilder()
-                val buffer = CharArray(2048)
-                while (builder.length < MAX_OUTPUT_CHARS) {
-                    val read = reader.read(buffer, 0, minOf(buffer.size, MAX_OUTPUT_CHARS - builder.length))
-                    if (read < 0) break
-                    builder.append(buffer, 0, read)
-                }
-                if (builder.length >= MAX_OUTPUT_CHARS) {
-                    builder.append("\n[saída truncada pelo Pocket Terminal]")
-                }
-                builder.toString().trimEnd()
-            }
+    private suspend fun runProcess(command: String): ShellResult {
+        val environment = System.getenv().toMutableMap().apply {
+            put("HOME", home.path)
+            put("TMPDIR", tmp.path)
+            put("TERM", "xterm-256color")
         }
-
-        val finished = process.waitFor(COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        if (!finished) {
-            process.destroy()
-            if (!process.waitFor(300, TimeUnit.MILLISECONDS)) process.destroyForcibly()
-            runCatching { process.inputStream.close() }
-        }
-
-        val output = runCatching { outputDeferred.await() }
-            .getOrElse { "Falha ao ler a saída: ${it.message ?: it::class.java.simpleName}" }
-
-        ShellResult(
+        val result = supervisor.runOneShot(ProcessRunSpec(
+            argv = listOf("/system/bin/sh", "-c", command),
+            environment = environment,
+            workingDirectory = workingDirectory,
+            timeoutMillis = COMMAND_TIMEOUT_SECONDS * 1_000,
+            maxOutputBytes = MAX_OUTPUT_CHARS,
+        ))
+        val output = buildString {
+            append(result.output.trimEnd())
+            if (result.outputTruncated) append("\n[saída truncada pelo Pocket Terminal]")
+            result.error?.let { append("\nFalha ao executar: $it") }
+        }.trim()
+        return ShellResult(
             command = command,
-            output = output.ifBlank { if (finished) "(sem saída)" else "Tempo limite excedido." },
-            exitCode = if (finished) runCatching { process.exitValue() }.getOrNull() else null,
-            timedOut = !finished,
+            output = output.ifBlank { if (result.timedOut) "Tempo limite excedido." else "(sem saída)" },
+            exitCode = result.exitCode,
+            timedOut = result.timedOut,
             workingDirectory = workingDirectory.path,
         )
     }

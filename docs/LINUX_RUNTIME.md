@@ -71,3 +71,12 @@ PocketPC may only claim a Linux /bin/sh execution after:
 - no root privilege is used.
 
 Until then Linux execution remains **NOT IMPLEMENTED/NOT DEVICE TESTED**.
+
+
+## Pinned rootfs candidate — Alpha 22
+
+The repository now pins Ubuntu Base 24.04.4 ARM64 as the first reproducible guest userspace candidate in `third_party/rootfs/ubuntu-noble-arm64.json`.
+
+`scripts/prepare-rootfs-package.py` downloads the exact upstream archive, verifies its pinned SHA-256, rejects unsafe, duplicate and unsupported TAR entries, enforces entry/extracted-byte limits, checks for a shell candidate and emits a PocketPC Runtime Manifest v2 without modifying the upstream archive.
+
+`.github/workflows/rootfs-arm64-package.yml` can retain the verified archive, manifest and evidence as review artifacts. This does not mark the rootfs as device-tested and does not approve PRoot. A successful workflow proves only source/hash/structure preparation; Android staging/extraction, guest shell, Box64, Wine and Roblox remain separate gates.

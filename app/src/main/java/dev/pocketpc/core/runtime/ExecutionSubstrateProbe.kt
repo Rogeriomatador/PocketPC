@@ -22,6 +22,11 @@ data class ExecutionSubstrateStatus(
     val policyDigestsVerified: Boolean = false,
     val artifactIntegrityVerified: Boolean = false,
     val approvalErrors: List<String> = emptyList(),
+    val deviceValidationReady: Boolean = false,
+    val deviceValidationState: String =
+        "DEVICE_VALIDATION_NOT_AVAILABLE",
+    val deviceValidationErrors: List<String> =
+        emptyList(),
 )
 
 object ExecutionSubstrateProbe {
@@ -32,6 +37,35 @@ object ExecutionSubstrateProbe {
 
         val approvalResult = SubstrateApprovalCodec.read(context)
         val approval = approvalResult.getOrNull()
+
+        val deviceCandidateResult =
+            SubstrateDeviceValidationCodec
+                .read(context)
+        val deviceCandidate =
+            deviceCandidateResult
+                .getOrNull()
+        val deviceVerification =
+            if (deviceCandidate != null) {
+                SubstrateDeviceValidationCodec
+                    .verify(
+                        context = context,
+                        nativeLibraryDir =
+                            directory,
+                        candidate =
+                            deviceCandidate,
+                    )
+            } else {
+                SubstrateDeviceValidationVerification(
+                    readyForDeviceValidation =
+                        false,
+                    state =
+                        "DEVICE_VALIDATION_NOT_AVAILABLE",
+                    errors =
+                        emptyList(),
+                    artifacts =
+                        emptyList(),
+                )
+            }
 
         val verification = if (approval != null) {
             val (policyVerified, policyErrors) =
@@ -57,18 +91,47 @@ object ExecutionSubstrateProbe {
             )
         }
 
-        val components = if (approval?.approved == true) {
-            approval.artifacts.map { artifact ->
-                inspectFile(
-                    directory = directory,
-                    fileName = artifact.fileName,
-                    role = artifact.role,
-                    executableRequired = artifact.executableRequired,
-                )
+        val components =
+            when {
+                approval?.approved ==
+                    true ->
+                    approval.artifacts.map {
+                        artifact ->
+                        inspectFile(
+                            directory =
+                                directory,
+                            fileName =
+                                artifact.fileName,
+                            role =
+                                artifact.role,
+                            executableRequired =
+                                artifact
+                                    .executableRequired,
+                        )
+                    }
+                deviceCandidate !=
+                    null ->
+                    deviceCandidate.artifacts
+                        .map {
+                            artifact ->
+                            inspectFile(
+                                directory =
+                                    directory,
+                                fileName =
+                                    artifact.fileName,
+                                role =
+                                    artifact.role +
+                                        "-device-validation",
+                                executableRequired =
+                                    artifact
+                                        .executableRequired,
+                            )
+                        }
+                else ->
+                    inspectUnapprovedCandidates(
+                        directory,
+                    )
             }
-        } else {
-            inspectUnapprovedCandidates(directory)
-        }
 
         val prootReady =
             hostReady &&
@@ -85,9 +148,24 @@ object ExecutionSubstrateProbe {
             policyDigestsVerified = verification.policyDigestsVerified,
             artifactIntegrityVerified = verification.integrityVerified,
             approvalErrors = verification.errors,
+            deviceValidationReady =
+                hostReady &&
+                    deviceVerification
+                        .readyForDeviceValidation,
+            deviceValidationState =
+                deviceVerification.state,
+            deviceValidationErrors =
+                deviceVerification.errors,
             state = when {
-                !hostReady -> "HOST_NOT_PACKAGED_OR_NOT_EXTRACTED"
-                else -> verification.state
+                !hostReady ->
+                    "HOST_NOT_PACKAGED_OR_NOT_EXTRACTED"
+                prootReady ->
+                    verification.state
+                deviceVerification
+                    .readyForDeviceValidation ->
+                    "DEVICE_VALIDATION_CANDIDATE_ATTESTED_NOT_PRODUCTION_APPROVED"
+                else ->
+                    verification.state
             },
         )
     }

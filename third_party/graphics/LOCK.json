@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 3,
+  "status": "GUEST_VULKAN_STACK_SOURCES_PINNED_NOT_BUILT_NOT_RUNTIME_TESTED",
+  "guestVulkan": {
+    "architecture": "pluggable-guest-icd",
+    "firstBackend": "mesa-turnip-kgsl",
+    "selectionStatus": "SOURCES_PINNED_NOT_BUILT",
+    "reason": "PocketPC currently runs a Linux/glibc ARM64 guest. Android system Vulkan is Bionic and is not exposed to that guest; an in-guest Vulkan loader plus ICD must be proven before Wine Vulkan WSI or DXVK Present can be accepted.",
+    "mesaTurnipKgsl": {
+      "version": "26.2.2",
+      "sourceUrl": "https://archive.mesa3d.org/mesa-26.2.2.tar.xz",
+      "sourceSha256": "eeb29ca7e56cfaa8e8a79538dcf834e3b18e501c31bef5145e959ea437cc4216",
+      "sourceType": "official-release-archive",
+      "target": "Linux/glibc AArch64 guest",
+      "vulkanDriver": "freedreno/turnip",
+      "kernelInterface": "kgsl",
+      "gpuFamily": "Qualcomm Adreno",
+      "buildIntent": "Vulkan-only first with Mesa platforms=[]; no X11/Wayland WSI dependency is accepted for the initial vkCreateInstance/vkCreateDevice guest smoke.",
+      "built": false,
+      "packaged": false,
+      "guestLoaded": false,
+      "guestDeviceCreated": false,
+      "physicalTested": false,
+      "license": "MIT",
+      "licenseEvidence": "Mesa upstream COPYING / release source"
+    },
+    "vulkanLoader": {
+      "required": true,
+      "repository": "https://github.com/KhronosGroup/Vulkan-Loader.git",
+      "tag": "v1.4.357",
+      "commit": "5f157b62e333c63260d05d81bf66faa216ab0fb8",
+      "target": "Linux/glibc AArch64 guest",
+      "sourcePinned": true,
+      "built": false,
+      "packaged": false,
+      "guestLoaded": false,
+      "license": "Apache-2.0-style Khronos license",
+      "licenseEvidence": "LICENSE.txt at pinned commit"
+    },
+    "vulkanHeaders": {
+      "repository": "https://github.com/KhronosGroup/Vulkan-Headers.git",
+      "tag": "v1.4.357",
+      "tagObject": "354fab82dbd91d2526a41ee4dbfff1012a623798",
+      "commit": "e3b1eec08173d6b825cd3ac88c885a63b621504a",
+      "sourcePinned": true,
+      "built": false,
+      "license": "Apache-2.0"
+    },
+    "nonAdrenoBackend": {
+      "status": "NOT_SELECTED",
+      "note": "Turnip/KGSL is not a universal Android GPU solution. Mali/PowerVR/other devices remain fail-closed until a separately pinned backend is selected and proven."
+    }
+  },
+  "dxvk": {
+    "version": "3.0.2",
+    "repository": "https://github.com/doitsujin/dxvk.git",
+    "tag": "v3.0.2",
+    "tagObject": "767633ab3481e4e30687bedaba982c1a5e4722a7",
+    "commit": "6b20f622a77b87b2921fe5d2c1774d2f2ba3e9b7",
+    "purpose": "Direct3D 9/10/11 to Vulkan",
+    "built": false,
+    "wineIntegrated": false,
+    "vulkanGuestTested": false,
+    "license": "Zlib",
+    "licenseEvidence": "LICENSE at pinned commit"
+  },
+  "vkd3dProton": {
+    "version": "3.0.1",
+    "repository": "https://github.com/HansKristian-Work/vkd3d-proton.git",
+    "tag": "v3.0.1",
+    "commit": "3b10bd7a7ec6a7347e616cf8bea59333afec2255",
+    "purpose": "Direct3D 12 to Vulkan",
+    "built": false,
+    "wineIntegrated": false,
+    "vulkanGuestTested": false,
+    "license": "LGPL-2.1-or-later",
+    "licenseEvidence": "LICENSE at pinned commit"
+  },
+  "gates": {
+    "guestVulkanBackendSourcePinned": true,
+    "guestVulkanBackendBuilt": false,
+    "guestVulkanLoaderPinned": true,
+    "guestVulkanHeadersPinned": true,
+    "guestVulkanLoaderBuilt": false,
+    "guestVulkanLoaderPackaged": false,
+    "guestVulkanIcdLoaded": false,
+    "guestVulkanDeviceCreated": false,
+    "androidVulkanExposedToGuest": false,
+    "wineVulkanWsiImplemented": false,
+    "wineGraphicsSmokeTest": false,
+    "d3d11SmokeTest": false,
+    "d3d11PresentSmokeTest": false,
+    "d3d12SmokeTest": false,
+    "robloxGraphicsTest": false
+  }
+}

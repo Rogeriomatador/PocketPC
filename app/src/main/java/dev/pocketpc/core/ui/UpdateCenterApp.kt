@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.pocketpc.core.BuildConfig
@@ -23,6 +24,7 @@ import dev.pocketpc.core.update.PocketPcUpdateDownload
 import dev.pocketpc.core.storage.PocketPcProfileBackup
 import dev.pocketpc.core.storage.StorageRepository
 import dev.pocketpc.core.update.PocketPcUpdater
+import dev.pocketpc.core.update.pocketPcDownloadStatusText
 import dev.pocketpc.core.update.shouldAutoInstallUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -32,6 +34,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun UpdateCenterApp() {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val updater =
         remember {
             PocketPcUpdater(
@@ -676,6 +679,30 @@ fun UpdateCenterApp() {
                             Text("Baixar atualização")
                         }
                     }
+
+                    if (
+                        manifest.published &&
+                        manifest.apkUrl.startsWith("https://")
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                uriHandler.openUri(
+                                    manifest.apkUrl
+                                )
+                            },
+                        ) {
+                            Text("Baixar pelo GitHub")
+                        }
+                        Text(
+                            "O download abre no navegador. A verificação seguinte pertence ao Android/Google Play Protect e pode demorar em uma conexão lenta.",
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -748,13 +775,7 @@ fun UpdateCenterApp() {
                     }
                 },
                 onClear = {
-                    val manager =
-                        context.getSystemService(
-                            android.content.Context
-                                .DOWNLOAD_SERVICE
-                        ) as DownloadManager
-                    manager.remove(download.id)
-                    updater.clearPendingDownload()
+                    updater.cancelPendingDownload()
                     pending = null
                     verified = false
                     status =
@@ -772,7 +793,9 @@ fun UpdateCenterApp() {
                 "Android comum não permite que um app sideloaded " +
                     "se substitua silenciosamente. O PocketPC pode " +
                     "detectar, baixar e verificar tudo sozinho; a etapa " +
-                    "final continua sob confirmação do instalador do sistema.",
+                    "final pertence ao instalador do sistema e ao Google " +
+                    "Play Protect. Essa tela externa pode demorar se a " +
+                    "conexão estiver lenta.",
                 modifier = Modifier.padding(12.dp),
                 style =
                     MaterialTheme.typography.bodySmall,
@@ -864,8 +887,9 @@ private fun DownloadUpdateCard(
             )
             ValueRow(
                 "Status",
-                updateDownloadStatus(
-                    download.status
+                pocketPcDownloadStatusText(
+                    download.status,
+                    download.reason,
                 ),
             )
 
@@ -921,23 +945,6 @@ private fun DownloadUpdateCard(
     }
 }
 
-private fun updateDownloadStatus(
-    status: Int,
-): String =
-    when (status) {
-        DownloadManager.STATUS_PENDING ->
-            "Aguardando"
-        DownloadManager.STATUS_RUNNING ->
-            "Baixando"
-        DownloadManager.STATUS_PAUSED ->
-            "Pausado"
-        DownloadManager.STATUS_SUCCESSFUL ->
-            "Concluído"
-        DownloadManager.STATUS_FAILED ->
-            "Falhou"
-        else ->
-            "Desconhecido"
-    }
 
 enum class PocketPcUpdateAttention {
     NONE,
@@ -1216,8 +1223,7 @@ fun PocketPcUpdateAutoCheck(
             attempts < 360
         ) {
             val status =
-                pending?.status
-                    ?: break
+                pending.status
 
             if (
                 status ==
