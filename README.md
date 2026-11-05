@@ -33,9 +33,8 @@ to the phone's internal shared storage, both volumes may use the same physical d
 ### Explorer transfer and SAF navigation (in development)
 
 The Explorer now resolves nested Storage Access Framework (SAF) document
-identifiers within the originally granted PocketDrive tree. This avoids
-accidentally listing or writing at the volume root when a child directory is
-selected. New folder creation and browser download import use the same
+identifiers within the originally granted PocketDrive tree. The explicit child-document approach keeps operations
+anchored to the granted tree and reduces ambiguity between root and child URIs. New folder creation and browser download import use the same
 directory-aware provider operations.
 
 Files can be copied or cut from one Explorer folder and pasted into another
