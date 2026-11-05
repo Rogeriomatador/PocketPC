@@ -113,7 +113,7 @@ jobs:
 
       - name: Setup Android SDK
         if: steps.gate.outputs.publish == 'true'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install pinned Android toolchain
         if: steps.gate.outputs.publish == 'true'
