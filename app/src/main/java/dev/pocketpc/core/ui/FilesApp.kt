@@ -34,6 +34,12 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private data class ExplorerClipboard(
+    val entry: StorageEntry,
+    val sourceParentUri: String,
+    val move: Boolean,
+)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FilesApp(
@@ -76,6 +82,11 @@ fun FilesApp(
     var renameOpen by remember { mutableStateOf(false) }
     var renameName by remember { mutableStateOf("") }
     var deleteOpen by remember { mutableStateOf(false) }
+    var clipboard by remember(rootUri) {
+        mutableStateOf<ExplorerClipboard?>(null)
+    }
+    var transferBusy by remember { mutableStateOf(false) }
+    var transferMessage by remember { mutableStateOf<String?>(null) }
 
     val selected =
         listing?.entries
@@ -178,6 +189,53 @@ fun FilesApp(
         }
     }
 
+    fun stageFile(move: Boolean) {
+        val item = selected ?: return
+        val parent = currentUri ?: return
+        if (item.directory) {
+            error = "A transferência de pastas ainda não está disponível."
+            return
+        }
+        clipboard = ExplorerClipboard(
+            entry = item,
+            sourceParentUri = parent,
+            move = move,
+        )
+        error = null
+        transferMessage =
+            (if (move) "Pronto para mover: " else "Pronto para copiar: ") +
+                item.name
+    }
+
+    fun pasteFile() {
+        val item = clipboard ?: return
+        val target = currentUri ?: return
+        if (transferBusy) return
+        scope.launch {
+            transferBusy = true
+            error = null
+            repository.transferFile(
+                entry = item.entry,
+                sourceParentUri = item.sourceParentUri,
+                destinationUri = target,
+                move = item.move,
+            ).onSuccess { completed ->
+                transferMessage =
+                    if (item.move) {
+                        "Movido com sucesso: " + completed.name
+                    } else {
+                        "Copiado com sucesso: " + completed.name
+                    }
+                if (item.move) clipboard = null
+                refresh()
+            }.onFailure { failure ->
+                error = failure.message
+                    ?: "Não foi possível transferir o arquivo."
+            }
+            transferBusy = false
+        }
+    }
+
     if (rootUri == null) {
         EmptyExplorer(
             pickerError = pickerError,
@@ -272,6 +330,20 @@ fun FilesApp(
                         createFolderName = ""
                         createFolderOpen = true
                     },
+                    canCopy = selected != null &&
+                        !selected.directory && !transferBusy,
+                    canPaste = clipboard != null && !transferBusy &&
+                        !(clipboard?.move == true &&
+                            clipboard?.sourceParentUri == currentUri),
+                    clipboardName = clipboard?.entry?.name,
+                    transferBusy = transferBusy,
+                    onCopy = { stageFile(move = false) },
+                    onCut = { stageFile(move = true) },
+                    onPaste = ::pasteFile,
+                    onClearClipboard = {
+                        clipboard = null
+                        transferMessage = null
+                    },
                 )
 
                 if (compactExplorer) {
@@ -309,6 +381,12 @@ fun FilesApp(
                     ExplorerMessage(
                         text = it,
                         error = true,
+                    )
+                }
+                transferMessage?.let {
+                    ExplorerMessage(
+                        text = it,
+                        error = false,
                     )
                 }
 
@@ -789,6 +867,14 @@ private fun ExplorerToolbar(
     onRoot: () -> Unit,
     onRefresh: () -> Unit,
     onNewFolder: () -> Unit,
+    canCopy: Boolean,
+    canPaste: Boolean,
+    clipboardName: String?,
+    transferBusy: Boolean,
+    onCopy: () -> Unit,
+    onCut: () -> Unit,
+    onPaste: () -> Unit,
+    onClearClipboard: () -> Unit,
 ) {
     Surface(
         tonalElevation = 1.dp,
@@ -856,6 +942,44 @@ private fun ExplorerToolbar(
                                 fontSize = 11.sp
                             ),
                     )
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                SmallExplorerButton(
+                    "Copiar",
+                    enabled = canCopy,
+                    wide = true,
+                    onClick = onCopy,
+                )
+                SmallExplorerButton(
+                    "Recortar",
+                    enabled = canCopy,
+                    wide = true,
+                    onClick = onCut,
+                )
+                SmallExplorerButton(
+                    if (transferBusy) "Transferindo..." else "Colar",
+                    enabled = canPaste,
+                    wide = true,
+                    onClick = onPaste,
+                )
+                if (clipboardName != null) {
+                    Text(
+                        "Transferência: " + clipboardName,
+                        maxLines = 1,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = onClearClipboard) {
+                        Text("Limpar", fontSize = 10.sp)
+                    }
                 }
             }
 

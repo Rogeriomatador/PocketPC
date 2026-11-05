@@ -62,7 +62,11 @@
 - create directory;
 - rename;
 - delete;
-- safe storage-name validation and JVM tests.
+- safe storage-name validation and JVM tests;
+- explicit nested SAF document URI handling anchored to the selected tree;
+- file-only copy, cut and paste with temporary destination, unique naming and
+  source-deletion-after-finalization;
+- transfer collision naming unit tests (physical validation pending).
 
 #### Este PC
 - PC-style overview;
@@ -114,8 +118,8 @@ published.
 ## Next desktop milestones
 
 ### Explorer / productivity
-- transactional copy/move/paste;
-- multi-select;
+- recursive folder copy/move with cancellation and recovery;
+- multi-select transfers;
 - keyboard file operations;
 - drag-and-drop;
 - archive operations;

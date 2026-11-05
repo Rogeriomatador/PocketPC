@@ -427,7 +427,7 @@ CHECKS = {
         "custom_wallpaper_zoom",
         "custom_wallpaper_offset_x",
         "custom_wallpaper_offset_y",
-        "ContentScale.Fit",
+        "ContentScale.FillBounds",
         "graphicsLayer",
         '"Ajustar enquadramento"',
         "performance_hud",
@@ -444,7 +444,7 @@ CHECKS = {
     "app/src/main/java/dev/pocketpc/core/ui/WallpaperEditor.kt": (
         '"Ajustar papel de parede"',
         "A prévia usa a proporção atual da tela.",
-        "detectDragGestures",
+        "detectTransformGestures",
         "WallpaperFitMode.CROP",
         "WallpaperFitMode.FIT",
         "Slider(",

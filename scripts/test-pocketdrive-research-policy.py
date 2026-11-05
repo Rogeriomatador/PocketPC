@@ -23,10 +23,27 @@ CHECKS = {
     ),
     "app/src/main/java/dev/pocketpc/core/storage/StorageRepository.kt": (
         "ensurePocketDrive", "readPocketDriveMetadata", "createPocketDriveMetadata",
-        "KEY_DRIVE_VOLUME_ID", "DRIVE_MUTEX", "systemVolume", "importIntoPocketDrive", "bufferSize = 256 * 1024",
-        '".pocketpc-part-"', "renameTo(finalName)", "PocketPcPackageRegistry(context)",
+        "KEY_DRIVE_VOLUME_ID", "DRIVE_MUTEX", "systemVolume", "importIntoPocketDrive",
+        '".pocketpc-part-"', "val finalized = saf.rename(temporary, finalName)",
+        "source.copyTo(output, 256 * 1024)", "input.copyTo(output, 256 * 1024)",
+        "PocketPcPackageRegistry(context)", "transferFile(", "pocketSafGateway()",
         "requestAndroidPackageInstall", "canRequestPackageInstalls", "ACTION_MANAGE_UNKNOWN_APP_SOURCES",
         "Intent.ACTION_INSTALL_PACKAGE", "Pacote de PC detectado",
+    ),
+    "app/src/main/java/dev/pocketpc/core/storage/PocketSafGateway.kt": (
+        "class PocketSafGateway", "DocumentsContract.getTreeDocumentId",
+        "DocumentsContract.buildDocumentUriUsingTree",
+        "DocumentsContract.buildChildDocumentsUriUsingTree",
+        "DocumentsContract.createDocument", "DocumentsContract.renameDocument",
+        "DocumentsContract.deleteDocument", "grantedTree.authority",
+    ),
+    "app/src/main/java/dev/pocketpc/core/storage/PocketTransferNames.kt": (
+        "allocatePocketTransferName", "lowercase(Locale.ROOT)",
+        "2..9999", "validateStorageName",
+    ),
+    "app/src/test/java/dev/pocketpc/core/storage/PocketTransferNameTest.kt": (
+        "picksNextAvailableNameCaseInsensitively",
+        "rejectsPathTraversal", "handlesExtensionlessNamesAndDotfiles",
     ),
     "app/src/main/java/dev/pocketpc/core/storage/PocketDownloadBridge.kt": (
         "class PocketDownloadReceiver", "BroadcastReceiver", "ACTION_DOWNLOAD_COMPLETE", "goAsync()",
@@ -60,7 +77,8 @@ CHECKS = {
         "PocketDriveMount", "PocketDriveDirectory.DOWNLOADS", "PocketDriveDirectory.APPLICATIONS",
         "PocketDriveDirectory.GAMES", "mount.volumeId.take(8)", "mount.schemaVersion",
         "Trocar PocketDrive", "Desconectar P:", "Corrigir nome",
-        "sanitizePocketImportedFileName",
+        "sanitizePocketImportedFileName", "onPaste = ::pasteFile",
+        "Pronto para mover:", "Pronto para copiar:", "transferFile(",
     ),
     "app/src/main/java/dev/pocketpc/core/research/PocketPcResearchProbe.kt": (
         "VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY", "createVirtualDisplay", "MediaCodecList",

@@ -30,6 +30,24 @@ user-selected Android folder as an unstructured directory.
 Logical C:/P: separation does not claim physically separate flash chips. If P: points
 to the phone's internal shared storage, both volumes may use the same physical device.
 
+### Explorer transfer and SAF navigation (in development)
+
+The Explorer now resolves nested Storage Access Framework (SAF) document
+identifiers within the originally granted PocketDrive tree. The explicit child-document approach keeps operations
+anchored to the granted tree and reduces ambiguity between root and child URIs. New folder creation and browser download import use the same
+directory-aware provider operations.
+
+Files can be copied or cut from one Explorer folder and pasted into another
+without loading entire files into RAM. A temporary destination is written
+first, then renamed to a final unique name; for moves, the source is removed
+only **after** the destination completes. Existing names are not overwritten,
+including case-insensitive conflicts. If source deletion fails, the original
+and completed destination remain, and the app reports that partial outcome.
+
+Current limits: file transfers only (no recursive directory transfer,
+multi-select, or persisted clipboard); SAF providers may reject operations;
+Android physical/device validation for these changes is still pending.
+
 Alpha 21 does **not** yet implement Windows execution. Storing a Windows PC installer
 is separate from executing it.
 
