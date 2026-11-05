@@ -22,7 +22,7 @@ internal fun allocatePocketTransferName(
     val stem = if (hasExtension) requested.substring(0, dot) else requested
     val suffix = if (hasExtension) requested.substring(dot) else ""
     for (number in 2..9999) {
-        val candidate = "$"+"stem ($"+"number)$"+"suffix"
+        val candidate = "$stem ($number)$suffix"
         if (candidate.lowercase(Locale.ROOT) !in existing) {
             return candidate
         }
