@@ -26,6 +26,7 @@ static int started = 0;
 static int ended = 0;
 static int won = 0;
 static int flags = 0;
+static int flag_mode = 0;
 static int cleared = 0;
 
 static int inside(int x, int y) {
@@ -37,7 +38,7 @@ static void new_game(void) {
     ZeroMemory(opened, sizeof opened);
     ZeroMemory(flagged, sizeof flagged);
     ZeroMemory(near_count, sizeof near_count);
-    started = ended = won = flags = cleared = 0;
+    started = ended = won = flags = cleared = flag_mode = 0;
 }
 
 static void place_mines(int safe_x, int safe_y) {
@@ -108,6 +109,12 @@ static void reveal(int x, int y) {
 static void tile_click(HWND hwnd, int px, int py, int right) {
     int x = (px - PAD) / CELL;
     int y = (py - PAD - HEADER) / CELL;
+    if (!right && px >= PAD && px < PAD + BOARD_PX &&
+        py >= PAD + 33 && py < PAD + HEADER) {
+        flag_mode = !flag_mode;
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
     if (px < PAD || py < PAD + HEADER ||
         px >= PAD + BOARD_PX || py >= PAD + HEADER + BOARD_PX) {
         return;
@@ -115,7 +122,7 @@ static void tile_click(HWND hwnd, int px, int py, int right) {
     if (!inside(x, y) || ended || opened[y][x]) {
         return;
     }
-    if (right) {
+    if (right || flag_mode) {
         flagged[y][x] = !flagged[y][x];
         flags += flagged[y][x] ? 1 : -1;
     } else {
@@ -164,8 +171,8 @@ static void draw_board(HWND hwnd, HDC dc) {
         lstrcpyA(info, won ? "YOU WIN!  Press R to restart" :
                            "BOOM!  Press R to restart");
     } else {
-        wsprintfA(info, "Mines: %d   Flags: %d   Left: open | Right: flag",
-                  MINES, flags);
+        wsprintfA(info, "Mines: %d | Flags: %d | TOUCH: %s",
+                  MINES, flags, flag_mode ? "FLAG" : "OPEN");
     }
     print_centered(dc, &instructions, info, RGB(226, 236, 250));
 
@@ -222,6 +229,11 @@ static LRESULT CALLBACK game_proc(HWND hwnd, UINT msg,
         tile_click(hwnd, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), 1);
         return 0;
     case WM_KEYDOWN:
+        if (wparam == 'F' || wparam == VK_SPACE) {
+            flag_mode = !flag_mode;
+            InvalidateRect(hwnd, NULL, FALSE);
+            return 0;
+        }
         if (wparam == 'R' || wparam == VK_F2) {
             new_game();
             InvalidateRect(hwnd, NULL, FALSE);
