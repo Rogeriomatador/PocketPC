@@ -7,9 +7,8 @@ import android.provider.DocumentsContract
 /**
  * SAF operations anchored to the persisted PocketDrive tree grant.
  *
- * DocumentFile.fromTreeUri(childUri) silently resolves to the tree ROOT,
- * rather than the selected child document. Always operate on canonical
- * document URIs beneath the original granted tree.
+ * Use canonical child document URIs with the original tree grant
+ * explicitly, rather than depending on DocumentFile wrapper behavior.
  */
 internal class PocketSafGateway(
     private val context: Context,
@@ -35,7 +34,7 @@ internal class PocketSafGateway(
             "O item não pertence ao PocketDrive conectado."
         }
         val documentId =
-            if ("document" in candidate.pathSegments) {
+            if (DocumentsContract.isDocumentUri(context, candidate)) {
                 DocumentsContract.getDocumentId(candidate)
             } else {
                 grantedId
