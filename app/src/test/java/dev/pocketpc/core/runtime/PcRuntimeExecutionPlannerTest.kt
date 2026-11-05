@@ -167,4 +167,44 @@ class PcRuntimeExecutionPlannerTest {
         )
     }
 
+    @Test
+    fun pocketMinesDefaultsToGdiButDoesNotGainAutomaticValidation() {
+        val target = PcApplicationTarget(
+            uri = "content://example/game",
+            fileName = "pocket-mines-win64.exe",
+            sizeBytes = 42,
+        )
+        assertTrue(target.graphicsProfile == PcApplicationGraphicsProfile.WINDOWED_GDI)
+
+        val readiness = PcRuntimeReadiness(
+            target = "device",
+            stages = emptyList(),
+            executableReady = false,
+            controlledAttemptReady = true,
+            windowedAttemptReady = true,
+            graphicsAttemptReady = false,
+        )
+        val compatibility = PcApplicationCompatibilityProbe.assess(
+            target.fileName, readiness, target.graphicsProfile,
+        )
+        val plan = PcRuntimeExecutionPlanner.build(target, readiness, compatibility)
+        assertTrue(plan.attemptEligible)
+        assertFalse(plan.launchEligible)
+        assertFalse(compatibility.applicationValidated)
+    }
+
+    @Test
+    fun arbitraryExeStillDefaultsToStricterDxvkProfile() {
+        assertTrue(
+            PcApplicationGraphicsProfile.forFileName("unknown-game.exe") ==
+                PcApplicationGraphicsProfile.D3D_DXVK
+        )
+        assertTrue(
+            PcApplicationGraphicsProfile.resolve(
+                "RobloxPlayerBeta.exe",
+                PcApplicationGraphicsProfile.WINDOWED_GDI,
+            ) == PcApplicationGraphicsProfile.D3D_DXVK
+        )
+    }
+
 }
